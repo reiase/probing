@@ -1,13 +1,30 @@
 use nu_ansi_term::Color;
-use std::{error::Error, marker::PhantomData};
+use std::{error::Error, marker::PhantomData, thread::sleep, time, u8};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpListener,
+    net::{TcpListener, TcpStream},
 };
 
 use crate::debug::debug_server::REPL;
 use local_ip_address::list_afinet_netifas;
 use local_ip_address::local_ip;
+
+async fn show_prompt(prompt: &[u8], stream: &mut TcpStream) {
+    let mut peek_buf = [0u8; 4];
+    sleep(time::Duration::from_millis(10));
+    let ret = stream.peek(&mut peek_buf).await;
+    match ret {
+        Ok(ulen) if ulen == 4 => {
+            if !peek_buf.starts_with("GET ".as_bytes()) {
+                let _ = stream.write(prompt).await;
+            }
+        }
+        _ => {
+            let _ = stream.write(prompt).await;
+        }
+    };
+}
+
 pub struct AsyncServer<T> {
     self_addr: Option<String>,
     prompt: Option<String>,
@@ -94,7 +111,8 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
                 );
                 let mut repl = Box::new(T::default());
                 let mut buf = [0; 1024];
-                let _ = stream.write(prompt.as_bytes()).await;
+                // let _ = stream.write(prompt.as_bytes()).await;
+                let _ = show_prompt(prompt.as_bytes(), &mut stream).await;
                 loop {
                     let n = match stream.read(&mut buf).await {
                         Ok(n) if n == 0 => break,
