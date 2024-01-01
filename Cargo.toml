@@ -1,5 +1,5 @@
 [package]
-name = "pguard"
+name = "probe"
 version = "0.1.0"
 edition = "2021"
 
@@ -17,3 +17,8 @@ pprof = { version = "0.13.0", features = ["cpp", "flamegraph"] }
 rustpython = "0.3.0"
 signal-hook = "0.3.17"
 tokio = { version = "1.35.1", features = ["full"] }
+
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+opt-level = "z"  # Optimize for size.
+lto = true

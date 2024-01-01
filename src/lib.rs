@@ -211,7 +211,7 @@ pub fn debug_callback(addr: Option<String>) {
 pub fn enable_debug_server(
     addr: Option<String>,
     background: bool,
-    pprof: bool,
+    // pprof: bool,
 ) -> Result<(), Error> {
     unsafe {
         let tmp = addr.clone();
@@ -233,9 +233,9 @@ pub fn enable_debug_server(
                 .unwrap();
         });
     }
-    if pprof {
-        let _ = PPROF.lock().map(|pp| {});
-    }
+    // if pprof {
+    //     let _ = PPROF.lock().map(|pp| {});
+    // }
     Ok(())
 }
 
@@ -245,7 +245,7 @@ fn init() {
     let _ = enable_debug_server(
         env::var("PGUARD_ADDR").ok(),
         env::var("PGUARD_BG").map(|_| true).unwrap_or(false),
-        env::var("PGUARD_PPROF").map(|_| true).unwrap_or(false),
+        // env::var("PGUARD_PPROF").map(|_| true).unwrap_or(false),
     );
     let _ = PYVM.lock().map(|pyvm| {
         pyvm.interp.enter(|vm| {
