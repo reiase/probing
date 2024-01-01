@@ -1,0 +1,18 @@
+[package]
+name = "pguard"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+backtrace = {version = "0.3.69", features = ["std", "cpp_demangle"]}
+ctor = "0.2.6"
+lazy_static = "1.4.0"
+local-ip-address = "0.5.6"
+nu-ansi-term = "0.49.0"
+pprof = {version = "0.13.0", features = ["cpp", "flamegraph"]}
+rustpython = "0.3.0"
+signal-hook = "0.3.17"
+tokio = { version = "1.35.1", features = ["full"] }
