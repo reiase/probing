@@ -4,11 +4,7 @@ use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
 
-pub trait REPL {
-    fn feed(&mut self, s: String) -> Option<String>;
-    fn is_alive(&self) -> bool;
-}
-
+use crate::repl::REPL;
 pub struct DebugServer {
     self_addr: Option<String>,
     peer_addr: Option<String>,

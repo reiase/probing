@@ -2,15 +2,20 @@
 #[macro_use]
 extern crate ctor;
 
-pub mod debug;
+mod repl;
+mod server;
 
 use lazy_static::lazy_static;
+use repl::REPL;
 use std::{env, io::Error, thread};
 
 use pprof::ProfilerGuard;
 use pprof::ProfilerGuardBuilder;
 use rustpython::vm::{AsObject, Interpreter, PyObjectRef};
 use std::sync::Mutex;
+
+use server::start_async_server;
+use server::start_debug_server;
 
 struct PyVM {
     interp: Interpreter,
@@ -24,7 +29,7 @@ lazy_static! {
             .interpreter();
         let scope = interp.enter(|vm| {
             let scope = vm.new_scope_with_builtins();
-            vm.run_block_expr(scope, debug::CODE).unwrap()
+            vm.run_block_expr(scope, repl::CODE).unwrap()
         });
         PyVM { interp, scope }
     });
@@ -167,7 +172,7 @@ impl DebugRepl {
     }
 }
 
-impl debug::REPL for DebugRepl {
+impl REPL for DebugRepl {
     fn feed(&mut self, s: String) -> Option<String> {
         self.buf += &s;
         if self.buf.starts_with("GET ") {
@@ -205,13 +210,13 @@ impl debug::REPL for DebugRepl {
 pub fn debug_callback(addr: Option<String>) {
     let console = create_console();
     let mut repl = DebugRepl::new(Some(console));
-    debug::start_debug_server(addr, &mut repl);
+    start_debug_server(addr, &mut repl);
 }
 
 pub fn enable_debug_server(
     addr: Option<String>,
     background: bool,
-    // pprof: bool,
+    pprof: bool,
 ) -> Result<(), Error> {
     unsafe {
         let tmp = addr.clone();
@@ -229,13 +234,13 @@ pub fn enable_debug_server(
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(debug::start_async_server::<DebugRepl>(addr))
+                .block_on(start_async_server::<DebugRepl>(addr))
                 .unwrap();
         });
     }
-    // if pprof {
-    //     let _ = PPROF.lock().map(|pp| {});
-    // }
+    if pprof {
+        let _ = PPROF.lock().map(|pp| {});
+    }
     Ok(())
 }
 
@@ -243,9 +248,9 @@ pub fn enable_debug_server(
 fn init() {
     println!("loading profguard\n");
     let _ = enable_debug_server(
-        env::var("PGUARD_ADDR").ok(),
-        env::var("PGUARD_BG").map(|_| true).unwrap_or(false),
-        // env::var("PGUARD_PPROF").map(|_| true).unwrap_or(false),
+        env::var("PROBE_ADDR").ok(),
+        env::var("PROBE_BG").map(|_| true).unwrap_or(false),
+        env::var("PROBE_PPROF").map(|_| true).unwrap_or(false),
     );
     let _ = PYVM.lock().map(|pyvm| {
         pyvm.interp.enter(|vm| {

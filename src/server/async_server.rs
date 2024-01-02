@@ -5,7 +5,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::debug::debug_server::REPL;
+use crate::repl::REPL;
 use local_ip_address::list_afinet_netifas;
 use local_ip_address::local_ip;
 
