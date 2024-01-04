@@ -14,7 +14,7 @@ def register_debug_command(name, cmd=None):
             return cls
 
         return wrapper
-    DebugCommand.REGISTER[name] = cmd
+    DebugCommand.REGISTER[name] = cmd()
 
 
 class DebugCommand:
@@ -37,8 +37,7 @@ class DebugCommand:
 class HelpCommand(DebugCommand):
     def help(self):
         ret = "list of commands:\n"
-        for k, v in DebugCommand.REGISTER.items():
-            h = v()
+        for k, h in DebugCommand.REGISTER.items():
             ret += f"== {k} ==\n"
             if isinstance(h, HelpCommand):
                 ret += "print this help"
@@ -58,12 +57,8 @@ class BackTrace(DebugCommand):
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         import traceback
-
-        from hyperparameter.librbackend import backtrace
-
-        bt = backtrace()
         py = "".join(traceback.format_stack())
-        return f"{bt}\n{py}"
+        return f"{py}"
 
     def __str__(self) -> str:
         return self()
@@ -128,7 +123,7 @@ class DebugConsole(code.InteractiveConsole):
         try:
             with redirect_stderr(io.StringIO()) as err:
                 with redirect_stdout(io.StringIO()) as out:
-                    exec(code, self.locals)
+                    exec(code, self.locals, DebugCommand.REGISTER)
             ret = err.getvalue() + out.getvalue()
             if len(ret) == 0:
                 return None

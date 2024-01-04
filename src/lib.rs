@@ -239,6 +239,7 @@ pub fn enable_debug_server(
         });
     }
     if pprof {
+        let _ = PYVM.lock().map(|vm| {});
         let _ = PPROF.lock().map(|pp| {});
     }
     Ok(())
