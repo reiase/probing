@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 backtrace = { version = "0.3.69", default-features = false, features = [
     "cpp_demangle",
 ] }
+clap = {version="4.4.7", features=["derive"]}
 ctor = "0.2.6"
 httparse = { version = "1.8.0", default-features = false, features = [] }
 lazy_static = "1.4.0"
@@ -19,7 +20,8 @@ pprof = { version = "0.13.0", default-features = false, features = [
     "cpp",
     "flamegraph",
 ] }
-rustpython = { version = "0.3.0", default-features = false, features = [
+ptrace-inject = "0.1.2"
+rustpython = { version = "0.3.1", default-features = false, features = [
     "zlib",
     "threading",
     "importlib",

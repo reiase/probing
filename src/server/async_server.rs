@@ -57,7 +57,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
         self.self_addr = match listener.local_addr() {
             Ok(addr) => {
                 if addr.to_string().contains("0.0.0.0:") {
-                    println!(
+                    eprintln!(
                         "{} {}, available addresses:",
                         Color::Red.bold().paint("Debug Server is started on"),
                         Color::Green.bold().underline().paint(addr.to_string())
@@ -67,7 +67,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
                             continue;
                         }
                         let if_addr = ip.to_string();
-                        println!(
+                        eprintln!(
                             "\t{}: {}",
                             Color::Yellow.paint(name),
                             Color::Blue
@@ -80,7 +80,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
                     let local_addr = local_ip().unwrap().to_string();
                     Some(addr.to_string().replace("0.0.0.0", &local_addr))
                 } else {
-                    println!(
+                    eprintln!(
                         "{} {}",
                         Color::Red.bold().paint("Debug Server is started on"),
                         Color::Green.bold().underline().paint(addr.to_string())
@@ -89,7 +89,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
                 }
             }
             Err(err) => {
-                println!("error binding debug server address: {}", err.to_string());
+                eprintln!("error binding debug server address: {}", err.to_string());
                 None
             }
         };
@@ -104,7 +104,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
             let prompt = self.get_prompt().to_string();
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
-                println!(
+                eprintln!(
                     "{} {}",
                     Color::Yellow.italic().paint("debug server connection from"),
                     Color::Green.italic().underline().paint(addr.to_string())

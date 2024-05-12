@@ -12,6 +12,7 @@ use std::{env, io::Error, thread};
 use pprof::ProfilerGuard;
 use pprof::ProfilerGuardBuilder;
 use rustpython::vm::{AsObject, Interpreter, PyObjectRef};
+use std::fs;
 use std::sync::Mutex;
 
 use server::start_async_server;
@@ -247,7 +248,12 @@ pub fn enable_debug_server(
 
 #[ctor]
 fn init() {
-    println!("loading profguard\n");
+    if let Ok(_path) = fs::read_link("/proc/self/exe") {
+        if _path.to_string_lossy().ends_with("/probe") {
+            return;
+        }
+        eprintln!("{}: loading libprob", _path.display());
+    }
     let _ = enable_debug_server(
         env::var("PROBE_ADDR").ok(),
         env::var("PROBE_BG").map(|_| true).unwrap_or(false),
@@ -256,7 +262,10 @@ fn init() {
     let _ = PYVM.lock().map(|pyvm| {
         pyvm.interp.enter(|vm| {
             let scope = vm.new_scope_with_builtins();
-            let _ = vm.run_block_expr(scope, "print('profguard has been loaded')");
+            let _ = vm.run_block_expr(
+                scope,
+                "import sys;print('libprob has been loaded', file=sys.stderr)",
+            );
         })
     });
 }
