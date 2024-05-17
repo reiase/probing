@@ -15,6 +15,7 @@ const-cstr = "0.3.0"
 ctor = "0.2.6"
 dlopen2 = "0.7.0"
 httparse = {version = "1.8.0", default-features = false, features = []}
+lazy-st = "1.0.0"
 lazy_static = "1.4.0"
 local-ip-address = "0.5.6"
 nu-ansi-term = "0.49.0"

@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 
-use pyo3::Python;
 use rustpython::vm::{AsObject, Interpreter, PyObjectRef};
 use std::sync::Mutex;
 
@@ -9,13 +8,13 @@ use crate::repl::REPL;
 use super::debug_repl::CODE;
 use crate::prof::PPROF;
 
-pub struct PyVM {
+pub struct RPyVM {
     pub interp: Interpreter,
     pub scope: PyObjectRef,
 }
 
 lazy_static! {
-    pub static ref PYVM: Mutex<PyVM> = Mutex::new({
+    pub static ref PYVM: Mutex<RPyVM> = Mutex::new({
         let interp = rustpython::InterpreterConfig::new()
             .init_stdlib()
             .interpreter();
@@ -23,7 +22,7 @@ lazy_static! {
             let scope = vm.new_scope_with_builtins();
             vm.run_block_expr(scope, CODE).unwrap()
         });
-        PyVM { interp, scope }
+        RPyVM { interp, scope }
     });
 }
 
@@ -108,17 +107,6 @@ impl RustPythonRepl {
         }
     }
     pub fn process(&mut self, cmd: &str) -> Option<String> {
-        // if cmd.trim() == "npy" {
-        //     Python::with_gil(|py| {
-        //         let _ = py
-        //             .eval_bound("print('------')", None, None)
-        //             .map_err(|e| {
-        //                 e.print_and_set_sys_last_vars(py);
-        //             })
-        //             .unwrap();
-        //     });
-        //     return None;
-        // }
         if cmd.trim() == "exit" {
             self.live = false;
             return None;

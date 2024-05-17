@@ -8,14 +8,13 @@ mod server;
 
 use lazy_static::lazy_static;
 use prof::PPROF;
+use repl::PythonRepl;
 use repl::RustPythonRepl;
 use repl::PYVM;
 use std::{env, io::Error, thread};
 
 use std::fs;
 use std::sync::Mutex;
-
-use dlopen2::wrapper::{Container, WrapperApi};
 
 use pyo3::prelude::*;
 
@@ -48,7 +47,7 @@ pub fn enable_debug_server(
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(start_async_server::<RustPythonRepl>(addr))
+                .block_on(start_async_server::<PythonRepl>(addr))
                 .unwrap();
         });
     }
@@ -86,15 +85,15 @@ fn init() {
         env::var("PROBE_BG").map(|_| true).unwrap_or(false),
         env::var("PROBE_PPROF").map(|_| true).unwrap_or(false),
     );
-    let _ = PYVM.lock().map(|pyvm| {
-        pyvm.interp.enter(|vm| {
-            let scope = vm.new_scope_with_builtins();
-            let _ = vm.run_block_expr(
-                scope,
-                "import sys;print('libprob has been loaded', file=sys.stderr)",
-            );
-        })
-    });
+    // let _ = PYVM.lock().map(|pyvm| {
+    //     pyvm.interp.enter(|vm| {
+    //         let scope = vm.new_scope_with_builtins();
+    //         let _ = vm.run_block_expr(
+    //             scope,
+    //             "import sys;print('libprob has been loaded', file=sys.stderr)",
+    //         );
+    //     })
+    // });
 
     // #[derive(WrapperApi)]
     // struct PyApi {
