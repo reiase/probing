@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use crate::repl::REPL;
 
-use super::debug_repl::CODE;
+use super::console::CODE;
 use crate::prof::PPROF;
 
 pub struct RPyVM {
@@ -52,13 +52,6 @@ impl Default for RustPythonRepl {
 }
 
 impl RustPythonRepl {
-    pub fn new(console: Option<PyObjectRef>) -> RustPythonRepl {
-        RustPythonRepl {
-            console,
-            buf: "".to_string(),
-            live: true,
-        }
-    }
     fn make_response(&self, ctype: Option<&str>, content: Option<String>) -> Option<String> {
         content.map_or(Some("HTTP/1.1 404 OK".to_string()), |content| {
             if content.is_empty() {

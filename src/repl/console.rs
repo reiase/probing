@@ -1,6 +1,4 @@
-use std::sync::{Arc, Mutex};
-
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use pyo3::{
     types::{PyAnyMethods, PyDict},
     Bound, Py, PyAny, Python,
@@ -9,10 +7,9 @@ use rustpython::vm::{AsObject, PyObjectRef};
 
 use crate::repl::repl::PythonConsole;
 
-use crate::repl::npy_repl::NPYVM;
 use crate::repl::rpy_repl::PYVM;
 
-use super::CODE;
+pub const CODE: &str = include_str!("debug_console.py");
 
 pub struct RustPythonConsole {
     console: Option<PyObjectRef>,
@@ -20,11 +17,6 @@ pub struct RustPythonConsole {
 
 impl Default for RustPythonConsole {
     fn default() -> Self {
-        // let has_native_python = NPYVM
-        //     .lock()
-        //     .map(|nvm| if nvm.is_none() { false } else { true })
-        //     .unwrap();
-
         let rpy = PYVM
             .lock()
             .map(|pyvm| {
@@ -64,48 +56,36 @@ impl PythonConsole for RustPythonConsole {
 }
 
 pub struct NativePythonConsole {
-    console: Option<Py<PyAny>>,
+    console: Lazy<Py<PyAny>>,
 }
 
 impl Default for NativePythonConsole {
     #[inline(never)]
     fn default() -> Self {
-        let console = Python::with_gil(|py| {
-            let global = PyDict::new_bound(py);
-            let _ = py.run_bound(CODE, Some(&global), Some(&global));
-            let ret: Bound<'_, PyAny> = global.get_item("debug_console").unwrap();
-            ret.unbind()
-        });
         Self {
-            console: Some(console),
+            console: Lazy::new(|| {
+                Python::with_gil(|py| {
+                    let global = PyDict::new_bound(py);
+                    let _ = py.run_bound(CODE, Some(&global), Some(&global));
+                    let ret: Bound<'_, PyAny> = global.get_item("debug_console").unwrap();
+                    ret.unbind()
+                })
+            }),
         }
     }
 }
 
 impl PythonConsole for NativePythonConsole {
     fn try_execute(&mut self, cmd: String) -> Option<String> {
-        let ret = self.console.as_ref().map(|console| {
-            Python::with_gil(|py| {
-                // let func = console.getattr(py, "push").unwrap();
-                // let ret = func.call_method1(py, name, args)
-                let ret = console.call_method1(py, "push", (cmd,));
-                match ret {
-                    Ok(obj) => {
-                        if obj.is_none(py) {
-                            None
-                        } else {
-                            Some(obj.to_string())
-                        }
-                    }
-                    Err(err) => Some(err.to_string()),
+        Python::with_gil(|py| match self.console.call_method1(py, "push", (cmd,)) {
+            Ok(obj) => {
+                if obj.is_none(py) {
+                    None
+                } else {
+                    Some(obj.to_string())
                 }
-            })
-        });
-        ret?
+            }
+            Err(err) => Some(err.to_string()),
+        })
     }
-}
-
-lazy_static! {
-    pub static ref SharedNativeConsole: Arc<Mutex<dyn PythonConsole + Send>> =
-        Arc::new(Mutex::new(NativePythonConsole::default()));
 }

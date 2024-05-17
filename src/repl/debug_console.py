@@ -1,4 +1,3 @@
-pub const CODE: &str = r#"
 import code
 import io
 from contextlib import redirect_stderr, redirect_stdout
@@ -57,6 +56,7 @@ class BackTrace(DebugCommand):
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         import traceback
+
         py = "".join(traceback.format_stack())
         return f"{py}"
 
@@ -142,6 +142,6 @@ class DebugConsole(code.InteractiveConsole):
         source = "\n".join(self.buffer)
         return self.runsource(source, self.filename)
 
+
 debug_console = DebugConsole()
 globals()
-"#;

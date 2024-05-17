@@ -1,12 +1,8 @@
-use crate::prof::PPROF;
-use lazy_st::lazy;
+use crate::repl::console::NativePythonConsole;
+use crate::{prof::PPROF, repl::npy_repl::NPYVM};
 use std::sync::{Arc, Mutex};
 
-use super::console::SharedNativeConsole;
-use super::{
-    console::{NativePythonConsole, RustPythonConsole},
-    npy_repl::NPYVM,
-};
+use super::console::RustPythonConsole;
 
 pub trait REPL {
     fn feed(&mut self, s: String) -> Option<String>;
@@ -26,7 +22,6 @@ pub struct PythonRepl {
 impl Default for PythonRepl {
     #[inline(never)]
     fn default() -> Self {
-        println!("===========================");
         let has_native = NPYVM.lock().map(|vm| vm.is_some()).unwrap();
         if has_native {
             Self {
@@ -41,23 +36,10 @@ impl Default for PythonRepl {
                 live: Default::default(),
             }
         }
-        // Self {
-        //     console: Arc::new(Mutex::new(RustPythonConsole::default())),
-        //     buf: Default::default(),
-        //     live: Default::default(),
-        // }
     }
 }
 
 impl PythonRepl {
-    #[inline(never)]
-    fn native() -> Self {
-        Self {
-            console: SharedNativeConsole.clone(),
-            buf: Default::default(),
-            live: Default::default(),
-        }
-    }
     fn make_response(&self, ctype: Option<&str>, content: Option<String>) -> Option<String> {
         content.map_or(Some("HTTP/1.1 404 OK".to_string()), |content| {
             if content.is_empty() {

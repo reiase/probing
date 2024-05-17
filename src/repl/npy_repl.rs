@@ -21,14 +21,13 @@ impl Default for NativeVM {
 lazy_static! {
     pub static ref NPYVM: Mutex<Option<NativeVM>> = Mutex::new({
         let prog: Option<Container<PyApi>> = unsafe { Container::load_self() }
-        .map_err(|_| eprintln!("probe: no native python detected."))
-        .ok();
-    if let Some(_) = prog {
-        // (prog.printf)(const_cstr!("print('====')\n").as_cstr());
-        eprintln!("probe: use native python backend.");
-        Some( NativeVM {  })
-    } else {
-        None
-    }
+            .map_err(|_| eprintln!("probe: no native python detected."))
+            .ok();
+        if let Some(_) = prog {
+            eprintln!("probe: use native python backend.");
+            Some(NativeVM {})
+        } else {
+            None
+        }
     });
 }

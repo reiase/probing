@@ -6,7 +6,6 @@ mod prof;
 mod repl;
 mod server;
 
-use lazy_static::lazy_static;
 use prof::PPROF;
 use repl::PythonRepl;
 use repl::RustPythonRepl;
@@ -14,9 +13,6 @@ use repl::PYVM;
 use std::{env, io::Error, thread};
 
 use std::fs;
-use std::sync::Mutex;
-
-use pyo3::prelude::*;
 
 use server::start_async_server;
 use server::start_debug_server;
@@ -58,24 +54,16 @@ pub fn enable_debug_server(
     Ok(())
 }
 
-lazy_static! {
-    static ref NPY: Mutex<i32> = Mutex::new({
-        Python::with_gil(|py| {
-            let _ = py
-                .eval_bound("print('------')", None, None)
-                .map_err(|e| {
-                    e.print_and_set_sys_last_vars(py);
-                })
-                .unwrap();
-        });
-        1
-    });
-}
-
 #[ctor]
 fn init() {
     if let Ok(_path) = fs::read_link("/proc/self/exe") {
-        if _path.to_string_lossy().ends_with("/probe") {
+        let path_str = _path.to_string_lossy();
+        if path_str.ends_with("/probe")
+            || path_str.ends_with("/bash")
+            || path_str.ends_with("/sh")
+            || path_str.ends_with("/zsh")
+            || path_str.ends_with("/dash")
+        {
             return;
         }
         eprintln!("{}: loading libprob", _path.display());
@@ -85,28 +73,4 @@ fn init() {
         env::var("PROBE_BG").map(|_| true).unwrap_or(false),
         env::var("PROBE_PPROF").map(|_| true).unwrap_or(false),
     );
-    // let _ = PYVM.lock().map(|pyvm| {
-    //     pyvm.interp.enter(|vm| {
-    //         let scope = vm.new_scope_with_builtins();
-    //         let _ = vm.run_block_expr(
-    //             scope,
-    //             "import sys;print('libprob has been loaded', file=sys.stderr)",
-    //         );
-    //     })
-    // });
-
-    // #[derive(WrapperApi)]
-    // struct PyApi {
-    //     Py_Initialize: fn() -> (),
-    //     Py_GetVersion: fn() -> &'static CStr,
-    //     PyRun_SimpleString: fn(code: &'static CStr) -> i32,
-    //     printf: fn(code: &'static CStr) -> i32,
-    // }
-
-    // let prog: Option<Container<PyApi>> = unsafe { Container::load_self() }
-    //     .map_err(|err| eprintln!("!!!!{}", err))
-    //     .ok();
-    // if let Some(prog) = prog {
-    //     (prog.printf)(const_cstr!("print('====')\n").as_cstr());
-    // }
 }
