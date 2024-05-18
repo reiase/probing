@@ -1,40 +1,50 @@
-# Probe 一款超长周期问题诊断工具
+# Probe: AI应用的性能与稳定性诊断工具
 
-随LLM兴起的超大规模异构计算任务开始变得越来越多，然而这些异构计算任务通常受稳定性与性能等多方面问题困扰。
-而传统的稳定性与性能分析工具在处理这类问题时往往力不从心：
-1. 异构计算，GPU或者加速器的性能与问题同样需要关注，因此gperftools等CPU侧工具往往力不从心；
-2. 超大规模集群，使得单机性能工具在部署和使用不够友好，特别是coredump等工具在保留现场时还需要解决core文件存储问题；
-3. 海量数据，使得grafana等传统的微服务监控软件，难以承担海量数据的传输与存储负担。
+Probe 是面向AI应用设计的性能与稳定性诊断工具，旨在解决大规模、分布式、长周期AI异构计算任务（如LLM训练和推理）难以调试与调优的问题。通过向目标进程植入探针服务(probe server) ，可以实现更为详细的性能数据采集，或是实时修改目标进程的执行行为。
 
-Probe尝试面向超大规模异构计算问题给出性能与问题定位的解决方案：
-1. 分布式采集和存储：每个进程都在进程内自己管理性能数据的采集和存储；
-2. 低侵入性：通过LD_PRELOAD注入目标进程，而无需修改目标进程的源码；
-3. 低开销：通过信号量机制触发执行，对目标进程的影响可忽略；
+## 主要特性
+
+1. **无代码侵入**: 无需修改代码即可实现Instrumentation，实现函数调用跟踪、性能数据采集等功能；
+
+2. **无环境依赖**: 每个进程内建独立的数据采集和存储，无需部署复杂的分布式数据采集与存储系统即可直接使用；
+
+3. **低性能开销**：性能数据采集与问题诊断通过旁路实现无需埋点，极大地减少了对目标进程的性能影响；
+
+4. **即插即用**：可在任意时刻侵入目标进程进行诊断，无需中断或重启。特别适用于 LLM 训练等长周期任务；
 
 # Quick Start
 
+probe通过向目标进程注入`probe server`实现其功能，`probe server`的注入方式有两种：进程启动时通过`LD_PRELOAD`注入与进程启动后通过`ptrace`系统调用注入。
+
+#### `LD_PRELOAD` 注入
+
 ```bash
-LD_PRELOAD=target/release/libprobe.so python a.py 
+LD_PRELOAD=<prefix_path>/libprobe.so python a.py 
 ```
 
-可以通过环境变量控制probe的行为
+可以通过环境变量控制probe server的行为
 
 ```bash
 export PROBE_PPROF=1 
 export PROBE_ADDR=127.0.0.1:3344 
 export PROBE_BG=1 
-LD_PRELOAD=target/release/libpguard.so python a.py
+LD_PRELOAD=<prefix_path>/libprobe.so python a.py
 ```
 
-之后可以通过netcat命令连接到probe开启的调试后门
-
+#### `ptrace` 注入
+probe提供命令行工具，通过`ptrace`系统调用向目标进程注入`probe server`
 ```bash
-nc 127.0.0.1 3344
+<prefix path>/probe --pid <目标进程PID> [--dll <DLL路径>]
 ```
+如果未指定 --dll 参数，工具将默认使用当前可执行文件路径下的 libprobe.so。
 
-也可以通过浏览器打开probe的web页面:`http://127.0.0.1:3344/`
+#### 连接`probe server`
 
-# 一些设计思考
+完成`probe server`注入后，可通过网络连接与使用。`probe server`支持两种连接协议：
+- 纯文本协议：可以通过netcat命令与`probe server`交互`nc 127.0.0.1 3344`;
+- `HTTP`协议：可以通过浏览器访问`probe server`，获取相关信息`http://127.0.0.1:3344/`；
+
+# 设计思考
 
 Probe主要基于Rust语言开发，并且使用基于rust的Python解释器RustPython作为脚本语言。
 

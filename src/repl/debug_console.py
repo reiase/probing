@@ -22,14 +22,11 @@ class DebugCommand:
     def help(self):
         pass
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return self()
 
-    def __repr__(self) -> str:
-        return str(self)
-
     def __call__(self, *args: Any, **kwds: Any) -> Any:
-        pass
+        return ""
 
 
 @register_debug_command("help")
@@ -48,6 +45,9 @@ class HelpCommand(DebugCommand):
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.help()
 
+    def __repr__(self) -> str:
+        return "help command"
+
 
 @register_debug_command("bt")
 class BackTrace(DebugCommand):
@@ -60,9 +60,6 @@ class BackTrace(DebugCommand):
         py = "".join(traceback.format_stack())
         return f"{py}"
 
-    def __str__(self) -> str:
-        return self()
-
 
 @register_debug_command("params")
 class ParamsCommand(DebugCommand):
@@ -71,16 +68,13 @@ class ParamsCommand(DebugCommand):
 
     def __call__(self) -> Any:
         import json
+        try:
+            from hyperparameter import param_scope
 
-        from hyperparameter import param_scope
-
-        params = param_scope().storage().storage()
-        return json.dumps(params)
-
-    def __str__(self) -> str:
-        return self()
-
-
+            params = param_scope().storage().storage()
+            return json.dumps(params)
+        except:
+            return ""
 @register_debug_command("exit")
 class ExitCommand(DebugCommand):
     def help(self):
