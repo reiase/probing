@@ -4,7 +4,11 @@ name = "probe"
 version = "0.1.0"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["dylib", "rlib"]
+
+[features]
+default = ["dll_init"]
+dll_init = []
 
 [dependencies]
 backtrace = {version = "0.3.69", default-features = false, features = [

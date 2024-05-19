@@ -54,6 +54,8 @@ pub fn enable_debug_server(
     Ok(())
 }
 
+#[cfg(feature="dll_init")]
+#[no_mangle]
 #[ctor]
 fn init() {
     if let Ok(_path) = fs::read_link("/proc/self/exe") {
