@@ -1,7 +1,7 @@
 mod repl;
 
 mod rpy_repl;
-mod npy_repl;
+pub(crate) mod npy_repl;
 
 mod console;
 

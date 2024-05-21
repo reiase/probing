@@ -27,13 +27,13 @@ impl Default for PythonRepl {
             Self {
                 console: Arc::new(Mutex::new(NativePythonConsole::default())),
                 buf: Default::default(),
-                live: Default::default(),
+                live: true,
             }
         } else {
             Self {
                 console: Arc::new(Mutex::new(RustPythonConsole::default())),
                 buf: Default::default(),
-                live: Default::default(),
+                live: true,
             }
         }
     }

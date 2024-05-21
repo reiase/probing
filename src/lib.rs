@@ -2,10 +2,12 @@
 #[macro_use]
 extern crate ctor;
 
+mod handlers;
 mod prof;
 mod repl;
 mod server;
 
+use handlers::dump_stack;
 use prof::PPROF;
 use repl::PythonRepl;
 use repl::RustPythonRepl;
@@ -22,6 +24,11 @@ pub fn debug_callback(addr: Option<String>) {
     start_debug_server(addr, &mut repl);
 }
 
+// pub fn debug_callback_native(addr: Option<String>) {
+//     let mut repl = PythonRepl::default();
+//     start_debug_server(addr, &mut repl);
+// }
+
 pub fn enable_debug_server(
     addr: Option<String>,
     background: bool,
@@ -32,6 +39,7 @@ pub fn enable_debug_server(
         signal_hook::low_level::register(signal_hook::consts::SIGUSR1, move || {
             debug_callback(tmp.clone())
         })?;
+        signal_hook::low_level::register(signal_hook::consts::SIGUSR2, move || dump_stack())?;
         let tmp = addr.clone();
         signal_hook::low_level::register(signal_hook::consts::SIGABRT, move || {
             debug_callback(tmp.clone())
@@ -54,7 +62,7 @@ pub fn enable_debug_server(
     Ok(())
 }
 
-#[cfg(feature="dll_init")]
+#[cfg(feature = "dll_init")]
 #[no_mangle]
 #[ctor]
 fn init() {

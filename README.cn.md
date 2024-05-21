@@ -34,7 +34,7 @@ LD_PRELOAD=<prefix_path>/libprobe.so python a.py
 #### `ptrace` 注入
 probe提供命令行工具，通过`ptrace`系统调用向目标进程注入`probe server`
 ```bash
-<prefix path>/probe --pid <目标进程PID> [--dll <DLL路径>]
+<prefix path>/probe  [--dll <DLL路径>] <目标进程PID>
 ```
 如果未指定 --dll 参数，工具将默认使用当前可执行文件路径下的 libprobe.so。
 
@@ -43,6 +43,22 @@ probe提供命令行工具，通过`ptrace`系统调用向目标进程注入`pro
 完成`probe server`注入后，可通过网络连接与使用。`probe server`支持两种连接协议：
 - 纯文本协议：可以通过netcat命令与`probe server`交互`nc 127.0.0.1 3344`;
 - `HTTP`协议：可以通过浏览器访问`probe server`，获取相关信息`http://127.0.0.1:3344/`；
+
+# 问题诊断
+
+probe可以帮助用户诊断和定位进行住问题，已交互或非交互的方式提供信息：
+
+1. 打印python调用栈：
+```bash
+$ probe --dump <pid> 
+```
+目标进程将会打印Python代码的调用栈，方便用户定位进程hang在何处。
+
+2. 启动临时调试:
+```bash
+$ probe --pause <pid>
+```
+目标进程将会暂停执行，并在调用堆栈上启动调试服务器，用户可以连接服务器来交互式分析Python的调用栈。
 
 # 设计思考
 
