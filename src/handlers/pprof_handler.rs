@@ -5,7 +5,7 @@ use pprof::ProfilerGuard;
 use pprof::ProfilerGuardBuilder;
 
 lazy_static! {
-    pub static ref PPROF: Mutex<ProfilerGuard<'static>> = Mutex::new({
+    pub static ref PPROF_HOLDER: Mutex<ProfilerGuard<'static>> = Mutex::new({
         println!("installing pprof");
         ProfilerGuardBuilder::default()
             .frequency(10000)
@@ -13,4 +13,8 @@ lazy_static! {
             .build()
             .unwrap()
     });
+}
+
+pub fn pprof_handler() {
+    let _ = PPROF_HOLDER.lock().map(|pp| {});
 }

@@ -1,19 +1,12 @@
-use nu_ansi_term::Color;
-use pyo3::Python;
+mod dump_stack;
+pub(crate) use crate::handlers::dump_stack::dump_stack;
 
-use crate::repl::npy_repl::NPYVM;
-pub fn dump_stack() {
-    let has_native = NPYVM.lock().map(|vm| vm.is_some()).unwrap();
-    if has_native {
-        eprintln!(
-            "{}",
-            Color::Red
-                .bold()
-                .paint("Python Runtime is found, dump python stack:"),
-        );
-        Python::with_gil(|py| {
-            let _ = py.run_bound("import traceback; traceback.print_stack()", None, None);
-        });
-    }
-    {}
-}
+mod pause_process;
+pub(crate) use crate::handlers::pause_process::pause_process;
+
+mod crash_handler;
+pub(crate) use crate::handlers::crash_handler::crash_handler;
+
+mod pprof_handler;
+pub(crate) use crate::handlers::pprof_handler::pprof_handler;
+pub(crate) use crate::handlers::pprof_handler::PPROF_HOLDER;

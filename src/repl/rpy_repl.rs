@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::repl::REPL;
 
 use super::console::CODE;
-use crate::prof::PPROF;
+use crate::handlers::PPROF_HOLDER;
 
 pub struct RPyVM {
     pub interp: Interpreter,
@@ -69,7 +69,7 @@ impl RustPythonRepl {
     }
     fn url_handler(&mut self, path: Option<&str>) -> Option<String> {
         match path {
-            Some("/flamegraph") => PPROF
+            Some("/flamegraph") => PPROF_HOLDER
                 .lock()
                 .map(|pp| {
                     if let Ok(report) = pp.report().build() {
@@ -105,7 +105,7 @@ impl RustPythonRepl {
             return None;
         }
         if cmd.trim() == "pprof" {
-            return PPROF
+            return PPROF_HOLDER
                 .lock()
                 .map(|pp| {
                     if let Ok(report) = pp.report().build() {

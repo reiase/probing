@@ -1,5 +1,6 @@
+use crate::handlers::PPROF_HOLDER;
 use crate::repl::console::NativePythonConsole;
-use crate::{prof::PPROF, repl::npy_repl::NPYVM};
+use crate::repl::npy_repl::NPYVM;
 use std::sync::{Arc, Mutex};
 
 use super::console::RustPythonConsole;
@@ -57,7 +58,7 @@ impl PythonRepl {
     }
     fn url_handler(&mut self, path: Option<&str>) -> Option<String> {
         match path {
-            Some("/flamegraph") => PPROF
+            Some("/flamegraph") => PPROF_HOLDER
                 .lock()
                 .map(|pp| {
                     if let Ok(report) = pp.report().build() {
@@ -93,7 +94,7 @@ impl PythonRepl {
             return None;
         }
         if cmd.trim() == "pprof" {
-            return PPROF
+            return PPROF_HOLDER
                 .lock()
                 .map(|pp| {
                     if let Ok(report) = pp.report().build() {
