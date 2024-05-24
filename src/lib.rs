@@ -9,31 +9,49 @@ mod server;
 use handlers::crash_handler;
 use handlers::dump_stack;
 use handlers::pause_process;
+use handlers::pprof_handler;
 use handlers::PPROF_HOLDER;
 
 use repl::PythonRepl;
 use repl::PYVM;
+use signal_hook::SigId;
+use std::ffi::c_int;
+use std::sync::Mutex;
 use std::{env, io::Error, thread};
 
+use signal_hook::consts::*;
+
+use std::collections::HashMap;
 use std::fs;
 
+use lazy_static::lazy_static;
+
 use server::start_async_server;
+
+lazy_static! {
+    pub static ref SIGMAP: Mutex<HashMap<c_int, SigId>> = Mutex::new(HashMap::default());
+}
+
+fn register_signal_handler<F>(sig: c_int, handler: F)
+where
+    F: Fn() + Sync + Send + 'static,
+{
+    let sigid = unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
+    let _ = SIGMAP.lock().map(|mut m| m.insert(sig, sigid));
+}
 
 pub fn enable_probe_server(
     addr: Option<String>,
     background: bool,
     pprof: bool,
 ) -> Result<(), Error> {
-    unsafe {
-        signal_hook::low_level::register(signal_hook::consts::SIGUSR2, move || dump_stack())?;
+    {
+        register_signal_handler(SIGUSR2, dump_stack);
         let tmp = addr.clone();
-        signal_hook::low_level::register(signal_hook::consts::SIGUSR1, move || {
-            pause_process(tmp.clone())
-        })?;
+        register_signal_handler(SIGUSR1, move || pause_process(tmp.clone()));
+        register_signal_handler(SIGPROF, pprof_handler);
         let tmp = addr.clone();
-        signal_hook::low_level::register(signal_hook::consts::SIGABRT, move || {
-            crash_handler(tmp.clone())
-        })?;
+        register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
     }
     if background {
         thread::spawn(|| {

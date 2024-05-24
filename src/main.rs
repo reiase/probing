@@ -5,15 +5,23 @@ use std::fs;
 
 #[derive(Parser, Debug)]
 struct DeriveArgs {
+    /// dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
     #[arg(long)]
     dll: Option<std::path::PathBuf>,
 
+    /// signal libprobe to dump the calling stack of the target process
     #[arg(short, long, action)]
     dump: bool,
 
+    /// signal libprobe to pause the target process and listen for remote connection
     #[arg(short, long, action)]
     pause: bool,
 
+    /// signal libprobe to start profiling
+    #[arg(short='P', long, action)]
+    pprof: bool,
+
+    /// target process
     #[arg()]
     pid: u32,
 }
@@ -29,6 +37,11 @@ pub fn main() -> Result<()> {
     if args.pause {
         signal::kill(pid, signal::Signal::SIGUSR1).unwrap();
         return Ok(());
+    }
+
+    if args.pause {
+        signal::kill(pid, signal::Signal::SIGPROF).unwrap();
+        return Ok(())
     }
 
     let process = Process::get(args.pid).unwrap();
@@ -54,7 +67,7 @@ pub fn main() -> Result<()> {
     );
     Injector::attach(process)
         .unwrap()
-        .inject(&soname.unwrap())
+        .inject(&soname.unwrap(), None)
         .unwrap();
     Ok(())
 }

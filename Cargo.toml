@@ -27,7 +27,7 @@ pprof = {version = "0.13.0", default-features = false, features = [
   "cpp",
   "flamegraph",
 ]}
-ptrace-inject = "0.1.2"
+ptrace-inject = {path = "./ptrace-inject"}
 pyo3 = {version = "0.21.2", features = ["extension-module", "abi3", "abi3-py37"]}
 rustpython = {version = "0.3.1", default-features = false, features = [
   "zlib",
