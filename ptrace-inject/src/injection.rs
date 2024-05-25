@@ -140,23 +140,28 @@ impl<'a> Injection<'a> {
         Ok(())
     }
 
-    pub(crate) fn prepare(&mut self, envstr: Option<&str>) -> Result<()> {
-        if let Some(envstr) = envstr {
-            let address = self
-                .write_str(envstr)
-                .wrap_err("failed to allocate memory for env string")?;
-            self.put_envstr(address).wrap_err("failed to putenv")?;
-            self.free_alloc(address)
-                .wrap_err("failed to free memory storing the env string")?;
+    pub(crate) fn setenv(&mut self, name: Option<&str>, value: Option<&str>) -> Result<()> {
+        if let (Some(name), Some(value)) = (name, value) {
+            let name_address = self
+                .write_str(name)
+                .wrap_err("failed to allocate memory for env name")?;
+            let value_address = self
+                .write_str(value)
+                .wrap_err("failed to allocate memory for env value")?;
+            let _ = self.call_function3(self.libc.setenv, name_address, value_address, 1);
+            self.free_alloc(name_address)
+                .wrap_err("failed to free memory storing the env name")?;
+            self.free_alloc(value_address)
+                .wrap_err("failed to free memory storing the env value")?;
         }
-        return Ok(());
+        Ok(())
     }
 
     /// Allocate space for, and write, a string in the tracee's address space.
     ///
     /// Return the address of the string.
     fn write_str(&mut self, s: &str) -> Result<u64> {
-        let mut s = s.as_bytes().to_vec();
+        let mut s = s.as_bytes().to_vec().clone();
         s.push(0);
         let address = self
             .call_function(self.libc.malloc, s.len() as u64, 0)
@@ -175,18 +180,6 @@ impl<'a> Injection<'a> {
         Ok(address)
     }
 
-    fn put_envstr(&mut self, envstr_address: u64) -> Result<()> {
-        let result = self
-            .call_function(self.libc.putenv, envstr_address, 0)
-            .wrap_err("calling putenv in tracee failed")?;
-        log::debug!("Called putenv in tracee, result = {result:x}");
-        if result == 0 {
-            Err(eyre!("putenv within tracee returned NULL"))
-        } else {
-            Ok(())
-        }
-    }
-
     /// Make a function call in the tracee via the injected shellcode.
     fn call_function(&mut self, fn_address: u64, rdi: u64, rsi: u64) -> Result<u64> {
         log::trace!("Calling function at {fn_address:x} with rdi = {rdi:x}, rsi = {rsi:x}");
@@ -201,6 +194,38 @@ impl<'a> Injection<'a> {
                 // registers.
                 rdi,
                 rsi,
+                // Ensure that the stack pointer is aligned to a 16 byte boundary, as required by
+                // the x86-64 ABI.
+                rsp: self.saved_registers.rsp & !0xf,
+                ..self.saved_registers
+            })
+            .wrap_err("setting tracee registers to run shellcode failed")?;
+        self.run_until_trap()
+            .wrap_err("waiting for shellcode in tracee to trap failed")?;
+        let result = self
+            .tracee
+            .registers()
+            .wrap_err("reading shellcode call result from tracee registers failed")?
+            .rax;
+        log::trace!("Function returned {result:x}");
+        Ok(result)
+    }
+
+    /// Make a function call with 3 arguments
+    fn call_function3(&mut self, fn_address: u64, rdi: u64, rsi: u64, rdx: u64) -> Result<u64> {
+        log::trace!("Calling function at {fn_address:x} with rdi = {rdi:x}, rsi = {rsi:x}");
+        self.tracee
+            .set_registers(pete::Registers {
+                // Jump to the start of the shellcode. `rip` seems to be
+                // decremented when the tracee is resumed, so we make up for that.
+                rip: self.injected_at + 2,
+                // The shellcode calls whatever is pointed to by `r9`.
+                r9: fn_address,
+                // The relevant functions seem to take their arguments in these
+                // registers.
+                rdi,
+                rsi,
+                rdx,
                 // Ensure that the stack pointer is aligned to a 16 byte boundary, as required by
                 // the x86-64 ABI.
                 rsp: self.saved_registers.rsp & !0xf,

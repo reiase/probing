@@ -156,7 +156,7 @@ impl Injector {
     }
 
     /// Inject the given library into the traced process.
-    pub fn inject(&mut self, library: &std::path::Path, envstr: Option<&str>) -> Result<()> {
+    pub fn inject(&mut self, library: &std::path::Path, args: Option<&str>) -> Result<()> {
         let Some(tracee) = self.tracer.wait()? else {
             return Err(eyre!(
                 "the target exited quietly as soon as we started tracing it"
@@ -167,7 +167,7 @@ impl Injector {
             .wrap_err("failed to inject shellcode")?;
 
         injection
-            .prepare(envstr)
+            .setenv(Some("PROBE_ARGS"), args)
             .wrap_err("failed to prepare env string")?;
 
         injection
@@ -179,6 +179,30 @@ impl Injector {
             library.display(),
             self.proc
         );
+        Ok(())
+    }
+
+    /// Put the env string into the traced process.
+    pub fn setenv(&mut self, name: Option<&str>, value: Option<&str>) -> Result<()> {
+        let Some(tracee) = self.tracer.wait()? else {
+            return Err(eyre!(
+                "the target exited quietly as soon as we started tracing it"
+            ));
+        };
+        log::trace!("Attached to process with ID {}", tracee.pid);
+        let mut injection = Injection::inject(&self.proc, &mut self.tracer, tracee)
+            .wrap_err("failed to inject shellcode")?;
+
+        injection
+            .setenv(name, value)
+            .wrap_err("failed to prepare env string")?;
+        log::info!(
+            "Successfully put env string `{}`=`{}` into process with PID {}",
+            if let Some(s) = name { s } else { "" },
+            if let Some(s) = value { s } else { "" },
+            self.proc
+        );
+        injection.remove().unwrap();
         Ok(())
     }
 }

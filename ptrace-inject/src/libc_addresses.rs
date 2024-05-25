@@ -9,6 +9,9 @@ pub struct LibcAddrs {
     pub(crate) dlopen: u64,
     pub(crate) free: u64,
     pub(crate) putenv: u64,
+    pub(crate) setenv: u64,
+    pub(crate) getenv: u64,
+    pub(crate) printf: u64,
 }
 
 impl LibcAddrs {
@@ -32,6 +35,9 @@ impl LibcAddrs {
             dlopen: addr_of("dlopen")?,
             free: addr_of("free")?,
             putenv: addr_of("putenv")?,
+            setenv: addr_of("setenv")?,
+            getenv: addr_of("getenv")?,
+            printf: addr_of("printf")?,
         };
         log::debug!("Got libc addresses for current process: {addrs:x?}");
         Ok(addrs)
@@ -47,7 +53,10 @@ impl LibcAddrs {
             malloc: self.malloc - old_base + new_base,
             dlopen: self.dlopen - old_base + new_base,
             free: self.free - old_base + new_base,
-            putenv: self.free - old_base + new_base,
+            putenv: self.putenv - old_base + new_base,
+            setenv: self.setenv - old_base + new_base,
+            getenv: self.getenv - old_base + new_base,
+            printf: self.printf - old_base + new_base,
         }
     }
 

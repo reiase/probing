@@ -18,8 +18,11 @@ struct DeriveArgs {
     pause: bool,
 
     /// signal libprobe to start profiling
-    #[arg(short='P', long, action)]
+    #[arg(short = 'P', long, action)]
     pprof: bool,
+
+    #[arg(short, long, action)]
+    test: bool,
 
     /// target process
     #[arg()]
@@ -41,10 +44,18 @@ pub fn main() -> Result<()> {
 
     if args.pause {
         signal::kill(pid, signal::Signal::SIGPROF).unwrap();
-        return Ok(())
+        return Ok(());
     }
 
     let process = Process::get(args.pid).unwrap();
+
+    if args.test {
+        Injector::attach(process)
+            .unwrap()
+            .setenv(Some("PROBE"), Some("42"))
+            .unwrap();
+        return Ok(());
+    }
 
     let soname = if let Some(path) = args.dll {
         Some(path)
@@ -67,7 +78,7 @@ pub fn main() -> Result<()> {
     );
     Injector::attach(process)
         .unwrap()
-        .inject(&soname.unwrap(), None)
+        .inject(&soname.unwrap(), Some("PROBE_ENABLED=1"))
         .unwrap();
     Ok(())
 }

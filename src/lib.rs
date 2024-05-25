@@ -85,6 +85,7 @@ fn init() {
             return;
         }
         eprintln!("{}: loading libprob", _path.display());
+        eprintln!("{:?}", env::var("PROBE_ENABLED"));
     }
     let _ = enable_probe_server(
         env::var("PROBE_ADDR").ok(),
