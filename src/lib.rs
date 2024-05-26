@@ -2,15 +2,20 @@
 #[macro_use]
 extern crate ctor;
 
+mod flags;
 mod handlers;
 mod repl;
 mod server;
 
+use clap::Parser;
 use handlers::crash_handler;
 use handlers::dump_stack;
 use handlers::pause_process;
 use handlers::pprof_handler;
 use handlers::PPROF_HOLDER;
+
+pub use crate::flags::ProbeFlags;
+use crate::handlers::execute_handler;
 
 use repl::PythonRepl;
 use repl::PYVM;
@@ -40,40 +45,70 @@ where
     let _ = SIGMAP.lock().map(|mut m| m.insert(sig, sigid));
 }
 
-pub fn enable_probe_server(
-    addr: Option<String>,
-    background: bool,
-    pprof: bool,
-) -> Result<(), Error> {
-    {
-        register_signal_handler(SIGUSR2, dump_stack);
-        let tmp = addr.clone();
-        register_signal_handler(SIGUSR1, move || pause_process(tmp.clone()));
-        register_signal_handler(SIGPROF, pprof_handler);
-        let tmp = addr.clone();
+fn sigusr1_handler() {
+    let args = {
+        if let Ok(argstr) = env::var("PROBE_ARGS") {
+            let split_args = argstr.split(" ");
+            ProbeFlags::parse_from(split_args)
+        } else {
+            ProbeFlags::default()
+        }
+    };
+    eprintln!("in signal USR1: {:?}", args);
+    if args.pause {
+        pause_process(args.address)
+    } else if args.crash {
+        let tmp = args.address.clone();
         register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
-    }
-    if background {
+    } else if args.background {
         thread::spawn(|| {
             tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(start_async_server::<PythonRepl>(addr))
+                .block_on(start_async_server::<PythonRepl>(args.address))
                 .unwrap();
         });
-    }
-    if pprof {
+    } else if args.pprof {
         let _ = PYVM.lock().map(|vm| {});
         let _ = PPROF_HOLDER.lock().map(|pp| {});
+    } else if let Some(script) = args.execute {
+        execute_handler(script)
     }
-    Ok(())
 }
+
+// pub fn enable_probe_server(
+//     addr: Option<String>,
+//     background: bool,
+//     pprof: bool,
+// ) -> Result<(), Error> {
+//     register_signal_handler(SIGUSR1, sigusr1_handler);
+//     register_signal_handler(SIGUSR2, dump_stack);
+//     register_signal_handler(SIGPROF, pprof_handler);
+
+//     if background {
+//         thread::spawn(|| {
+//             tokio::runtime::Builder::new_multi_thread()
+//                 .enable_all()
+//                 .build()
+//                 .unwrap()
+//                 .block_on(start_async_server::<PythonRepl>(addr))
+//                 .unwrap();
+//         });
+//     }
+//     if pprof {
+//         let _ = PYVM.lock().map(|vm| {});
+//         let _ = PPROF_HOLDER.lock().map(|pp| {});
+//     }
+//     Ok(())
+// }
 
 #[cfg(feature = "dll_init")]
 #[no_mangle]
 #[ctor]
 fn init() {
+    use clap::Parser;
+
     if let Ok(_path) = fs::read_link("/proc/self/exe") {
         let path_str = _path.to_string_lossy();
         if path_str.ends_with("/probe")
@@ -84,12 +119,43 @@ fn init() {
         {
             return;
         }
-        eprintln!("{}: loading libprob", _path.display());
-        eprintln!("{:?}", env::var("PROBE_ENABLED"));
+        if let Ok(args) = env::var("PROBE_ARGS") {
+            eprintln!("{}: loading libprob with `{}`", _path.display(), args);
+        } else {
+            eprintln!("{}: loading libprob ", _path.display());
+        }
     }
-    let _ = enable_probe_server(
-        env::var("PROBE_ADDR").ok(),
-        env::var("PROBE_BG").map(|_| true).unwrap_or(false),
-        env::var("PROBE_PPROF").map(|_| true).unwrap_or(false),
-    );
+    let args = {
+        if let Ok(argstr) = env::var("PROBE_ARGS") {
+            let split_args = argstr.split(" ");
+            ProbeFlags::parse_from(split_args)
+        } else {
+            ProbeFlags::default()
+        }
+    };
+    eprintln!("parsed args: {:?}", args);
+    // let _ = enable_probe_server(args.address, args.background, args.pprof);
+
+    register_signal_handler(SIGUSR1, sigusr1_handler);
+    register_signal_handler(SIGUSR2, dump_stack);
+    register_signal_handler(SIGPROF, pprof_handler);
+    let addr = args.address.clone();
+    if args.background {
+        thread::spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(start_async_server::<PythonRepl>(args.address))
+                .unwrap();
+        });
+    }
+    if args.crash {
+        let tmp = addr.clone();
+        register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
+    }
+    if args.pprof {
+        let _ = PYVM.lock().map(|vm| {});
+        let _ = PPROF_HOLDER.lock().map(|pp| {});
+    }
 }
