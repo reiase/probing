@@ -22,15 +22,6 @@ probe通过向目标进程注入`probe server`实现其功能，`probe server`�
 LD_PRELOAD=<prefix_path>/libprobe.so python a.py 
 ```
 
-可以通过环境变量控制probe server的行为
-
-```bash
-export PROBE_PPROF=1 
-export PROBE_ADDR=127.0.0.1:3344 
-export PROBE_BG=1 
-LD_PRELOAD=<prefix_path>/libprobe.so python a.py
-```
-
 #### `ptrace` 注入
 probe提供命令行工具，通过`ptrace`系统调用向目标进程注入`probe server`
 ```bash
@@ -38,27 +29,62 @@ probe提供命令行工具，通过`ptrace`系统调用向目标进程注入`pro
 ```
 如果未指定 --dll 参数，工具将默认使用当前可执行文件路径下的 libprobe.so。
 
-#### 连接`probe server`
+# 使用Probe诊断问题
 
-完成`probe server`注入后，可通过网络连接与使用。`probe server`支持两种连接协议：
-- 纯文本协议：可以通过netcat命令与`probe server`交互`nc 127.0.0.1 3344`;
-- `HTTP`协议：可以通过浏览器访问`probe server`，获取相关信息`http://127.0.0.1:3344/`；
+在注入`probe server`之后，可以借助`probe`命令对目标进行进行操作：
 
-# 问题诊断
-
-probe可以帮助用户诊断和定位进行住问题，已交互或非交互的方式提供信息：
-
-1. 打印python调用栈：
-```bash
-$ probe --dump <pid> 
 ```
-目标进程将会打印Python代码的调用栈，方便用户定位进程hang在何处。
+Usage: probe [OPTIONS] <PID>
 
-2. 启动临时调试:
-```bash
-$ probe --pause <pid>
+Arguments:
+  <PID>  target process
+
+Options:
+      --dll <DLL>          dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
+  -d, --dump               signal libprobe to dump the calling stack of the target process
+  -p, --pause              signal libprobe to pause the target process and listen for remote connection
+  -P, --pprof              signal libprobe to start profiling
+  -c, --crash              signal libprobe to handle target process crash
+  -b, --background         signal libprobe to start background server
+  -e, --execute <EXECUTE>  signal libprobe to execute a script in the target process
+  -a, --address <ADDRESS>  address used for listening remote connection
+  -t, --test               
+  -h, --help               Print help
 ```
-目标进程将会暂停执行，并在调用堆栈上启动调试服务器，用户可以连接服务器来交互式分析Python的调用栈。
+
+### `-d, --dump`: 打印当前运行堆栈
+
+目标进程打印当前Python运行堆栈信息，并继续执行。可以用于定位长时间没有响应的进程的执行状态。
+
+### `-p, --pause [-a|--address <ADDRESS>]`: 暂停进程并启动远程服务
+
+暂停目标进程，并在当前栈上启动远程服务，`-a, --address <ADDRESS>`参数用于指定服务地址。服务启动后可使用`netcat`命令链接，进入一个Python解释器交互界面：
+
+```shell
+nc 127.0.0.1 3344
+```
+
+### `-b, --background [-a|--address <ADDRESS>]`: 启动后台调试服务
+
+在目标进程中开启新线程执行远程服务,`-a, --address <ADDRESS>`参数用于指定服务地址。服务启动后连接与交互方式同上。
+
+### `-e, --execute <EXECUTE>`: 执行注入代码
+
+将`<EXECUTE>`指定的代码注入目标进程，并立刻执行。`<EXECUTE>`可以是文件名或者代码片段。比如：
+```
+probe -e script.py <pid>
+probe -e "import traceback;traceback.print_stack()" <pid>
+```
+
+进入该界面后可通过Python语句与进程自身的解释器交互。
+
+### `-c, --crash`: 接管错误处理
+
+probe将会接管目标进程的异常信号处理（比如`SIGABRT`）。当发代码运行生异常时，会启动远程服务，可以远程链接并调试；
+
+### `-P, --pprof`: 启动profiling
+
+目标进程将会自动采样运行堆栈，配合`-b, --background`所启动的后台服务，可以通过HTTP接口读取火焰图。
 
 # 设计思考
 
