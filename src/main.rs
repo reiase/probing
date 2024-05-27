@@ -1,113 +1,148 @@
-use clap::{error::Result, Error, Parser};
+use clap::{error::Result, Error, Parser, Subcommand};
 use nix::{sys::signal, unistd::Pid};
 use ptrace_inject::{Injector, Process};
 use std::fs;
 
-#[derive(Parser, Debug)]
-struct DeriveArgs {
+#[derive(Parser)]
+#[command(version, about)]
+struct Cli {
     /// dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
     #[arg(long)]
     dll: Option<std::path::PathBuf>,
-
-    /// signal libprobe to dump the calling stack of the target process
-    #[arg(short, long, action)]
-    dump: bool,
-
-    /// signal libprobe to pause the target process and listen for remote connection
-    #[arg(short, long, action)]
-    pause: bool,
-
-    /// signal libprobe to start profiling
-    #[arg(short = 'P', long, action)]
-    pprof: bool,
-
-    /// signal libprobe to handle target process crash
-    #[arg(short, long, action)]
-    crash: bool,
-
-    /// signal libprobe to start background server
-    #[arg(short, long, action)]
-    background: bool,
-
-    /// signal libprobe to execute a script in the target process
-    #[arg(short, long)]
-    pub execute: Option<String>,
-
-    /// address used for listening remote connection
-    #[arg(short, long)]
-    pub address: Option<String>,
-
-    #[arg(short, long, action)]
-    test: bool,
-
     /// target process
-    #[arg()]
     pid: u32,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
 }
 
-impl DeriveArgs {
-    pub fn to_string(&self) -> String {
-        let mut ret = "".to_string();
-        if self.dump {
-            ret.push_str(" -d");
-        }
-        if self.pause {
-            ret.push_str(" -p");
-        }
-        if self.pprof {
-            ret.push_str(" -P");
-        }
-        if self.crash {
-            ret.push_str(" -c");
-        }
-        if self.background {
-            ret.push_str(" -b");
-        }
-        if let Some(script) = &self.execute {
-            ret.push_str(" -e ");
-            ret.push_str(script.as_str());
-        }
-        if let Some(addr) = &self.address {
-            ret.push_str(" -a ");
-            ret.push_str(addr.as_str());
-        }
-        ret
-    }
+#[derive(Subcommand)]
+enum Commands {
+    /// inject into target process
+    #[command(aliases=["i", "in", "ins"])]
+    Inject {
+        /// enable profiling
+        #[arg(short = 'P', long, action)]
+        pprof: bool,
+
+        /// enable handling target process crash
+        #[arg(short, long, action)]
+        crash: bool,
+
+        /// enable background server
+        #[arg(short, long, action)]
+        background: bool,
+
+        /// address used for listening remote connection
+        #[arg(short, long)]
+        address: Option<String>,
+    },
+
+    /// dump the calling stack of the target process
+    #[command(aliases=["d", "du"])]
+    Dump {},
+
+    /// pause the target process and listen for remote connection
+    #[command(aliases=["p", "pa"])]
+    Pause {
+        /// address to listen
+        address: Option<String>,
+    },
+
+    /// start profiling
+    #[command(aliases=["pp"])]
+    Pprof {},
+
+    /// handle target process crash
+    #[command(aliases=["cc"])]
+    CatchCrash {},
+
+    /// start background server and listen for remote connections
+    #[command(aliases=["l", "listen"])]
+    ListenRemote {
+        /// address to listen
+        address: Option<String>,
+    },
+
+    /// execute a script in the target process
+    #[command(aliases=["e", "exec"])]
+    Execute {
+        /// script to execute
+        script: String,
+    },
 }
 
 pub fn main() -> Result<()> {
-    let args = DeriveArgs::parse();
-    let args_str = args.to_string();
+    let cli = Cli::parse();
+    let pid = Pid::from_raw(cli.pid as i32);
 
-    let pid = Pid::from_raw(args.pid as i32);
+    let mut cmdstr = "".to_string();
 
-    let usr1_handler = || {
-        let process = Process::get(args.pid).unwrap();
-        Injector::attach(process)
-            .unwrap()
-            .setenv(Some("PROBE_ARGS"), Some(args_str.as_str()))
-            .unwrap();
-        signal::kill(pid, signal::Signal::SIGUSR1).unwrap();
-        Ok::<(), Error>(())
-    };
-
-    if args.dump {
-        signal::kill(pid, signal::Signal::SIGUSR2).unwrap();
-        return Ok(());
+    if let Some(cmd) = cli.command {
+        let usr1_handler = |cmdstr: String| {
+            let process = Process::get(cli.pid).unwrap();
+            Injector::attach(process)
+                .unwrap()
+                .setenv(Some("PROBE_ARGS"), Some(cmdstr.as_str()))
+                .unwrap();
+            signal::kill(pid, signal::Signal::SIGUSR1).unwrap();
+            Ok::<(), Error>(())
+        };
+        match cmd {
+            Commands::Inject {
+                pprof,
+                crash,
+                background,
+                address,
+            } => {
+                if pprof {
+                    cmdstr.push_str(" -P");
+                }
+                if crash {
+                    cmdstr.push_str(" -c");
+                }
+                if background {
+                    cmdstr.push_str(" -b");
+                }
+                if let Some(addr) = address {
+                    cmdstr.push_str(" -a ");
+                    cmdstr.push_str(addr.as_str());
+                }
+            }
+            Commands::Dump {} => {
+                signal::kill(pid, signal::Signal::SIGUSR2).unwrap();
+                return Ok(());
+            }
+            Commands::Pause { address } => {
+                let cmdstr = if let Some(addr) = address {
+                    format!(" -p -a {}", addr)
+                } else {
+                    format!(" -p")
+                };
+                return usr1_handler(cmdstr);
+            }
+            Commands::Pprof {} => {
+                signal::kill(pid, signal::Signal::SIGPROF).unwrap();
+                return Ok(());
+            }
+            Commands::CatchCrash {} => todo!(),
+            Commands::ListenRemote { address } => {
+                let cmdstr = if let Some(addr) = address {
+                    format!(" -b -a {}", addr)
+                } else {
+                    format!(" -b")
+                };
+                return usr1_handler(cmdstr);
+            }
+            Commands::Execute { script } => {
+                return usr1_handler(format!(" -e {}", script));
+            }
+        }
     }
 
-    if args.pause || args.execute.is_some() {
-        return usr1_handler();
-    }
+    let process = Process::get(cli.pid).unwrap();
 
-    if args.pprof {
-        signal::kill(pid, signal::Signal::SIGPROF).unwrap();
-        return Ok(());
-    }
-
-    let process = Process::get(args.pid).unwrap();
-
-    let soname = if let Some(path) = args.dll {
+    let soname = if let Some(path) = cli.dll {
         Some(path)
     } else {
         if let Ok(_path) = fs::read_link("/proc/self/exe") {
@@ -124,12 +159,12 @@ pub fn main() -> Result<()> {
     println!(
         "inject {} into {} with `{}`",
         soname.clone().unwrap().to_str().unwrap(),
-        args.pid,
-        args_str
+        cli.pid,
+        cmdstr,
     );
     Injector::attach(process)
         .unwrap()
-        .inject(&soname.unwrap(), Some(args_str.as_str()))
+        .inject(&soname.unwrap(), Some(cmdstr.as_str()))
         .unwrap();
     Ok(())
 }
