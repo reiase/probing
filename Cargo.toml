@@ -16,7 +16,6 @@ backtrace = {version = "0.3.69", default-features = false, features = [
 ]}
 clap = {version = "4.4.7", features = ["derive"]}
 ctor = "0.2.6"
-dlopen2 = "0.7.0"
 httparse = {version = "1.8.0", default-features = false, features = []}
 lazy_static = "1.4.0"
 local-ip-address = "0.5.6"

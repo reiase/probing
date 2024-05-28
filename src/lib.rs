@@ -18,30 +18,20 @@ pub use crate::flags::ProbeFlags;
 use crate::handlers::execute_handler;
 
 use repl::PythonRepl;
-use signal_hook::SigId;
 use std::ffi::c_int;
-use std::sync::Mutex;
 use std::{env, thread};
 
 use signal_hook::consts::*;
 
-use std::collections::HashMap;
 use std::fs;
 
-use lazy_static::lazy_static;
-
 use server::start_async_server;
-
-lazy_static! {
-    pub static ref SIGMAP: Mutex<HashMap<c_int, SigId>> = Mutex::new(HashMap::default());
-}
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
     F: Fn() + Sync + Send + 'static,
 {
-    let sigid = unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
-    let _ = SIGMAP.lock().map(|mut m| m.insert(sig, sigid));
+    unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
 }
 
 fn sigusr1_handler() {

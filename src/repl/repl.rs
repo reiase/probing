@@ -1,6 +1,5 @@
 use crate::handlers::PPROF_HOLDER;
 use crate::repl::console::NativePythonConsole;
-use crate::repl::npy_repl::NPYVM;
 use std::sync::{Arc, Mutex};
 
 pub trait REPL {
@@ -21,15 +20,10 @@ pub struct PythonRepl {
 impl Default for PythonRepl {
     #[inline(never)]
     fn default() -> Self {
-        let has_native = NPYVM.lock().map(|vm| vm.is_some()).unwrap();
-        if has_native {
-            Self {
-                console: Arc::new(Mutex::new(NativePythonConsole::default())),
-                buf: Default::default(),
-                live: true,
-            }
-        } else {
-            todo!()
+        Self {
+            console: Arc::new(Mutex::new(NativePythonConsole::default())),
+            buf: Default::default(),
+            live: true,
         }
     }
 }
