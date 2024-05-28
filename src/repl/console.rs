@@ -3,57 +3,10 @@ use pyo3::{
     types::{PyAnyMethods, PyDict},
     Bound, Py, PyAny, Python,
 };
-use rustpython::vm::{AsObject, PyObjectRef};
 
 use crate::repl::repl::PythonConsole;
 
-use crate::repl::rpy_repl::PYVM;
-
 pub const CODE: &str = include_str!("debug_console.py");
-
-pub struct RustPythonConsole {
-    console: Option<PyObjectRef>,
-}
-
-impl Default for RustPythonConsole {
-    fn default() -> Self {
-        let rpy = PYVM
-            .lock()
-            .map(|pyvm| {
-                pyvm.interp
-                    .enter(|vm| pyvm.scope.get_item("debug_console", vm).unwrap())
-            })
-            .unwrap();
-        Self { console: Some(rpy) }
-    }
-}
-
-impl PythonConsole for RustPythonConsole {
-    fn try_execute(&mut self, cmd: String) -> Option<String> {
-        let ret = self.console.as_ref().map(|console| {
-            PYVM.lock()
-                .map(|pyvm| {
-                    pyvm.interp.enter(|vm| {
-                        let args = cmd.to_string();
-                        let func = console.as_ref().get_attr("push", vm).unwrap();
-                        let ret = func.call((args,), vm);
-                        match ret {
-                            Ok(obj) => {
-                                if vm.is_none(&obj) {
-                                    None
-                                } else {
-                                    Some(obj.str(vm).unwrap().to_string())
-                                }
-                            }
-                            Err(err) => Some(err.as_object().str(vm).unwrap().to_string()),
-                        }
-                    })
-                })
-                .unwrap()
-        });
-        ret?
-    }
-}
 
 pub struct NativePythonConsole {
     console: Lazy<Py<PyAny>>,

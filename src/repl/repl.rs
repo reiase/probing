@@ -3,8 +3,6 @@ use crate::repl::console::NativePythonConsole;
 use crate::repl::npy_repl::NPYVM;
 use std::sync::{Arc, Mutex};
 
-use super::console::RustPythonConsole;
-
 pub trait REPL {
     fn feed(&mut self, s: String) -> Option<String>;
     fn is_alive(&self) -> bool;
@@ -31,11 +29,7 @@ impl Default for PythonRepl {
                 live: true,
             }
         } else {
-            Self {
-                console: Arc::new(Mutex::new(RustPythonConsole::default())),
-                buf: Default::default(),
-                live: true,
-            }
+            todo!()
         }
     }
 }
