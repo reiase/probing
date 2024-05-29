@@ -16,16 +16,12 @@ use handlers::PPROF_HOLDER;
 
 pub use crate::flags::ProbeFlags;
 use crate::handlers::execute_handler;
-
 use repl::PythonRepl;
-use std::ffi::c_int;
-use std::{env, thread};
-
-use signal_hook::consts::*;
-
-use std::fs;
-
 use server::start_async_server;
+use signal_hook::consts::*;
+use std::ffi::c_int;
+use std::fs;
+use std::{env, thread};
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where

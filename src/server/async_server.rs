@@ -1,13 +1,12 @@
+use crate::repl::REPL;
+use local_ip_address::list_afinet_netifas;
+use local_ip_address::local_ip;
 use nu_ansi_term::Color;
 use std::{error::Error, marker::PhantomData, thread::sleep, time, u8};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
 };
-
-use crate::repl::REPL;
-use local_ip_address::list_afinet_netifas;
-use local_ip_address::local_ip;
 
 async fn show_prompt(prompt: &[u8], stream: &mut TcpStream) {
     let mut peek_buf = [0u8; 4];

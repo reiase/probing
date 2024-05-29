@@ -1,7 +1,6 @@
 use nu_ansi_term::Color;
 use pyo3::Python;
 
-// use crate::repl::npy_repl::NPYVM;
 pub fn dump_stack() {
     eprintln!(
         "{}",

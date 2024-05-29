@@ -1,6 +1,5 @@
-use std::fs;
-
 use pyo3::Python;
+use std::fs;
 
 pub fn execute_handler(code_or_path: String) {
     let path = std::path::Path::new(&code_or_path);

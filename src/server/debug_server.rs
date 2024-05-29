@@ -1,10 +1,9 @@
+use crate::repl::REPL;
 use std::io::Read;
 use std::io::Write;
-
 use std::net::TcpListener;
 use std::net::TcpStream;
 
-use crate::repl::REPL;
 pub struct DebugServer {
     self_addr: Option<String>,
     peer_addr: Option<String>,
