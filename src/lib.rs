@@ -23,6 +23,11 @@ use std::ffi::c_int;
 use std::fs;
 use std::{env, thread};
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
     F: Fn() + Sync + Send + 'static,
