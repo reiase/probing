@@ -1,6 +1,5 @@
 use crate::repl::REPL;
-use local_ip_address::list_afinet_netifas;
-use local_ip_address::local_ip;
+use local_ip_address::*;
 use nu_ansi_term::Color;
 use std::{error::Error, marker::PhantomData, thread::sleep, time, u8};
 use tokio::{
@@ -11,17 +10,14 @@ use tokio::{
 async fn show_prompt(prompt: &[u8], stream: &mut TcpStream) {
     let mut peek_buf = [0u8; 4];
     sleep(time::Duration::from_millis(10));
-    let ret = stream.peek(&mut peek_buf).await;
-    match ret {
-        Ok(ulen) if ulen == 4 => {
-            if !peek_buf.starts_with("GET ".as_bytes()) {
-                let _ = stream.write(prompt).await;
-            }
-        }
-        _ => {
+
+    if let Ok(ulen) = stream.peek(&mut peek_buf).await {
+        if ulen == 4 && !peek_buf.starts_with("GET ".as_bytes()) {
+            let _ = stream.write(prompt).await;
+        } else {
             let _ = stream.write(prompt).await;
         }
-    };
+    }
 }
 
 pub struct AsyncServer<T> {
@@ -53,47 +49,34 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         let listener = TcpListener::bind(self.self_addr.as_ref().unwrap()).await?;
-        self.self_addr = match listener.local_addr() {
-            Ok(addr) => {
-                if addr.to_string().contains("0.0.0.0:") {
-                    eprintln!(
-                        "{} {}, available addresses:",
-                        Color::Red.bold().paint("Debug Server is started on"),
-                        Color::Green.bold().underline().paint(addr.to_string())
-                    );
-                    for (name, ip) in list_afinet_netifas().unwrap().iter() {
-                        if !ip.is_ipv4() {
-                            continue;
-                        }
-                        let if_addr = ip.to_string();
-                        eprintln!(
-                            "\t{}: {}",
-                            Color::Yellow.paint(name),
-                            Color::Blue
-                                .bold()
-                                .underline()
-                                .paint(addr.to_string().replace("0.0.0.0", &if_addr))
-                        );
+        if let Ok(addr) = listener.local_addr() {
+            eprintln!(
+                "{}",
+                Color::Red.bold().paint("probe server is available on:")
+            );
+            if addr.to_string().starts_with("0.0.0.0:") {
+                for (_, ip) in list_afinet_netifas().unwrap().iter() {
+                    if !ip.is_ipv4() {
+                        continue;
                     }
-
-                    let local_addr = local_ip().unwrap().to_string();
-                    Some(addr.to_string().replace("0.0.0.0", &local_addr))
-                } else {
-                    eprintln!(
-                        "{} {}",
-                        Color::Red.bold().paint("Debug Server is started on"),
-                        Color::Green.bold().underline().paint(addr.to_string())
-                    );
-                    Some(addr.to_string())
+                    let if_addr = ip.to_string();
+                    let if_addr = addr.to_string().replace("0.0.0.0", &if_addr);
+                    eprintln!("\t{}", Color::Blue.bold().underline().paint(if_addr));
                 }
+
+                let local_addr = local_ip().unwrap().to_string();
+                Some(addr.to_string().replace("0.0.0.0", &local_addr))
+            } else {
+                eprintln!(
+                    "\t{}",
+                    Color::Green.bold().underline().paint(addr.to_string())
+                );
+                Some(addr.to_string())
             }
-            Err(err) => {
-                eprintln!("error binding debug server address: {}", err.to_string());
-                None
-            }
+        } else {
+            None
         };
         self.prompt = self.self_addr.as_ref().map(|addr| format!("({})>>", addr));
-
         self.serve(&listener).await
     }
 
