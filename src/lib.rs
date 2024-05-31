@@ -60,7 +60,7 @@ fn sigusr1_handler() {
                 .unwrap();
         });
     } else if args.pprof {
-        let _ = PPROF_HOLDER.lock().map(|pp| {});
+        PPROF_HOLDER.setup(1000)
     } else if let Some(script) = args.execute {
         execute_handler(script)
     }
@@ -117,6 +117,6 @@ fn init() {
     //     register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
     // }
     if args.pprof {
-        let _ = PPROF_HOLDER.lock().map(|pp| {});
+        PPROF_HOLDER.setup(1000)
     }
 }

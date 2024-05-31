@@ -1,6 +1,7 @@
 use crate::handlers::PPROF_HOLDER;
 use crate::repl::console::NativePythonConsole;
 use std::sync::{Arc, Mutex};
+use html_render::html;
 
 pub trait REPL {
     fn feed(&mut self, s: String) -> Option<String>;
@@ -46,29 +47,17 @@ impl PythonRepl {
     }
     fn url_handler(&mut self, path: Option<&str>) -> Option<String> {
         match path {
-            Some("/flamegraph") => PPROF_HOLDER
-                .lock()
-                .map(|pp| {
-                    if let Ok(report) = pp.report().build() {
-                        let mut graph: Vec<u8> = vec![];
-                        report.flamegraph(&mut graph).unwrap();
-                        String::from_utf8(graph).ok()
-                    } else {
-                        None
-                    }
-                })
-                .map_or(Some("HTTP/1.1 500 OK".to_string()), |g| {
-                    self.make_response(Some("image/svg+xml"), g)
-                }),
-            Some("/") => Some(format!(
-                r#"
-                <html>
-                <body>
-                <p><a href="/flamegraph">flamegraph</a></p>
-                </body>
-                </html>
-                "#
-            ))
+            Some("/flamegraph") => PPROF_HOLDER.flamegraph(),
+            Some("/") => {
+                let page = html! {
+                    <div>
+                    <body>
+                    <p><a href="/flamegraph">{"flamegraph"}</a></p>
+                    </body>
+                    </div>
+                };
+                Some(page.to_string())
+            }
             .map_or(Some("HTTP/1.1 500 OK".to_string()), |c| {
                 self.make_response(Some("text/html"), Some(c))
             }),
@@ -82,16 +71,7 @@ impl PythonRepl {
             return None;
         }
         if cmd.trim() == "pprof" {
-            return PPROF_HOLDER
-                .lock()
-                .map(|pp| {
-                    if let Ok(report) = pp.report().build() {
-                        Some(format!("report: {:?}", &report))
-                    } else {
-                        None
-                    }
-                })
-                .ok()?;
+            return PPROF_HOLDER.report();
         }
         if cmd.starts_with("GET ") {
             let mut headers = [httparse::EMPTY_HEADER; 64];

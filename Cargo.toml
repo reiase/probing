@@ -35,6 +35,7 @@ tokio = {version = "1.35.1", default-features = false, features = [
   "io-util",
   "rt-multi-thread",
 ]}
+html_render = {path = "./html_render"}
 
 [build-dependencies]
 pyo3-build-config = "0.21.2"
@@ -43,4 +44,4 @@ pyo3-build-config = "0.21.2"
 lto = true 
 opt-level = "z" # Optimize for size.
 panic = "abort" 
-strip = false # Automatically strip symbols from the binary.
+strip = true # Automatically strip symbols from the binary.
