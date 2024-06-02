@@ -4,12 +4,15 @@ use http_body_util::Full;
 use hyper::service::Service;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
 use pin_project_lite::pin_project;
+use pyo3::types::PyAnyMethods;
+use pyo3::{Python, ToPyObject};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use crate::handlers::PPROF_HOLDER;
+use crate::repl::{PythonRepl, REPL};
 
 pin_project! {
     #[derive(Debug)]
@@ -200,7 +203,38 @@ impl Service<Request<IncomingBody>> for Svc {
             "/flamegraph" => {
                 mk_response(PPROF_HOLDER.flamegraph().unwrap_or("default".to_string()))
             }
-            _ => mk_response("oh no! not found".into()),
+            "/backtrace" => {
+                let ret = Python::with_gil(|py| {
+                    let ret = py
+                        .import_bound("traceback")
+                        .unwrap()
+                        .call_method0("format_stack")
+                        .unwrap_or_else(|err| {
+                            err.print(py);
+                            err.to_string().to_object(py).into_bound(py)
+                        });
+                    let ret = "\n"
+                        .to_object(py)
+                        .call_method1(py, "join", (ret.as_unbound(),));
+                    match ret {
+                        Ok(obj) => obj.to_string(),
+                        Err(err) => {
+                            err.print(py);
+                            err.to_string()
+                        }
+                    }
+                });
+                mk_response(ret)
+            }
+            s => {
+                if s.starts_with("/objects") {
+                    let mut repl = PythonRepl::default();
+                    let ret = repl.feed("import gc;gc.get_objects()\n".to_string());
+                    mk_response(ret.unwrap_or("[]".to_string()))
+                } else {
+                    mk_response("oh no! not found".into())
+                }
+            }
         };
 
         Box::pin(async { res })

@@ -11,8 +11,10 @@ default = ["dll_init"]
 dll_init = []
 
 [dependencies]
-backtrace = { version = "0.3.69", default-features = false, features = [
+backtrace = { version = "0.3.69", features = [
   "cpp_demangle",
+  "coresymbolication",
+  "std",
 ] }
 clap = { version = "4.5.4", features = ["std", "derive"] }
 ctor = "0.2.6"
