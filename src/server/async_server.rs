@@ -1,23 +1,24 @@
-use crate::repl::REPL;
+use crate::{
+    repl::REPL,
+    server::service::{Svc, TokioIo},
+};
+use hyper::server::conn::http1;
 use local_ip_address::*;
 use nu_ansi_term::Color;
-use std::{error::Error, marker::PhantomData, thread::sleep, time, u8};
+use std::{error::Error, marker::PhantomData, thread::sleep, time};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
 };
 
-async fn show_prompt(prompt: &[u8], stream: &mut TcpStream) {
+async fn is_http(stream: &mut TcpStream) -> bool {
     let mut peek_buf = [0u8; 4];
     sleep(time::Duration::from_millis(10));
 
-    if let Ok(ulen) = stream.peek(&mut peek_buf).await {
-        if ulen == 4 && !peek_buf.starts_with("GET ".as_bytes()) {
-            let _ = stream.write(prompt).await;
-        } else {
-            let _ = stream.write(prompt).await;
-        }
-    }
+    stream.peek(&mut peek_buf).await.ok().map_or(false, |ulen| {
+        ulen == 4
+            && (peek_buf.starts_with("GET ".as_bytes()) || peek_buf.starts_with("POST ".as_bytes()))
+    })
 }
 
 pub struct AsyncServer<T> {
@@ -83,31 +84,41 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
     async fn serve(&self, listener: &TcpListener) -> Result<(), Box<dyn Error>> {
         loop {
             let (mut stream, addr) = listener.accept().await?;
+            stream.nodelay().unwrap();
             let prompt = self.get_prompt().to_string();
             // Spawn our handler to be run asynchronously.
             tokio::spawn(async move {
-                eprintln!(
-                    "{} {}",
-                    Color::Yellow.italic().paint("debug server connection from"),
-                    Color::Green.italic().underline().paint(addr.to_string())
-                );
-                let mut repl = Box::new(T::default());
-                let mut buf = [0; 1024];
-                // let _ = stream.write(prompt.as_bytes()).await;
-                let _ = show_prompt(prompt.as_bytes(), &mut stream).await;
-                loop {
-                    let n = match stream.read(&mut buf).await {
-                        Ok(n) if n == 0 => break,
-                        Ok(n) => n,
-                        Err(_) => break,
-                    };
-                    let req = String::from_utf8(buf[0..n].to_vec());
-                    let s = match repl.feed(req.clone().unwrap()) {
-                        Some(rsp) => format!("{}\n{}", rsp, prompt),
-                        None => prompt.to_string(),
-                    };
-                    if stream.write(s.as_bytes()).await.is_err() {
-                        break;
+                if is_http(&mut stream).await {
+                    if let Err(err) = http1::Builder::new()
+                        .serve_connection(TokioIo::new(stream), Svc::default())
+                        .with_upgrades()
+                        .await
+                    {
+                        println!("Failed to serve connection: {}\n{:?}", addr, err);
+                    }
+                } else {
+                    eprintln!(
+                        "{} {}",
+                        Color::Yellow.italic().paint("debug server connection from"),
+                        Color::Green.italic().underline().paint(addr.to_string())
+                    );
+                    let mut repl = Box::new(T::default());
+                    let mut buf = [0; 1024];
+                    let _ = stream.write(prompt.as_bytes()).await;
+                    loop {
+                        let n = match stream.read(&mut buf).await {
+                            Ok(n) if n == 0 => break,
+                            Ok(n) => n,
+                            Err(_) => break,
+                        };
+                        let req = String::from_utf8(buf[0..n].to_vec());
+                        let s = match repl.feed(req.clone().unwrap()) {
+                            Some(rsp) => format!("{}\n{}", rsp, prompt),
+                            None => prompt.to_string(),
+                        };
+                        if stream.write(s.as_bytes()).await.is_err() {
+                            break;
+                        }
                     }
                 }
             });

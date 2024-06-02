@@ -1,7 +1,6 @@
 use crate::handlers::PPROF_HOLDER;
 use crate::repl::console::NativePythonConsole;
 use std::sync::{Arc, Mutex};
-use html_render::html;
 
 pub trait REPL {
     fn feed(&mut self, s: String) -> Option<String>;
@@ -30,41 +29,6 @@ impl Default for PythonRepl {
 }
 
 impl PythonRepl {
-    fn make_response(&self, ctype: Option<&str>, content: Option<String>) -> Option<String> {
-        content.map_or(Some("HTTP/1.1 404 OK".to_string()), |content| {
-            if content.is_empty() {
-                Some("HTTP/1.1 200 OK".to_string())
-            } else {
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: {}\r\n\r\n{}",
-                    content.len(),
-                    ctype.unwrap(),
-                    content
-                );
-                Some(response)
-            }
-        })
-    }
-    fn url_handler(&mut self, path: Option<&str>) -> Option<String> {
-        match path {
-            Some("/flamegraph") => PPROF_HOLDER.flamegraph(),
-            Some("/") => {
-                let page = html! {
-                    <div>
-                    <body>
-                    <p><a href="/flamegraph">{"flamegraph"}</a></p>
-                    </body>
-                    </div>
-                };
-                Some(page.to_string())
-            }
-            .map_or(Some("HTTP/1.1 500 OK".to_string()), |c| {
-                self.make_response(Some("text/html"), Some(c))
-            }),
-            Some(&_) => Some("HTTP/1.1 404 OK".to_string()),
-            None => Some("HTTP/1.1 404 OK".to_string()),
-        }
-    }
     pub fn process(&mut self, cmd: &str) -> Option<String> {
         if cmd.trim() == "exit" {
             self.live = false;
@@ -72,14 +36,6 @@ impl PythonRepl {
         }
         if cmd.trim() == "pprof" {
             return PPROF_HOLDER.report();
-        }
-        if cmd.starts_with("GET ") {
-            let mut headers = [httparse::EMPTY_HEADER; 64];
-            let mut req = httparse::Request::new(&mut headers);
-            let ret = req.parse(cmd.as_bytes()).map_or(false, |s| s.is_complete());
-            if ret {
-                return self.url_handler(req.path);
-            }
         }
         let ret = self.console.lock().unwrap().try_execute(cmd.to_string());
         ret
