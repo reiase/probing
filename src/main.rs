@@ -139,20 +139,20 @@ pub fn main() -> Result<(), Error> {
                 let cmdstr = if let Some(addr) = address {
                     format!(" -p -a {}", addr)
                 } else {
-                    format!(" -p")
+                    " -p".to_string()
                 };
                 return usr1_handler(cmdstr);
             }
-            Commands::Pprof (_) => {
+            Commands::Pprof(_) => {
                 signal::kill(pid, signal::Signal::SIGPROF).unwrap();
                 return Ok(());
             }
-            Commands::CatchCrash (_) => todo!(),
+            Commands::CatchCrash(_) => todo!(),
             Commands::ListenRemote(ListenRemoteCommand { address }) => {
                 let cmdstr = if let Some(addr) = address {
                     format!(" -b -a {}", addr)
                 } else {
-                    format!(" -b")
+                    " -b".to_string()
                 };
                 return usr1_handler(cmdstr);
             }
@@ -166,17 +166,15 @@ pub fn main() -> Result<(), Error> {
 
     let soname = if let Some(path) = cli.dll {
         Some(path)
+    } else if let Ok(_path) = fs::read_link("/proc/self/exe") {
+        println!(
+            "base path: {} : {}",
+            _path.display(),
+            _path.parent().unwrap().display()
+        );
+        _path.with_file_name("libprobe.so").into()
     } else {
-        if let Ok(_path) = fs::read_link("/proc/self/exe") {
-            println!(
-                "base path: {} : {}",
-                _path.display(),
-                _path.parent().unwrap().display()
-            );
-            _path.with_file_name("libprobe.so").into()
-        } else {
-            None
-        }
+        None
     };
     println!(
         "inject {} into {} with `{}`",

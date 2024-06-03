@@ -50,7 +50,7 @@ pub fn dump_stack() {
                 if let Some(name) = symbol.name() {
                     ret.push_str(format!(" - {name}").as_str());
                 } else {
-                    ret.push_str(format!(" - <unknown>").as_str());
+                    ret.push_str(" - <unknown>");
                 }
                 if let Some(file) = symbol.filename() {
                     if let Some(l) = symbol.lineno() {
@@ -60,7 +60,7 @@ pub fn dump_stack() {
                         );
                     }
                 }
-                ret.push_str("\n");
+                ret.push('\n');
             });
             if !resolved {
                 println!(" - <no info>");
@@ -69,6 +69,5 @@ pub fn dump_stack() {
         });
 
         eprintln!("{}", ret);
-        
     });
 }

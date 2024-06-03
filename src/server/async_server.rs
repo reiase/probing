@@ -107,7 +107,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
                     let _ = stream.write(prompt.as_bytes()).await;
                     loop {
                         let n = match stream.read(&mut buf).await {
-                            Ok(n) if n == 0 => break,
+                            Ok(0) => break,
                             Ok(n) => n,
                             Err(_) => break,
                         };

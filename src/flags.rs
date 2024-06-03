@@ -1,7 +1,7 @@
 use argh::FromArgs;
 
 /// flags for libprobe
-#[derive(FromArgs, Debug)]
+#[derive(FromArgs, Default, Debug)]
 pub struct ProbeFlags {
     /// signal libprobe to dump the calling stack of the target process
     #[argh(switch, short = 'd')]
@@ -34,21 +34,6 @@ pub struct ProbeFlags {
     /// dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
     #[argh(option)]
     pub dll: Option<std::path::PathBuf>,
-}
-
-impl Default for ProbeFlags {
-    fn default() -> Self {
-        Self {
-            dump: Default::default(),
-            pause: Default::default(),
-            pprof: Default::default(),
-            crash: Default::default(),
-            background: Default::default(),
-            execute: Default::default(),
-            address: Default::default(),
-            dll: Default::default(),
-        }
-    }
 }
 
 #[cfg(test)]

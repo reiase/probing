@@ -162,17 +162,9 @@ where
 
 type Counter = i32;
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct Svc {
     counter: Arc<Mutex<Counter>>,
-}
-
-impl Default for Svc {
-    fn default() -> Self {
-        Self {
-            counter: Default::default(),
-        }
-    }
 }
 
 impl Service<Request<IncomingBody>> for Svc {
@@ -227,9 +219,9 @@ impl Service<Request<IncomingBody>> for Svc {
                 });
                 mk_response(ret)
             }
-            "/torch" => {mk_response("not implemented".to_string())}
-            "/torch/tensors" => {mk_response("not implemented".to_string())}
-            "/torch/modules" => {mk_response("not implemented".to_string())}
+            "/torch" => mk_response("not implemented".to_string()),
+            "/torch/tensors" => mk_response("not implemented".to_string()),
+            "/torch/modules" => mk_response("not implemented".to_string()),
             s => {
                 if s.starts_with("/objects") {
                     let mut filters: Vec<String> = vec![];

@@ -65,7 +65,7 @@ impl DebugServer {
         let mut buf = [0; 1024];
         loop {
             let n = match stream.read(&mut buf) {
-                Ok(n) if n == 0 => return true,
+                Ok(0) => return true,
                 Ok(n) => n,
                 Err(_) => break,
             };
