@@ -1,42 +1,39 @@
-use clap::Parser;
+use argh::FromArgs;
 
-#[derive(Parser, Debug, Clone)]
+/// flags for libprobe
+#[derive(FromArgs, Debug)]
 pub struct ProbeFlags {
     /// signal libprobe to dump the calling stack of the target process
-    #[arg(short, long, action)]
+    #[argh(switch, short = 'd')]
     pub dump: bool,
 
     /// signal libprobe to pause the target process and listen for remote connection
-    #[arg(short, long, action)]
+    #[argh(switch, short = 'p')]
     pub pause: bool,
 
     /// signal libprobe to start profiling
-    #[arg(short = 'P', long, action)]
+    #[argh(switch, short = 'P')]
     pub pprof: bool,
 
     /// signal libprobe to handle target process crash
-    #[arg(short, long, action)]
+    #[argh(switch, short = 'c')]
     pub crash: bool,
 
     /// signal libprobe to start background server
-    #[arg(short, long, action)]
+    #[argh(switch, short = 'b')]
     pub background: bool,
 
     /// signal libprobe to execute a script in the target process
-    #[arg(short, long)]
+    #[argh(option, short = 'e')]
     pub execute: Option<String>,
 
     /// address used for listening remote connection
-    #[arg(short, long)]
+    #[argh(option, short = 'a')]
     pub address: Option<String>,
 
     /// dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
-    #[arg(long)]
+    #[argh(option)]
     pub dll: Option<std::path::PathBuf>,
-
-    /// target process
-    #[arg()]
-    pub pid: Option<u32>,
 }
 
 impl Default for ProbeFlags {
@@ -50,7 +47,20 @@ impl Default for ProbeFlags {
             execute: Default::default(),
             address: Default::default(),
             dll: Default::default(),
-            pid: Default::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_argh_parse() {
+        let argstr = "-P -b -a 127.0.0.1:8080 -e test";
+        let split_args: Vec<&str> = argstr.split(" ").collect();
+        let args = ProbeFlags::from_args(&["cmd"], split_args.as_slice()).unwrap();
+        assert_eq!(args.pprof, true);
+        assert_eq!(args.background, true);
     }
 }

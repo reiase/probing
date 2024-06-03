@@ -1,79 +1,101 @@
-use clap::{error::Result, Error, Parser, Subcommand};
+use argh::FromArgs;
 use nix::{sys::signal, unistd::Pid};
 use ptrace_inject::{Injector, Process};
-use std::fs;
+use std::{fmt::Error, fs};
 
-#[derive(Parser)]
-#[command(version, about)]
+/// probe cli
+#[derive(FromArgs)]
 struct Cli {
     /// dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
-    #[arg(long)]
+    #[argh(option)]
     dll: Option<std::path::PathBuf>,
+
     /// target process
+    #[argh(positional)]
     pid: u32,
 
-    #[command(subcommand)]
+    #[argh(subcommand)]
     command: Option<Commands>,
 }
 
-#[derive(Subcommand)]
+/// probe subcmds
+#[derive(FromArgs)]
+#[argh(subcommand)]
 enum Commands {
-    /// inject into target process
-    #[command(aliases=["i", "in", "ins"])]
-    Inject {
-        /// enable profiling
-        #[arg(short = 'P', long, action)]
-        pprof: bool,
-
-        /// enable handling target process crash
-        #[arg(short, long, action)]
-        crash: bool,
-
-        /// enable background server
-        #[arg(short, long, action)]
-        background: bool,
-
-        /// address used for listening remote connection
-        #[arg(short, long)]
-        address: Option<String>,
-    },
-
-    /// dump the calling stack of the target process
-    #[command(aliases=["d", "du"])]
-    Dump {},
-
-    /// pause the target process and listen for remote connection
-    #[command(aliases=["p", "pa"])]
-    Pause {
-        /// address to listen
-        address: Option<String>,
-    },
-
-    /// start profiling
-    #[command(aliases=["pp"])]
-    Pprof {},
-
-    /// handle target process crash
-    #[command(aliases=["cc"])]
-    CatchCrash {},
-
-    /// start background server and listen for remote connections
-    #[command(aliases=["l", "listen"])]
-    ListenRemote {
-        /// address to listen
-        address: Option<String>,
-    },
-
-    /// execute a script in the target process
-    #[command(aliases=["e", "exec"])]
-    Execute {
-        /// script to execute
-        script: String,
-    },
+    Inject(InjectCommand),
+    Dump(DumpCommand),
+    Pause(PauseCommand),
+    Pprof(PprofCommand),
+    CatchCrash(CatchCrashCommand),
+    ListenRemote(ListenRemoteCommand),
+    Execute(ExecuteCommand),
 }
 
-pub fn main() -> Result<()> {
-    let cli = Cli::parse();
+/// inject into target process
+#[derive(FromArgs)]
+#[argh(subcommand, name = "inject")]
+struct InjectCommand {
+    /// enable profiling
+    #[argh(switch, short = 'P')]
+    pprof: bool,
+
+    /// enable handling target process crash
+    #[argh(switch, short = 'c')]
+    crash: bool,
+
+    /// enable background server
+    #[argh(switch, short = 'b')]
+    background: bool,
+
+    /// address used for listening remote connection
+    #[argh(option, short = 'a')]
+    address: Option<String>,
+}
+
+/// dump the calling stack of the target process
+#[derive(FromArgs)]
+#[argh(subcommand, name = "dump")]
+struct DumpCommand {}
+
+/// pause the target process and listen for remote connection
+#[derive(FromArgs)]
+#[argh(subcommand, name = "pause")]
+struct PauseCommand {
+    /// address to listen
+    #[argh(option, short = 'a')]
+    address: Option<String>,
+}
+
+/// start profiling
+#[derive(FromArgs)]
+#[argh(subcommand, name = "pprof")]
+struct PprofCommand {}
+
+/// handle target process crash
+#[derive(FromArgs)]
+#[argh(subcommand, name = "catch")]
+struct CatchCrashCommand {}
+
+/// start background server and listen for remote connections
+#[derive(FromArgs)]
+#[argh(subcommand, name = "listen")]
+struct ListenRemoteCommand {
+    /// address to listen
+    #[argh(positional)]
+    address: Option<String>,
+}
+
+/// execute a script in the target process
+#[derive(FromArgs)]
+#[argh(subcommand, name = "exec")]
+struct ExecuteCommand {
+    /// script to execute
+    #[argh(positional)]
+    script: String,
+}
+
+pub fn main() -> Result<(), Error> {
+    let cli: Cli = argh::from_env();
     let pid = Pid::from_raw(cli.pid as i32);
 
     let mut cmdstr = "".to_string();
@@ -89,12 +111,12 @@ pub fn main() -> Result<()> {
             Ok::<(), Error>(())
         };
         match cmd {
-            Commands::Inject {
+            Commands::Inject(InjectCommand {
                 pprof,
                 crash,
                 background,
                 address,
-            } => {
+            }) => {
                 if pprof {
                     cmdstr.push_str(" -P");
                 }
@@ -109,11 +131,11 @@ pub fn main() -> Result<()> {
                     cmdstr.push_str(addr.as_str());
                 }
             }
-            Commands::Dump {} => {
+            Commands::Dump(_) => {
                 signal::kill(pid, signal::Signal::SIGUSR2).unwrap();
                 return Ok(());
             }
-            Commands::Pause { address } => {
+            Commands::Pause(PauseCommand { address }) => {
                 let cmdstr = if let Some(addr) = address {
                     format!(" -p -a {}", addr)
                 } else {
@@ -121,12 +143,12 @@ pub fn main() -> Result<()> {
                 };
                 return usr1_handler(cmdstr);
             }
-            Commands::Pprof {} => {
+            Commands::Pprof (_) => {
                 signal::kill(pid, signal::Signal::SIGPROF).unwrap();
                 return Ok(());
             }
-            Commands::CatchCrash {} => todo!(),
-            Commands::ListenRemote { address } => {
+            Commands::CatchCrash (_) => todo!(),
+            Commands::ListenRemote(ListenRemoteCommand { address }) => {
                 let cmdstr = if let Some(addr) = address {
                     format!(" -b -a {}", addr)
                 } else {
@@ -134,7 +156,7 @@ pub fn main() -> Result<()> {
                 };
                 return usr1_handler(cmdstr);
             }
-            Commands::Execute { script } => {
+            Commands::Execute(ExecuteCommand { script }) => {
                 return usr1_handler(format!(" -e {}", script));
             }
         }

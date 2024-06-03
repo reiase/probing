@@ -71,14 +71,14 @@ fn walk_nodes<'a>(empty_elements: &HashSet<&str>, nodes: &'a Vec<Node>) -> WalkN
                 if empty_elements.contains(element.open_tag.name.to_string().as_str()) {
                     out.static_format
                         .push_str(&format!("/</{}>", element.open_tag.name));
-                    if !element.children.is_empty() {
-                        let warning = proc_macro2_diagnostics::Diagnostic::spanned(
-                            element.open_tag.name.span(),
-                            proc_macro2_diagnostics::Level::Warning,
-                            "Element is processed as empty, and cannot have any child",
-                        );
-                        out.diagnostics.push(warning.emit_as_expr_tokens())
-                    }
+                    // if !element.children.is_empty() {
+                    //     let warning = proc_macro2_diagnostics::Diagnostic::spanned(
+                    //         element.open_tag.name.span(),
+                    //         proc_macro2_diagnostics::Level::Warning,
+                    //         "Element is processed as empty, and cannot have any child",
+                    //     );
+                    //     out.diagnostics.push(warning.emit_as_expr_tokens())
+                    // }
 
                     continue;
                 }

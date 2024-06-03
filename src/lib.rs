@@ -7,8 +7,8 @@ mod handlers;
 mod repl;
 mod server;
 
-use clap::Parser;
 // use handlers::crash_handler;
+use argh::FromArgs;
 use handlers::dump_stack;
 use handlers::pause_process;
 use handlers::pprof_handler;
@@ -38,13 +38,18 @@ where
 fn sigusr1_handler() {
     let args = {
         if let Ok(argstr) = env::var("PROBE_ARGS") {
-            let split_args = argstr.split(" ");
-            ProbeFlags::parse_from(split_args)
+            eprintln!("parse args: {}", argstr);
+            let split_args: Vec<&str> = argstr.trim().split(" ").collect();
+            ProbeFlags::from_args(&["cmd"], split_args.as_slice())
+                .map_err(|err| {
+                    eprintln!("unable to parse args: {}\n{}", argstr, err.output);
+                })
+                .unwrap_or(ProbeFlags::default())
         } else {
             ProbeFlags::default()
         }
     };
-    eprintln!("in signal USR1: {:?}", args);
+    eprintln!("handling signal USR1 with args: {:?}", args);
     if args.pause {
         pause_process(args.address)
     } else if args.crash {
@@ -70,8 +75,6 @@ fn sigusr1_handler() {
 #[no_mangle]
 #[ctor]
 fn init() {
-    use clap::Parser;
-
     if let Ok(_path) = fs::read_link("/proc/self/exe") {
         let path_str = _path.to_string_lossy();
         if path_str.ends_with("/probe")
@@ -90,13 +93,18 @@ fn init() {
     }
     let args = {
         if let Ok(argstr) = env::var("PROBE_ARGS") {
-            let split_args = argstr.split(" ");
-            ProbeFlags::parse_from(split_args)
+            eprintln!("parse args: {}", argstr);
+            let split_args: Vec<&str> = argstr.trim().split(" ").collect();
+            ProbeFlags::from_args(&["cmd"], split_args.as_slice())
+                .map_err(|err| {
+                    eprintln!("unable to parse args: {}\n{}", argstr, err.output);
+                })
+                .unwrap_or(ProbeFlags::default())
         } else {
             ProbeFlags::default()
         }
     };
-    // eprintln!("parsed args: {:?}", args);
+    eprintln!("enable libprobe with args: {:?}", args);
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
     register_signal_handler(SIGUSR2, dump_stack);
