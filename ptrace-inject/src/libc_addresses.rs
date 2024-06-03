@@ -20,6 +20,21 @@ impl LibcAddrs {
         let addr_of = unsafe {
             let lib = Library::new("libc.so.6")
                 .wrap_err("loading local libc to get function addresses failed")?;
+
+            move |name: &str| {
+                Ok::<_, Report>(
+                    lib.get::<u64>(name.as_bytes())
+                        .wrap_err(format!(
+                            "getting address of symbol {name:?} from libc failed"
+                        ))?
+                        .into_raw() as u64,
+                )
+            }
+        };
+        let addr_of_dl = unsafe {
+            let lib = Library::new("libdl.so.2")
+                .wrap_err("loading local libc to get function addresses failed")?;
+
             move |name: &str| {
                 Ok::<_, Report>(
                     lib.get::<u64>(name.as_bytes())
@@ -32,12 +47,12 @@ impl LibcAddrs {
         };
         let addrs = Self {
             malloc: addr_of("malloc")?,
-            dlopen: addr_of("dlopen")?,
             free: addr_of("free")?,
             putenv: addr_of("putenv")?,
             setenv: addr_of("setenv")?,
             getenv: addr_of("getenv")?,
             printf: addr_of("printf")?,
+            dlopen: addr_of_dl("dlopen")?,
         };
         log::debug!("Got libc addresses for current process: {addrs:x?}");
         Ok(addrs)
@@ -46,12 +61,23 @@ impl LibcAddrs {
     /// Given the offset of libc in the process that this struct has addresses
     /// for, and the offset of libc in another process, return the addresses of
     /// the same functions in the other process.
-    const fn change_base(&self, old_base: u64, new_base: u64) -> Self {
+    const fn change_base(
+        &self,
+        old_base: u64,
+        new_base: u64,
+        old_dl: Option<u64>,
+        new_dl: Option<u64>,
+    ) -> Self {
         // We cannot calculate an offset as `new_base - old_base` because it
         // might be less than 0.
+        let dlopen = if let (Some(old), Some(new)) = (old_dl, new_dl) {
+            self.dlopen - old + new
+        } else {
+            self.dlopen - old_base + new_base
+        };
         Self {
             malloc: self.malloc - old_base + new_base,
-            dlopen: self.dlopen - old_base + new_base,
+            dlopen: dlopen,
             free: self.free - old_base + new_base,
             putenv: self.putenv - old_base + new_base,
             setenv: self.setenv - old_base + new_base,
@@ -69,11 +95,17 @@ impl LibcAddrs {
         let their_libc = process
             .libc_address()
             .wrap_err("getting the target libc offset failed")?;
+
+        let our_libdl = Process::current()
+            .wrap_err("getting current process to find the local libc offset failed")?
+            .libdl_address()
+            .ok();
+        let their_libdl = process.libdl_address().ok();
         log::debug!(
             "Calculating libc address given our offset {:x} and their offset {:x}",
             our_libc,
             their_libc
         );
-        Ok(Self::for_current_process()?.change_base(our_libc, their_libc))
+        Ok(Self::for_current_process()?.change_base(our_libc, their_libc, our_libdl, their_libdl))
     }
 }

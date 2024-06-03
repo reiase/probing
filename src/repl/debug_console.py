@@ -68,6 +68,7 @@ class ParamsCommand(DebugCommand):
 
     def __call__(self) -> Any:
         import json
+
         try:
             from hyperparameter import param_scope
 
@@ -75,6 +76,70 @@ class ParamsCommand(DebugCommand):
             return json.dumps(params)
         except:
             return ""
+
+
+@register_debug_command("objects")
+class ObjectsCommand(DebugCommand):
+    def help(self):
+        return "list of objects"
+
+    def _get_obj_type(self, obj):
+        try:
+            m = type(obj).__module__
+            n = type(obj).__name__
+            return f"{m}.{n}"
+        except:
+            return str(type(obj))
+
+    def _get_obj_repr(self, obj):
+        typ = self._get_obj_type(obj)
+        ret = {
+            "id": id(obj),
+            "type": self._get_obj_type(obj),
+        }
+        if typ == "torch.Tensor":
+            ret["shape"] = obj.shape
+            ret["dtype"] = str(obj.dtype)
+            ret["device"] = str(obj.device)
+        return ret
+
+    def _filter_obj_type(self, obj, type_selector=None, no_builtin=True):
+        typ = self._get_obj_type(obj)
+        if no_builtin and (
+            typ.startswith("builtins.")
+            or typ.startswith("codeop")
+            or typ.startswith("_io.")
+            or typ.startswith("typing.")
+            or typ.startswith("_asyncio.")
+            or typ.startswith("asyncio.")
+            or typ.startswith("six.")
+            or typ.startswith("prompt_toolkit.")
+            or typ.startswith("_collections.")
+            or typ.startswith("_ast.")
+            or typ.startswith("ast.")
+        ):
+            return False
+        if type_selector is not None:
+            return typ == type_selector
+        return True
+
+    def __call__(self, type_selector: str = None, limit=None) -> Any:
+        import gc
+        import json
+
+        class _obj_list_:
+            def __init__(self, objs):
+                self._objs = objs
+
+            def __repr__(self):
+                return json.dumps(self._objs, indent=2)
+
+        objs = gc.get_objects()
+        objs = [obj for obj in objs if self._filter_obj_type(obj, type_selector)]
+        objs = objs[:limit] if limit is not None else objs
+        return _obj_list_([self._get_obj_repr(obj) for obj in objs])
+
+
 @register_debug_command("exit")
 class ExitCommand(DebugCommand):
     def help(self):

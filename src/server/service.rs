@@ -1,3 +1,5 @@
+use crate::handlers::PPROF_HOLDER;
+use crate::repl::{PythonRepl, REPL};
 use bytes::Bytes;
 use html_render::html;
 use http_body_util::Full;
@@ -6,13 +8,11 @@ use hyper::{body::Incoming as IncomingBody, Request, Response};
 use pin_project_lite::pin_project;
 use pyo3::types::PyAnyMethods;
 use pyo3::{Python, ToPyObject};
+use qstring::QString;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-
-use crate::handlers::PPROF_HOLDER;
-use crate::repl::{PythonRepl, REPL};
 
 pin_project! {
     #[derive(Debug)]
@@ -195,6 +195,7 @@ impl Service<Request<IncomingBody>> for Svc {
                     <div>
                     <body>
                     <p><a href="/flamegraph">{"flamegraph"}</a></p>
+                    <p><a href="/objects">{"objects"}</a></p>
                     </body>
                     </div>
                 }
@@ -226,10 +227,28 @@ impl Service<Request<IncomingBody>> for Svc {
                 });
                 mk_response(ret)
             }
+            "/torch" => {mk_response("not implemented".to_string())}
+            "/torch/tensors" => {mk_response("not implemented".to_string())}
+            "/torch/modules" => {mk_response("not implemented".to_string())}
             s => {
                 if s.starts_with("/objects") {
+                    let mut filters: Vec<String> = vec![];
+                    if let Some(q) = req.uri().query() {
+                        let params = QString::from(format!("?{}", q).as_str());
+                        params.get("type").map(|val| {
+                            filters.push(format!("type_selector=\"{}\"", val));
+                        });
+                        params.get("limit").map(|val| {
+                            filters.push(format!("limit={}", val));
+                        });
+                    }
+                    let query = if filters.is_empty() {
+                        "objects()\n".to_string()
+                    } else {
+                        format!("objects({})\n", filters.join(", "))
+                    };
                     let mut repl = PythonRepl::default();
-                    let ret = repl.feed("import gc;gc.get_objects()\n".to_string());
+                    let ret = repl.feed(query);
                     mk_response(ret.unwrap_or("[]".to_string()))
                 } else {
                     mk_response("oh no! not found".into())

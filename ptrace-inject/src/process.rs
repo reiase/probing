@@ -82,14 +82,37 @@ impl Process {
             .find(move |m| {
                 log::trace!("Checking mapping: {m:?}");
                 match &m.pathname {
-                    process::MMapPath::Path(path) => path.ends_with(&library),
+                    process::MMapPath::Path(path) => {
+                        path.to_string_lossy().contains("/libc.")
+                            || path.to_string_lossy().contains("/libc-")
+                    } //path.ends_with(&library),
                     _ => false,
                 }
             })
             .map(|m| m.address.0)
             .ok_or(eyre!("could not find libc in the target process"))
     }
-
+    /// Get the address of the libc library in the process.
+    pub(crate) fn libdl_address(&self) -> Result<u64> {
+        let library = std::path::PathBuf::from(LIBC_NAME);
+        log::trace!("Finding libc address in process with PID {}", self.0.pid);
+        self.0
+            .maps()
+            .wrap_err("failed to read process memory maps to find libc")?
+            .into_iter()
+            .find(move |m| {
+                log::trace!("Checking mapping: {m:?}");
+                match &m.pathname {
+                    process::MMapPath::Path(path) => {
+                        path.to_string_lossy().contains("/libdl.")
+                            || path.to_string_lossy().contains("/libdl-")
+                    } //path.ends_with(&library),
+                    _ => false,
+                }
+            })
+            .map(|m| m.address.0)
+            .ok_or(eyre!("could not find libc in the target process"))
+    }
     /// Get the TIDs of each of the threads in the process.
     pub(crate) fn thread_ids(&self) -> Result<Vec<i32>> {
         log::trace!("Getting thread IDs of process with PID {}", self.0.pid);
