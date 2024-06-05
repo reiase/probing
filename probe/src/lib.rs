@@ -9,7 +9,8 @@ fn init(addr: Option<String>, background: bool, pprof: bool) -> Result<(), std::
     if let Ok(_path) = fs::read_link("/proc/self/exe") {
         eprintln!("{}: loading libprob", _path.display());
     }
-    probe::enable_probe_server(addr, background, pprof)
+    // probe::enable_probe_server(addr, background, pprof)
+    Ok(())
 }
 
 #[pymodule]
