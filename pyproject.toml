@@ -1,27 +1,27 @@
 [build-system]
-requires = ["setuptools", "setuptools-rust"]
+requires = ["setuptools", "setuptools-rust", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "probe"
-version = "0.1.0"
+dynamic = ["version"]
 authors = [{ name = "Reiase", email = "reiase@gmail.com" }]
 description = ""
 requires-python = ">=3.7"
 readme = "README.md"
 license = { text = "Apache License Version 2.0" }
 
-[tool.setuptools]
-packages = ["probe"]
+[tool.setuptools.packages]
+find = { where = ["probe/py_src"] }
 
 [[tool.setuptools-rust.ext-modules]]
 target = "probe._probe"  
-path = "probe/Cargo.toml"      # Default value, can be omitted
+path = "probe/Cargo.toml"
 binding = "PyO3"         # Default value, can be omitted
 py-limited-api="cp37"
 
 [[tool.setuptools-rust.ext-modules]]
-target = "probe.libprobe"  
+target = "probe.libprobe"
 path = "Cargo.toml"      # Default value, can be omitted
 binding = "NoBinding"         # Default value, can be omitted
 py-limited-api="cp37"
@@ -45,3 +45,5 @@ line_length = 88
 [tool.coverage.run]
 branch = true
 source = ["probe"]
+
+[tool.setuptools_scm]
