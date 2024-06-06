@@ -188,6 +188,8 @@ impl Service<Request<IncomingBody>> for Svc {
                     <body>
                     <p><a href="/flamegraph">{"flamegraph"}</a></p>
                     <p><a href="/objects">{"objects"}</a></p>
+                    <p><a href="/torch/tensors">{"torch.Tensor"}</a></p>
+                    <p><a href="/torch/modules">{"torch.nn.Module"}</a></p>
                     </body>
                     </div>
                 }
@@ -219,32 +221,18 @@ impl Service<Request<IncomingBody>> for Svc {
                 });
                 mk_response(ret)
             }
-            "/torch" => mk_response("not implemented".to_string()),
-            "/torch/tensors" => mk_response("not implemented".to_string()),
-            "/torch/modules" => mk_response("not implemented".to_string()),
-            s => {
-                if s.starts_with("/objects") {
-                    let mut filters: Vec<String> = vec![];
-                    if let Some(q) = req.uri().query() {
-                        let params = QString::from(format!("?{}", q).as_str());
-                        params.get("type").map(|val| {
-                            filters.push(format!("type_selector=\"{}\"", val));
-                        });
-                        params.get("limit").map(|val| {
-                            filters.push(format!("limit={}", val));
-                        });
-                    }
-                    let query = if filters.is_empty() {
-                        "objects()\n".to_string()
-                    } else {
-                        format!("objects({})\n", filters.join(", "))
-                    };
-                    let mut repl = PythonRepl::default();
-                    let ret = repl.feed(query);
-                    mk_response(ret.unwrap_or("[]".to_string()))
-                } else {
-                    mk_response("oh no! not found".into())
-                }
+            path => {
+                let request = format!(
+                    "handle(path=\"{}\", query={})\n",
+                    path,
+                    req.uri()
+                        .query()
+                        .map(|qs| { format!("\"{}\"", qs) })
+                        .unwrap_or("None".to_string())
+                );
+                let mut repl = PythonRepl::default();
+                let ret = repl.process(request.as_str());
+                mk_response(ret.unwrap_or("".to_string()))
             }
         };
 
