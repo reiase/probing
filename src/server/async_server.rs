@@ -17,7 +17,9 @@ async fn is_http(stream: &mut TcpStream) -> bool {
 
     stream.peek(&mut peek_buf).await.ok().map_or(false, |ulen| {
         ulen == 4
-            && (peek_buf.starts_with("GET ".as_bytes()) || peek_buf.starts_with("POST ".as_bytes()))
+            && (peek_buf.starts_with("GET ".as_bytes())
+                || peek_buf.starts_with("POST".as_bytes())
+                || peek_buf.starts_with("OPTI".as_bytes()))
     })
 }
 

@@ -3,14 +3,14 @@ use nix::{sys::signal, unistd::Pid};
 use ptrace_inject::{Injector, Process};
 use std::{fmt::Error, fs};
 
-/// probe cli
+/// Probe CLI - A performance and stability diagnostic tool for AI applications
 #[derive(FromArgs)]
 struct Cli {
-    /// dll file to be injected into the target process, default: <location of probe cli>/libprobe.so
-    #[argh(option)]
+    /// DLL file to be injected into the target process (e.g., <location of probe cli>/libprobe.so)
+    #[argh(option, short = 'd')]
     dll: Option<std::path::PathBuf>,
 
-    /// target process
+    /// target process ID (e.g., 1234)
     #[argh(positional)]
     pid: u32,
 
@@ -31,7 +31,7 @@ enum Commands {
     Execute(ExecuteCommand),
 }
 
-/// inject into target process
+/// Inject into target process
 #[derive(FromArgs)]
 #[argh(subcommand, name = "inject")]
 struct InjectCommand {
@@ -47,17 +47,17 @@ struct InjectCommand {
     #[argh(switch, short = 'b')]
     background: bool,
 
-    /// address used for listening remote connection
+    /// address for remote connection (e.g., 127.0.0.1:8080)
     #[argh(option, short = 'a')]
     address: Option<String>,
 }
 
-/// dump the calling stack of the target process
+/// Dump the calling stack of the target process
 #[derive(FromArgs)]
 #[argh(subcommand, name = "dump")]
 struct DumpCommand {}
 
-/// pause the target process and listen for remote connection
+/// Pause the target process and listen for remote connection
 #[derive(FromArgs)]
 #[argh(subcommand, name = "pause")]
 struct PauseCommand {
@@ -66,17 +66,17 @@ struct PauseCommand {
     address: Option<String>,
 }
 
-/// start profiling
+/// Start profiling
 #[derive(FromArgs)]
 #[argh(subcommand, name = "pprof")]
 struct PprofCommand {}
 
-/// handle target process crash
+/// Handle target process crash
 #[derive(FromArgs)]
 #[argh(subcommand, name = "catch")]
 struct CatchCrashCommand {}
 
-/// start background server and listen for remote connections
+/// Start background server and listen for remote connections
 #[derive(FromArgs)]
 #[argh(subcommand, name = "listen")]
 struct ListenRemoteCommand {
@@ -85,11 +85,11 @@ struct ListenRemoteCommand {
     address: Option<String>,
 }
 
-/// execute a script in the target process
+/// Execute a script in the target process
 #[derive(FromArgs)]
 #[argh(subcommand, name = "exec")]
 struct ExecuteCommand {
-    /// script to execute
+    /// script to execute (e.g., /path/to/script.py)
     #[argh(positional)]
     script: String,
 }
@@ -177,7 +177,7 @@ pub fn main() -> Result<(), Error> {
         None
     };
     println!(
-        "inject {} into {} with `{}`",
+        "Injecting {} into process {} with arguments `{}`",
         soname.clone().unwrap().to_str().unwrap(),
         cli.pid,
         cmdstr,

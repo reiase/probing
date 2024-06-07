@@ -5,10 +5,13 @@ use html_render::html;
 use http_body_util::Full;
 use hyper::service::Service;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
+// use include_dir::include_dir;
+// use include_dir::Dir;
 use pin_project_lite::pin_project;
+use probe_common::Process;
 use pyo3::types::PyAnyMethods;
 use pyo3::{Python, ToPyObject};
-use qstring::QString;
+use rust_embed::Embed;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -161,6 +164,11 @@ where
 }
 
 type Counter = i32;
+// const DIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
+
+#[derive(Embed)]
+#[folder = "dist"]
+struct Asset;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct Svc {
@@ -173,28 +181,82 @@ impl Service<Request<IncomingBody>> for Svc {
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn call(&self, req: Request<IncomingBody>) -> Self::Future {
-        fn mk_response(s: String) -> Result<Response<Full<Bytes>>, hyper::Error> {
-            Ok(Response::builder().body(Full::new(Bytes::from(s))).unwrap())
-        }
+        let path = req.uri().path().to_string();
+        let mk_raw_response = &move |s: Bytes| -> Result<Response<Full<Bytes>>, hyper::Error> {
+            let builder = Response::builder()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Headers", "Accept");
+            let builder = if path.ends_with(".html") {
+                builder.header("Content-Type", "text/html")
+            } else if path.ends_with(".js") {
+                builder.header("Content-Type", "application/javascript")
+            } else if path.ends_with(".css") {
+                builder.header("Content-Type", "text/css")
+            } else if path.ends_with(".wasm") {
+                builder.header("Content-Type", "application/wasm")
+            } else {
+                builder
+            };
+            Ok(builder.body(Full::new(s)).unwrap())
+        };
+        let mk_response = move |s: String| -> Result<Response<Full<Bytes>>, hyper::Error> {
+            mk_raw_response(Bytes::from(s))
+        };
 
         if req.uri().path() != "/favicon.ico" {
             *self.counter.lock().expect("lock poisoned") += 1;
         }
 
-        let res = match req.uri().path() {
-            "/" => mk_response(
+        let path = req.uri().path();
+        let path = if path == "/" { "/index.html" } else { path };
+        let res = match path {
+            "/apis" => mk_response(
                 html! {
                     <div>
                     <body>
                     <p><a href="/flamegraph">{"flamegraph"}</a></p>
                     <p><a href="/objects">{"objects"}</a></p>
+                    <p><a href="/torch/tensors">{"torch.Tensor"}</a></p>
+                    <p><a href="/torch/modules">{"torch.nn.Module"}</a></p>
                     </body>
                     </div>
                 }
                 .to_string(),
             ),
-            "/flamegraph" => {
-                mk_response(PPROF_HOLDER.flamegraph().unwrap_or("default".to_string()))
+            "/apis/overview" => {
+                let current = procfs::process::Process::myself().unwrap();
+                let process_info = Process {
+                    pid: current.pid(),
+                    exe: current
+                        .exe()
+                        .map(|exe| exe.to_string_lossy().to_string())
+                        .unwrap_or("nil".to_string()),
+                    env: current
+                        .environ()
+                        .map(|m| {
+                            let envs: Vec<String> = m
+                                .iter()
+                                .map(|(k, v)| {
+                                    format!("{}={}", k.to_string_lossy(), v.to_string_lossy())
+                                })
+                                .collect();
+                            envs.join("\n")
+                        })
+                        .unwrap_or("".to_string()),
+                    cmd: current
+                        .cmdline()
+                        .map(|cmds| cmds.join(" "))
+                        .unwrap_or("".to_string()),
+                    cwd: current
+                        .cwd()
+                        .map(|cwd| cwd.to_string_lossy().to_string())
+                        .unwrap_or("".to_string()),
+                    ..Default::default()
+                };
+                mk_response(
+                    serde_json::to_string_pretty(&process_info)
+                        .unwrap_or("{\"error\": \"error encoding process info.\"}".to_string()),
+                )
             }
             "/backtrace" => {
                 let ret = Python::with_gil(|py| {
@@ -219,32 +281,38 @@ impl Service<Request<IncomingBody>> for Svc {
                 });
                 mk_response(ret)
             }
-            "/torch" => mk_response("not implemented".to_string()),
-            "/torch/tensors" => mk_response("not implemented".to_string()),
-            "/torch/modules" => mk_response("not implemented".to_string()),
-            s => {
-                if s.starts_with("/objects") {
-                    let mut filters: Vec<String> = vec![];
-                    if let Some(q) = req.uri().query() {
-                        let params = QString::from(format!("?{}", q).as_str());
-                        params.get("type").map(|val| {
-                            filters.push(format!("type_selector=\"{}\"", val));
-                        });
-                        params.get("limit").map(|val| {
-                            filters.push(format!("limit={}", val));
-                        });
-                    }
-                    let query = if filters.is_empty() {
-                        "objects()\n".to_string()
-                    } else {
-                        format!("objects({})\n", filters.join(", "))
-                    };
-                    let mut repl = PythonRepl::default();
-                    let ret = repl.feed(query);
-                    mk_response(ret.unwrap_or("[]".to_string()))
-                } else {
-                    mk_response("oh no! not found".into())
-                }
+            "/flamegraph" => {
+                let report = PPROF_HOLDER
+                    .flamegraph()
+                    .unwrap_or("no profile data".to_string());
+                mk_response(report)
+            }
+            "/flamegraph.svg" => {
+                let report = PPROF_HOLDER
+                    .flamegraph()
+                    .unwrap_or("no profile data".to_string());
+                mk_response(report)
+            }
+            path if Asset::get(path.trim_start_matches('/')).is_some() => {
+                // let file = DIST.get_file(path.trim_start_matches('/')).unwrap();
+                // let content = Bytes::copy_from_slice(file.contents());
+                // mk_raw_response(content)
+                let content = Asset::get(path.trim_start_matches('/')).unwrap();
+                let content = Bytes::copy_from_slice(content.data.as_ref());
+                mk_raw_response(content)
+            }
+            path => {
+                let request = format!(
+                    "handle(path=\"{}\", query={})\n",
+                    path,
+                    req.uri()
+                        .query()
+                        .map(|qs| { format!("\"{}\"", qs) })
+                        .unwrap_or("None".to_string())
+                );
+                let mut repl = PythonRepl::default();
+                let ret = repl.process(request.as_str());
+                mk_response(ret.unwrap_or("".to_string()))
             }
         };
 

@@ -29,6 +29,16 @@ class DebugCommand:
         return ""
 
 
+class _obj_:
+    def __init__(self, obj):
+        self._obj = obj
+
+    def __repr__(self):
+        import json
+
+        return json.dumps(self._obj, indent=2)
+
+
 @register_debug_command("help")
 class HelpCommand(DebugCommand):
     def help(self):
@@ -61,47 +71,12 @@ class BackTrace(DebugCommand):
         return f"{py}"
 
 
-@register_debug_command("params")
-class ParamsCommand(DebugCommand):
-    def help(self):
-        return "list of parameters"
+@register_debug_command("handle")
+class HandleCommand(DebugCommand):
+    def parse_query(self, query: str) -> Any:
+        import urllib
 
-    def __call__(self) -> Any:
-        import json
-
-        try:
-            from hyperparameter import param_scope
-
-            params = param_scope().storage().storage()
-            return json.dumps(params)
-        except:
-            return ""
-
-
-@register_debug_command("objects")
-class ObjectsCommand(DebugCommand):
-    def help(self):
-        return "list of objects"
-
-    def _get_obj_type(self, obj):
-        try:
-            m = type(obj).__module__
-            n = type(obj).__name__
-            return f"{m}.{n}"
-        except:
-            return str(type(obj))
-
-    def _get_obj_repr(self, obj):
-        typ = self._get_obj_type(obj)
-        ret = {
-            "id": id(obj),
-            "type": self._get_obj_type(obj),
-        }
-        if typ == "torch.Tensor":
-            ret["shape"] = obj.shape
-            ret["dtype"] = str(obj.dtype)
-            ret["device"] = str(obj.device)
-        return ret
+        return urllib.parse.parse_qs(query)
 
     def _filter_obj_type(self, obj, type_selector=None, no_builtin=True):
         typ = self._get_obj_type(obj)
@@ -123,7 +98,29 @@ class ObjectsCommand(DebugCommand):
             return typ == type_selector
         return True
 
-    def __call__(self, type_selector: str = None, limit=None) -> Any:
+    def _get_obj_type(self, obj):
+        try:
+            m = type(obj).__module__
+            n = type(obj).__name__
+            return f"{m}.{n}"
+        except:
+            return str(type(obj))
+
+    def _get_obj_repr(self, obj, value=False):
+        typ = self._get_obj_type(obj)
+        ret = {
+            "id": id(obj),
+            "type": self._get_obj_type(obj),
+        }
+        if typ == "torch.Tensor":
+            ret["shape"] = obj.shape
+            ret["dtype"] = str(obj.dtype)
+            ret["device"] = str(obj.device)
+        if value:
+            ret["value"] = obj
+        return ret
+
+    def get_objects(self, type_selector: str = None, limit=None) -> Any:
         import gc
         import json
 
@@ -137,13 +134,57 @@ class ObjectsCommand(DebugCommand):
         objs = gc.get_objects()
         objs = [obj for obj in objs if self._filter_obj_type(obj, type_selector)]
         objs = objs[:limit] if limit is not None else objs
-        return _obj_list_([self._get_obj_repr(obj) for obj in objs])
+        return _obj_([self._get_obj_repr(obj) for obj in objs])
 
+    def get_torch_tensors(self, limit=None) -> Any:
+        import gc
 
-@register_debug_command("exit")
-class ExitCommand(DebugCommand):
-    def help(self):
-        return "exit debug server"
+        objs = gc.get_objects()
+        objs = [obj for obj in objs if self._filter_obj_type(obj, "torch.Tensor")]
+        objs = objs[: int(limit)] if limit is not None else objs
+        return _obj_([self._get_obj_repr(obj) for obj in objs])
+
+    def get_torch_modules(self, limit=None, toplevel=None) -> Any:
+        limit = int(limit) if limit is not None else None
+        toplevel = toplevel in ["true", "True", "T"] if toplevel is not None else False
+        import gc
+        import torch
+
+        objs = gc.get_objects()
+        objs = [obj for obj in objs if isinstance(obj, torch.nn.Module)]
+
+        children = set()
+
+        def walk(obj):
+            if hasattr(obj, "children"):
+                for child in obj.children():
+                    children.add(id(child))
+                    walk(child)
+
+        for obj in objs:
+            walk(obj)
+        if toplevel:
+            objs = [obj for obj in objs if id(obj) not in children]
+
+        objs = objs[: int(limit)] if limit is not None else objs
+        return [self._get_obj_repr(obj, value=True) for obj in objs]
+
+    def __call__(self, path=None, query=None) -> Any:
+        params = self.parse_query(query) if query is not None else {}
+        if path == "/objects":
+            return self.get_objects(
+                type_selector=params.get("type", [None])[0],
+                limit=params.get("limit", [None])[0],
+            )
+        if path == "/torch/tensors":
+            return self.get_torch_tensors(
+                limit=params.get("limit", [None])[0],
+            )
+        if path == "/torch/modules":
+            return self.get_torch_modules(
+                limit=params.get("limit", [None])[0],
+            )
+        return None
 
 
 class DebugConsole(code.InteractiveConsole):

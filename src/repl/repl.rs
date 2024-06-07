@@ -1,4 +1,3 @@
-use crate::handlers::PPROF_HOLDER;
 use crate::repl::console::NativePythonConsole;
 use std::sync::{Arc, Mutex};
 
@@ -30,45 +29,23 @@ impl Default for PythonRepl {
 
 impl PythonRepl {
     pub fn process(&mut self, cmd: &str) -> Option<String> {
-        if cmd.trim() == "exit" {
-            self.live = false;
-            return None;
-        }
-        if cmd.trim() == "pprof" {
-            return PPROF_HOLDER.report();
-        }
-        let ret = self.console.lock().unwrap().try_execute(cmd.to_string());
-        ret
+        self.console.lock().unwrap().try_execute(cmd.to_string())
     }
 }
 
 impl REPL for PythonRepl {
     fn feed(&mut self, s: String) -> Option<String> {
         self.buf += &s;
-        if self.buf.starts_with("GET ") {
-            let req = self.buf.clone();
-            if let Some(rsp) = self.process(req.as_str()) {
-                self.buf = "".to_string();
-                return Some(rsp);
-            } else {
-                return None;
-            }
-        }
         if !self.buf.contains('\n') {
             return None;
         }
-        let cmd = match self.buf.split_once('\n') {
+        match self.buf.rsplit_once('\n') {
             Some((cmd, rest)) => {
                 let cmd = cmd.to_string();
                 self.buf = rest.to_string();
-                Some(cmd)
+                self.process(cmd.as_str())
             }
             None => None,
-        };
-        if let Some(cmd) = cmd {
-            self.process(&cmd)
-        } else {
-            None
         }
     }
 
