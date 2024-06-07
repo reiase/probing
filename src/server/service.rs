@@ -5,11 +5,13 @@ use html_render::html;
 use http_body_util::Full;
 use hyper::service::Service;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
-use include_dir::include_dir;
-use include_dir::Dir;
+// use include_dir::include_dir;
+// use include_dir::Dir;
 use pin_project_lite::pin_project;
+use probe_common::Process;
 use pyo3::types::PyAnyMethods;
 use pyo3::{Python, ToPyObject};
+use rust_embed::Embed;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -162,7 +164,12 @@ where
 }
 
 type Counter = i32;
-const DIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
+// const DIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
+
+#[derive(Embed)]
+#[folder = "dist"]
+struct Asset;
+
 #[derive(Default, Debug, Clone)]
 pub(crate) struct Svc {
     counter: Arc<Mutex<Counter>>,
@@ -176,7 +183,9 @@ impl Service<Request<IncomingBody>> for Svc {
     fn call(&self, req: Request<IncomingBody>) -> Self::Future {
         let path = req.uri().path().to_string();
         let mk_raw_response = &move |s: Bytes| -> Result<Response<Full<Bytes>>, hyper::Error> {
-            let builder = Response::builder();
+            let builder = Response::builder()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Headers", "Accept");
             let builder = if path.ends_with(".html") {
                 builder.header("Content-Type", "text/html")
             } else if path.ends_with(".js") {
@@ -214,6 +223,41 @@ impl Service<Request<IncomingBody>> for Svc {
                 }
                 .to_string(),
             ),
+            "/apis/overview" => {
+                let current = procfs::process::Process::myself().unwrap();
+                let process_info = Process {
+                    pid: current.pid(),
+                    exe: current
+                        .exe()
+                        .map(|exe| exe.to_string_lossy().to_string())
+                        .unwrap_or("nil".to_string()),
+                    env: current
+                        .environ()
+                        .map(|m| {
+                            let envs: Vec<String> = m
+                                .iter()
+                                .map(|(k, v)| {
+                                    format!("{}={}", k.to_string_lossy(), v.to_string_lossy())
+                                })
+                                .collect();
+                            envs.join("\n")
+                        })
+                        .unwrap_or("".to_string()),
+                    cmd: current
+                        .cmdline()
+                        .map(|cmds| cmds.join(" "))
+                        .unwrap_or("".to_string()),
+                    cwd: current
+                        .cwd()
+                        .map(|cwd| cwd.to_string_lossy().to_string())
+                        .unwrap_or("".to_string()),
+                    ..Default::default()
+                };
+                mk_response(
+                    serde_json::to_string_pretty(&process_info)
+                        .unwrap_or("{\"error\": \"error encoding process info.\"}".to_string()),
+                )
+            }
             "/backtrace" => {
                 let ret = Python::with_gil(|py| {
                     let ret = py
@@ -249,9 +293,12 @@ impl Service<Request<IncomingBody>> for Svc {
                     .unwrap_or("no profile data".to_string());
                 mk_response(report)
             }
-            path if DIST.contains(path.trim_start_matches('/')) => {
-                let file = DIST.get_file(path.trim_start_matches('/')).unwrap();
-                let content = Bytes::copy_from_slice(file.contents());
+            path if Asset::get(path.trim_start_matches('/')).is_some() => {
+                // let file = DIST.get_file(path.trim_start_matches('/')).unwrap();
+                // let content = Bytes::copy_from_slice(file.contents());
+                // mk_raw_response(content)
+                let content = Asset::get(path.trim_start_matches('/')).unwrap();
+                let content = Bytes::copy_from_slice(content.data.as_ref());
                 mk_raw_response(content)
             }
             path => {

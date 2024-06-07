@@ -3,10 +3,10 @@ use leptos::*;
 
 #[component]
 pub fn Profiler() -> impl IntoView {
-    #[cfg(feature="debug")]
+    #[cfg(feature = "debug")]
     let prefix = "http://127.0.0.1:9922";
 
-    #[cfg(not(feature="debug"))]
+    #[cfg(not(feature = "debug"))]
     let prefix = "";
     view! {
         <Box style="display: flex; flex-direction: column; align-items: center; min-width: 100%">

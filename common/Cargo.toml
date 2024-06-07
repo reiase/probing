@@ -1,0 +1,9 @@
+[package]
+name = "probe-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { version = "0.6.5", features = ["csr"] }
+leptos-struct-table = "0.10.2"
+serde = { version = "1", features = ["derive"] }
