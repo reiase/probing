@@ -5,10 +5,11 @@ use html_render::html;
 use http_body_util::Full;
 use hyper::service::Service;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
+use include_dir::include_dir;
+use include_dir::Dir;
 use pin_project_lite::pin_project;
 use pyo3::types::PyAnyMethods;
 use pyo3::{Python, ToPyObject};
-use qstring::QString;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -161,7 +162,7 @@ where
 }
 
 type Counter = i32;
-
+const DIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
 #[derive(Default, Debug, Clone)]
 pub(crate) struct Svc {
     counter: Arc<Mutex<Counter>>,
@@ -173,16 +174,34 @@ impl Service<Request<IncomingBody>> for Svc {
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn call(&self, req: Request<IncomingBody>) -> Self::Future {
-        fn mk_response(s: String) -> Result<Response<Full<Bytes>>, hyper::Error> {
-            Ok(Response::builder().body(Full::new(Bytes::from(s))).unwrap())
-        }
+        let path = req.uri().path().to_string();
+        let mk_raw_response = &move |s: Bytes| -> Result<Response<Full<Bytes>>, hyper::Error> {
+            let builder = Response::builder();
+            let builder = if path.ends_with(".html") {
+                builder.header("Content-Type", "text/html")
+            } else if path.ends_with(".js") {
+                builder.header("Content-Type", "application/javascript")
+            } else if path.ends_with(".css") {
+                builder.header("Content-Type", "text/css")
+            } else if path.ends_with(".wasm") {
+                builder.header("Content-Type", "application/wasm")
+            } else {
+                builder
+            };
+            Ok(builder.body(Full::new(s)).unwrap())
+        };
+        let mk_response = move |s: String| -> Result<Response<Full<Bytes>>, hyper::Error> {
+            mk_raw_response(Bytes::from(s))
+        };
 
         if req.uri().path() != "/favicon.ico" {
             *self.counter.lock().expect("lock poisoned") += 1;
         }
 
-        let res = match req.uri().path() {
-            "/" => mk_response(
+        let path = req.uri().path();
+        let path = if path == "/" { "/index.html" } else { path };
+        let res = match path {
+            "/apis" => mk_response(
                 html! {
                     <div>
                     <body>
@@ -195,9 +214,6 @@ impl Service<Request<IncomingBody>> for Svc {
                 }
                 .to_string(),
             ),
-            "/flamegraph" => {
-                mk_response(PPROF_HOLDER.flamegraph().unwrap_or("default".to_string()))
-            }
             "/backtrace" => {
                 let ret = Python::with_gil(|py| {
                     let ret = py
@@ -220,6 +236,17 @@ impl Service<Request<IncomingBody>> for Svc {
                     }
                 });
                 mk_response(ret)
+            }
+            "/flamegraph" => {
+                let report = PPROF_HOLDER
+                    .flamegraph()
+                    .unwrap_or("no profile data".to_string());
+                mk_response(report)
+            }
+            path if DIST.contains(path.trim_start_matches('/')) => {
+                let file = DIST.get_file(path.trim_start_matches('/')).unwrap();
+                let content = Bytes::copy_from_slice(file.contents());
+                mk_raw_response(content)
             }
             path => {
                 let request = format!(

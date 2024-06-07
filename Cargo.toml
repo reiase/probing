@@ -38,6 +38,7 @@ http-body-util = { version = "0.1" }
 pin-project-lite = "0.2"
 qstring = "0.7.2"
 argh = "0.1"
+include_dir = "0.7.3"
 
 [build-dependencies]
 pyo3-build-config = "0.21.2"
@@ -53,4 +54,5 @@ members = [
     "html_render",
     "probe",
     "ptrace-inject",
+    "app",
 ]

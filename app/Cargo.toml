@@ -1,0 +1,38 @@
+[package]
+name = "probe-app"
+version = "0.1.0"
+edition = "2021"
+
+[profile.dev]
+# Potential to opt-in on higher optimization for our code. This may increase incremental compilation times, but will reduce binaty size.
+opt-level = 0
+[profile.dev.package."*"]
+# High optimization for our dependencies. This should increase performance drastically whithout hitting our incremental compilation times.
+# This will lead to obscure error messages from third party libraries. Comment this out when experiencing a tricky bug.
+opt-level = 3
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+debug = 0
+strip = true
+codegen-units = 1
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+leptonic = { version = "0.5.0", features = ["csr"] }
+leptos = { version = "0.6.5", features = ["csr"] }
+leptos_meta = { version = "0.6.5", features = ["csr"] }
+leptos_router = { version = "0.6.5", features = ["csr"] }
+thiserror = "1.0.56"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-wasm = "0.2.1"
+
+[package.metadata.leptonic]
+# REQUIRED: Leptonic's build-script will copy the Leptonic themes to this directory. Relative to your project root.
+style-dir = "style"
+
+# REQUIRED: Leptonic's build-script will copy static JS dependencies to this directory. Relative to your project root.
+# Leptonic's `<Root>` component expects JS files to be available at a "js" directory at runtime (for dynamic script includes). Specify a different prop value if you choose a non-stadard location here. 
+js-dir = "public/js"
