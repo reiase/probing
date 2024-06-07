@@ -243,6 +243,12 @@ impl Service<Request<IncomingBody>> for Svc {
                     .unwrap_or("no profile data".to_string());
                 mk_response(report)
             }
+            "/flamegraph.svg" => {
+                let report = PPROF_HOLDER
+                    .flamegraph()
+                    .unwrap_or("no profile data".to_string());
+                mk_response(report)
+            }
             path if DIST.contains(path.trim_start_matches('/')) => {
                 let file = DIST.get_file(path.trim_start_matches('/')).unwrap();
                 let content = Bytes::copy_from_slice(file.contents());

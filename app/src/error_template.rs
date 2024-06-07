@@ -41,6 +41,7 @@ pub fn ErrorTemplate(
                     1 => "Error",
                     _ => "Errors",
                 }}
+
             </H1>
 
             <For
