@@ -1,12 +1,9 @@
 use crate::handlers::PPROF_HOLDER;
-use crate::repl::{PythonRepl, REPL};
+use crate::repl::PythonRepl;
 use bytes::Bytes;
-use html_render::html;
 use http_body_util::Full;
 use hyper::service::Service;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
-// use include_dir::include_dir;
-// use include_dir::Dir;
 use pin_project_lite::pin_project;
 use probe_common::Process;
 use pyo3::types::PyAnyMethods;
@@ -164,7 +161,6 @@ where
 }
 
 type Counter = i32;
-// const DIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
 
 #[derive(Embed)]
 #[folder = "dist"]
@@ -210,19 +206,19 @@ impl Service<Request<IncomingBody>> for Svc {
         let path = req.uri().path();
         let path = if path == "/" { "/index.html" } else { path };
         let res = match path {
-            "/apis" => mk_response(
-                html! {
-                    <div>
-                    <body>
-                    <p><a href="/flamegraph">{"flamegraph"}</a></p>
-                    <p><a href="/objects">{"objects"}</a></p>
-                    <p><a href="/torch/tensors">{"torch.Tensor"}</a></p>
-                    <p><a href="/torch/modules">{"torch.nn.Module"}</a></p>
-                    </body>
-                    </div>
-                }
-                .to_string(),
-            ),
+            // "/apis" => mk_response(
+            //     html! {
+            //         <div>
+            //         <body>
+            //         <p><a href="/flamegraph">{"flamegraph"}</a></p>
+            //         <p><a href="/objects">{"objects"}</a></p>
+            //         <p><a href="/torch/tensors">{"torch.Tensor"}</a></p>
+            //         <p><a href="/torch/modules">{"torch.nn.Module"}</a></p>
+            //         </body>
+            //         </div>
+            //     }
+            //     .to_string(),
+            // ),
             "/apis/overview" => {
                 let current = procfs::process::Process::myself().unwrap();
                 let process_info = Process {
@@ -294,9 +290,6 @@ impl Service<Request<IncomingBody>> for Svc {
                 mk_response(report)
             }
             path if Asset::get(path.trim_start_matches('/')).is_some() => {
-                // let file = DIST.get_file(path.trim_start_matches('/')).unwrap();
-                // let content = Bytes::copy_from_slice(file.contents());
-                // mk_raw_response(content)
                 let content = Asset::get(path.trim_start_matches('/')).unwrap();
                 let content = Bytes::copy_from_slice(content.data.as_ref());
                 mk_raw_response(content)

@@ -11,6 +11,8 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+use crate::service::ProbeService;
+
 async fn is_http(stream: &mut TcpStream) -> bool {
     let mut peek_buf = [0u8; 4];
     sleep(time::Duration::from_millis(10));
@@ -92,7 +94,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
             tokio::spawn(async move {
                 if is_http(&mut stream).await {
                     if let Err(err) = http1::Builder::new()
-                        .serve_connection(TokioIo::new(stream), Svc::default())
+                        .serve_connection(TokioIo::new(stream), ProbeService::default())
                         .with_upgrades()
                         .await
                     {

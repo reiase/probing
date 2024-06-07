@@ -6,6 +6,7 @@ mod flags;
 mod handlers;
 mod repl;
 mod server;
+mod service;
 
 // use handlers::crash_handler;
 use argh::FromArgs;
