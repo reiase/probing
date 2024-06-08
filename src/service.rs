@@ -25,8 +25,7 @@ impl ProbeService {
         }
         let resp = match path {
             "/apis/overview" => process::overview(),
-            "/flamegraph" => profiler::flamegraph(),
-            "/flamegraph.svg" => profiler::flamegraph(),
+            "/flamegraph" | "/flamegraph.svg" => profiler::flamegraph(),
             unmatched => python::handle(unmatched, query),
         };
         Full::new(Bytes::from(resp))

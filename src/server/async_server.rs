@@ -1,7 +1,4 @@
-use crate::{
-    repl::REPL,
-    server::service::{Svc, TokioIo},
-};
+use crate::{repl::REPL, server::service::TokioIo};
 use hyper::server::conn::http1;
 use local_ip_address::*;
 use nu_ansi_term::Color;
