@@ -7,6 +7,7 @@ use crate::{
     error_template::{AppError, ErrorTemplate},
     pages::overview::Overview,
     pages::profiler::Profiler,
+    pages::python::Python,
 };
 
 #[component]
@@ -33,6 +34,7 @@ pub fn App() -> impl IntoView {
                     <Routes>
                         <Route path="" view=|| view! { <Overview/> }/>
                         <Route path="profiler" view=|| view! { <Profiler/> }/>
+                        <Route path="python" view=|| view! { <Python/> }/>
                     </Routes>
                 </Router>
             </Box>
@@ -65,8 +67,8 @@ pub fn HeaderBar() -> impl IntoView {
                         let navigate = leptos_router::use_navigate();
                         navigate("/snapshot", Default::default());
                     }>
-                        <Icon icon=icondata::CgDebug/>
-                        "Snapshot"
+                        <Icon icon=icondata::BsActivity/>
+                        "Activity"
                     </Button>
                     <Button on_click=move |_| {
                         let navigate = leptos_router::use_navigate();
@@ -74,6 +76,13 @@ pub fn HeaderBar() -> impl IntoView {
                     }>
                         <Icon icon=icondata::CgPerformance/>
                         "Profiler"
+                    </Button>
+                    <Button on_click=move |_| {
+                        let navigate = leptos_router::use_navigate();
+                        navigate("/python", Default::default());
+                    }>
+                        <Icon icon=icondata::TbBrandPython/>
+                        "Python"
                     </Button>
                 </Stack>
 
