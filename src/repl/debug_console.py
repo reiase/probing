@@ -75,6 +75,7 @@ class BackTrace(DebugCommand):
 class HandleCommand(DebugCommand):
     def parse_query(self, query: str) -> Any:
         import urllib
+        import urllib.parse
 
         return urllib.parse.parse_qs(query)
 
@@ -110,17 +111,18 @@ class HandleCommand(DebugCommand):
         typ = self._get_obj_type(obj)
         ret = {
             "id": id(obj),
-            "type": self._get_obj_type(obj),
+            "class": self._get_obj_type(obj),
         }
         if typ == "torch.Tensor":
-            ret["shape"] = obj.shape
+            ret["shape"] = str(obj.shape)
             ret["dtype"] = str(obj.dtype)
             ret["device"] = str(obj.device)
         if value:
-            ret["value"] = obj
+            ret["value"] = str(obj)
         return ret
 
     def get_objects(self, type_selector: str = None, limit=None) -> Any:
+        limit = int(limit) if limit is not None else None
         import gc
         import json
 
@@ -130,7 +132,6 @@ class HandleCommand(DebugCommand):
 
             def __repr__(self):
                 return json.dumps(self._objs, indent=2)
-
         objs = gc.get_objects()
         objs = [obj for obj in objs if self._filter_obj_type(obj, type_selector)]
         objs = objs[:limit] if limit is not None else objs
@@ -167,7 +168,7 @@ class HandleCommand(DebugCommand):
             objs = [obj for obj in objs if id(obj) not in children]
 
         objs = objs[: int(limit)] if limit is not None else objs
-        return [self._get_obj_repr(obj, value=True) for obj in objs]
+        return _obj_([self._get_obj_repr(obj, value=True) for obj in objs])
 
     def __call__(self, path=None, query=None) -> Any:
         params = self.parse_query(query) if query is not None else {}
@@ -220,20 +221,37 @@ class DebugConsole(code.InteractiveConsole):
         return ret
 
     def runcode(self, code: CodeType) -> None:
-        try:
-            with redirect_stderr(io.StringIO()) as err:
-                with redirect_stdout(io.StringIO()) as out:
-                    exec(code, self.locals, DebugCommand.REGISTER)
-            ret = err.getvalue() + out.getvalue()
-            if len(ret) == 0:
-                return None
-            return ret
+        # try:
+        #     with redirect_stderr(io.StringIO()) as err:
+        #         with redirect_stdout(io.StringIO()) as out:
+        #             exec(code, self.locals, DebugCommand.REGISTER)
+        #     ret = err.getvalue() + out.getvalue()
+        #     if len(ret) == 0:
+        #         return None
+        #     return ret
 
-        except SystemExit:
-            raise
-        except:
-            self.showtraceback()
-            return self.resetoutput()
+        # except SystemExit:
+        #     raise
+        # except:
+        #     self.showtraceback()
+        #     return self.resetoutput()
+        
+        with redirect_stderr(io.StringIO()) as err:
+            with redirect_stdout(io.StringIO()) as out:
+                try:
+                    exec(code, self.locals, DebugCommand.REGISTER)
+                except SystemExit:
+                    raise
+                except:
+                    ret = err.getvalue() + out.getvalue()
+                    self.showtraceback()
+                    return ret + self.resetoutput()
+        ret = out.getvalue()
+        if len(ret) == 0:
+            return None
+        return ret
+
+
 
     def push(self, line: str) -> bool:
         if not hasattr(self, "output"):

@@ -35,3 +35,13 @@ where
         </td>
     }
 }
+
+#[derive(TableRow, Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[table(impl_vec_data_provider)]
+pub struct Object {
+    pub id: u64,
+    pub class: String,
+    pub shape: Option<String>,
+    pub dtype: Option<String>,
+    pub device: Option<String>,
+}
