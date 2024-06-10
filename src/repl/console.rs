@@ -5,7 +5,7 @@ use pyo3::{
 use std::env;
 use std::fs;
 
-use crate::repl::repl::PythonConsole;
+use crate::repl::python_repl::PythonConsole;
 
 pub const CODE: &str = include_str!("debug_console.py");
 
@@ -15,7 +15,7 @@ fn get_repl_code() -> String {
             return content;
         }
     }
-    return CODE.to_string();
+    CODE.to_string()
 }
 
 pub struct NativePythonConsole {

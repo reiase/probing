@@ -198,8 +198,8 @@ impl Injector {
             .wrap_err("failed to prepare env string")?;
         log::info!(
             "Successfully put env string `{}`=`{}` into process with PID {}",
-            if let Some(s) = name { s } else { "" },
-            if let Some(s) = value { s } else { "" },
+            name.map_or("", |s| s),
+            value.map_or("", |s| s),
             self.proc
         );
         injection.remove().unwrap();

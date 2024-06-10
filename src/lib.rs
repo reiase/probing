@@ -44,7 +44,7 @@ fn sigusr1_handler() {
     let args = {
         if let Ok(argstr) = env::var("PROBE_ARGS") {
             eprintln!("parse args: {}", argstr);
-            let split_args: Vec<&str> = argstr.trim().split(" ").collect();
+            let split_args: Vec<&str> = argstr.trim().split(' ').collect();
             ProbeFlags::from_args(&["cmd"], split_args.as_slice())
                 .map_err(|err| {
                     eprintln!("unable to parse args: {}\n{}", argstr, err.output);
@@ -107,7 +107,7 @@ fn init() {
     let args = {
         if let Ok(argstr) = env::var("PROBE_ARGS") {
             eprintln!("parse args: {}", argstr);
-            let split_args: Vec<&str> = argstr.trim().split(" ").collect();
+            let split_args: Vec<&str> = argstr.trim().split(' ').collect();
             ProbeFlags::from_args(&["cmd"], split_args.as_slice())
                 .map_err(|err| {
                     eprintln!("unable to parse args: {}\n{}", argstr, err.output);
@@ -122,7 +122,6 @@ fn init() {
     register_signal_handler(SIGUSR1, sigusr1_handler);
     register_signal_handler(SIGUSR2, dump_stack2);
     register_signal_handler(SIGPROF, pprof_handler);
-    let addr = args.address.clone();
     if args.background {
         thread::spawn(|| {
             tokio::runtime::Builder::new_multi_thread()

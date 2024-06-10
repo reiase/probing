@@ -1,6 +1,9 @@
 use std::{env, sync::Mutex};
 
-use nix::{sys::signal, unistd::{sleep, Pid}};
+use nix::{
+    sys::signal,
+    unistd::{sleep, Pid},
+};
 use probe_common::Process;
 use procfs::process;
 
@@ -30,7 +33,6 @@ pub fn overview() -> String {
             .cwd()
             .map(|cwd| cwd.to_string_lossy().to_string())
             .unwrap_or("".to_string()),
-        ..Default::default()
     };
     serde_json::to_string_pretty(&process_info)
         .unwrap_or("{\"error\": \"error encoding process info.\"}".to_string())
@@ -47,7 +49,7 @@ pub fn callstack() -> String {
         .unwrap();
     env::set_var("PROBE_ARGS", " -d");
     let pid = process::Process::myself().unwrap().pid();
-    signal::kill(Pid::from_raw(pid),signal::SIGUSR1).unwrap();
+    signal::kill(Pid::from_raw(pid), signal::SIGUSR1).unwrap();
     sleep(1);
     CALLSTACK
         .lock()

@@ -1,10 +1,7 @@
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_struct_table::*;
 
 use gloo_net::http::Request;
-use probe_common::Object;
-use serde_json;
 
 mod module;
 mod object;
@@ -27,7 +24,7 @@ pub fn Python() -> impl IntoView {
             let path = if limits > 0 {
                 format!("{path}?limit={limits}")
             } else {
-                format!("{path}")
+                path.to_string()
             };
             let resp = Request::get(path.as_str())
                 .send()

@@ -1,4 +1,3 @@
-use backtrace;
 use nu_ansi_term::Color;
 use pyo3::{types::PyAnyMethods, Python, ToPyObject};
 
@@ -53,7 +52,12 @@ pub fn dump_stack2() {
                 if !resolved {
                     resolved = true;
                 } else {
-                    ret.push_str(format!("{}", vec![" "; 7 + 2 + 3 + HEX_WIDTH].join("")).as_str());
+                    ret.push_str(
+                        vec![" "; 7 + 2 + 3 + HEX_WIDTH]
+                            .join("")
+                            .to_string()
+                            .as_str(),
+                    );
                 }
 
                 if let Some(name) = symbol.name() {

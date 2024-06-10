@@ -103,7 +103,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
                         Color::Yellow.italic().paint("debug server connection from"),
                         Color::Green.italic().underline().paint(addr.to_string())
                     );
-                    let mut repl = Box::new(T::default());
+                    let mut repl = Box::<T>::default();
                     let mut buf = [0; 1024];
                     let _ = stream.write(prompt.as_bytes()).await;
                     loop {

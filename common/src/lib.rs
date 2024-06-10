@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use leptos::*;
 use leptos_struct_table::*;
 use serde::{Deserialize, Serialize};
@@ -44,4 +46,11 @@ pub struct Object {
     pub shape: Option<String>,
     pub dtype: Option<String>,
     pub device: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
+pub struct CallStack {
+    pub file: String,
+    pub func: String,
+    pub locals: HashMap<String, String>,
 }

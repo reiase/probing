@@ -43,9 +43,9 @@ mod tests {
     #[test]
     fn test_argh_parse() {
         let argstr = "-P -b -a 127.0.0.1:8080 -e test";
-        let split_args: Vec<&str> = argstr.split(" ").collect();
+        let split_args: Vec<&str> = argstr.split(' ').collect();
         let args = ProbeFlags::from_args(&["cmd"], split_args.as_slice()).unwrap();
-        assert_eq!(args.pprof, true);
-        assert_eq!(args.background, true);
+        assert!(args.pprof);
+        assert!(args.background);
     }
 }

@@ -24,7 +24,6 @@ fn PreCellRenderer<F>(
 where
     F: Fn(String) + 'static,
 {
-    // let value = value.get().unwrap_or("".to_string());
     view! {
         <td class=class>
             <pre style="white-space: pre-wrap; word-break: break-word;">{value}</pre>

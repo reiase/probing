@@ -8,16 +8,10 @@ use probe_common::{KeyValuePair, Process};
 
 #[component]
 pub fn Overview() -> impl IntoView {
-    #[cfg(feature = "debug")]
-    let prefix = "http://127.0.0.1:9922";
-
-    #[cfg(not(feature = "debug"))]
-    let prefix = "";
-
     let resp = create_resource(
-        move || prefix,
-        move |prefix| async move {
-            let resp = Request::get(format!("{}/apis/overview", prefix).as_str())
+        move || {},
+        move |_| async move {
+            let resp = Request::get("/apis/overview")
                 .send()
                 .await
                 .map_err(|err| {
@@ -72,7 +66,7 @@ pub fn Overview() -> impl IntoView {
                 let rows: Vec<KeyValuePair> = proc
                     .env
                     .split_terminator('\n')
-                    .map(|kv| {
+                    .filter_map(|kv| {
                         if let Some((name, value)) = kv.split_once('=') {
                             Some(KeyValuePair {
                                 name: name.to_string(),
@@ -82,8 +76,6 @@ pub fn Overview() -> impl IntoView {
                             None
                         }
                     })
-                    .filter(|x| x.is_some())
-                    .map(|x| x.unwrap())
                     .collect();
 
                 view! {
@@ -98,7 +90,7 @@ pub fn Overview() -> impl IntoView {
                 </Table>
             })
     };
-    return view! {
+    view! {
         <Collapsibles default_on_open=OnOpen::CloseOthers>
             <Stack spacing=Size::Em(0.6)>
                 <Collapsible>
@@ -115,5 +107,5 @@ pub fn Overview() -> impl IntoView {
                 </Collapsible>
             </Stack>
         </Collapsibles>
-    };
+    }
 }
