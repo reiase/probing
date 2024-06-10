@@ -1,0 +1,14 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "probe"
+path = "src/main.rs"
+
+[dependencies]
+argh = "0.1"
+nix = { version = "0.29.0", default-features = false, features = ["signal"] }
+ptrace-inject = { path = "../ptrace-inject" }
+anyhow = "1.0.86"
