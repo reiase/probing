@@ -84,7 +84,6 @@ fn sigusr1_handler() {
     }
 }
 
-#[cfg(feature = "dll_init")]
 #[no_mangle]
 #[ctor]
 fn init() {

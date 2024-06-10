@@ -1,5 +1,5 @@
-use argh::FromArgs;
 use anyhow::Result;
+use argh::FromArgs;
 
 use super::usr1_handler;
 

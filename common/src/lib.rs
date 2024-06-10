@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
+#[cfg(feature = "leptos")]
 use leptos::*;
+
+#[cfg(feature = "leptos")]
 use leptos_struct_table::*;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
@@ -13,14 +17,16 @@ pub struct Process {
     pub cwd: String,
 }
 
-#[derive(TableRow, Clone)]
-#[table(impl_vec_data_provider)]
+#[derive(Clone)]
+#[cfg_attr(feature = "leptos", derive(TableRow))]
+#[cfg_attr(feature = "leptos", table(impl_vec_data_provider))]
 pub struct KeyValuePair {
     pub name: String,
-    #[table(renderer = "PreCellRenderer")]
+    #[cfg_attr(feature = "leptos", table(renderer = "PreCellRenderer"))]
     pub value: String,
 }
 
+#[cfg(feature = "leptos")]
 #[component]
 fn PreCellRenderer<F>(
     class: String,
@@ -38,8 +44,9 @@ where
     }
 }
 
-#[derive(TableRow, Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
-#[table(impl_vec_data_provider)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "leptos", derive(TableRow))]
+#[cfg_attr(feature = "leptos", table(impl_vec_data_provider))]
 pub struct Object {
     pub id: u64,
     pub class: String,

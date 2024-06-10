@@ -1,5 +1,5 @@
-use argh::FromArgs;
 use anyhow::Result;
+use argh::FromArgs;
 
 /// Handle target process crash
 #[derive(FromArgs)]
@@ -7,7 +7,7 @@ use anyhow::Result;
 pub struct CatchCrashCommand {}
 
 impl CatchCrashCommand {
-    pub fn run(&self, pid: i32) -> Result<()> {
+    pub fn run(&self, _pid: i32) -> Result<()> {
         todo!()
     }
 }
