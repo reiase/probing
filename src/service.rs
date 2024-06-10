@@ -11,6 +11,8 @@ mod process;
 mod profiler;
 mod python;
 
+pub use process::CALLSTACK;
+
 #[derive(Default, Clone, Debug)]
 pub struct ProbeService {}
 
@@ -25,7 +27,8 @@ impl ProbeService {
         }
         let resp = match path {
             "/apis/overview" => process::overview(),
-            "/flamegraph" | "/flamegraph.svg" => profiler::flamegraph(),
+            "/apis/callstack" => process::callstack(),
+            "/apis/flamegraph" | "/flamegraph.svg" => profiler::flamegraph(),
             unmatched => python::handle(unmatched, query),
         };
         Full::new(Bytes::from(resp))

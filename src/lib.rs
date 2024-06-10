@@ -9,14 +9,18 @@ mod server;
 mod service;
 
 // use handlers::crash_handler;
-use argh::FromArgs;
+
 use handlers::dump_stack;
+use handlers::dump_stack2;
+use handlers::execute_handler;
 use handlers::pause_process;
 use handlers::pprof_handler;
 use handlers::PPROF_HOLDER;
 
+use crate::service::CALLSTACK;
+
 pub use crate::flags::ProbeFlags;
-use crate::handlers::execute_handler;
+use argh::FromArgs;
 use repl::PythonRepl;
 use server::start_async_server;
 use signal_hook::consts::*;
@@ -69,6 +73,14 @@ fn sigusr1_handler() {
         PPROF_HOLDER.setup(1000)
     } else if let Some(script) = args.execute {
         execute_handler(script)
+    } else if args.dump {
+        let ret = dump_stack();
+        CALLSTACK
+            .lock()
+            .map(|mut cs| {
+                cs.replace(ret);
+            })
+            .unwrap();
     }
 }
 
@@ -108,7 +120,7 @@ fn init() {
     eprintln!("enable libprobe with args: {:?}", args);
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
-    register_signal_handler(SIGUSR2, dump_stack);
+    register_signal_handler(SIGUSR2, dump_stack2);
     register_signal_handler(SIGPROF, pprof_handler);
     let addr = args.address.clone();
     if args.background {

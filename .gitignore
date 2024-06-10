@@ -18,3 +18,5 @@ probe.egg-info/
 .idea/
 app/dist/
 dist/
+.python-version
+report.json

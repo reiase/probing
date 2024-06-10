@@ -1,5 +1,6 @@
 mod dump_stack;
 pub(crate) use crate::handlers::dump_stack::dump_stack;
+pub(crate) use crate::handlers::dump_stack::dump_stack2;
 
 mod pause_process;
 pub(crate) use crate::handlers::pause_process::pause_process;

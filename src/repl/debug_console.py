@@ -71,6 +71,25 @@ class BackTrace(DebugCommand):
         return f"{py}"
 
 
+@register_debug_command("dump_stack")
+class DumpStackCommand(DebugCommand):
+    def __call__(self) -> Any:
+        stacks = []
+
+        import sys
+
+        curr = sys._getframe(2)
+        while curr is not None:
+            stack = {
+                "file": curr.f_code.co_filename,
+                "func": curr.f_code.co_name,
+                "locals": {k:repr(v) for k,v in curr.f_locals.items()},
+            }
+            stacks.append(stack)
+            curr = curr.f_back
+        return _obj_(stacks)
+
+
 @register_debug_command("handle")
 class HandleCommand(DebugCommand):
     def parse_query(self, query: str) -> Any:
@@ -132,6 +151,7 @@ class HandleCommand(DebugCommand):
 
             def __repr__(self):
                 return json.dumps(self._objs, indent=2)
+
         objs = gc.get_objects()
         objs = [obj for obj in objs if self._filter_obj_type(obj, type_selector)]
         objs = objs[:limit] if limit is not None else objs
@@ -235,7 +255,7 @@ class DebugConsole(code.InteractiveConsole):
         # except:
         #     self.showtraceback()
         #     return self.resetoutput()
-        
+
         with redirect_stderr(io.StringIO()) as err:
             with redirect_stdout(io.StringIO()) as out:
                 try:
@@ -250,8 +270,6 @@ class DebugConsole(code.InteractiveConsole):
         if len(ret) == 0:
             return None
         return ret
-
-
 
     def push(self, line: str) -> bool:
         if not hasattr(self, "output"):
