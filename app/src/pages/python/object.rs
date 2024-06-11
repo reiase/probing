@@ -1,9 +1,12 @@
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_struct_table::*;
+use probe_common::Object;
 use serde::{Deserialize, Serialize};
 
 use serde_json;
+
+use crate::pages::common::ObjectView;
 
 #[derive(TableRow, Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
 #[table(impl_vec_data_provider)]
@@ -14,16 +17,38 @@ pub struct PyObj {
 
 #[component]
 pub fn ObjectList(text: Option<String>) -> impl IntoView {
-    text.map(|text| serde_json::from_str::<Vec<PyObj>>(text.as_str()))
-        .map(|objs| match objs {
-            Ok(rows) => view! {
-                <Box style="width: 100%">
-                    <Table bordered=true hoverable=true>
-                        <TableContent rows=rows/>
-                    </Table>
-                </Box>
-            },
-            Err(err) => view! { <Box style="width: 100%">{err.to_string()}</Box> },
+    let header = view! {
+        <TableRow>
+            <TableHeaderCell min_width=true>"#"</TableHeaderCell>
+            <TableHeaderCell>"Class"</TableHeaderCell>
+            <TableHeaderCell>"Value"</TableHeaderCell>
+        </TableRow>
+    };
+    let body: Vec<_> = text
+        .map(|text| serde_json::from_str::<Vec<Object>>(text.as_str()).unwrap_or_default())
+        .unwrap_or_default()
+        .iter()
+        .map(|obj| {
+            let id = obj.id;
+            let class = obj.class.clone();
+            let obj = obj.clone();
+            view! {
+                <TableRow>
+                    <TableCell>{id}</TableCell>
+                    <TableCell>{class}</TableCell>
+                    <TableCell>
+                        <ObjectView obj=obj/>
+                    </TableCell>
+                </TableRow>
+            }
         })
-        .unwrap_or(view! { <Box style="width: 100%">{"no objects found!"}</Box> })
+        .collect();
+    view! {
+        <TableContainer>
+            <Table bordered=true hoverable=true>
+                <TableHeader>{header}</TableHeader>
+                <TableBody>{body}</TableBody>
+            </Table>
+        </TableContainer>
+    }
 }

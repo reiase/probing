@@ -44,7 +44,7 @@ pub fn Python() -> impl IntoView {
         let selected = selected.get();
         match selected {
             "Tensor" => {
-                view! { <tensor::TensorList text=objects.get()></tensor::TensorList> }
+                view! { <object::ObjectList text=objects.get()></object::ObjectList> }
             }
             "Module" => {
                 view! { <module::ModuList text=objects.get()></module::ModuList> }
