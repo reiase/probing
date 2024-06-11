@@ -92,13 +92,15 @@ fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl IntoV
         .map(|(name, obj)| {
             let id = obj.id;
             let name = name.clone();
-            let obj = obj.value.clone();
+            let obj = obj.clone();
             logging::log!("debug: {:?}", obj);
             view! {
                 <TableRow>
                     <TableCell>{id}</TableCell>
                     <TableCell>{name.clone()}</TableCell>
-                    <TableCell>{obj}</TableCell>
+                    <TableCell>
+                        <ObjectView obj=obj/>
+                    </TableCell>
                 </TableRow>
             }
         })
@@ -111,5 +113,55 @@ fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl IntoV
                 <TableBody>{body}</TableBody>
             </Table>
         </TableContainer>
+    }
+}
+
+#[component]
+fn ObjectView(#[prop(into)] obj: Object) -> impl IntoView {
+    let id = obj.id;
+    let class = obj.class.clone();
+    let value = obj.value.clone();
+    let shape = move || {
+        let shape = obj.shape.clone();
+        if let Some(shape) = shape {
+            view! {
+                <Box>
+                    <Chip>{shape}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    let dtype = move || {
+        let dtype = obj.dtype.clone();
+        if let Some(dtype) = dtype {
+            view! {
+                <Box>
+                    <Chip>{dtype}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    let device = move || {
+        let device = obj.device.clone();
+        if let Some(device) = device {
+            view! {
+                <Box>
+                    <Chip>{device}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    view! {
+        <span>{value}</span>
+        <Chip>{class}</Chip>
+        {shape}
+        {dtype}
+        {device}
     }
 }
