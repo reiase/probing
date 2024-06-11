@@ -1,10 +1,9 @@
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_struct_table::*;
 
 use gloo_net::http::Request;
 
-use probe_common::{KeyValuePair, Process};
+use probe_common::Process;
 
 #[component]
 pub fn Overview() -> impl IntoView {
@@ -27,39 +26,7 @@ pub fn Overview() -> impl IntoView {
             resp.unwrap_or(Default::default())
         },
     );
-    let process_info = move || {
-        resp.get()
-            .map(|proc| {
-                let rows = vec![
-                    KeyValuePair {
-                        name: "pid".to_string(),
-                        value: proc.pid.to_string(),
-                    },
-                    KeyValuePair {
-                        name: "exe".to_string(),
-                        value: proc.exe,
-                    },
-                    KeyValuePair {
-                        name: "cmd".to_string(),
-                        value: proc.cmd,
-                    },
-                    KeyValuePair {
-                        name: "cwd".to_string(),
-                        value: proc.cwd,
-                    },
-                ];
-                view! {
-                    <Table bordered=true hoverable=true>
-                        <TableContent rows/>
-                    </Table>
-                }
-            })
-            .unwrap_or(view! {
-                <Table>
-                    <TableRow>""</TableRow>
-                </Table>
-            })
-    };
+
     let thread_info = move || {
         resp.get()
             .map(|proc| {
@@ -67,20 +34,20 @@ pub fn Overview() -> impl IntoView {
                     .threads
                     .iter()
                     .map(|t| {
-                        let url = format!("/activity/{}", t);
                         let tid = *t;
-                        let is_main = *t == proc.main_thread;
-                        if is_main {
+                        let url = format!("/activity/{}", tid);
+
+                        if tid == proc.main_thread {
                             view! {
-                                <Link href=url>
-                                    <span style="margin:0.6em; background=#dd8c8c;">{tid}</span>
-                                </Link>
+                                <Chip color=ChipColor::Primary>
+                                    <a href=url>{tid}</a>
+                                </Chip>
                             }
                         } else {
                             view! {
-                                <Link href=url>
-                                    <span style="margin:0.6em; background=#8c8cdd;">{tid}</span>
-                                </Link>
+                                <Chip color=ChipColor::Secondary>
+                                    <a href=url>{tid}</a>
+                                </Chip>
                             }
                         }
                     })
@@ -93,17 +60,53 @@ pub fn Overview() -> impl IntoView {
                 </Box>
             })
     };
+
+    let process_info = move || {
+        resp.get()
+            .map(|proc| {
+                view! {
+                    <Box>
+                        <Ul>
+                            <Li slot>
+                                <b>"Process ID(pid):"</b>
+                                <span style="float:right;">{proc.pid.to_string()}</span>
+                            </Li>
+                            <Li slot>
+                                <b>"Executable Path(exe):"</b>
+                                <span style="float:right;">{proc.exe.to_string()}</span>
+                            </Li>
+                            <Li slot>
+                                <b>"Command Line(cmd):"</b>
+                                <span style="float:right;">{proc.cmd.to_string()}</span>
+                            </Li>
+                            <Li slot>
+                                <b>"Current Working Dirctory(cwd):"</b>
+                                <span style="float:right;">{proc.cwd.to_string()}</span>
+                            </Li>
+                        </Ul>
+                    </Box>
+                }
+            })
+            .unwrap_or(view! {
+                <Box>
+                    <span>"no process information"</span>
+                </Box>
+            })
+    };
+
     let environments = move || {
         resp.get()
             .map(|proc| {
-                let rows: Vec<KeyValuePair> = proc
+                let envs: Vec<_> = proc
                     .env
                     .split_terminator('\n')
                     .filter_map(|kv| {
                         if let Some((name, value)) = kv.split_once('=') {
-                            Some(KeyValuePair {
-                                name: name.to_string(),
-                                value: value.to_string(),
+                            Some(view! {
+                                <li>
+                                    <b>{name.to_string()} " :"</b>
+                                    {value.to_string()}
+                                </li>
                             })
                         } else {
                             None
@@ -112,37 +115,24 @@ pub fn Overview() -> impl IntoView {
                     .collect();
 
                 view! {
-                    <Table bordered=true hoverable=true>
-                        <TableContent rows/>
-                    </Table>
+                    <Box>
+                        <ul>{envs}</ul>
+                    </Box>
                 }
             })
             .unwrap_or(view! {
-                <Table>
-                    <TableRow>""</TableRow>
-                </Table>
+                <Box>
+                    <span>"no environment variables"</span>
+                </Box>
             })
     };
     view! {
-        <Collapsibles default_on_open=OnOpen::CloseOthers>
-            <Stack spacing=Size::Em(0.6)>
-                <Collapsible>
-                    <CollapsibleHeader slot>{"Process Infomation"}</CollapsibleHeader>
-                    <CollapsibleBody class="my-body" slot>
-                        <Stack spacing=Size::Em(0.6) style="width:100%;">
-                            <TableContainer>{process_info}</TableContainer>
-                            <Separator/>
-                            {thread_info}
-                        </Stack>
-                    </CollapsibleBody>
-                </Collapsible>
-                <Collapsible>
-                    <CollapsibleHeader slot>{"Environment Variables"}</CollapsibleHeader>
-                    <CollapsibleBody class="my-body" slot>
-                        <TableContainer>{environments}</TableContainer>
-                    </CollapsibleBody>
-                </Collapsible>
-            </Stack>
-        </Collapsibles>
+        <H3>"Process Information"</H3>
+        {process_info}
+        <H3>"Threads"</H3>
+        <span>"click to show thread call stack"</span>
+        {thread_info}
+        <H3>"Environment Variables"</H3>
+        {environments}
     }
 }
