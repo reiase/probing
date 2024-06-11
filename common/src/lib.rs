@@ -15,6 +15,8 @@ pub struct Process {
     pub env: String,
     pub cmd: String,
     pub cwd: String,
+    pub main_thread: u64,
+    pub threads: Vec<u64>,
 }
 
 #[derive(Clone)]

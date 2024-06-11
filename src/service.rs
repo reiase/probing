@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -17,7 +18,23 @@ pub use process::CALLSTACK;
 pub struct ProbeService {}
 
 impl ProbeService {
+    fn parse_qs(&self, qs: Option<&str>) -> HashMap<String, String> {
+        if let Some(qs) = qs {
+            let qs = if qs.starts_with("?") {
+                qs.to_string()
+            } else {
+                format!("?{}", qs)
+            };
+            let qs: HashMap<String, String> =
+                qstring::QString::from(qs.as_str()).into_iter().collect();
+            qs
+        } else {
+            Default::default()
+        }
+    }
+
     fn route(&self, path: &str, query: Option<&str>) -> Full<Bytes> {
+        let params = self.parse_qs(query);
         let path = match path {
             "/" => "/index.html",
             s => s,
@@ -27,7 +44,7 @@ impl ProbeService {
         }
         let resp = match path {
             "/apis/overview" => process::overview(),
-            "/apis/callstack" => process::callstack(),
+            "/apis/callstack" => process::callstack(params.get("tid").cloned()),
             "/apis/flamegraph" | "/flamegraph.svg" => profiler::flamegraph(),
             unmatched => python::handle(unmatched, query),
         };

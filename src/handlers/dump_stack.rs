@@ -1,9 +1,13 @@
+use nix::unistd::{getpid, gettid};
 use nu_ansi_term::Color;
 use pyo3::{types::PyAnyMethods, Python, ToPyObject};
 
 use crate::repl::PythonRepl;
 
 pub fn dump_stack() -> String {
+    let tid = gettid();
+    let pid = getpid();
+    eprintln!("call stack dump from tid: {} and pid: {}", tid, pid);
     let mut repl = PythonRepl::default();
     let request = "dump_stack()".to_string();
     let ret = repl.process(request.as_str()).unwrap_or("".to_string());

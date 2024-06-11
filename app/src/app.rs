@@ -33,10 +33,10 @@ pub fn App() -> impl IntoView {
                     view! { <ErrorTemplate outside_errors/> }
                 }>
                     <Routes>
-                        <Route path="" view=|| view! { <Overview/> }/>
-                        <Route path="activity" view=|| view! { <Activity/> }/>
-                        <Route path="profiler" view=|| view! { <Profiler/> }/>
-                        <Route path="python" view=|| view! { <Python/> }/>
+                        <Route path="/" view=|| view! { <Overview/> }/>
+                        <Route path="/activity/:tid" view=|| view! { <Activity/> }/>
+                        <Route path="/profiler" view=|| view! { <Profiler/> }/>
+                        <Route path="/python" view=|| view! { <Python/> }/>
                     </Routes>
                 </Router>
             </Box>

@@ -1,6 +1,7 @@
 use std::{env, sync::Mutex};
 
 use nix::{
+    libc::{pthread_kill, SIGUSR1},
     sys::signal,
     unistd::{sleep, Pid},
 };
@@ -33,6 +34,14 @@ pub fn overview() -> String {
             .cwd()
             .map(|cwd| cwd.to_string_lossy().to_string())
             .unwrap_or("".to_string()),
+        main_thread: current
+            .task_main_thread()
+            .map(|p| p.pid as u64)
+            .unwrap_or(0),
+        threads: current
+            .tasks()
+            .map(|iter| iter.map(|r| r.map(|p| p.tid as u64).unwrap_or(0)).collect())
+            .unwrap_or_default(),
     };
     serde_json::to_string_pretty(&process_info)
         .unwrap_or("{\"error\": \"error encoding process info.\"}".to_string())
@@ -40,7 +49,7 @@ pub fn overview() -> String {
 
 pub static CALLSTACK: Mutex<Option<String>> = Mutex::new(None);
 
-pub fn callstack() -> String {
+pub fn callstack(tid: Option<String>) -> String {
     CALLSTACK
         .lock()
         .map(|mut cs| {
@@ -48,7 +57,12 @@ pub fn callstack() -> String {
         })
         .unwrap();
     env::set_var("PROBE_ARGS", " -d");
-    let pid = process::Process::myself().unwrap().pid();
+    let mut pid = process::Process::myself().unwrap().pid();
+    if let Some(tid) = tid {
+        if let Ok(tid) = tid.parse::<i32>() {
+            pid = tid;
+        }
+    }
     signal::kill(Pid::from_raw(pid), signal::SIGUSR1).unwrap();
     sleep(1);
     CALLSTACK
