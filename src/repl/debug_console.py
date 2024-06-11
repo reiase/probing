@@ -37,6 +37,28 @@ class _obj_:
         import json
 
         return json.dumps(self._obj, indent=2)
+    
+def _get_obj_type(obj):
+    try:
+        m = type(obj).__module__
+        n = type(obj).__name__
+        return f"{m}.{n}"
+    except:
+        return str(type(obj))
+    
+def _get_obj_repr(obj, value=False):
+    typ = _get_obj_type(obj)
+    ret = {
+        "id": id(obj),
+        "class": _get_obj_type(obj),
+    }
+    if typ == "torch.Tensor":
+        ret["shape"] = str(obj.shape)
+        ret["dtype"] = str(obj.dtype)
+        ret["device"] = str(obj.device)
+    if value:
+        ret["value"] = str(obj)[:150]
+    return ret
 
 
 @register_debug_command("help")
@@ -83,7 +105,8 @@ class DumpStackCommand(DebugCommand):
             stack = {
                 "file": curr.f_code.co_filename,
                 "func": curr.f_code.co_name,
-                "locals": {k:repr(v) for k,v in curr.f_locals.items()},
+                "lineno": curr.f_lineno,
+                "locals": {k:_get_obj_repr(v, value=True) for k,v in curr.f_locals.items()},
             }
             stacks.append(stack)
             curr = curr.f_back

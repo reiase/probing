@@ -46,20 +46,20 @@ where
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
-#[cfg_attr(feature = "leptos", derive(TableRow))]
-#[cfg_attr(feature = "leptos", table(impl_vec_data_provider))]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
+pub struct CallStack {
+    pub file: String,
+    pub func: String,
+    pub lineno: i64,
+    pub locals: HashMap<String, Object>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Object {
     pub id: u64,
     pub class: String,
     pub shape: Option<String>,
     pub dtype: Option<String>,
     pub device: Option<String>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct CallStack {
-    pub file: String,
-    pub func: String,
-    pub locals: HashMap<String, String>,
+    pub value: Option<String>,
 }
