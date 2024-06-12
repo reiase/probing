@@ -20,7 +20,6 @@ pub fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl I
             let id = obj.id;
             let name = name.clone();
             let obj = obj.clone();
-            logging::log!("debug: {:?}", obj);
             view! {
                 <TableRow>
                     <TableCell>{id}</TableCell>

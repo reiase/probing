@@ -5,10 +5,7 @@ use leptos_router::*;
 
 use crate::{
     error_template::{AppError, ErrorTemplate},
-    pages::activity::Activity,
-    pages::overview::Overview,
-    pages::profiler::Profiler,
-    pages::python::Python,
+    pages::{activity::Activity, files::Files, overview::Overview, profiler::Profiler, python::Python},
 };
 
 #[component]
@@ -37,7 +34,8 @@ pub fn App() -> impl IntoView {
                         <Route path="/activity/:tid" view=|| view! { <Activity/> }/>
                         <Route path="/profiler" view=|| view! { <Profiler/> }/>
                         <Route path="/python" view=|| view! { <Python/> }/>
-                    </Routes>
+                        <Route path="/files" view=|| view! { <Files/> }/>
+                        </Routes>
                 </Router>
             </Box>
         </Root>
@@ -84,6 +82,13 @@ pub fn HeaderBar() -> impl IntoView {
                 }>
                     <Icon icon=icondata::TbBrandPython/>
                     "Python"
+                </Button>
+                <Button on_click=move |_| {
+                    let navigate = leptos_router::use_navigate();
+                    navigate("/files", Default::default());
+                }>
+                    <Icon icon=icondata::OcFileDirectoryLg/>
+                    "Files"
                 </Button>
             </Stack>
 

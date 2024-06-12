@@ -1,7 +1,6 @@
-use std::{env, sync::Mutex};
+use std::{env, fs, sync::Mutex};
 
 use nix::{
-    libc::{pthread_kill, SIGUSR1},
     sys::signal,
     unistd::{sleep, Pid},
 };
@@ -69,4 +68,13 @@ pub fn callstack(tid: Option<String>) -> String {
         .lock()
         .map(|cs| cs.clone().unwrap_or("no call stack".to_string()))
         .unwrap_or("no call stack".to_string())
+}
+
+pub fn files(path: Option<String>) -> String {
+    if let Some(path) = path {
+        let content = fs::read_to_string(path).unwrap_or_default();
+        content
+    } else {
+        "".to_string()
+    }
 }

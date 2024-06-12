@@ -45,6 +45,7 @@ impl ProbeService {
         let resp = match path {
             "/apis/overview" => process::overview(),
             "/apis/callstack" => process::callstack(params.get("tid").cloned()),
+            "/apis/files" => process::files(params.get("path").cloned()),
             "/apis/flamegraph" | "/flamegraph.svg" => profiler::flamegraph(),
             unmatched => python::handle(unmatched, query),
         };
