@@ -5,17 +5,25 @@ use pyo3::{
 use std::env;
 use std::fs;
 
+use rust_embed::Embed;
+
 use crate::repl::python_repl::PythonConsole;
 
-pub const CODE: &str = include_str!("debug_console.py");
+// pub const CODE: &str = include_str!("debug_console.py");
+
+#[derive(Embed)]
+#[folder = "src/repl/"]
+struct Asset;
 
 fn get_repl_code() -> String {
-    if let Ok(code_path) = env::var("PROBE_REPL_CODE") {
-        if let Ok(content) = fs::read_to_string(code_path.clone()) {
-            return content;
-        }
-    }
-    CODE.to_string()
+    let code = Asset::get("debug_console.py").unwrap();
+    String::from_utf8(code.data.to_vec()).unwrap()
+    // if let Ok(code_path) = env::var("PROBE_REPL_CODE") {
+    //     if let Ok(content) = fs::read_to_string(code_path.clone()) {
+    //         return content;
+    //     }
+    // }
+    // CODE.to_string()
 }
 
 pub struct NativePythonConsole {

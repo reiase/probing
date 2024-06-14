@@ -37,7 +37,8 @@ class _obj_:
         import json
 
         return json.dumps(self._obj, indent=2)
-    
+
+
 def _get_obj_type(obj):
     try:
         m = type(obj).__module__
@@ -45,7 +46,8 @@ def _get_obj_type(obj):
         return f"{m}.{n}"
     except:
         return str(type(obj))
-    
+
+
 def _get_obj_repr(obj, value=False):
     typ = _get_obj_type(obj)
     ret = {
@@ -60,6 +62,121 @@ def _get_obj_repr(obj, value=False):
         ret["value"] = str(obj)[:150]
     return ret
 
+
+@register_debug_command("tprofile")
+class TorchHelper(DebugCommand):
+
+    def __call__(self, steps=1):
+        TorchHelper.profile(steps)
+    
+    @staticmethod
+    def get_top_level_modules():
+        import gc
+        import torch
+
+        objs = gc.get_objects()
+        objs = [obj for obj in objs if isinstance(obj, torch.nn.Module)]
+
+        children = set()
+
+        def walk(obj):
+            if hasattr(obj, "children"):
+                for child in obj.children():
+                    children.add(id(child))
+                    walk(child)
+
+        for obj in objs:
+            walk(obj)
+        return [obj for obj in objs if id(obj) not in children]
+
+    def install_profiler(module, steps=1):
+        class _profiler:
+            def __init__(self, steps) -> None:
+                self._steps = steps
+                self._profiler = None
+                self._count = 0
+                self._hooks = []
+                self._module = None
+                self._status = None
+
+            def install(self, module):
+                self._module = module
+
+                import torch
+
+                self._profiler = torch.profiler.profile()
+                print(f"installing profiler to module {module}")
+                self._hooks.extend(
+                    [
+                        module.register_forward_pre_hook(self.start_hook),
+                        module.register_forward_hook(self.stop_hook),
+                        module.register_full_backward_pre_hook(self.start_hook),
+                        module.register_full_backward_hook(self.stop_hook),
+                    ]
+                )
+
+                return self
+
+            def start_hook(self, *args, **kwargs):
+                print("==== start profiling ====")
+                if self._count >= self._steps and self._module is not None:
+                    [h.remove() for h in self._hooks]
+                    self._hooks = []
+                    TorchHelper.summary()
+                    return
+                try:
+                    self._profiler.start()
+                except:
+                    print("==== failed to start profiler ====")
+                self._count += 1
+                self._status = True
+                self._profiler.step()
+
+            def stop_hook(self, *args, **kwargs):
+                print("==== stop profiling ====")
+                if self._status:
+                    try:
+                        self._profiler.stop()
+                    except:
+                        print("==== failed to stop profiler ====")
+                    self._count += 1
+                    self._status = False
+
+            def summary(self):
+                if self._profiler is not None:
+                    print(
+                        self._profiler.key_averages(group_by_input_shape=True).table(
+                            sort_by="cpu_time_total", row_limit=10
+                        )
+                    )
+                else:
+                    print("profiler not installed")
+
+        return _profiler(steps).install(module)
+
+    @staticmethod
+    def profile(steps=1):
+        import __main__
+
+        if not hasattr(__main__, "__probe__"):
+            __main__.__probe__ = {}
+        tms = TorchHelper.get_top_level_modules()
+        for m in tms:
+            p = TorchHelper.install_profiler(m, steps)
+            if "profiler" not in __main__.__probe__:
+                __main__.__probe__["profiler"] = {}
+                __main__.__probe__["profiler"][id(m)] = p
+
+    @staticmethod
+    def summary():
+        import __main__
+
+        if not hasattr(__main__, "__probe__"):
+            __main__.__probe__ = {}
+        if "profiler" in __main__.__probe__:
+            for k, v in __main__.__probe__["profiler"].items():
+                print(f"profile for {k}")
+                v.summary()
 
 @register_debug_command("help")
 class HelpCommand(DebugCommand):
@@ -106,7 +223,9 @@ class DumpStackCommand(DebugCommand):
                 "file": curr.f_code.co_filename,
                 "func": curr.f_code.co_name,
                 "lineno": curr.f_lineno,
-                "locals": {k:_get_obj_repr(v, value=True) for k,v in curr.f_locals.items()},
+                "locals": {
+                    k: _get_obj_repr(v, value=True) for k, v in curr.f_locals.items()
+                },
             }
             stacks.append(stack)
             curr = curr.f_back
