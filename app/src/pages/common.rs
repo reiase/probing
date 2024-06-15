@@ -5,6 +5,13 @@ use leptos::*;
 
 use probe_common::Object;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ObjectKind {
+    OBJECT,
+    TENSOR,
+    MODULE,
+}
+
 #[component]
 pub fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl IntoView {
     let header = view! {
@@ -25,7 +32,7 @@ pub fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl I
                     <TableCell>{id}</TableCell>
                     <TableCell>{name.clone()}</TableCell>
                     <TableCell>
-                        <ObjectView obj=obj/>
+                        <ObjectView obj=obj kind=ObjectKind::OBJECT/>
                     </TableCell>
                 </TableRow>
             }
@@ -43,8 +50,65 @@ pub fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl I
 }
 
 #[component]
-pub fn ObjectView(#[prop(into)] obj: Object) -> impl IntoView {
-    let id = obj.id;
+pub fn ObjectView(#[prop(into)] obj: Object, #[prop(into)] kind: ObjectKind) -> impl IntoView {
+    if kind == ObjectKind::TENSOR {
+        return view! { <TensorView obj=obj/> };
+    }
+    if kind == ObjectKind::MODULE {
+        return view! { <ModuleView obj=obj/> };
+    }
+
+    let class = obj.class.clone();
+    let value = obj.value.clone();
+    let shape = move || {
+        let shape = obj.shape.clone();
+        if let Some(shape) = shape {
+            view! {
+                <Box>
+                    <Chip>{shape}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    let dtype = move || {
+        let dtype = obj.dtype.clone();
+        if let Some(dtype) = dtype {
+            view! {
+                <Box>
+                    <Chip>{dtype}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    let device = move || {
+        let device = obj.device.clone();
+        if let Some(device) = device {
+            view! {
+                <Box>
+                    <Chip>{device}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    return view! {
+        <Box>
+            <span>{value}</span>
+            <Chip>{class}</Chip>
+            {shape}
+            {dtype}
+            {device}
+        </Box>
+    };
+}
+
+#[component]
+pub fn TensorView(#[prop(into)] obj: Object) -> impl IntoView {
     let class = obj.class.clone();
     let value = obj.value.clone();
     let shape = move || {
@@ -88,6 +152,35 @@ pub fn ObjectView(#[prop(into)] obj: Object) -> impl IntoView {
         <Chip>{class}</Chip>
         {shape}
         {dtype}
+        {device}
+    }
+}
+
+#[component]
+pub fn ModuleView(#[prop(into)] obj: Object) -> impl IntoView {
+    let id = obj.id;
+    let value = obj.value.clone();
+    let device = move || {
+        let device = obj.device.clone();
+        if let Some(device) = device {
+            view! {
+                <Box>
+                    <Chip>{device}</Chip>
+                </Box>
+            }
+        } else {
+            view! { <Box>""</Box> }
+        }
+    };
+    let route_url = format!("/profiler?module={}", id);
+    view! {
+        <pre style="white-space: pre-wrap; word-break: break-word;">{value}</pre>
+        <Button on_click=move |_| {
+            let navigate = leptos_router::use_navigate();
+            navigate(route_url.as_str(), Default::default());
+        }>
+            <Icon icon=icondata::FaFileRegular/>
+        </Button>
         {device}
     }
 }

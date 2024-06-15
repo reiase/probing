@@ -1,22 +1,17 @@
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_struct_table::*;
 use probe_common::Object;
-use serde::{Deserialize, Serialize};
 
 use serde_json;
 
+use crate::pages::common::ObjectKind;
 use crate::pages::common::ObjectView;
 
-#[derive(TableRow, Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
-#[table(impl_vec_data_provider)]
-pub struct PyObj {
-    pub id: u64,
-    pub class: String,
-}
-
 #[component]
-pub fn ObjectList(text: Option<String>) -> impl IntoView {
+pub fn ObjectList(
+    #[prop(into)] text: Option<String>,
+    #[prop(into)] kind: ObjectKind,
+) -> impl IntoView {
     let header = view! {
         <TableRow>
             <TableHeaderCell min_width=true>"#"</TableHeaderCell>
@@ -37,7 +32,7 @@ pub fn ObjectList(text: Option<String>) -> impl IntoView {
                     <TableCell>{id}</TableCell>
                     <TableCell>{class}</TableCell>
                     <TableCell>
-                        <ObjectView obj=obj/>
+                        <ObjectView obj=obj kind=kind/>
                     </TableCell>
                 </TableRow>
             }

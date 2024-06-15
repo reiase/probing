@@ -71,13 +71,17 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
     view! {
         <Collapsible>
             <CollapsibleHeader slot>
-                <Chip>{func} "@"
-                <a href={url} target="_blank">{file}</a>
-                {":"} {lineno}</Chip>
+                <Chip>
+                    {func} "@" <a href=url target="_blank">
+                        {file}
+                    </a> {":"} {lineno}
+                </Chip>
                 <Button on_click=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate(route_url.as_str(), Default::default());
-                }><Icon icon=icondata::FaFileRegular/></Button>
+                }>
+                    <Icon icon=icondata::FaFileRegular/>
+                </Button>
             </CollapsibleHeader>
             <CollapsibleBody class="my-body" slot>
                 <VariablesView variables=locals/>

@@ -65,10 +65,9 @@ def _get_obj_repr(obj, value=False):
 
 @register_debug_command("tprofile")
 class TorchHelper(DebugCommand):
-
     def __call__(self, steps=1):
         TorchHelper.profile(steps)
-    
+
     @staticmethod
     def get_top_level_modules():
         import gc
@@ -81,9 +80,15 @@ class TorchHelper(DebugCommand):
 
         def walk(obj):
             if hasattr(obj, "children"):
+                cnt = 0
                 for child in obj.children():
                     children.add(id(child))
                     walk(child)
+                    cnt += 1
+                if cnt == 0:
+                    children.add(id(obj))
+            else:
+                children.add(id(obj))
 
         for obj in objs:
             walk(obj)
@@ -97,7 +102,7 @@ class TorchHelper(DebugCommand):
                 self._count = 0
                 self._hooks = []
                 self._module = None
-                self._status = None
+                self._status = False
 
             def install(self, module):
                 self._module = module
@@ -108,49 +113,38 @@ class TorchHelper(DebugCommand):
                 print(f"installing profiler to module {module}")
                 self._hooks.extend(
                     [
-                        module.register_forward_pre_hook(self.start_hook),
-                        module.register_forward_hook(self.stop_hook),
-                        module.register_full_backward_pre_hook(self.start_hook),
-                        module.register_full_backward_hook(self.stop_hook),
+                        module.register_forward_pre_hook(self.module_hook),
                     ]
                 )
 
                 return self
 
-            def start_hook(self, *args, **kwargs):
-                print("==== start profiling ====")
-                if self._count >= self._steps and self._module is not None:
+            def module_hook(self, *args, **kwargs):
+                if self._status is False and self._count < self._steps:
+                    print("==== start profiling ====")
+                    self._profiler.start()
+                    self._status = True
+                    self._count += 1
+                    return
+                if self._status is True and self._count >= self._steps:
+                    print("==== stop profiling ====")
+                    self._profiler.step()
+                    self._profiler.stop()
+                    self._status = False
                     [h.remove() for h in self._hooks]
                     self._hooks = []
                     TorchHelper.summary()
                     return
-                try:
-                    self._profiler.start()
-                except:
-                    print("==== failed to start profiler ====")
                 self._count += 1
-                self._status = True
                 self._profiler.step()
-
-            def stop_hook(self, *args, **kwargs):
-                print("==== stop profiling ====")
-                if self._status:
-                    try:
-                        self._profiler.stop()
-                    except:
-                        print("==== failed to stop profiler ====")
-                    self._count += 1
-                    self._status = False
 
             def summary(self):
                 if self._profiler is not None:
-                    print(
-                        self._profiler.key_averages(group_by_input_shape=True).table(
-                            sort_by="cpu_time_total", row_limit=10
-                        )
+                    return self._profiler.key_averages(group_by_input_shape=True).table(
+                        sort_by="cpu_time_total", row_limit=10
                     )
                 else:
-                    print("profiler not installed")
+                    return "profiler not installed"
 
         return _profiler(steps).install(module)
 
@@ -176,7 +170,8 @@ class TorchHelper(DebugCommand):
         if "profiler" in __main__.__probe__:
             for k, v in __main__.__probe__["profiler"].items():
                 print(f"profile for {k}")
-                v.summary()
+                print(v.summary())
+
 
 @register_debug_command("help")
 class HelpCommand(DebugCommand):

@@ -3,9 +3,10 @@ use leptos::*;
 
 use gloo_net::http::Request;
 
-mod module;
+use crate::pages::common::ObjectKind;
+
+// mod module;
 mod object;
-mod tensor;
 
 #[component]
 pub fn Python() -> impl IntoView {
@@ -44,13 +45,13 @@ pub fn Python() -> impl IntoView {
         let selected = selected.get();
         match selected {
             "Tensor" => {
-                view! { <object::ObjectList text=objects.get()></object::ObjectList> }
+                view! { <object::ObjectList text=objects.get() kind=ObjectKind::TENSOR></object::ObjectList> }
             }
             "Module" => {
-                view! { <module::ModuList text=objects.get()></module::ModuList> }
+                view! { <object::ObjectList text=objects.get() kind=ObjectKind::MODULE></object::ObjectList> }
             }
             _ => {
-                view! { <object::ObjectList text=objects.get()></object::ObjectList> }
+                view! { <object::ObjectList text=objects.get() kind=ObjectKind::OBJECT></object::ObjectList> }
             }
         }
     };
