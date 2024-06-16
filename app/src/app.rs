@@ -6,7 +6,8 @@ use leptos_router::*;
 use crate::{
     error_template::{AppError, ErrorTemplate},
     pages::{
-        activity::Activity, files::Files, overview::Overview, profiler::Profiler, python::Python,
+        activity::Activity, debug::DebugView, files::Files, overview::Overview, profiler::Profiler,
+        python::Python,
     },
 };
 
@@ -35,8 +36,9 @@ pub fn App() -> impl IntoView {
                         <Route path="/" view=|| view! { <Overview/> }/>
                         <Route path="/activity" view=|| view! { <Activity/> }/>
                         <Route path="/activity/:tid" view=|| view! { <Activity/> }/>
+                        <Route path="/debug" view=|| view! { <DebugView/> }/>
                         <Route path="/profiler" view=|| view! { <Profiler/> }/>
-                        <Route path="/python" view=|| view! { <Python/> }/>
+                        <Route path="/inspect" view=|| view! { <Python/> }/>
                         <Route path="/files" view=|| view! { <Files/> }/>
                     </Routes>
                 </Router>
@@ -74,6 +76,13 @@ pub fn HeaderBar() -> impl IntoView {
                 </Button>
                 <Button on_click=move |_| {
                     let navigate = leptos_router::use_navigate();
+                    navigate("/debug", Default::default());
+                }>
+                    <Icon icon=icondata::VsDebug/>
+                    "Debug"
+                </Button>
+                <Button on_click=move |_| {
+                    let navigate = leptos_router::use_navigate();
                     navigate("/profiler", Default::default());
                 }>
                     <Icon icon=icondata::CgPerformance/>
@@ -81,18 +90,12 @@ pub fn HeaderBar() -> impl IntoView {
                 </Button>
                 <Button on_click=move |_| {
                     let navigate = leptos_router::use_navigate();
-                    navigate("/python", Default::default());
+                    navigate("/inspect", Default::default());
                 }>
                     <Icon icon=icondata::TbBrandPython/>
-                    "Python"
+                    "Inspect"
                 </Button>
-                <Button on_click=move |_| {
-                    let navigate = leptos_router::use_navigate();
-                    navigate("/files", Default::default());
-                }>
-                    <Icon icon=icondata::OcFileDirectoryLg/>
-                    "Files"
-                </Button>
+
             </Stack>
 
             <Stack

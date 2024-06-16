@@ -65,8 +65,9 @@ def _get_obj_repr(obj, value=False):
 
 @register_debug_command("tprofile")
 class TorchHelper(DebugCommand):
-    def __call__(self, steps=1):
-        TorchHelper.profile(steps)
+    def __call__(self, steps=1, mid=None):
+        print(f"Profiling for {steps} steps")
+        TorchHelper.profile(steps, mid)
 
     @staticmethod
     def get_top_level_modules():
@@ -149,17 +150,22 @@ class TorchHelper(DebugCommand):
         return _profiler(steps).install(module)
 
     @staticmethod
-    def profile(steps=1):
+    def profile(steps=1, mid=None):
         import __main__
 
         if not hasattr(__main__, "__probe__"):
             __main__.__probe__ = {}
-        tms = TorchHelper.get_top_level_modules()
+        if mid is not None:
+            import gc
+
+            tms = [m for m in gc.get_objects() if id(m) == mid]
+        else:
+            tms = TorchHelper.get_top_level_modules()
         for m in tms:
             p = TorchHelper.install_profiler(m, steps)
             if "profiler" not in __main__.__probe__:
                 __main__.__probe__["profiler"] = {}
-                __main__.__probe__["profiler"][id(m)] = p
+            __main__.__probe__["profiler"][id(m)] = p
 
     @staticmethod
     def summary():
@@ -171,6 +177,55 @@ class TorchHelper(DebugCommand):
             for k, v in __main__.__probe__["profiler"].items():
                 print(f"profile for {k}")
                 print(v.summary())
+
+
+@register_debug_command("rdebug")
+class RemoteDebug(DebugCommand):
+    def __call__(self, host="127.0.0.1", port=9999):
+        RemoteDebug.install_debugpy(host, port)
+
+    @staticmethod
+    def status():
+        import __main__
+
+        if not hasattr(__main__, "__probe__"):
+            __main__.__probe__ = {}
+        if "debug" not in __main__.__probe__:
+            __main__.__probe__["debug"] = {}
+        __main__.__probe__["debug"][
+            "debugger_installed"
+        ] = RemoteDebug.detect_debugger()
+
+        return __main__.__probe__["debug"]
+
+    @staticmethod
+    def detect_debugger():
+        try:
+            import debugpy
+
+            return True
+        except:
+            return False
+
+    @staticmethod
+    def install_debugger():
+        try:
+            from pip import main as pipmain
+        except ImportError:
+            from pip._internal import main as pipmain
+        pipmain(["install", "debugpy"])
+
+    @staticmethod
+    def enable_debugger(host="127.0.0.1", port=9999):
+        status = RemoteDebug.status()
+        try:
+            import debugpy
+
+            debugpy.listen((host, port))
+            status["debugger_address"] = f"{host}:{port}"
+            print(f"debugger is started at {host}:{port}")
+        except:
+            pass
 
 
 @register_debug_command("help")
@@ -341,6 +396,22 @@ class HandleCommand(DebugCommand):
         if path == "/torch/modules":
             return self.get_torch_modules(
                 limit=params.get("limit", [None])[0],
+            )
+        if path == "/apis/start_profile":
+            return TorchHelper()(
+                steps=int(params.get("steps", [1])[0]),
+                mid=int(params.get("mid", [None])[0]),
+            )
+        if path == "/apis/profile":
+            return TorchHelper.summary()
+        if path == "/apis/debug":
+            return _obj_(RemoteDebug.status())
+        if path == "/apis/debug/install":
+            return RemoteDebug.install_debugger()
+        if path == "/apis/debug/enable":
+            return RemoteDebug.enable_debugger(
+                host=params.get("host", ["127.0.0.1"])[0],
+                port=int(params.get("port", [9999])[0]),
             )
         return None
 

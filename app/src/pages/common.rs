@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use leptonic::prelude::*;
 use leptos::*;
 
+use gloo_net::http::Request;
 use probe_common::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -172,15 +173,41 @@ pub fn ModuleView(#[prop(into)] obj: Object) -> impl IntoView {
             view! { <Box>""</Box> }
         }
     };
-    let route_url = format!("/profiler?module={}", id);
+    let act1 = move |_| {
+        let url1 = format!("/apis/start_profile?mid={}&steps=1", id);
+        spawn_local(async move {
+            let url = url1.clone();
+            let _ = Request::get(url.as_str()).send().await;
+        });
+        let route_url = format!("/profiler?mid={}", id);
+        let navigate = leptos_router::use_navigate();
+        navigate(route_url.as_str(), Default::default());
+    };
+    let act5 = move |_| {
+        let url5 = format!("/apis/start_profile?mid={}&steps=5", id);
+        spawn_local(async move {
+            let url = url5.clone();
+            let _ = Request::get(url.as_str()).send().await;
+        });
+        let route_url = format!("/profiler?mid={}", id);
+        let navigate = leptos_router::use_navigate();
+        navigate(route_url.as_str(), Default::default());
+    };
+    let act10 = move |_| {
+        let url10 = format!("/apis/start_profile?mid={}&steps=10", id);
+        spawn_local(async move {
+            let url = url10.clone();
+            let _ = Request::get(url.as_str()).send().await;
+        });
+        let route_url = format!("/profiler?mid={}", id);
+        let navigate = leptos_router::use_navigate();
+        navigate(route_url.as_str(), Default::default());
+    };
     view! {
         <pre style="white-space: pre-wrap; word-break: break-word;">{value}</pre>
-        <Button on_click=move |_| {
-            let navigate = leptos_router::use_navigate();
-            navigate(route_url.as_str(), Default::default());
-        }>
-            <Icon icon=icondata::FaFileRegular/>
-        </Button>
+        <Button on_click=act1>"profile 1 step"</Button>
+        <Button on_click=act5>"profile 5 steps"</Button>
+        <Button on_click=act10>"profile 10 steps"</Button>
         {device}
     }
 }
