@@ -1,26 +1,20 @@
+use anyhow::Result;
 use nix::unistd::{getpid, gettid};
-use nu_ansi_term::Color;
 use pyo3::{types::PyAnyMethods, Python, ToPyObject};
 
 use crate::repl::PythonRepl;
 
-pub fn dump_stack() -> String {
+pub fn dump_stack() -> Result<String> {
     let tid = gettid();
     let pid = getpid();
-    eprintln!("call stack dump from tid: {} and pid: {}", tid, pid);
+    eprintln!("call stack dump from tid: {} in pid: {}", tid, pid);
     let mut repl = PythonRepl::default();
     let request = "dump_stack()".to_string();
-    let ret = repl.process(request.as_str()).unwrap_or("".to_string());
-    ret
+    repl.process(request.as_str())
+        .ok_or(anyhow::anyhow!("dump stack failed"))
 }
 
 pub fn dump_stack2() {
-    eprintln!(
-        "{}",
-        Color::Red
-            .bold()
-            .paint("Python Runtime is found, dump python stack:"),
-    );
     Python::with_gil(|py| {
         // let _ = py.run_bound("import traceback; traceback.print_stack()", None, None);
         let mut ret = Python::with_gil(|py| {

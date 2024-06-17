@@ -9,6 +9,7 @@ mod service;
 
 // use handlers::crash_handler;
 
+use anyhow::Ok;
 use handlers::dump_stack;
 use handlers::dump_stack2;
 use handlers::execute_handler;
@@ -19,6 +20,7 @@ use probe_common::cli::ProbeCommand;
 
 use crate::service::CALLSTACK;
 
+use anyhow::Result;
 use repl::PythonRepl;
 use server::start_async_server;
 use signal_hook::consts::*;
@@ -32,11 +34,11 @@ where
     unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
 }
 
-fn probe_command_handler(cmd: ProbeCommand) {
+fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
     match cmd {
         ProbeCommand::Nil => {}
         ProbeCommand::Dump => {
-            let ret = dump_stack();
+            let ret = dump_stack()?;
             CALLSTACK
                 .lock()
                 .map(|mut cs| {
@@ -60,8 +62,9 @@ fn probe_command_handler(cmd: ProbeCommand) {
                     .unwrap();
             });
         }
-        ProbeCommand::Execute { script } => execute_handler(script),
+        ProbeCommand::Execute { script } => execute_handler(script)?,
     };
+    Ok(())
 }
 
 fn sigusr1_handler() {
@@ -69,7 +72,7 @@ fn sigusr1_handler() {
     let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
 
     eprintln!("handling signal USR1 with args: {}", argstr);
-    probe_command_handler(cmd);
+    probe_command_handler(cmd).unwrap();
 }
 
 #[no_mangle]
@@ -83,6 +86,6 @@ fn init() {
     register_signal_handler(SIGUSR2, dump_stack2);
     register_signal_handler(SIGPROF, pprof_handler);
     for cmd in probe_commands {
-        probe_command_handler(cmd);
+        probe_command_handler(cmd).unwrap();
     }
 }
