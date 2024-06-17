@@ -77,7 +77,7 @@ impl LibcAddrs {
         };
         Self {
             malloc: self.malloc - old_base + new_base,
-            dlopen: dlopen,
+            dlopen,
             free: self.free - old_base + new_base,
             putenv: self.putenv - old_base + new_base,
             setenv: self.setenv - old_base + new_base,

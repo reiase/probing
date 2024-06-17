@@ -35,7 +35,7 @@
 //! This library was inspired by [`linux-inject`][2]. As noted by that project:
 //!
 //! > On many Linux distributions, the kernel is configured by default to
-//! > prevent any process from calling ptrace() on another process that it did
+//! > prevent any process from calling `ptrace()` on another process that it did
 //! > not create (e.g. via `fork()`). This is a security feature meant to prevent
 //! > exactly the kind of mischief that this tool causes. You can temporarily
 //! > disable it until the next reboot using the following command:
@@ -183,6 +183,10 @@ impl Injector {
     }
 
     /// Put the env string into the traced process.
+    /// 
+    /// # Panics
+    ///
+    /// This function may panic if it fails to inject shellcode into the target process.
     pub fn setenv(&mut self, name: Option<&str>, value: Option<&str>) -> Result<()> {
         let Some(tracee) = self.tracer.wait()? else {
             return Err(eyre!(

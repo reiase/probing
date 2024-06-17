@@ -23,6 +23,10 @@ impl Process {
     }
 
     /// Get a process by its PID.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the conversion from `u32` to `i32` fails.
     pub fn get(id: u32) -> Result<Self> {
         // https://unix.stackexchange.com/a/16884 - A PID should fit in 31 bits comfortably.
         let id = i32::try_from(id).expect("PID to fit in an i32");
@@ -73,7 +77,7 @@ impl Process {
 
     /// Get the address of the libc library in the process.
     pub(crate) fn libc_address(&self) -> Result<u64> {
-        let library = std::path::PathBuf::from(LIBC_NAME);
+        // let library = std::path::PathBuf::from(LIBC_NAME);
         log::trace!("Finding libc address in process with PID {}", self.0.pid);
         self.0
             .maps()
@@ -94,7 +98,7 @@ impl Process {
     }
     /// Get the address of the libc library in the process.
     pub(crate) fn libdl_address(&self) -> Result<u64> {
-        let library = std::path::PathBuf::from(LIBC_NAME);
+        // let library = std::path::PathBuf::from(LIBC_NAME);
         log::trace!("Finding libc address in process with PID {}", self.0.pid);
         self.0
             .maps()

@@ -161,7 +161,7 @@ impl<'a> Injection<'a> {
     ///
     /// Return the address of the string.
     fn write_str(&mut self, s: &str) -> Result<u64> {
-        let mut s = s.as_bytes().to_vec().clone();
+        let mut s = s.as_bytes().to_vec();
         s.push(0);
         let address = self
             .call_function(self.libc.malloc, s.len() as u64, 0)
