@@ -1,5 +1,6 @@
 use anyhow::Result;
 use argh::FromArgs;
+use probe_common::cli::ProbeCommand;
 
 use super::usr1_handler;
 
@@ -14,6 +15,9 @@ pub struct ExecuteCommand {
 
 impl ExecuteCommand {
     pub fn run(&self, pid: i32) -> Result<()> {
-        usr1_handler(format!(" -e {}", self.script), pid)
+        let probe_command = ProbeCommand::Execute {
+            script: self.script.clone(),
+        };
+        usr1_handler(ron::to_string(&probe_command).unwrap(), pid)
     }
 }

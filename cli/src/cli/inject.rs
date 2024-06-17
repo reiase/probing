@@ -2,6 +2,7 @@ use std::fs;
 
 use anyhow::Result;
 use argh::FromArgs;
+use probe_common::cli::ProbeCommand;
 use ptrace_inject::{Injector, Process};
 
 /// Inject into target process
@@ -27,21 +28,18 @@ pub struct InjectCommand {
 
 impl InjectCommand {
     pub fn run(&self, pid: i32, dll: &Option<std::path::PathBuf>) -> Result<()> {
-        let mut argstr = "".to_string();
+        let mut probe_commands = vec![];
         if self.pprof {
-            argstr.push_str(" -P");
+            probe_commands.push(ProbeCommand::Pprof);
         }
         if self.crash {
-            argstr.push_str(" -c");
+            probe_commands.push(ProbeCommand::CatchCrash);
         }
         if self.background {
-            argstr.push_str(" -b");
+            probe_commands.push(ProbeCommand::ListenRemote {
+                address: self.address.clone(),
+            });
         }
-        if let Some(addr) = &self.address {
-            argstr.push_str(" -a ");
-            argstr.push_str(addr.as_str());
-        }
-        let process = Process::get(pid as u32).unwrap();
         let soname = if let Some(path) = dll {
             Some(path.clone())
         } else if let Ok(_path) = fs::read_link("/proc/self/exe") {
@@ -54,12 +52,16 @@ impl InjectCommand {
         } else {
             None
         };
+
+        let argstr = ron::to_string(&probe_commands).unwrap();
         println!(
             "Injecting {} into process {} with arguments `{}`",
             soname.clone().unwrap().to_str().unwrap(),
             pid,
             argstr,
         );
+
+        let process = Process::get(pid as u32).unwrap();
         Injector::attach(process)
             .unwrap()
             .inject(&soname.unwrap(), Some(argstr.as_str()))

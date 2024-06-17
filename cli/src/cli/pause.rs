@@ -1,5 +1,6 @@
 use anyhow::Result;
 use argh::FromArgs;
+use probe_common::cli::ProbeCommand;
 
 use super::usr1_handler;
 
@@ -14,11 +15,9 @@ pub struct PauseCommand {
 
 impl PauseCommand {
     pub fn run(&self, pid: i32) -> Result<()> {
-        let argstr = if let Some(addr) = &self.address {
-            format!(" -p -a {addr}")
-        } else {
-            " -p".to_string()
+        let probe_command = ProbeCommand::Pause {
+            address: self.address.clone(),
         };
-        usr1_handler(argstr, pid)
+        usr1_handler(ron::to_string(&probe_command).unwrap(), pid)
     }
 }

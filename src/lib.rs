@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate ctor;
 
-mod flags;
 mod handlers;
 mod repl;
 mod server;
@@ -16,11 +15,10 @@ use handlers::execute_handler;
 use handlers::pause_process;
 use handlers::pprof_handler;
 use handlers::PPROF_HOLDER;
+use probe_common::cli::ProbeCommand;
 
 use crate::service::CALLSTACK;
 
-pub use crate::flags::ProbeFlags;
-use argh::FromArgs;
 use repl::PythonRepl;
 use server::start_async_server;
 use signal_hook::consts::*;
@@ -41,47 +39,39 @@ where
 }
 
 fn sigusr1_handler() {
-    let args = {
-        if let Ok(argstr) = env::var("PROBE_ARGS") {
-            eprintln!("parse args: {}", argstr);
-            let split_args: Vec<&str> = argstr.trim().split(' ').collect();
-            ProbeFlags::from_args(&["cmd"], split_args.as_slice())
-                .map_err(|err| {
-                    eprintln!("unable to parse args: {}\n{}", argstr, err.output);
+    let argstr = env::var("PROBE_ARGS").unwrap_or("Nil".to_string());
+    let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
+
+    eprintln!("handling signal USR1 with args: {}", argstr);
+    match cmd {
+        ProbeCommand::Nil => {}
+        ProbeCommand::Dump => {
+            let ret = dump_stack();
+            CALLSTACK
+                .lock()
+                .map(|mut cs| {
+                    cs.replace(ret);
                 })
-                .unwrap_or(ProbeFlags::default())
-        } else {
-            ProbeFlags::default()
-        }
-    };
-    eprintln!("handling signal USR1 with args: {:?}", args);
-    if args.pause {
-        pause_process(args.address)
-    } else if args.crash {
-        // let tmp = args.address.clone();
-        // register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
-    } else if args.background {
-        thread::spawn(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(start_async_server::<PythonRepl>(args.address))
                 .unwrap();
-        });
-    } else if args.pprof {
-        PPROF_HOLDER.setup(1000)
-    } else if let Some(script) = args.execute {
-        execute_handler(script)
-    } else if args.dump {
-        let ret = dump_stack();
-        CALLSTACK
-            .lock()
-            .map(|mut cs| {
-                cs.replace(ret);
-            })
-            .unwrap();
-    }
+        }
+        ProbeCommand::Pause { address } => pause_process(address),
+        ProbeCommand::Pprof => PPROF_HOLDER.setup(1000),
+        ProbeCommand::CatchCrash => {
+            //     // let tmp = args.address.clone();
+            //     // register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
+        }
+        ProbeCommand::ListenRemote { address } => {
+            thread::spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(start_async_server::<PythonRepl>(address))
+                    .unwrap();
+            });
+        }
+        ProbeCommand::Execute { script } => execute_handler(script),
+    };
 }
 
 #[no_mangle]
@@ -103,39 +93,32 @@ fn init() {
             eprintln!("{}: loading libprob ", _path.display());
         }
     }
-    let args = {
-        if let Ok(argstr) = env::var("PROBE_ARGS") {
-            eprintln!("parse args: {}", argstr);
-            let split_args: Vec<&str> = argstr.trim().split(' ').collect();
-            ProbeFlags::from_args(&["cmd"], split_args.as_slice())
-                .map_err(|err| {
-                    eprintln!("unable to parse args: {}\n{}", argstr, err.output);
-                })
-                .unwrap_or(ProbeFlags::default())
-        } else {
-            ProbeFlags::default()
-        }
-    };
-    eprintln!("enable libprobe with args: {:?}", args);
+    let argstr = env::var("PROBE_ARGS").unwrap_or("[]".to_string());
+    eprintln!("parse args: {}", argstr);
+    let probe_commands: Vec<ProbeCommand> = ron::from_str(argstr.as_str()).unwrap();
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
     register_signal_handler(SIGUSR2, dump_stack2);
     register_signal_handler(SIGPROF, pprof_handler);
-    if args.background {
-        thread::spawn(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(start_async_server::<PythonRepl>(args.address))
-                .unwrap();
-        });
+    for cmd in probe_commands {
+        match cmd {
+            ProbeCommand::Pprof => PPROF_HOLDER.setup(1000),
+            ProbeCommand::CatchCrash => todo!(),
+            ProbeCommand::ListenRemote { address } => {
+                thread::spawn(|| {
+                    tokio::runtime::Builder::new_multi_thread()
+                        .enable_all()
+                        .build()
+                        .unwrap()
+                        .block_on(start_async_server::<PythonRepl>(address))
+                        .unwrap();
+                });
+            }
+            _ => {}
+        }
     }
     // if args.crash {
     //     let tmp = addr.clone();
     //     register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
     // }
-    if args.pprof {
-        PPROF_HOLDER.setup(1000)
-    }
 }
