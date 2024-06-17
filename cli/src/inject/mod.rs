@@ -183,7 +183,7 @@ impl Injector {
     }
 
     /// Put the env string into the traced process.
-    /// 
+    ///
     /// # Panics
     ///
     /// This function may panic if it fails to inject shellcode into the target process.

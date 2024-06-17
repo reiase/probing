@@ -1,3 +1,4 @@
+use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 
@@ -11,6 +12,6 @@ pub struct DumpCommand {}
 impl DumpCommand {
     pub fn run(&self, pid: i32) -> Result<()> {
         signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR2)
-            .map_err(|err| anyhow::anyhow!("error sending signal to pid {pid}: {}", err.desc()))
+            .with_context(|| format!("error sending signal to pid {pid}"))
     }
 }

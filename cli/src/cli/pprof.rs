@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use argh::FromArgs;
 
 use nix::{sys::signal, unistd::Pid};
@@ -11,6 +11,6 @@ pub struct PprofCommand {}
 impl PprofCommand {
     pub fn run(&self, pid: i32) -> Result<()> {
         signal::kill(Pid::from_raw(pid), signal::Signal::SIGPROF)
-            .map_err(|err| anyhow::anyhow!("error sending signal to pid {pid}: {}", err.desc()))
+            .with_context(|| format!("failed to send SIGPROF to pid {}", pid))
     }
 }

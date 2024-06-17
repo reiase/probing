@@ -1,9 +1,9 @@
 use std::fs;
 
+use crate::inject::{Injector, Process};
 use anyhow::Result;
 use argh::FromArgs;
 use probe_common::cli::ProbeCommand;
-use crate::inject::{Injector, Process};
 
 /// Inject into target process
 #[derive(FromArgs, Default)]
@@ -28,15 +28,15 @@ pub struct InjectCommand {
 
 impl InjectCommand {
     pub fn run(&self, pid: i32, dll: &Option<std::path::PathBuf>) -> Result<()> {
-        let mut probe_commands = vec![];
+        let mut cmds = vec![];
         if self.pprof {
-            probe_commands.push(ProbeCommand::Pprof);
+            cmds.push(ProbeCommand::Pprof);
         }
         if self.crash {
-            probe_commands.push(ProbeCommand::CatchCrash);
+            cmds.push(ProbeCommand::CatchCrash);
         }
         if self.background {
-            probe_commands.push(ProbeCommand::ListenRemote {
+            cmds.push(ProbeCommand::ListenRemote {
                 address: self.address.clone(),
             });
         }
@@ -53,7 +53,7 @@ impl InjectCommand {
             None
         };
 
-        let argstr = ron::to_string(&probe_commands).unwrap();
+        let argstr = ron::to_string(&cmds)?;
         println!(
             "Injecting {} into process {} with arguments `{}`",
             soname.clone().unwrap().to_str().unwrap(),

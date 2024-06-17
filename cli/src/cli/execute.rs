@@ -15,9 +15,10 @@ pub struct ExecuteCommand {
 
 impl ExecuteCommand {
     pub fn run(&self, pid: i32) -> Result<()> {
-        let probe_command = ProbeCommand::Execute {
+        let cmd = ProbeCommand::Execute {
             script: self.script.clone(),
         };
-        usr1_handler(ron::to_string(&probe_command).unwrap(), pid)
+        let cmd = ron::to_string(&cmd)?;
+        usr1_handler(cmd, pid)
     }
 }

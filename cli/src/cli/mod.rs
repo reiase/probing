@@ -9,10 +9,11 @@ pub mod pprof;
 
 use commands::Commands;
 
+use crate::inject::{Injector, Process};
+use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use nix::{sys::signal, unistd::Pid};
-use crate::inject::{Injector, Process};
 
 /// Probe CLI - A performance and stability diagnostic tool for AI applications
 #[derive(FromArgs)]
@@ -49,7 +50,8 @@ fn usr1_handler(argstr: String, pid: i32) -> Result<()> {
     Injector::attach(process)
         .unwrap()
         .setenv(Some("PROBE_ARGS"), Some(argstr.as_str()))
-        .unwrap();
-    signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1).unwrap();
+        .map_err(|e| anyhow::anyhow!(e))
+        .context("failed to setup `PROBE_ARGS`")?;
+    signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
     Ok(())
 }
