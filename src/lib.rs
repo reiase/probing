@@ -23,13 +23,7 @@ use repl::PythonRepl;
 use server::start_async_server;
 use signal_hook::consts::*;
 use std::ffi::c_int;
-use std::fs;
 use std::{env, thread};
-
-use mimalloc::MiMalloc;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
@@ -81,22 +75,6 @@ fn sigusr1_handler() {
 #[no_mangle]
 #[ctor]
 fn init() {
-    if let Ok(_path) = fs::read_link("/proc/self/exe") {
-        let path_str = _path.to_string_lossy();
-        if path_str.ends_with("/probe")
-            || path_str.ends_with("/bash")
-            || path_str.ends_with("/sh")
-            || path_str.ends_with("/zsh")
-            || path_str.ends_with("/dash")
-        {
-            return;
-        }
-        if let Ok(args) = env::var("PROBE_ARGS") {
-            eprintln!("{}: loading libprob with `{}`", _path.display(), args);
-        } else {
-            eprintln!("{}: loading libprob ", _path.display());
-        }
-    }
     let argstr = env::var("PROBE_ARGS").unwrap_or("[]".to_string());
     eprintln!("parse args: {}", argstr);
     let probe_commands: Vec<ProbeCommand> = ron::from_str(argstr.as_str()).unwrap();

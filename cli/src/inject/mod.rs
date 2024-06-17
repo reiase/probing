@@ -59,7 +59,7 @@
 )]
 use eyre::{eyre, Context, Result};
 use injection::Injection;
-pub(crate) use libc_addresses::LibcAddrs;
+pub use libc_addresses::LibcAddrs;
 pub use process::Process;
 
 mod injection;
