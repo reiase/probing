@@ -1,4 +1,4 @@
-use crate::Process;
+use crate::inject::Process;
 use eyre::{Context, Report, Result};
 use libloading::os::unix::Library;
 

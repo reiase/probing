@@ -12,7 +12,7 @@ use commands::Commands;
 use anyhow::Result;
 use argh::FromArgs;
 use nix::{sys::signal, unistd::Pid};
-use ptrace_inject::{Injector, Process};
+use crate::inject::{Injector, Process};
 
 /// Probe CLI - A performance and stability diagnostic tool for AI applications
 #[derive(FromArgs)]

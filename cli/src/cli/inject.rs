@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::Result;
 use argh::FromArgs;
 use probe_common::cli::ProbeCommand;
-use ptrace_inject::{Injector, Process};
+use crate::inject::{Injector, Process};
 
 /// Inject into target process
 #[derive(FromArgs, Default)]

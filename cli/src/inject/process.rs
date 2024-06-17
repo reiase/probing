@@ -2,7 +2,7 @@ use eyre::{eyre, Context, Report, Result};
 use procfs::process;
 use std::fmt::Display;
 
-const LIBC_NAME: &str = "libc.so.6";
+// const LIBC_NAME: &str = "libc.so.6";
 
 /// A process to attach to.
 #[derive(Debug)]
@@ -139,8 +139,8 @@ impl From<&Process> for pete::Pid {
     }
 }
 
-// impl From<&Process> for nix::unistd::Pid {
-//     fn from(proc: &Process) -> Self {
-//         Self::from_raw(proc.0.pid)
-//     }
-// }
+impl From<&Process> for nix::unistd::Pid {
+    fn from(proc: &Process) -> Self {
+        Self::from_raw(proc.0.pid)
+    }
+}

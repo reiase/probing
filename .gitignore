@@ -20,3 +20,4 @@ app/dist/
 dist/
 .python-version
 report.json
+pkg/

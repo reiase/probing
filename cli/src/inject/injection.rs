@@ -1,4 +1,4 @@
-use crate::{LibcAddrs, Process};
+use crate::inject::{LibcAddrs, Process};
 use eyre::{eyre, Context, Result};
 use std::os::unix::ffi::OsStringExt;
 
