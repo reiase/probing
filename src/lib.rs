@@ -38,11 +38,7 @@ where
     unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
 }
 
-fn sigusr1_handler() {
-    let argstr = env::var("PROBE_ARGS").unwrap_or("Nil".to_string());
-    let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
-
-    eprintln!("handling signal USR1 with args: {}", argstr);
+fn probe_command_handler(cmd: ProbeCommand) {
     match cmd {
         ProbeCommand::Nil => {}
         ProbeCommand::Dump => {
@@ -74,6 +70,14 @@ fn sigusr1_handler() {
     };
 }
 
+fn sigusr1_handler() {
+    let argstr = env::var("PROBE_ARGS").unwrap_or("Nil".to_string());
+    let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
+
+    eprintln!("handling signal USR1 with args: {}", argstr);
+    probe_command_handler(cmd);
+}
+
 #[no_mangle]
 #[ctor]
 fn init() {
@@ -101,24 +105,6 @@ fn init() {
     register_signal_handler(SIGUSR2, dump_stack2);
     register_signal_handler(SIGPROF, pprof_handler);
     for cmd in probe_commands {
-        match cmd {
-            ProbeCommand::Pprof => PPROF_HOLDER.setup(1000),
-            ProbeCommand::CatchCrash => todo!(),
-            ProbeCommand::ListenRemote { address } => {
-                thread::spawn(|| {
-                    tokio::runtime::Builder::new_multi_thread()
-                        .enable_all()
-                        .build()
-                        .unwrap()
-                        .block_on(start_async_server::<PythonRepl>(address))
-                        .unwrap();
-                });
-            }
-            _ => {}
-        }
+        probe_command_handler(cmd);
     }
-    // if args.crash {
-    //     let tmp = addr.clone();
-    //     register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
-    // }
 }
