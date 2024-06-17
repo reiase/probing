@@ -6,7 +6,7 @@ use leptos_router::use_query_map;
 #[component]
 pub fn Profiler() -> impl IntoView {
     let params = use_query_map();
-    let mid = params.get().get("mid").map(|mid| mid.clone());
+    let mid = params.get().get("mid").cloned();
 
     if let Some(mid) = mid {
         let profile = create_resource(

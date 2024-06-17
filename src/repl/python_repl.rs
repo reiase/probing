@@ -1,7 +1,7 @@
 use crate::repl::console::NativePythonConsole;
 use std::sync::{Arc, Mutex};
 
-pub trait REPL {
+pub trait Repl {
     fn feed(&mut self, s: String) -> Option<String>;
     fn is_alive(&self) -> bool;
 }
@@ -33,7 +33,7 @@ impl PythonRepl {
     }
 }
 
-impl REPL for PythonRepl {
+impl Repl for PythonRepl {
     fn feed(&mut self, s: String) -> Option<String> {
         self.buf += &s;
         if !self.buf.contains('\n') {

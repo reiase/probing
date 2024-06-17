@@ -29,7 +29,7 @@ pub fn DebugView() -> impl IntoView {
         status
             .get()
             .map(|status| {
-                if status.debugger_installed == false {
+                if !status.debugger_installed {
                     return view! {
                         <Box>
                             <Alert variant=AlertVariant::Danger>
@@ -55,8 +55,8 @@ pub fn DebugView() -> impl IntoView {
                     };
                 }
                 if let Some(addr) = status.debugger_address {
-                    let cfg = if addr.contains(":") {
-                        let addr = addr.split(":").collect::<Vec<&str>>();
+                    let cfg = if addr.contains(':') {
+                        let addr = addr.split(':').collect::<Vec<&str>>();
                         let host = addr[0];
                         let port = addr[1];
                         format!(r#"
@@ -80,7 +80,7 @@ pub fn DebugView() -> impl IntoView {
                         "#, addr)
                     };
 
-                    return view! {
+                     view! {
                         <Box>
                             <Alert variant=AlertVariant::Success>
                                 <AlertTitle slot>"debugger is enabled"</AlertTitle>
@@ -95,9 +95,9 @@ pub fn DebugView() -> impl IntoView {
                                 <pre>{cfg}</pre>
                             </p>
                         </Box>
-                    };
+                    }
                 } else {
-                    return view! {
+                     view! {
                         <Box>
                             <Alert variant=AlertVariant::Warn>
                                 <AlertTitle slot>"debugger not enabled"</AlertTitle>
@@ -119,7 +119,7 @@ pub fn DebugView() -> impl IntoView {
                                 </AlertContent>
                             </Alert>
                         </Box>
-                    };
+                    }
                 }
             })
             .unwrap_or(view! {

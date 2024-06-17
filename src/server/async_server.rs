@@ -1,4 +1,4 @@
-use crate::{repl::REPL, server::service::TokioIo};
+use crate::{repl::Repl, server::service::TokioIo};
 use hyper::server::conn::http1;
 use local_ip_address::*;
 use nu_ansi_term::Color;
@@ -40,7 +40,7 @@ impl<T> Default for AsyncServer<T> {
     }
 }
 
-impl<T: REPL + Default + Send> AsyncServer<T> {
+impl<T: Repl + Default + Send> AsyncServer<T> {
     pub fn new(addr: String) -> Self {
         Self {
             self_addr: Some(addr),
@@ -133,7 +133,7 @@ impl<T: REPL + Default + Send> AsyncServer<T> {
 
 pub async fn start_async_server<T>(addr: Option<String>) -> Result<(), Box<dyn Error>>
 where
-    T: REPL + Default + Send,
+    T: Repl + Default + Send,
 {
     let mut server = match addr {
         Some(addr) => AsyncServer::<T>::new(addr),

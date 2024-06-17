@@ -1,4 +1,4 @@
-use crate::repl::REPL;
+use crate::repl::Repl;
 use std::io::Read;
 use std::io::Write;
 use std::net::TcpListener;
@@ -29,7 +29,7 @@ impl DebugServer {
         }
     }
 
-    pub fn run(&mut self, repl: &mut dyn REPL) {
+    pub fn run(&mut self, repl: &mut dyn Repl) {
         let listener = TcpListener::bind(self.self_addr.as_ref().unwrap()).unwrap();
         self.self_addr = match listener.local_addr() {
             Ok(addr) => {
@@ -56,7 +56,7 @@ impl DebugServer {
         self.prompt.as_ref().map_or(">>", |s| s.as_str())
     }
 
-    fn handle(&mut self, stream: &mut TcpStream, repl: &mut dyn REPL) -> bool {
+    fn handle(&mut self, stream: &mut TcpStream, repl: &mut dyn Repl) -> bool {
         self.peer_addr = stream.peer_addr().map(|addr| addr.to_string()).ok();
         if let Some(addr) = &self.peer_addr {
             println!("debug server connection from {}", addr);
@@ -82,7 +82,7 @@ impl DebugServer {
     }
 }
 
-pub fn start_debug_server(addr: Option<String>, repl: &mut dyn REPL) {
+pub fn start_debug_server(addr: Option<String>, repl: &mut dyn Repl) {
     let mut server = match addr {
         Some(addr) => DebugServer::new(addr),
         None => DebugServer::default(),

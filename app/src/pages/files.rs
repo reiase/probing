@@ -7,7 +7,7 @@ use gloo_net::http::Request;
 #[component]
 pub fn Files() -> impl IntoView {
     let params = use_query_map();
-    let path = params.get().get("path").map(|path| path.clone());
+    let path = params.get().get("path").cloned();
 
     let content = create_resource(
         move || path.clone(),

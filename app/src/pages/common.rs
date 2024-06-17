@@ -8,9 +8,9 @@ use probe_common::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {
-    OBJECT,
-    TENSOR,
-    MODULE,
+    Object,
+    Tensor,
+    Module,
 }
 
 #[component]
@@ -33,7 +33,7 @@ pub fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl I
                     <TableCell>{id}</TableCell>
                     <TableCell>{name.clone()}</TableCell>
                     <TableCell>
-                        <ObjectView obj=obj kind=ObjectKind::OBJECT/>
+                        <ObjectView obj=obj kind=ObjectKind::Object/>
                     </TableCell>
                 </TableRow>
             }
@@ -52,10 +52,10 @@ pub fn VariablesView(#[prop(into)] variables: HashMap<String, Object>) -> impl I
 
 #[component]
 pub fn ObjectView(#[prop(into)] obj: Object, #[prop(into)] kind: ObjectKind) -> impl IntoView {
-    if kind == ObjectKind::TENSOR {
+    if kind == ObjectKind::Tensor {
         return view! { <TensorView obj=obj/> };
     }
-    if kind == ObjectKind::MODULE {
+    if kind == ObjectKind::Module {
         return view! { <ModuleView obj=obj/> };
     }
 
@@ -97,7 +97,7 @@ pub fn ObjectView(#[prop(into)] obj: Object, #[prop(into)] kind: ObjectKind) -> 
             view! { <Box>""</Box> }
         }
     };
-    return view! {
+    view! {
         <Box>
             <span>{value}</span>
             <Chip>{class}</Chip>
@@ -105,7 +105,7 @@ pub fn ObjectView(#[prop(into)] obj: Object, #[prop(into)] kind: ObjectKind) -> 
             {dtype}
             {device}
         </Box>
-    };
+    }
 }
 
 #[component]

@@ -20,7 +20,7 @@ pub struct ProbeService {}
 impl ProbeService {
     fn parse_qs(&self, qs: Option<&str>) -> HashMap<String, String> {
         if let Some(qs) = qs {
-            let qs = if qs.starts_with("?") {
+            let qs = if qs.starts_with('?') {
                 qs.to_string()
             } else {
                 format!("?{}", qs)

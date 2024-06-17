@@ -45,13 +45,13 @@ pub fn Python() -> impl IntoView {
         let selected = selected.get();
         match selected {
             "Tensor" => {
-                view! { <object::ObjectList text=objects.get() kind=ObjectKind::TENSOR></object::ObjectList> }
+                view! { <object::ObjectList text=objects.get() kind=ObjectKind::Tensor></object::ObjectList> }
             }
             "Module" => {
-                view! { <object::ObjectList text=objects.get() kind=ObjectKind::MODULE></object::ObjectList> }
+                view! { <object::ObjectList text=objects.get() kind=ObjectKind::Module></object::ObjectList> }
             }
             _ => {
-                view! { <object::ObjectList text=objects.get() kind=ObjectKind::OBJECT></object::ObjectList> }
+                view! { <object::ObjectList text=objects.get() kind=ObjectKind::Object></object::ObjectList> }
             }
         }
     };

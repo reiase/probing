@@ -72,8 +72,7 @@ pub fn callstack(tid: Option<String>) -> String {
 
 pub fn files(path: Option<String>) -> String {
     if let Some(path) = path {
-        let content = fs::read_to_string(path).unwrap_or_default();
-        content
+        fs::read_to_string(path).unwrap_or_default()
     } else {
         "".to_string()
     }
