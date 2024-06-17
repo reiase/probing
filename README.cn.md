@@ -6,19 +6,17 @@ Probe 是面向AI应用设计的性能与稳定性诊断工具，旨在解决大
 
 Probe的主要功能是向目标进程注入探针，并借助探针实现问题调试与性能诊断功能，具体包含：
 
-- 调试功能：打印调用堆栈、提供REPL交互等；
-- 性能剖析：性能采样与输出火焰图；
-- 进阶功能：向进程注入任意代码、支持远程调试等；
+- 调试功能：
+  - 观测目标进程call stack、Python对象、Torch Tensor与Module等；
+  - 远程调试，可借助DAP协议通过vscode远程调试目标进程；
+- 性能剖析：
+  - C/C++代码的性能采样，并输出火焰图；
+  - Torch的profiling功能，分析模型的性能；
+- 远程控制：
+  - 提供http接口来获取数据、控制目标进程执行；
+  - 通过远程控制向目标进程注入任意Pyhton代码；
 
-相比其他调试与诊断工具，探针方式具备如下特点：
-
-1. **无代码侵入**: 无需修改代码即可实现Instrumentation，实现函数调用跟踪、性能数据采集等功能；
-
-2. **无环境依赖**: 每个进程内建独立的数据采集和存储，无需部署复杂的分布式数据采集与存储系统即可直接使用；
-
-3. **低性能开销**：性能数据采集与问题诊断通过旁路实现无需埋点，极大地减少了对目标进程的性能影响；
-
-4. **即插即用**：可在任意时刻侵入目标进程进行诊断，无需中断或重启。特别适用于 LLM 训练等长周期任务；
+相比其他调试与诊断工具，`probe`能够即插即用，可在任意时刻侵入目标进程，无需中断或重启，也无需修改代码。
 
 ## Quick Start
 
@@ -28,7 +26,7 @@ Probe的主要功能是向目标进程注入探针，并借助探针实现问题
 probe <pid> inject [OPTIONS]
 ```
 
-选项：--pprof 启用 profiling；--crash 启用崩溃处理；--background 启用后台服务；--address <ADDRESS> 指定服务监听地址。
+选项：`-P,--pprof` 启用 profiling；`-c,--crash` 启用崩溃处理；`-b,--background` 启用后台服务；`-a,--address <ADDRESS>` 指定服务监听地址。
 
 ### 诊断问题
 
@@ -78,3 +76,18 @@ probe <pid> inject [OPTIONS]
     sleep 10
     curl http://127.0.0.1:3344/flamegraph > flamegraph.svg
     ```
+
+### 进阶功能
+
+probe 为大模型的开发与调试提供了一系列Python分析与诊断功能：
+
+- Activity分析：可以抓取每个线程当前执行的Python堆栈信息；
+- Debug功能：启动Python远程调试功能，可以在vscode中调试目标进程；
+- Profile功能：对torch模型的执行进行profiling；
+- Inspect功能：用于检视Python对象、torch Tensor对象与torch Module模型；
+
+这些功能都可以通过web界面来访问，比如注入探针时指定服务地址：
+```shell
+probe <pid> inject -b -a 127.0.0.1:1234
+```
+之后可以通过浏览器打开`http://127.0.0.1:1234`来使用上述功能。
