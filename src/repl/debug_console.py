@@ -2,22 +2,22 @@ import code
 import io
 from contextlib import redirect_stderr, redirect_stdout
 from types import CodeType
-from typing import Any
+from typing import Any, Dict, List, Type
 
 
-def register_debug_command(name, cmd=None):
+def register_command(name: str, cmd: Type = None):
     if cmd is None:
 
         def wrapper(cls):
-            register_debug_command(name, cls)
+            register_command(name, cls)
             return cls
 
         return wrapper
-    DebugCommand.REGISTER[name] = cmd()
+    Command.REGISTER[name] = cmd()
 
 
-class DebugCommand:
-    REGISTER = {}
+class Command:
+    REGISTER: Dict[str, "Command"] = {}
 
     def help(self):
         pass
@@ -44,7 +44,7 @@ def _get_obj_type(obj):
         m = type(obj).__module__
         n = type(obj).__name__
         return f"{m}.{n}"
-    except:
+    except Exception:
         return str(type(obj))
 
 
@@ -63,20 +63,19 @@ def _get_obj_repr(obj, value=False):
     return ret
 
 
-@register_debug_command("tprofile")
-class TorchHelper(DebugCommand):
-    def __call__(self, steps=1, mid=None):
+@register_command("tprofile")
+class TorchHelper(Command):
+    def __call__(self, steps: int = 1, mid: int = None):
         print(f"Profiling for {steps} steps")
         TorchHelper.profile(steps, mid)
 
     @staticmethod
-    def get_top_level_modules():
+    def get_top_level_modules() -> List:
         import gc
         import torch
 
         objs = gc.get_objects()
         objs = [obj for obj in objs if isinstance(obj, torch.nn.Module)]
-
         children = set()
 
         def walk(obj):
@@ -112,11 +111,7 @@ class TorchHelper(DebugCommand):
 
                 self._profiler = torch.profiler.profile()
                 print(f"installing profiler to module {module}")
-                self._hooks.extend(
-                    [
-                        module.register_forward_pre_hook(self.module_hook),
-                    ]
-                )
+                self._hooks.append(module.register_forward_pre_hook(self.module_hook))
 
                 return self
 
@@ -179,13 +174,13 @@ class TorchHelper(DebugCommand):
                 print(v.summary())
 
 
-@register_debug_command("rdebug")
-class RemoteDebug(DebugCommand):
-    def __call__(self, host="127.0.0.1", port=9999):
+@register_command("debug")
+class RemoteDebug(Command):
+    def __call__(self, host: str = "127.0.0.1", port: int = 9999):
         RemoteDebug.install_debugpy(host, port)
 
     @staticmethod
-    def status():
+    def status() -> Dict[str, Any]:
         import __main__
 
         if not hasattr(__main__, "__probe__"):
@@ -204,7 +199,7 @@ class RemoteDebug(DebugCommand):
             import debugpy
 
             return True
-        except:
+        except ImportError:
             return False
 
     @staticmethod
@@ -216,7 +211,7 @@ class RemoteDebug(DebugCommand):
         pipmain(["install", "debugpy"])
 
     @staticmethod
-    def enable_debugger(host="127.0.0.1", port=9999):
+    def enable_debugger(host: str = "127.0.0.1", port: int = 9999):
         status = RemoteDebug.status()
         try:
             import debugpy
@@ -224,15 +219,15 @@ class RemoteDebug(DebugCommand):
             debugpy.listen((host, port))
             status["debugger_address"] = f"{host}:{port}"
             print(f"debugger is started at {host}:{port}")
-        except:
+        except Exception:
             pass
 
 
-@register_debug_command("help")
-class HelpCommand(DebugCommand):
+@register_command("help")
+class HelpCommand(Command):
     def help(self):
         ret = "list of commands:\n"
-        for k, h in DebugCommand.REGISTER.items():
+        for k, h in Command.REGISTER.items():
             ret += f"== {k} ==\n"
             if isinstance(h, HelpCommand):
                 ret += "print this help"
@@ -248,8 +243,8 @@ class HelpCommand(DebugCommand):
         return "help command"
 
 
-@register_debug_command("bt")
-class BackTrace(DebugCommand):
+@register_command("bt")
+class BackTrace(Command):
     def help(self):
         return "print python and C stack"
 
@@ -260,8 +255,8 @@ class BackTrace(DebugCommand):
         return f"{py}"
 
 
-@register_debug_command("dump_stack")
-class DumpStackCommand(DebugCommand):
+@register_command("dump_stack")
+class DumpStackCommand(Command):
     def __call__(self) -> Any:
         stacks = []
 
@@ -282,8 +277,8 @@ class DumpStackCommand(DebugCommand):
         return _obj_(stacks)
 
 
-@register_debug_command("handle")
-class HandleCommand(DebugCommand):
+@register_command("handle")
+class HandleCommand(Command):
     def parse_query(self, query: str) -> Any:
         import urllib
         import urllib.parse
@@ -418,7 +413,7 @@ class HandleCommand(DebugCommand):
 
 class DebugConsole(code.InteractiveConsole):
     def init(self):
-        for k, v in DebugCommand.REGISTER.items():
+        for k, v in Command.REGISTER.items():
             self.locals[k] = v()
 
     def resetoutput(self):
@@ -467,10 +462,10 @@ class DebugConsole(code.InteractiveConsole):
         with redirect_stderr(io.StringIO()) as err:
             with redirect_stdout(io.StringIO()) as out:
                 try:
-                    exec(code, self.locals, DebugCommand.REGISTER)
+                    exec(code, self.locals, Command.REGISTER)
                 except SystemExit:
                     raise
-                except:
+                except Exception:
                     ret = err.getvalue() + out.getvalue()
                     self.showtraceback()
                     return ret + self.resetoutput()
