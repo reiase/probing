@@ -1,12 +1,11 @@
-use argh::FromArgs;
+use clap::Subcommand;
 
-#[derive(FromArgs)]
-#[argh(subcommand)]
+#[derive(Subcommand)]
 pub enum Commands {
     Inject(super::inject::InjectCommand),
     Dump(super::dump::DumpCommand),
     Pause(super::pause::PauseCommand),
-    Pprof(super::pprof::PprofCommand),
+    Perf(super::perf::PerfCommand),
     CatchCrash(super::catch::CatchCrashCommand),
     ListenRemote(super::listen::ListenRemoteCommand),
     Execute(super::execute::ExecuteCommand),

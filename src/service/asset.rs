@@ -2,7 +2,7 @@ use bytes::Bytes;
 use rust_embed::Embed;
 
 #[derive(Embed)]
-#[folder = "dist"]
+#[folder = "app/dist"]
 struct Asset;
 
 pub fn contains(path: &str) -> bool {

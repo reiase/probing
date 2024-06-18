@@ -1,9 +1,9 @@
 use anyhow::Result;
-use argh::FromArgs;
+use clap::Args;
 
 /// Handle target process crash
-#[derive(FromArgs)]
-#[argh(subcommand, name = "catch")]
+#[derive(Args, Default)]
+#[command(version, about, long_about = None)]
 pub struct CatchCrashCommand {}
 
 impl CatchCrashCommand {

@@ -34,7 +34,7 @@ where
     unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
 }
 
-fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
+pub fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
     match cmd {
         ProbeCommand::Nil => {}
         ProbeCommand::Dump => {
@@ -47,7 +47,7 @@ fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
                 .unwrap();
         }
         ProbeCommand::Pause { address } => pause_process(address),
-        ProbeCommand::Pprof => PPROF_HOLDER.setup(1000),
+        ProbeCommand::Perf => PPROF_HOLDER.setup(1000),
         ProbeCommand::CatchCrash => {
             //     // let tmp = args.address.clone();
             //     // register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));

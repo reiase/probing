@@ -1,15 +1,15 @@
 use anyhow::Result;
-use argh::FromArgs;
+use clap::Args;
 use probe_common::cli::ProbeCommand;
 
 use super::usr1_handler;
 
 /// Pause the target process and listen for remote connection
-#[derive(FromArgs)]
-#[argh(subcommand, name = "pause")]
+#[derive(Args, Default)]
+#[command(version, about, long_about = None)]
 pub struct PauseCommand {
     /// address to listen
-    #[argh(option, short = 'a')]
+    #[arg(short, long, default_value = "127.0.0.1:9922")]
     address: Option<String>,
 }
 

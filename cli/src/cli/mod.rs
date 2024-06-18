@@ -5,28 +5,29 @@ pub mod execute;
 pub mod inject;
 pub mod listen;
 pub mod pause;
-pub mod pprof;
+pub mod perf;
 
 use commands::Commands;
 
 use crate::inject::{Injector, Process};
 use anyhow::Context;
 use anyhow::Result;
-use argh::FromArgs;
 use nix::{sys::signal, unistd::Pid};
 
+use clap::Parser;
+
 /// Probe CLI - A performance and stability diagnostic tool for AI applications
-#[derive(FromArgs)]
+#[derive(Parser)]
 pub struct Cli {
     /// DLL file to be injected into the target process (e.g., <location of probe cli>/libprobe.so)
-    #[argh(option, short = 'd')]
+    #[arg(short, long)]
     dll: Option<std::path::PathBuf>,
 
     /// target process ID (e.g., 1234)
-    #[argh(positional)]
+    #[arg()]
     pub pid: i32,
 
-    #[argh(subcommand)]
+    #[command(subcommand)]
     command: Option<Commands>,
 }
 
@@ -36,7 +37,7 @@ impl Cli {
             Some(Commands::Inject(cmd)) => cmd.run(self.pid, &self.dll),
             Some(Commands::Dump(cmd)) => cmd.run(self.pid),
             Some(Commands::Pause(cmd)) => cmd.run(self.pid),
-            Some(Commands::Pprof(cmd)) => cmd.run(self.pid),
+            Some(Commands::Perf(cmd)) => cmd.run(self.pid),
             Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
             Some(Commands::ListenRemote(cmd)) => cmd.run(self.pid),
             Some(Commands::Execute(cmd)) => cmd.run(self.pid),

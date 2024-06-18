@@ -9,4 +9,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 probe = {path = "../", default-features = false}
+probe-common = {path = "../common", default-features = false}
 pyo3 = {version = "0.21.2", features = ["extension-module", "abi3", "abi3-py37"]}

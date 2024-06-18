@@ -1,15 +1,15 @@
 use anyhow::Result;
-use argh::FromArgs;
+use clap::Args;
 use probe_common::cli::ProbeCommand;
 
 use super::usr1_handler;
 
 /// Execute a script in the target process
-#[derive(FromArgs)]
-#[argh(subcommand, name = "exec")]
+#[derive(Args)]
+#[command(version, about, long_about = None)]
 pub struct ExecuteCommand {
     /// script to execute (e.g., /path/to/script.py)
-    #[argh(positional)]
+    #[arg()]
     script: String,
 }
 

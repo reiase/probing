@@ -116,7 +116,7 @@ sh build.sh
 ```shell
 # 持续构建web app
 cd app
-trunk watch  --filehash false -d ../dist/
+trunk watch --filehash false -d dist/
 
 # 构建probe与libprobe
 cargo b -p cli

@@ -5,7 +5,7 @@ pub enum ProbeCommand {
     Nil,
     Dump,
     Pause { address: Option<String> },
-    Pprof,
+    Perf,
     CatchCrash,
     ListenRemote { address: Option<String> },
     Execute { script: String },

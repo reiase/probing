@@ -129,7 +129,7 @@ To facilitate development, probe packages Python scripts and the web app into li
 ```shell
 # Continuously build the web app
 cd app
-trunk watch --filehash false -d ../dist/
+trunk watch --filehash false -d dist/
 
 # Build probe and libprobe
 cargo b -p cli

@@ -1,12 +1,12 @@
 use anyhow::Context;
 use anyhow::Result;
-use argh::FromArgs;
 
+use clap::Args;
 use nix::{sys::signal, unistd::Pid};
 
 /// Dump the calling stack of the target process
-#[derive(FromArgs)]
-#[argh(subcommand, name = "dump")]
+#[derive(Args)]
+#[command(version, about, long_about = None)]
 pub struct DumpCommand {}
 
 impl DumpCommand {
