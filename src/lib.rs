@@ -69,10 +69,15 @@ pub fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
 
 fn sigusr1_handler() {
     let argstr = env::var("PROBE_ARGS").unwrap_or("Nil".to_string());
-    let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
-
-    eprintln!("handling signal USR1 with args: {}", argstr);
-    probe_command_handler(cmd).unwrap();
+    if argstr.starts_with('[') {
+        let cmds: Vec<ProbeCommand> = ron::from_str(&argstr).unwrap();
+        for cmd in cmds {
+            probe_command_handler(cmd).unwrap();
+        }
+    } else {
+        let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
+        probe_command_handler(cmd).unwrap();
+    }
 }
 
 #[no_mangle]

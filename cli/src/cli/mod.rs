@@ -1,11 +1,8 @@
 pub mod catch;
 pub mod commands;
-pub mod dump;
-pub mod execute;
+pub mod debug;
 pub mod inject;
-pub mod listen;
-pub mod pause;
-pub mod perf;
+pub mod performance;
 
 use commands::Commands;
 
@@ -35,12 +32,9 @@ impl Cli {
     pub fn run(&self) -> Result<()> {
         match &self.command {
             Some(Commands::Inject(cmd)) => cmd.run(self.pid, &self.dll),
-            Some(Commands::Dump(cmd)) => cmd.run(self.pid),
-            Some(Commands::Pause(cmd)) => cmd.run(self.pid),
-            Some(Commands::Perf(cmd)) => cmd.run(self.pid),
-            Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
-            Some(Commands::ListenRemote(cmd)) => cmd.run(self.pid),
-            Some(Commands::Execute(cmd)) => cmd.run(self.pid),
+            Some(Commands::Debug(cmd)) => cmd.run(self.pid),
+            Some(Commands::Performance(cmd)) => cmd.run(self.pid),
+            // Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
             None => inject::InjectCommand::default().run(self.pid, &self.dll),
         }
     }

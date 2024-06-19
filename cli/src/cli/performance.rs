@@ -1,22 +1,17 @@
 use anyhow::{Context, Result};
-use clap::{Args, ValueEnum};
-
+use clap::Args;
 use nix::{sys::signal, unistd::Pid};
-
-#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
-enum PerfTarget {
-    #[default]
-    cc,
-    torch,
-}
 
 /// Start profiling
 #[derive(Args, Default)]
-#[command(version, about, long_about = None)]
 pub struct PerfCommand {
-    /// performance profiling target
-    #[arg(value_enum, default_value_t=PerfTarget::cc)]
-    target: PerfTarget,
+    /// profiling c/c++ codes
+    #[arg(long, conflicts_with_all = ["torch"])]
+    cc: bool,
+
+    /// profiling torch models
+    #[arg(long, conflicts_with_all = ["cc"])]
+    torch: bool,
 }
 
 impl PerfCommand {
