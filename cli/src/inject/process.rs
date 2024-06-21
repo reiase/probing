@@ -61,6 +61,40 @@ impl Process {
         Ok(None)
     }
 
+    /// Search for a process by the name of its cmdline.
+    ///
+    /// This ignores errors when the executable name of certain processes cannot
+    /// be read (usually because of lack of permissions).
+    pub fn by_cmdline(pat: &str) -> Result<Option<i32>> {
+        log::debug!("Searching for process with executable name {}", pat);
+        let ps: Vec<i32> = process::all_processes()
+            .wrap_err("failed to list processes to search them")?
+            .map(|p| p.ok())
+            .flatten()
+            .map(|p| {
+                if let Ok(cmdline) = p.cmdline() {
+                    let cmdline = cmdline.join(" ");
+                    if cmdline.contains(pat) {
+                        Some(p.pid())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect();
+        match ps.len() {
+            1 => Ok(Some(ps[0])),
+            0 => Err(eyre!("found no process with cmdline pattern: {}", pat)),
+            _ => Err(eyre!(
+                "found multiple processes with cmdline pattern: {}",
+                pat
+            )),
+        }
+    }
+
     /// Find a suitable address to inject the shellcode into.
     pub(crate) fn find_executable_space(&self) -> Result<u64> {
         log::trace!("Finding executable space in target process");

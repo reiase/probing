@@ -33,20 +33,11 @@ pub struct Cli {
 
 impl Cli {
     pub fn run(&self) -> Result<()> {
-        let pid = {
-            if let Some(pid) = self.pid {
-                pid
-            } else if let Some(name) = self.name.as_ref() {
-                let process = Process::by_name(name.as_str())
-                    .map_err(|err| {
-                        anyhow::anyhow!("failed to find process with name {}: {}", name, err)
-                    })?
-                    .unwrap();
-                process.pid()
-            } else {
-                return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
-            }
-        };
+        let pid = self.resolve_pid()?;
+        self.execute_command(pid)
+    }
+
+    fn execute_command(&self, pid: i32) -> std::result::Result<(), anyhow::Error> {
         match &self.command {
             Some(Commands::Inject(cmd)) => cmd.run(pid, &self.dll),
             Some(Commands::Debug(cmd)) => cmd.run(pid),
@@ -54,6 +45,27 @@ impl Cli {
             // Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
             None => inject::InjectCommand::default().run(pid, &self.dll),
         }
+    }
+
+    fn resolve_pid(&self) -> Result<i32, anyhow::Error> {
+        let pid = {
+            if let Some(pid) = self.pid {
+                pid
+            } else if let Some(name) = self.name.as_ref() {
+                Process::by_cmdline(name)
+                    .map_err(|err| {
+                        anyhow::anyhow!(
+                            "failed to find process with cmdline pattern {}: {}",
+                            name,
+                            err
+                        )
+                    })?
+                    .unwrap()
+            } else {
+                return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
+            }
+        };
+        Ok(pid)
     }
 }
 
