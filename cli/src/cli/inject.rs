@@ -58,7 +58,7 @@ impl InjectCommand {
             });
         }
         // if let Some(script) = &self.execute {
-        
+
         // }
         let soname = if let Some(path) = dll {
             Some(path.clone())

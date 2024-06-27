@@ -1,7 +1,6 @@
 use anyhow::Result;
 
-mod cli;
-mod inject;
+use probe_cli::cli;
 
 pub fn main() -> Result<()> {
     cli::run()
