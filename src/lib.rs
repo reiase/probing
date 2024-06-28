@@ -9,8 +9,6 @@ mod service;
 
 // use handlers::crash_handler;
 
-use crate::service::CALLSTACK;
-use anyhow::Ok;
 use handlers::dump_stack;
 use handlers::dump_stack2;
 use handlers::execute_handler;
@@ -21,9 +19,12 @@ use probe_common::cli::ProbeCommand;
 use anyhow::Result;
 use repl::PythonRepl;
 use server::start_async_server;
+use service::CALLSTACK;
 use signal_hook::consts::*;
 use std::ffi::c_int;
 use std::{env, thread};
+
+use pyo3::prelude::*;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
@@ -90,4 +91,25 @@ fn init() {
     for cmd in probe_commands {
         probe_command_handler(cmd).unwrap();
     }
+}
+
+#[pyfunction]
+#[pyo3(signature = (address=None, background=true, pprof=false))]
+fn initialize(address: Option<String>, background: bool, pprof: bool) {
+    let mut probe_commands = vec![];
+    if background {
+        probe_commands.push(ProbeCommand::ListenRemote { address })
+    }
+    if pprof {
+        probe_commands.push(ProbeCommand::Perf)
+    }
+    for cmd in probe_commands {
+        probe_command_handler(cmd).unwrap();
+    }
+}
+
+#[pymodule]
+fn probe(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(initialize, m)?)?;
+    Ok(())
 }

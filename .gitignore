@@ -21,3 +21,4 @@ dist/
 .python-version
 report.json
 pkg/
+*/scripts/*
