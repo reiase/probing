@@ -35,7 +35,7 @@ procfs = "0.16.0"
 probe-common = { path = "common" }
 serde_json = "1.0.117"
 anyhow = "1.0.86"
-hyperparameter = {version="0.5.10", default-features = false}
+hyperparameter = {version="0.5.11", default-features = false}
 ron = "0.8.1"
 
 [build-dependencies]

@@ -9,16 +9,14 @@ mod service;
 
 // use handlers::crash_handler;
 
+use crate::service::CALLSTACK;
 use anyhow::Ok;
 use handlers::dump_stack;
 use handlers::dump_stack2;
 use handlers::execute_handler;
 use handlers::pause_process;
 use handlers::pprof_handler;
-use handlers::PPROF_HOLDER;
 use probe_common::cli::ProbeCommand;
-
-use crate::service::CALLSTACK;
 
 use anyhow::Result;
 use repl::PythonRepl;
@@ -47,7 +45,7 @@ pub fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
                 .unwrap();
         }
         ProbeCommand::Pause { address } => pause_process(address),
-        ProbeCommand::Perf => PPROF_HOLDER.setup(1000),
+        ProbeCommand::Perf => pprof_handler(),
         ProbeCommand::CatchCrash => {
             //     // let tmp = args.address.clone();
             //     // register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
@@ -89,7 +87,6 @@ fn init() {
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
     register_signal_handler(SIGUSR2, dump_stack2);
-    register_signal_handler(SIGPROF, pprof_handler);
     for cmd in probe_commands {
         probe_command_handler(cmd).unwrap();
     }
