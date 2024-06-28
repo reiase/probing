@@ -67,3 +67,9 @@ fn usr1_handler(argstr: String, pid: i32) -> Result<()> {
     signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
     Ok(())
 }
+
+pub fn run() -> Result<()> {
+    let cli: Cli = Cli::parse();
+
+    cli.run()
+}
