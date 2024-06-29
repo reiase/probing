@@ -12,9 +12,9 @@ use std::str::FromStr as _;
 use std::{env, thread};
 
 use anyhow::Result;
+use env_logger::Env;
 use log::debug;
 use log::info;
-use env_logger::Env;
 use pyo3::prelude::*;
 use signal_hook::consts::*;
 
@@ -126,7 +126,7 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
 }
 
 #[pymodule]
-fn probe(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn probe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
     Ok(())
 }

@@ -19,16 +19,12 @@ pub struct InjectCommand {
     #[arg(short = 'c', long)]
     crash: bool,
 
-    /// enable background server
-    #[arg(short = 'b', long)]
-    background: bool,
+    /// listen for remote connection (e.g., 127.0.0.1:8080)
+    #[arg(short = 'a', long, name = "address")]
+    listen: Option<String>,
 
-    /// address for remote connection (e.g., 127.0.0.1:8080)
-    #[arg(short = 'a', long)]
-    address: Option<String>,
-
-    /// script to execute (e.g., /path/to/script.py)
-    #[arg(short = 'e', long)]
+    /// execute a script (e.g., /path/to/script.py)
+    #[arg(short = 'e', long, name = "script")]
     execute: Option<String>,
 }
 
@@ -52,14 +48,16 @@ impl InjectCommand {
         if self.crash {
             cmds.push(ProbeCommand::CatchCrash);
         }
-        if self.background {
+        if let Some(address) = &self.listen {
             cmds.push(ProbeCommand::ListenRemote {
-                address: self.address.clone(),
+                address: Some(address.clone()),
             });
         }
-        // if let Some(script) = &self.execute {
-
-        // }
+        if let Some(script) = &self.execute {
+            cmds.push(ProbeCommand::Execute {
+                script: script.clone(),
+            })
+        }
         let soname = if let Some(path) = dll {
             Some(path.clone())
         } else if let Ok(_path) = fs::read_link("/proc/self/exe") {

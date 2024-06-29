@@ -81,45 +81,45 @@ pub fn DebugView() -> impl IntoView {
                     };
 
                      view! {
-                        <Box>
-                            <Alert variant=AlertVariant::Success>
-                                <AlertTitle slot>"debugger is enabled"</AlertTitle>
-                                <AlertContent slot>
-                                    "debugger can be connected via:" {addr}
-                                </AlertContent>
-                            </Alert>
-                            <p>
-                                <H4>"Connect to debugger with vscode:"</H4>
-                                <span>"Open vscode, change to \"Run and Debug\""</span>
-                                <span>"Add the following configuration to `launch.json`"</span>
-                                <pre>{cfg}</pre>
-                            </p>
-                        </Box>
-                    }
+                         <Box>
+                             <Alert variant=AlertVariant::Success>
+                                 <AlertTitle slot>"debugger is enabled"</AlertTitle>
+                                 <AlertContent slot>
+                                     "debugger can be connected via:" {addr}
+                                 </AlertContent>
+                             </Alert>
+                             <p>
+                                 <H4>"Connect to debugger with vscode:"</H4>
+                                 <span>"Open vscode, change to \"Run and Debug\""</span>
+                                 <span>"Add the following configuration to `launch.json`"</span>
+                                 <pre>{cfg}</pre>
+                             </p>
+                         </Box>
+                     }
                 } else {
                      view! {
-                        <Box>
-                            <Alert variant=AlertVariant::Warn>
-                                <AlertTitle slot>"debugger not enabled"</AlertTitle>
-                                <AlertContent slot>
-                                    <span>
-                                        "click the following button to enable debugger:"
-                                        <Button
-                                            on_click=move |_| {
-                                                spawn_local(async move {
-                                                    let _ = Request::get("/apis/debug/enable").send().await;
-                                                });
-                                            }
+                         <Box>
+                             <Alert variant=AlertVariant::Warn>
+                                 <AlertTitle slot>"debugger not enabled"</AlertTitle>
+                                 <AlertContent slot>
+                                     <span>
+                                         "click the following button to enable debugger:"
+                                         <Button
+                                             on_click=move |_| {
+                                                 spawn_local(async move {
+                                                     let _ = Request::get("/apis/debug/enable").send().await;
+                                                 });
+                                             }
 
-                                            size=ButtonSize::Small
-                                        >
-                                            "enable debugger"
-                                        </Button>
-                                    </span>
-                                </AlertContent>
-                            </Alert>
-                        </Box>
-                    }
+                                             size=ButtonSize::Small
+                                         >
+                                             "enable debugger"
+                                         </Button>
+                                     </span>
+                                 </AlertContent>
+                             </Alert>
+                         </Box>
+                     }
                 }
             })
             .unwrap_or(view! {

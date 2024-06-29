@@ -8,7 +8,7 @@ use probe_common::cli::ProbeCommand;
 
 use super::usr1_handler;
 
-/// Debug the target process
+/// Debug and Inspection Tool
 #[derive(Args)]
 pub struct DebugCommand {
     /// Dump the calling stack of the target process
