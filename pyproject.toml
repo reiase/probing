@@ -13,7 +13,7 @@ license = { text = "Apache License Version 2.0" }
 
 [tool.maturin]
 include = ["probe-0.1.0.data/scripts/*"]
-compatibility = "linux"
+compatibility = "manylinux2014"
 skip-auditwheel = false
 
 [tool.black]
