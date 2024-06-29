@@ -32,15 +32,37 @@ jobs:
         target: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
     - name: Install Zig toolchain
       uses: goto-bus-stop/setup-zig@v2
+    - name: Restore Cache
+      id: cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: ${{ runner.os }}-cargo
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build maturin
         cargo install trunk
+        cargo install cargo-zigbuild
+        cargo install rnr
+    - name: Save Cache
+      id: cache-save
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: ${{ steps.cache-restore.outputs.cache-primary-key }}
     - name: Build package
       run: |
         make wheel
-        rename probe probe_tool target/wheels/*.whl
+        rnr -f probe probe-tool target/wheels/*.whl
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
       with:
