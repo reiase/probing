@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ProbeCommand {
+pub enum ProbingCommand {
     Nil,
     Dump,
     Pause { address: Option<String> },

@@ -4,7 +4,7 @@ use nix::{
     sys::signal,
     unistd::{sleep, Pid},
 };
-use probe_common::{cli::ProbeCommand, Process};
+use probing_common::{cli::ProbingCommand, Process};
 use procfs::process;
 
 pub fn overview() -> String {
@@ -55,9 +55,9 @@ pub fn callstack(tid: Option<String>) -> String {
             *cs = None;
         })
         .unwrap();
-    let cmd = ProbeCommand::Dump;
+    let cmd = ProbingCommand::Dump;
     let cmd = ron::to_string(&cmd).unwrap_or("[]".to_string());
-    env::set_var("PROBE_ARGS", cmd);
+    env::set_var("PROBING_ARGS", cmd);
     let mut pid = process::Process::myself().unwrap().pid();
     if let Some(tid) = tid {
         if let Ok(tid) = tid.parse::<i32>() {

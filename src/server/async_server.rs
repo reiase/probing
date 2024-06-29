@@ -38,7 +38,7 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
         if let Ok(addr) = listener.local_addr() {
             use Color::{Blue, Green, Red};
 
-            eprintln!("{}", Red.bold().paint("probe server is available on:"));
+            eprintln!("{}", Red.bold().paint("probing server is available on:"));
             if addr.to_string().starts_with("0.0.0.0:") {
                 for (_, ip) in list_afinet_netifas()
                     .unwrap()

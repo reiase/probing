@@ -148,8 +148,8 @@ class TorchHelper(Command):
     def profile(steps=1, mid=None):
         import __main__
 
-        if not hasattr(__main__, "__probe__"):
-            __main__.__probe__ = {}
+        if not hasattr(__main__, "__probing__"):
+            __main__.__probing__ = {}
         if mid is not None:
             import gc
 
@@ -158,18 +158,18 @@ class TorchHelper(Command):
             tms = TorchHelper.get_top_level_modules()
         for m in tms:
             p = TorchHelper.install_profiler(m, steps)
-            if "profiler" not in __main__.__probe__:
-                __main__.__probe__["profiler"] = {}
-            __main__.__probe__["profiler"][id(m)] = p
+            if "profiler" not in __main__.__probing__:
+                __main__.__probing__["profiler"] = {}
+            __main__.__probing__["profiler"][id(m)] = p
 
     @staticmethod
     def summary():
         import __main__
 
-        if not hasattr(__main__, "__probe__"):
-            __main__.__probe__ = {}
-        if "profiler" in __main__.__probe__:
-            for k, v in __main__.__probe__["profiler"].items():
+        if not hasattr(__main__, "__probing__"):
+            __main__.__probing__ = {}
+        if "profiler" in __main__.__probing__:
+            for k, v in __main__.__probing__["profiler"].items():
                 print(f"profile for {k}")
                 print(v.summary())
 
@@ -183,15 +183,15 @@ class RemoteDebug(Command):
     def status() -> Dict[str, Any]:
         import __main__
 
-        if not hasattr(__main__, "__probe__"):
-            __main__.__probe__ = {}
-        if "debug" not in __main__.__probe__:
-            __main__.__probe__["debug"] = {}
-        __main__.__probe__["debug"][
+        if not hasattr(__main__, "__probing__"):
+            __main__.__probing__ = {}
+        if "debug" not in __main__.__probing__:
+            __main__.__probing__["debug"] = {}
+        __main__.__probing__["debug"][
             "debugger_installed"
         ] = RemoteDebug.detect_debugger()
 
-        return __main__.__probe__["debug"]
+        return __main__.__probing__["debug"]
 
     @staticmethod
     def detect_debugger():

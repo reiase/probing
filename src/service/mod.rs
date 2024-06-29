@@ -15,9 +15,9 @@ mod python;
 pub use process::CALLSTACK;
 
 #[derive(Default, Clone, Debug)]
-pub struct ProbeService {}
+pub struct ProbingService {}
 
-impl ProbeService {
+impl ProbingService {
     fn parse_qs(&self, qs: Option<&str>) -> HashMap<String, String> {
         if let Some(qs) = qs {
             let qs = if qs.starts_with('?') {
@@ -53,7 +53,7 @@ impl ProbeService {
     }
 }
 
-impl Service<Request<IncomingBody>> for ProbeService {
+impl Service<Request<IncomingBody>> for ProbingService {
     type Response = Response<Full<Bytes>>;
     type Error = hyper::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;

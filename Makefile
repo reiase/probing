@@ -1,4 +1,4 @@
-data_scripts_dir := probe-0.1.0.data/scripts/
+data_scripts_dir := probing-0.1.0.data/scripts/
 ifndef DEBUG
 	CARGO_FLAGS := -r
 	TARGET_DIR := release
@@ -17,11 +17,9 @@ else
 	TARGET_DIR_PREFIX := target/x86_64-unknown-linux-gnu
 endif
 
-app_src := $(wildcard app/src/**.rs)
-
 all: wheel
 
-wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so
+wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
 	rm -rf dist
 	maturin build -r ${MATURIN_FLAGS}
 	test -e dist || mkdir -p dist
@@ -36,19 +34,15 @@ app/dist:
 ${data_scripts_dir}:
 	test -e ${data_scripts_dir}|| mkdir -p ${data_scripts_dir}
 
-.PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe
-${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe: ${data_scripts_dir}
-	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probe-cli 
+.PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
+	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probing-cli 
 	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
-	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe ${data_scripts_dir}
+	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${data_scripts_dir}
 
-.PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so
-${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so: ${data_scripts_dir} app/dist
+.PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist
 	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
-	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so ${data_scripts_dir}
+	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
 
-.PHONY: test
-test:
-	echo ${DEBUG} "," ${CARGO_FLAGS}
-	echo ${app_src}
 

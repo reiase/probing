@@ -12,10 +12,10 @@ pub mod performance;
 use crate::inject::{Injector, Process};
 use commands::Commands;
 
-/// Probe CLI - A performance and stability diagnostic tool for AI applications
+/// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser)]
 pub struct Cli {
-    /// DLL file to be injected into the target process (e.g., <location of probe cli>/libprobe.so)
+    /// DLL file to be injected into the target process (e.g., <location of probing cli>/libprobing.so)
     #[arg(short, long)]
     dll: Option<std::path::PathBuf>,
 
@@ -73,9 +73,9 @@ fn usr1_handler(argstr: String, pid: i32) -> Result<()> {
     let process = Process::get(pid as u32).unwrap();
     Injector::attach(process)
         .unwrap()
-        .setenv(Some("PROBE_ARGS"), Some(argstr.as_str()))
+        .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
         .map_err(|e| anyhow::anyhow!(e))
-        .context("failed to setup `PROBE_ARGS`")?;
+        .context("failed to setup `PROBING_ARGS`")?;
     signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
     Ok(())
 }

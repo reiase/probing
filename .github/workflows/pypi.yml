@@ -62,7 +62,6 @@ jobs:
     - name: Build package
       run: |
         make ZIG=1 wheel
-        rnr -f probe probe-tool dist/*.whl
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
       with:

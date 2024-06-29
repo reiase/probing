@@ -9,7 +9,7 @@ use tokio::net::TcpStream;
 
 use super::tokio_io::TokioIo;
 use crate::repl::Repl;
-use crate::service::ProbeService;
+use crate::service::ProbingService;
 
 pub trait AsyncPeek {
     async fn peek(&self, buf: &mut [u8]) -> std::io::Result<usize>;
@@ -61,7 +61,7 @@ where
 
     async fn handle_http(self) -> Result<()> {
         http1::Builder::new()
-            .serve_connection(TokioIo::new(self.inner), ProbeService::default())
+            .serve_connection(TokioIo::new(self.inner), ProbingService::default())
             .await
             .map_err(|err| err.into())
     }

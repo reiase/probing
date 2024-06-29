@@ -2,7 +2,7 @@ use leptonic::prelude::*;
 use leptos::*;
 
 use gloo_net::http::Request;
-use probe_common::DebugState;
+use probing_common::DebugState;
 
 #[component]
 pub fn DebugView() -> impl IntoView {
@@ -61,7 +61,7 @@ pub fn DebugView() -> impl IntoView {
                         let port = addr[1];
                         format!(r#"
                         {{
-                            "name": "Attach to Probe Server",
+                            "name": "Attach to Probing Server",
                             "port": {},
                             "host": "{}",
                             "request": "attach",
@@ -71,7 +71,7 @@ pub fn DebugView() -> impl IntoView {
                     } else {
                         format!(r#"
                         {{
-                            "name": "Attach to Probe Server",
+                            "name": "Attach to Probing Server",
                             "port": {},
                             "host": "127.0.0.1",
                             "request": "attach",

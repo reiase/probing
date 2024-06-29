@@ -1,6 +1,6 @@
 use leptonic::prelude::*;
 use leptos::*;
-use probe_common::Object;
+use probing_common::Object;
 
 use serde_json;
 

@@ -26,7 +26,7 @@ use handlers::execute_handler;
 use handlers::pause_process;
 use handlers::pprof_handler;
 
-use probe_common::cli::ProbeCommand;
+use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
 use server::start_async_server;
 use service::CALLSTACK;
@@ -38,10 +38,10 @@ where
     unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
 }
 
-pub fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
+pub fn probing_command_handler(cmd: ProbingCommand) -> Result<()> {
     match cmd {
-        ProbeCommand::Nil => {}
-        ProbeCommand::Dump => {
+        ProbingCommand::Nil => {}
+        ProbingCommand::Dump => {
             let ret = dump_stack()?;
             CALLSTACK
                 .lock()
@@ -50,13 +50,13 @@ pub fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
                 })
                 .unwrap();
         }
-        ProbeCommand::Pause { address } => pause_process(address),
-        ProbeCommand::Perf => pprof_handler(),
-        ProbeCommand::CatchCrash => {
+        ProbingCommand::Pause { address } => pause_process(address),
+        ProbingCommand::Perf => pprof_handler(),
+        ProbingCommand::CatchCrash => {
             //     // let tmp = args.address.clone();
             //     // register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
         }
-        ProbeCommand::ListenRemote { address } => {
+        ProbingCommand::ListenRemote { address } => {
             thread::spawn(|| {
                 tokio::runtime::Builder::new_multi_thread()
                     .enable_all()
@@ -66,39 +66,39 @@ pub fn probe_command_handler(cmd: ProbeCommand) -> Result<()> {
                     .unwrap();
             });
         }
-        ProbeCommand::Execute { script } => execute_handler(script)?,
+        ProbingCommand::Execute { script } => execute_handler(script)?,
     };
     Ok(())
 }
 
 fn sigusr1_handler() {
-    let argstr = env::var("PROBE_ARGS").unwrap_or("Nil".to_string());
+    let argstr = env::var("PROBING_ARGS").unwrap_or("Nil".to_string());
     if argstr.starts_with('[') {
-        let cmds: Vec<ProbeCommand> = ron::from_str(&argstr).unwrap();
+        let cmds: Vec<ProbingCommand> = ron::from_str(&argstr).unwrap();
         for cmd in cmds {
-            probe_command_handler(cmd).unwrap();
+            probing_command_handler(cmd).unwrap();
         }
     } else {
-        let cmd: ProbeCommand = ron::from_str(&argstr).unwrap();
-        probe_command_handler(cmd).unwrap();
+        let cmd: ProbingCommand = ron::from_str(&argstr).unwrap();
+        probing_command_handler(cmd).unwrap();
     }
 }
 
 #[ctor]
 fn setup() {
-    env_logger::init_from_env(Env::new().filter("PROBE_LOG"));
-    info!("Initializing libprobe ...");
+    env_logger::init_from_env(Env::new().filter("PROBING_LOG"));
+    info!("Initializing libprobing ...");
 
-    let argstr = env::var("PROBE_ARGS").unwrap_or("[]".to_string());
-    debug!("Setup libprobe with PROBE_ARGS: {argstr}");
-    let probe_commands: Vec<ProbeCommand> = ron::from_str(argstr.as_str()).unwrap();
-    debug!("Setup libprobe with commands: {probe_commands:?}");
+    let argstr = env::var("PROBING_ARGS").unwrap_or("[]".to_string());
+    debug!("Setup libprobing with PROBING_ARGS: {argstr}");
+    let cmds: Vec<ProbingCommand> = ron::from_str(argstr.as_str()).unwrap();
+    debug!("Setup libprobing with commands: {cmds:?}");
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
     register_signal_handler(SIGUSR2, dump_stack2);
 
-    for cmd in probe_commands {
-        probe_command_handler(cmd).unwrap();
+    for cmd in cmds {
+        probing_command_handler(cmd).unwrap();
     }
 }
 
@@ -111,22 +111,22 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
         );
     }
 
-    let mut probe_commands = vec![];
+    let mut cmds = vec![];
     if background {
-        probe_commands.push(ProbeCommand::ListenRemote { address })
+        cmds.push(ProbingCommand::ListenRemote { address })
     }
     if pprof {
-        probe_commands.push(ProbeCommand::Perf)
+        cmds.push(ProbingCommand::Perf)
     }
 
-    debug!("Setup libprobe with commands: {probe_commands:?}");
-    for cmd in probe_commands {
-        probe_command_handler(cmd).unwrap();
+    debug!("Setup libprobing with commands: {cmds:?}");
+    for cmd in cmds {
+        probing_command_handler(cmd).unwrap();
     }
 }
 
 #[pymodule]
-fn probe(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn probing(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
     Ok(())
 }

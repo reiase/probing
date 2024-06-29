@@ -12,7 +12,7 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
-probe.egg-info/
+probing.egg-info/
 *.so
 *.bak
 .idea/

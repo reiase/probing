@@ -22,7 +22,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/leptonic-template-ssr.css"/>
         <Stylesheet href="https://fonts.googleapis.com/css?family=Roboto&display=swap"/>
 
-        <Title text="Probe"/>
+        <Title text="Probing"/>
 
         <Root default_theme=LeptonicTheme::default()>
             <HeaderBar/>
@@ -59,7 +59,7 @@ pub fn HeaderBar() -> impl IntoView {
                 spacing=Size::Em(1.0)
                 style="margin-left: 2em"
             >
-                <H1 style="color: white;">"Probe"</H1>
+                <H1 style="color: white;">"Probing"</H1>
                 <Button on_click=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate("/", Default::default());
@@ -104,7 +104,7 @@ pub fn HeaderBar() -> impl IntoView {
                 style="margin-right: 2em"
             >
                 <a
-                    href="https://github.com/reiase/probe"
+                    href="https://github.com/reiase/probing"
                     style=" text-decoration: none; color:inherit"
                 >
                     <Icon icon=icondata::BsGithub/>

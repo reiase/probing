@@ -167,7 +167,7 @@ impl Injector {
             .wrap_err("failed to inject shellcode")?;
 
         injection
-            .setenv(Some("PROBE_ARGS"), args)
+            .setenv(Some("PROBING_ARGS"), args)
             .wrap_err("failed to prepare env string")?;
 
         injection

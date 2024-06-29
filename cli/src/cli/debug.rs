@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use clap::Args;
 use nix::{sys::signal, unistd::Pid};
-use probe_common::cli::ProbeCommand;
+use probing_common::cli::ProbingCommand;
 
 use super::usr1_handler;
 
@@ -30,7 +30,7 @@ impl DebugCommand {
             signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR2)
                 .with_context(|| format!("error sending signal to pid {pid}"))
         } else if self.pause {
-            let cmd = ProbeCommand::Pause {
+            let cmd = ProbingCommand::Pause {
                 address: self.address.clone(),
             };
             let cmd = ron::to_string(&cmd)?;

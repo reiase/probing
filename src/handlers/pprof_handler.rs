@@ -56,7 +56,7 @@ pub static PPROF_HOLDER: Lazy<PprofHolder> = Lazy::new(|| PprofHolder(Mutex::new
 
 pub fn pprof_handler() {
     with_params! {
-        get freq = probe.pprof.freq or 100;
+        get freq = probing.pprof.freq or 100;
 
         PPROF_HOLDER.setup(freq as i32);
     }

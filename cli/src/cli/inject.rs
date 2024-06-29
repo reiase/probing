@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use probe_common::cli::ProbeCommand;
+use probing_common::cli::ProbingCommand;
 use std::fs;
 
 use crate::{
@@ -29,7 +29,7 @@ pub struct InjectCommand {
 }
 
 impl InjectCommand {
-    fn has_probe(&self, pid: i32) -> bool {
+    fn has_probing(&self, pid: i32) -> bool {
         let target = procfs::process::Process::new(pid).unwrap();
         let maps = target.maps().unwrap();
         maps.iter()
@@ -37,24 +37,24 @@ impl InjectCommand {
                 procfs::process::MMapPath::Path(p) => p.to_string_lossy().to_string(),
                 _ => "".to_string(),
             })
-            .any(|p| p.ends_with("libprobe.so"))
+            .any(|p| p.ends_with("libprobing.so"))
     }
 
     pub fn run(&self, pid: i32, dll: &Option<std::path::PathBuf>) -> Result<()> {
         let mut cmds = vec![];
         if self.pprof {
-            cmds.push(ProbeCommand::Perf);
+            cmds.push(ProbingCommand::Perf);
         }
         if self.crash {
-            cmds.push(ProbeCommand::CatchCrash);
+            cmds.push(ProbingCommand::CatchCrash);
         }
         if let Some(address) = &self.listen {
-            cmds.push(ProbeCommand::ListenRemote {
+            cmds.push(ProbingCommand::ListenRemote {
                 address: Some(address.clone()),
             });
         }
         if let Some(script) = &self.execute {
-            cmds.push(ProbeCommand::Execute {
+            cmds.push(ProbingCommand::Execute {
                 script: script.clone(),
             })
         }
@@ -66,7 +66,7 @@ impl InjectCommand {
                 _path.display(),
                 _path.parent().unwrap().display()
             );
-            _path.with_file_name("libprobe.so").into()
+            _path.with_file_name("libprobing.so").into()
         } else {
             None
         };
@@ -80,14 +80,14 @@ impl InjectCommand {
         );
 
         let process = Process::get(pid as u32).unwrap();
-        if self.has_probe(pid) {
+        if self.has_probing(pid) {
             let argstr = ron::to_string(&cmds)?;
             usr1_handler(argstr, pid)
         } else {
             Injector::attach(process)
                 .unwrap()
                 .inject(&soname.unwrap(), Some(argstr.as_str()))
-                .map_err(|err| anyhow::anyhow!("failed to inject probe to {}: {}", pid, err))
+                .map_err(|err| anyhow::anyhow!("failed to inject probing to {}: {}", pid, err))
         }
     }
 }
