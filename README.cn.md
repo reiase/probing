@@ -86,6 +86,7 @@ probing.init(listen="127.0.0.1:9922")
     $probing -p <pid> perf --cc    # 启用c/c++ 的profiling，可输出flamegraph
     $probing -p <pid> perf --torch # 启用torch的profiling
     ```
+
 ### 进阶功能
 
 probing 为大模型的开发与调试提供了一系列Python分析与诊断功能：
@@ -96,9 +97,11 @@ probing 为大模型的开发与调试提供了一系列Python分析与诊断功
 - Inspect功能：用于检视Python对象、torch Tensor对象与torch Module模型；
 
 这些功能可以通过web界面访问。注入探针时指定服务地址，例如：
+
 ```shell
-probing <pid> inject -b -a 127.0.0.1:1234
+probing <pid> inject -l 127.0.0.1:1234
 ```
+
 之后可以通过浏览器打开`http://127.0.0.1:1234`来使用上述功能。
 
 ## 安装probing
@@ -108,7 +111,7 @@ probing <pid> inject -b -a 127.0.0.1:1234
 `probing` 可以通过pip命令安装：
 
 ```sh
-$ pip install probing
+$pip install probing
 ```
 
 ### 源码构建
@@ -117,9 +120,9 @@ $ pip install probing
 ```shell
 cargo install trunk
 ```
-构建环境准备就绪后，可以通过`build.sh`脚本来完成构建
+构建环境准备就绪后，可以通过`make`命令来完成构建
 ```shell
-sh build.sh
+$make
 ```
 
 ### 开发模式
@@ -133,7 +136,7 @@ cd app
 trunk watch --filehash false -d dist/
 
 # 构建probing与libprobing
-cargo b -p cli
+cargo b -p probing-cli
 cargo b
 ```
 

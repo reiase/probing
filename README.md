@@ -1,130 +1,138 @@
-### Probing: A Performance and Stability Diagnostic Tool for AI Applications
+# Probing: Performance and Stability Diagnostic Tool for AI Applications
 
-Probing is a performance and stability diagnostic tool designed specifically for AI applications. It aims to solve the debugging and optimization challenges of large-scale, distributed, long-duration heterogeneous computing tasks (such as LLM training and inference). By injecting a probing server into the target process, it can collect more detailed performance data or modify the execution behavior of the target process in real-time.
+Probing is a performance and stability diagnostic tool designed specifically for AI applications. It aims to solve debugging and optimization challenges in large-scale, distributed, and long-cycle AI heterogeneous computing tasks (such as LLM training and inference). By injecting a probing server into the target process, it can collect more detailed performance data or modify the execution behavior of the target process in real-time.
 
-## Key Features
+## Main Features
 
 The main features of Probing include:
 
-- **Debugging Capabilities**:
-  - Observing the call stack, Python objects, Torch Tensors, and modules of the target process;
-  - Supporting remote debugging through the DAP protocol using VSCode to debug the target process;
-- **Performance Profiling**:
-  - Sampling the performance of C/C++ code and generating flame graphs;
-  - Supporting Torch profiling to analyze model performance;
-- **Remote Control**:
-  - Providing HTTP interfaces to retrieve data and control the execution of the target process;
-  - Supporting remote injection of arbitrary Python code into the target process.
+- **Debugging Functions:**
+  - Observe the call stack, Python objects, Torch Tensors, and modules of the target process;
+  - Support remote debugging, allowing the use of VSCode for remote debugging of the target process via the DAP protocol;
 
-Compared to other debugging and diagnostic tools, `probing` is plug-and-play, allowing it to intrude into the target process at any time without interruption or restart, and without modifying the code.
+- **Performance Analysis:**
+  - Perform performance sampling on C/C++ code and generate flame graphs;
+  - Support profiling functions for Torch, analyzing model performance;
+
+- **Remote Control:**
+  - Provide HTTP interfaces for data retrieval and control of the target process execution;
+  - Support remote injection of any Python code into the target process.
+
+Compared to other debugging and diagnostic tools, `probing` can be used immediately without the need to interrupt or restart the target process, nor does it require code modifications.
 
 ## Quick Start
 
-### Injecting the Probing
+### Probing Injection
 
-Use the following command to inject the probing:
-
-```shell
-probing <pid> inject [OPTIONS]
-```
-
-Options:
-+ `-P, --pprof`: Enable profiling
-+ `-c, --crash`: Enable crash handling
-+ `-b, --background`: Enable background service
-+ `-a, --address <ADDRESS>`: Specify the service listening address
-
-
-### Diagnosing Issues
-
-After injecting the probing, you can use the commands provided by probing to diagnose issues:
-
-- `dump`: Print the current call stack to locate process blockages and deadlocks:
+**Inject via Command Line**
 
 ```shell
-probing <pid> dump
+probing --pid <pid> inject [OPTIONS]
 ```
 
-- `pause`: Pause the process and start a remote debugging service:
+Options: `-P,--pprof` to enable profiling; `-c,--crash` to enable crash handling; `-l,--listen <ADDRESS>` to specify the address for the service to listen for remote connections.
 
-```shell
-probing <pid> pause [ADDRESS] # ADDRESS is optional, default is a random port
-nc 127.0.0.1 3344           # Use nc to connect to the debugging service
+**Inject via Code**
+
+```python
+import probing
+probing.init(listen="127.0.0.1:9922")
 ```
 
-- `catch`: Take over error handling and start a remote service upon error:
+### Debugging and Performance Diagnosis
 
-```shell
-probing <pid> catch
-```
+After injecting probing, you can use the commands provided by probing for issue diagnosis:
 
-- `listen`: Start the background debugging service:
+- `debug` command (aliases: `dbg` or `d`): Debugging and inspection tool for locating process blockages and deadlock issues;
 
-```shell
-probing <pid> listen [ADDRESS] # ADDRESS is optional, default is a random port
-nc 127.0.0.1 3344            # Use nc to connect to the debugging service
-```
+    ```sh
+    $ probing help debug
+    Debug and Inspection Tool
 
-- `execute`: Inject and execute code:
+    Usage: probing debug [OPTIONS]
 
-```shell
-probing <pid> execute <SCRIPT>
-# For example
-probing <pid> execute script.py
-probing <pid> execute "import traceback;traceback.print_stack()"
-```
+    Options:
+      -d, --dump               Dump the calling stack of the target process
+      -p, --pause              Pause the target process and listen for remote connection
+      -a, --address <ADDRESS>  address to listen [default: 127.0.0.1:9922]
+      -h, --help               Print help
+    ```
 
-- `pprof`: Start profiling:
+    Examples:
 
-```shell
-probing <pid> pprof
+    ```sh
+    $ probing -p <pid> debug --dump # Print the current call stack of the target process
+    $ probing -p <pid> d -d         # Same as above, using the short command
 
-# Wait for a while and then get the flame graph
-sleep 10
-curl http://127.0.0.1:3344/flamegraph > flamegraph.svg
+    $ probing -p <pid> debug --pause --address 127.0.0.1:9922 # Pause the target process and wait for remote connection
+    $ probing -p <pid> d -p -a 127.0.0.1:9922                 # Same as above, using the short command
+    ```
 
-```
+- `performance` command (aliases: `perf` or `p`): Performance diagnosis tool for collecting performance data and diagnosing performance bottlenecks;
+
+    ```sh
+    $ probing help performance
+    Performance Diagnosis Tool
+
+    Usage: probing performance [OPTIONS]
+
+    Options:
+          --cc     profiling c/c++ codes
+          --torch  profiling torch models
+      -h, --help   Print help
+    ```
+
+    Examples:
+
+    ```sh
+    $ probing -p <pid> perf --cc    # Enable profiling for C/C++ code, can output flamegraph
+    $ probing -p <pid> perf --torch # Enable profiling for Torch
+    ```
 
 ### Advanced Features
 
-Probing also provides a series of Python analysis and diagnostic features for the development and debugging of large models:
+Probing provides a series of Python analysis and diagnostic functions for large model development and debugging:
 
-- Activity Analysis: Capture the current Python stack information of each thread;
-- Debugging: Start Python remote debugging to debug the target process in VSCode;
-- Profiling: Profile the execution of torch models;
-- Inspection: Inspect Python objects, torch Tensors, and torch Modules;
+- **Activity Analysis:** Capture the current Python stack information for each thread;
+- **Debug Function:** Enable Python remote debugging, allowing debugging of the target process in VSCode;
+- **Profile Function:** Perform profiling on Torch model execution;
+- **Inspect Function:** Inspect Python objects, Torch Tensor objects, and Torch Module models;
 
-These features can be accessed through a web interface. For example, specify the service address when injecting the probing:
+These functions can be accessed via the web interface. Specify the service address when injecting probing, for example:
 
 ```shell
 probing <pid> inject -b -a 127.0.0.1:1234
 ```
 
-Then, you can access the above features by opening `http://127.0.0.1:1234` in a browser.
+Then you can use the above functions by opening `http://127.0.0.1:1234` in a browser.
 
-##Installing Probing
+## Installing Probing
 
 ### Binary Installation
 
-`probing` does not require special installation. Simply download the release file, extract it, and execute. Users can optionally add probing to the $PATH environment variable.
+`probing` can be installed via pip:
+
+```sh
+$ pip install probing
+```
 
 ### Building from Source
 
-`probing` relies on the trunk tool for building. Install it using the following command, or skip this step if it is already installed:
+`probing` relies on the `trunk` tool for building, which can be installed with the following command. If already installed, you can skip this step:
 
 ```shell
 cargo install trunk
 ```
 
-Once the build environment is ready, you can complete the build using the build.sh script:
+After preparing the build environment, you can build the python package with:
 
 ```shell
-sh build.sh
+make
 ```
 
 ### Development Mode
 
-To facilitate development, probing packages Python scripts and the web app into libprobing.so. Repacking every time code is modified can significantly reduce efficiency, so manual building is recommended:
+To facilitate user usage, probing packages the Python scripts and web app into `libprobing.so`. Rebuilding the package every time the code is modified can greatly reduce efficiency. Therefore, manual build is recommended:
 
 ```shell
 # Continuously build the web app
@@ -136,4 +144,8 @@ cargo b -p cli
 cargo b
 ```
 
-In debug mode, probing will automatically load the web app from the dist directory and Python scripts from src, eliminating the need for repacking.
+In debug mode, `probing` will automatically load the web app from the `dist` directory and the Python scripts from `src/`, without the need for repackaging.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](./LICENSE) file for more details.
