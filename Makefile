@@ -1,38 +1,51 @@
 data_scripts_dir := probe-0.1.0.data/scripts/
 ifndef DEBUG
-	CARGO_FLAGS := "-r"
-	TARGET_DIR := target/release
+	CARGO_FLAGS := -r
+	TARGET_DIR := release
 else
 	CARGO_FLAGS :=
-	TARGET_DIR := target/debug
+	TARGET_DIR := debug
+endif
+
+ifndef ZIG
+	CARGO_BUILD_CMD := build
+	MATURIN_FLAGS :=
+	TARGET_DIR_PREFIX := target
+else
+	CARGO_BUILD_CMD := zigbuild --target x86_64-unknown-linux-gnu.2.17
+	MATURIN_FLAGS := --zig
+	TARGET_DIR_PREFIX := target/x86_64-unknown-linux-gnu
 endif
 
 app_src := $(wildcard app/src/**.rs)
 
-all: ${TARGET_DIR}/probe ${TARGET_DIR}/libprobe.so wheel
+all: wheel
 
-wheel: ${TARGET_DIR}/probe ${TARGET_DIR}/libprobe.so
-	maturin build -r --zig
+wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so
+	rm -rf dist
+	maturin build -r ${MATURIN_FLAGS}
+	test -e dist || mkdir -p dist
+	cp target/wheels/*.whl dist/
 
-.PHONY: dist
-dist:
-	test -e dist || mkdir dist
-	cd app && trunk build --filehash false --release -M -d ../dist/
+.PHONY: app/dist
+app/dist:
+	test -e app/dist || mkdir -p app/dist
+	cd app && trunk build --filehash false --release -M -d dist/
 	cd ..
 
 ${data_scripts_dir}:
 	test -e ${data_scripts_dir}|| mkdir -p ${data_scripts_dir}
 
-.PHONY: ${TARGET_DIR}/probe
-${TARGET_DIR}/probe: ${data_scripts_dir}
-	cargo build ${CARGO_FLAGS} --package probe-cli
+.PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe: ${data_scripts_dir}
+	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probe-cli 
 	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
-	cp ${TARGET_DIR}/probe ${data_scripts_dir}
+	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probe ${data_scripts_dir}
 
-.PHONY: ${TARGET_DIR}/libprobe.so
-${TARGET_DIR}/libprobe.so: ${data_scripts_dir} dist
-	cargo build ${CARGO_FLAGS}
-	cp ${TARGET_DIR}/libprobe.so ${data_scripts_dir}
+.PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so: ${data_scripts_dir} app/dist
+	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
+	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobe.so ${data_scripts_dir}
 
 .PHONY: test
 test:
