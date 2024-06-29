@@ -12,7 +12,7 @@ app_src := $(wildcard app/src/**.rs)
 all: ${TARGET_DIR}/probe ${TARGET_DIR}/libprobe.so wheel
 
 wheel: ${TARGET_DIR}/probe ${TARGET_DIR}/libprobe.so
-	maturin build -r
+	maturin build -r --zig
 
 .PHONY: dist
 dist:
