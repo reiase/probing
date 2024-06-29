@@ -176,8 +176,13 @@ class TorchHelper(Command):
 
 @register_command("debug")
 class RemoteDebug(Command):
-    def __call__(self, host: str = "127.0.0.1", port: int = 9999):
-        RemoteDebug.install_debugpy(host, port)
+    def __call__(
+        self, host: str = "127.0.0.1", port: int = 9999, try_install: bool = True
+    ):
+        if not RemoteDebug.detect_debugger() and try_install:
+            RemoteDebug.install_debugger()
+        if RemoteDebug.detect_debugger():
+            RemoteDebug.enable_debugger(host, port)
 
     @staticmethod
     def status() -> Dict[str, Any]:
@@ -215,12 +220,13 @@ class RemoteDebug(Command):
         status = RemoteDebug.status()
         try:
             import debugpy
-
-            debugpy.listen((host, port))
-            status["debugger_address"] = f"{host}:{port}"
-            print(f"debugger is started at {host}:{port}")
         except Exception:
-            pass
+            print("debugpy is not installed, please install debugpy with pip:")
+            print("\tpip install debugpy")
+            return
+        debugpy.listen((host, port))
+        status["debugger_address"] = f"{host}:{port}"
+        print(f"debugger is started at {host}:{port}")
 
 
 @register_command("help")

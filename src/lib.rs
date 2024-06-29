@@ -50,6 +50,22 @@ pub fn probing_command_handler(cmd: ProbingCommand) -> Result<()> {
                 })
                 .unwrap();
         }
+        ProbingCommand::Dap { address } => {
+            let mut repl = PythonRepl::default();
+            let cmd = if let Some(addr) = address {
+                if addr.contains(':') {
+                    let addr = addr.split(':').collect::<Vec<&str>>();
+                    let host = addr[0];
+                    let port = addr[1];
+                    format!("debug(\"{}\", {})", host, port)
+                } else {
+                    format!("debug()")
+                }
+            } else {
+                format!("debug()")
+            };
+            repl.process(cmd.as_str());
+        }
         ProbingCommand::Pause { address } => pause_process(address),
         ProbingCommand::Perf => pprof_handler(),
         ProbingCommand::CatchCrash => {

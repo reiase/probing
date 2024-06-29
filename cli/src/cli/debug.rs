@@ -12,15 +12,19 @@ use super::usr1_handler;
 #[derive(Args)]
 pub struct DebugCommand {
     /// Dump the calling stack of the target process
-    #[arg(short, long, conflicts_with_all=["pause"])]
+    #[arg(short, long, conflicts_with_all=["dap", "pause"])]
     dump: bool,
 
     /// Pause the target process and listen for remote connection
-    #[arg(short, long, conflicts_with_all=["dump"])]
+    #[arg(short, long, conflicts_with_all=["dump", "dap"])]
     pause: bool,
 
-    /// address to listen
-    #[arg(short, long, default_value = "127.0.0.1:9922")]
+    /// Start DAP server and debugging python code from vscode
+    #[arg(long, conflicts_with_all = ["pause", "dump"])]
+    dap: bool,
+
+    /// address to listen when using `pause` or `dap`
+    #[arg(short, long, default_value = None)]
     address: Option<String>,
 }
 
@@ -31,6 +35,12 @@ impl DebugCommand {
                 .with_context(|| format!("error sending signal to pid {pid}"))
         } else if self.pause {
             let cmd = ProbingCommand::Pause {
+                address: self.address.clone(),
+            };
+            let cmd = ron::to_string(&cmd)?;
+            usr1_handler(cmd, pid)
+        } else if self.dap {
+            let cmd = ProbingCommand::Dap {
                 address: self.address.clone(),
             };
             let cmd = ron::to_string(&cmd)?;
