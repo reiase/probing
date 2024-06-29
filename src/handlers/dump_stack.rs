@@ -15,7 +15,7 @@ pub fn dump_stack() -> Result<String> {
 }
 
 pub fn dump_stack2() {
-    Python::with_gil(|py| {
+    Python::with_gil(|_| {
         // let _ = py.run_bound("import traceback; traceback.print_stack()", None, None);
         let mut ret = Python::with_gil(|py| {
             let ret = py

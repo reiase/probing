@@ -20,63 +20,72 @@ Probe的主要功能包括：
 
 ## Quick Start
 
-### 注入探针
+### 探针注入
+
+**通过命令行注入**
 
 ```shell
-probe <pid> inject [OPTIONS]
+probe --pid <pid> inject [OPTIONS]
 ```
 
-选项：`-P,--pprof` 启用 profiling；`-c,--crash` 启用崩溃处理；`-b,--background` 启用后台服务；`-a,--address <ADDRESS>` 指定服务监听地址。
+选项：`-P,--pprof` 启用 profiling；`-c,--crash` 启用崩溃处理；`-l,--listen <ADDRESS>` 在指定地址服务监听远程连接。
 
-### 诊断问题
+**通过代码注入**
+
+```python
+import probe
+probe.init(listen="127.0.0.1:9922")
+```
+
+### 调试与性能诊断
 
 注入探针后，可以使用probe提供的命令进行问题诊断：
 
-- `dump`命令：打印当前调用栈，用于定位进程阻塞和死锁问题；
+- `debug`命令（别名`dbg`或`d`），调试与检查工具，用于定位进程阻塞和死锁问题；
 
     ```sh
-    probe <pid> dump
+    $ probe help debug
+    Debug and Inspection Tool
+
+    Usage: probe debug [OPTIONS]
+
+    Options:
+      -d, --dump               Dump the calling stack of the target process
+      -p, --pause              Pause the target process and listen for remote connection
+      -a, --address <ADDRESS>  address to listen [default: 127.0.0.1:9922]
+      -h, --help               Print help
     ```
 
-- `pause`命令：暂停进程并启动远程调试服务;
+    例如：
 
     ```sh
-    probe <pid> pause [ADDRESS] # ADDRESS参数可选，默认为随机端口
-    nc 127.0.0.1 3344           # 使用nc连接调试服务
+    $probe -p <pid> debug --dump # 打印目标进程的当前调用堆栈
+    $probe -p <pid> d -d         # 同上，使用简化命令
+
+    $probe -p <pid> debug --pause --address 127.0.0.1:9922 #暂停目标进程，并等待远程连接
+    $probe -p <pid> d -p -a 127.0.0.1:9922                 # 同上，使用简化命令
     ```
 
-- `catch`命令：接管错误处理，在出错时启动远程服务;
+- `performance`命令（别名：`perf`或`p`）：性能诊断工具，用于收集性能数据、诊断性能瓶颈;
 
     ```sh
-    probe <pid> catch
+    $probe help performance
+    Performance Diagnosis Tool
+
+    Usage: probe performance [OPTIONS]
+
+    Options:
+          --cc     profiling c/c++ codes
+          --torch  profiling torch models
+      -h, --help   Print help
     ```
 
-- `listen`命令: 启动后台调试服务:
+    例如：
 
     ```sh
-    probe <pid> listen [ADDRESS] # ADDRESS参数可选，默认为随机端口
-    nc 127.0.0.1 3344            # 使用nc连接调试服务
+    $probe -p <pid> perf --cc    # 启用c/c++ 的profiling，可输出flamegraph
+    $probe -p <pid> perf --torch # 启用torch的profiling
     ```
-
-- `execute`命令：注入并执行代码；
-
-    ```sh
-    probe <pid> execute <SCRIPT> # 
-    # 比如
-    probe <pid> execute script.py 
-    probe <pid> execute "import traceback;traceback.print_stack()"
-    ```
-
-- `pprof`命令: 启动profiling;
-
-    ```sh
-    probe <pid> pprof
-
-    # 等待一段时间后获取火焰图
-    sleep 10
-    curl http://127.0.0.1:3344/flamegraph > flamegraph.svg
-    ```
-
 ### 进阶功能
 
 probe 为大模型的开发与调试提供了一系列Python分析与诊断功能：
@@ -95,7 +104,12 @@ probe <pid> inject -b -a 127.0.0.1:1234
 ## 安装probe
 
 ### 二进制安装
-`probe` 无需可以安装，下载release文件后直接解压执行即可。用户可以根据需要自行将probe加入`$PATH` 环境变量。
+
+`probe` 可以通过pip命令安装：
+
+```sh
+$ pip install probe-tool
+```
 
 ### 源码构建
 

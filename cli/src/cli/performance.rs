@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Args;
 use nix::{sys::signal, unistd::Pid};
 
-/// Start profiling
+/// Performance Diagnosis Tool
 #[derive(Args, Default)]
 pub struct PerfCommand {
     /// profiling c/c++ codes
