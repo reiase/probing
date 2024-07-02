@@ -20,11 +20,11 @@ use signal_hook::consts::*;
 
 // use handlers::crash_handler;
 
-use handlers::dump_stack;
 use handlers::dump_stack2;
 use handlers::execute_handler;
 use handlers::pause_process;
 use handlers::pprof_handler;
+use handlers::{dump_stack, show_plt};
 
 use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
@@ -83,6 +83,9 @@ pub fn probing_command_handler(cmd: ProbingCommand) -> Result<()> {
             });
         }
         ProbingCommand::Execute { script } => execute_handler(script)?,
+        ProbingCommand::ShowPLT => {
+            show_plt()?;
+        }
     };
     Ok(())
 }

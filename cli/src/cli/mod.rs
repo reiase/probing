@@ -8,6 +8,7 @@ pub mod commands;
 pub mod debug;
 pub mod inject;
 pub mod performance;
+pub mod misc;
 
 use crate::inject::{Injector, Process};
 use commands::Commands;
@@ -42,6 +43,7 @@ impl Cli {
             Some(Commands::Inject(cmd)) => cmd.run(pid, &self.dll),
             Some(Commands::Debug(cmd)) => cmd.run(pid),
             Some(Commands::Performance(cmd)) => cmd.run(pid),
+            Some(Commands::Misc(cmd)) => cmd.run(pid),
             // Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
             None => inject::InjectCommand::default().run(pid, &self.dll),
         }

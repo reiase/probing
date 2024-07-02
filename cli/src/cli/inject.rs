@@ -37,7 +37,7 @@ impl InjectCommand {
                 procfs::process::MMapPath::Path(p) => p.to_string_lossy().to_string(),
                 _ => "".to_string(),
             })
-            .any(|p| p.ends_with("libprobing.so"))
+            .any(|p| p.ends_with("libprobing.so") || p.ends_with("probing.abi3.so"))
     }
 
     pub fn run(&self, pid: i32, dll: &Option<std::path::PathBuf>) -> Result<()> {

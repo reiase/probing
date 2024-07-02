@@ -10,4 +10,5 @@ pub enum ProbingCommand {
     CatchCrash,
     ListenRemote { address: Option<String> },
     Execute { script: String },
+    ShowPLT,
 }

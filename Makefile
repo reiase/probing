@@ -1,4 +1,4 @@
-data_scripts_dir := probing-0.1.1.data/scripts/
+data_scripts_dir := probing-0.1.2.data/scripts/
 ifndef DEBUG
 	CARGO_FLAGS := -r
 	TARGET_DIR := release

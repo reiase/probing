@@ -8,5 +8,7 @@ pub enum Commands {
     Debug(super::debug::DebugCommand),
     #[command(visible_aliases = ["perf", "p"])]
     Performance(super::performance::PerfCommand),
+    #[command(visible_aliases = ["m"])]
+    Misc(super::misc::MiscCommand),
     // CatchCrash(super::catch::CatchCrashCommand),
 }
