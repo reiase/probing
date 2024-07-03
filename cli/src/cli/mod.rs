@@ -7,8 +7,8 @@ pub mod catch;
 pub mod commands;
 pub mod debug;
 pub mod inject;
-pub mod performance;
 pub mod misc;
+pub mod performance;
 
 use crate::inject::{Injector, Process};
 use commands::Commands;

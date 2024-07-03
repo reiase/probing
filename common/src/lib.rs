@@ -21,6 +21,7 @@ pub struct KeyValuePair {
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct CallStack {
+    pub cstack: Option<String>,
     pub file: String,
     pub func: String,
     pub lineno: i64,

@@ -62,30 +62,45 @@ pub fn Activity() -> impl IntoView {
 
 #[component]
 fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
-    let file = callstack.file.clone();
-    let func = callstack.func.clone();
-    let lineno = callstack.lineno;
-    let locals = callstack.locals.clone();
-    let url = format!("/apis/files?path={}", file.clone());
-    let route_url = format!("/files?path={}", file);
-    view! {
-        <Collapsible>
+    if let Some(cstack) = callstack.cstack {
+        view! {
+            <Collapsible>
             <CollapsibleHeader slot>
                 <Chip>
-                    {func} "@" <a href=url target="_blank">
-                        {file}
-                    </a> {":"} {lineno}
+                    "C/C++ Call Stack"
                 </Chip>
-                <Button on_click=move |_| {
-                    let navigate = leptos_router::use_navigate();
-                    navigate(route_url.as_str(), Default::default());
-                }>
-                    <Icon icon=icondata::FaFileRegular/>
-                </Button>
             </CollapsibleHeader>
             <CollapsibleBody class="my-body" slot>
-                <VariablesView variables=locals/>
+                <pre>{cstack}</pre>
             </CollapsibleBody>
-        </Collapsible>
+            </Collapsible>
+        }
+    } else {
+        let file = callstack.file.clone();
+        let func = callstack.func.clone();
+        let lineno = callstack.lineno;
+        let locals = callstack.locals.clone();
+        let url = format!("/apis/files?path={}", file.clone());
+        let route_url = format!("/files?path={}", file);
+        view! {
+            <Collapsible>
+                <CollapsibleHeader slot>
+                    <Chip>
+                        {func} "@" <a href=url target="_blank">
+                            {file}
+                        </a> {":"} {lineno}
+                    </Chip>
+                    <Button on_click=move |_| {
+                        let navigate = leptos_router::use_navigate();
+                        navigate(route_url.as_str(), Default::default());
+                    }>
+                        <Icon icon=icondata::FaFileRegular/>
+                    </Button>
+                </CollapsibleHeader>
+                <CollapsibleBody class="my-body" slot>
+                    <VariablesView variables=locals/>
+                </CollapsibleBody>
+            </Collapsible>
+        }
     }
 }

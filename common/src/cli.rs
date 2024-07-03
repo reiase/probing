@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum ProbingCommand {
     Nil,
     Dump,
-    Dap {address: Option<String>},
+    Dap { address: Option<String> },
     Pause { address: Option<String> },
     Perf,
     CatchCrash,
