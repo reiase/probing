@@ -58,7 +58,7 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
     }
 }
 
-pub async fn start_async_server<T>(addr: Option<String>) -> Result<()>
+pub async fn start_remote_server<T>(addr: Option<String>) -> Result<()>
 where
     T: Repl + Default + Send,
 {

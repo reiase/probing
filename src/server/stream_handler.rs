@@ -6,18 +6,32 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::net::UnixStream;
 
 use super::tokio_io::TokioIo;
 use crate::repl::Repl;
 use crate::service::ProbingService;
 
-pub trait AsyncPeek {
-    async fn peek(&self, buf: &mut [u8]) -> std::io::Result<usize>;
+pub trait IsHTTP {
+    async fn is_http(&mut self) -> bool;
 }
 
-impl AsyncPeek for TcpStream {
-    async fn peek(&self, buf: &mut [u8]) -> std::io::Result<usize> {
-        tokio::net::TcpStream::peek(&self, buf).await
+impl IsHTTP for TcpStream {
+    async fn is_http(&mut self) -> bool {
+        let mut peek_buf = [0u8; 4];
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        self.peek(&mut peek_buf).await.ok().map_or(false, |ulen| {
+            ulen == 4
+                && (peek_buf.starts_with("GET ".as_bytes())
+                    || peek_buf.starts_with("POST".as_bytes()))
+        })
+    }
+}
+
+impl IsHTTP for UnixStream {
+    async fn is_http(&mut self) -> bool {
+        return true;
     }
 }
 
@@ -28,7 +42,7 @@ pub struct StreamHandler<IO, REPL> {
 
 impl<IO, REPL> StreamHandler<IO, REPL>
 where
-    IO: AsyncRead + AsyncWrite + AsyncPeek + std::marker::Unpin,
+    IO: AsyncRead + AsyncWrite + IsHTTP + std::marker::Unpin,
     REPL: Repl + Default + Send,
 {
     pub fn new(inner: IO) -> Self {
@@ -38,25 +52,11 @@ where
         }
     }
     pub async fn run(mut self) -> Result<()> {
-        if self.is_http().await {
+        if self.inner.is_http().await {
             self.handle_http().await
         } else {
             self.handle_repl().await
         }
-    }
-    async fn is_http(&mut self) -> bool {
-        let mut peek_buf = [0u8; 4];
-        std::thread::sleep(std::time::Duration::from_millis(10));
-
-        self.inner
-            .peek(&mut peek_buf)
-            .await
-            .ok()
-            .map_or(false, |ulen| {
-                ulen == 4
-                    && (peek_buf.starts_with("GET ".as_bytes())
-                        || peek_buf.starts_with("POST".as_bytes()))
-            })
     }
 
     async fn handle_http(self) -> Result<()> {

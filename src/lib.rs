@@ -28,7 +28,8 @@ use handlers::{dump_stack, show_plt};
 
 use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
-use server::start_async_server;
+use server::start_remote_server;
+use server::start_local_server;
 use service::CALLSTACK;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
@@ -78,7 +79,7 @@ pub fn probing_command_handler(cmd: ProbingCommand) -> Result<()> {
                     .enable_all()
                     .build()
                     .unwrap()
-                    .block_on(start_async_server::<PythonRepl>(address))
+                    .block_on(start_remote_server::<PythonRepl>(address))
                     .unwrap();
             });
         }
@@ -119,6 +120,14 @@ fn setup() {
     for cmd in cmds {
         probing_command_handler(cmd).unwrap();
     }
+    thread::spawn(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(start_local_server::<PythonRepl>())
+            .unwrap();
+    });
 }
 
 #[pyfunction]
@@ -142,6 +151,14 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
     for cmd in cmds {
         probing_command_handler(cmd).unwrap();
     }
+    thread::spawn(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(start_local_server::<PythonRepl>())
+            .unwrap();
+    });
 }
 
 #[pymodule]
