@@ -28,8 +28,8 @@ use handlers::{dump_stack, show_plt};
 
 use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
-use server::start_remote_server;
 use server::start_local_server;
+use server::start_remote_server;
 use service::CALLSTACK;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)

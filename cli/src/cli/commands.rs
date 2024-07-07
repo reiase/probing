@@ -10,5 +10,7 @@ pub enum Commands {
     Performance(super::performance::PerfCommand),
     #[command(visible_aliases = ["m"])]
     Misc(super::misc::MiscCommand),
+    #[command(visible_aliases = ["con"])]
+    Console,
     // CatchCrash(super::catch::CatchCrashCommand),
 }
