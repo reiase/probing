@@ -39,7 +39,7 @@ impl Cli {
         self.execute_command(pid)
     }
 
-    fn execute_command(&self, pid: i32) -> std::result::Result<(), anyhow::Error> {
+    fn execute_command(&self, pid: i32) -> Result<()> {
         match &self.command {
             Some(Commands::Inject(cmd)) => cmd.run(pid, &self.dll),
             Some(Commands::Debug(cmd)) => cmd.run(pid),
@@ -47,7 +47,10 @@ impl Cli {
             Some(Commands::Misc(cmd)) => cmd.run(pid),
             Some(Commands::Console) => console::console_main(pid),
             // Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
-            None => inject::InjectCommand::default().run(pid, &self.dll),
+            None => {
+                let _ = inject::InjectCommand::default().run(pid, &self.dll);
+                console::console_main(pid)
+            }
         }
     }
 
@@ -78,8 +81,7 @@ fn usr1_handler(argstr: String, pid: i32) -> Result<()> {
     Injector::attach(process)
         .unwrap()
         .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
-        .map_err(|e| anyhow::anyhow!(e))
-        .context("failed to setup `PROBING_ARGS`")?;
+        .map_err(|e| {anyhow::anyhow!(e)})?;
     signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
     Ok(())
 }

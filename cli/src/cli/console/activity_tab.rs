@@ -32,41 +32,53 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
     Ok(())
 }
 
+fn format_frame(i: usize, frame: &CallStack) -> TreeItem<'static, String> {
+    if let Some(cframe) = &frame.cstack {
+        TreeItem::new(
+            format!("{}", i),
+            "C/C++ Frame".to_string(),
+            vec![TreeItem::new_leaf(format!("{}", i), cframe.clone())],
+        )
+        .unwrap()
+    } else {
+        TreeItem::new(
+            format!("{}", i),
+            format!(
+                "{}{} @ {}:{}",
+                DarkGray.dimmed().paint(format!("#[{}]:", i)),
+                Blue.bold().paint(frame.func.clone()),
+                Blue.bold().paint(frame.file.clone()),
+                Blue.bold().paint(format!("{}", frame.lineno)),
+            ),
+            frame
+                .locals
+                .iter()
+                .map(|(name, value)| {
+                    TreeItem::new_leaf(
+                        name.clone(),
+                        if value.value.is_some() {
+                            format!(
+                                "{} = {} as {}",
+                                name,
+                                value.value.clone().unwrap(),
+                                value.class
+                            )
+                        } else {
+                            "None".to_string()
+                        },
+                    )
+                })
+                .collect(),
+        )
+        .unwrap()
+    }
+}
+
 fn format_callstacks(callstacks: &Vec<CallStack>) -> Vec<TreeItem<'static, String>> {
     callstacks
         .iter()
         .enumerate()
-        .map(|(i, cs)| {
-            TreeItem::new(
-                format!("{}", i),
-                format!(
-                    "{}{} @ {}:{}",
-                    DarkGray.dimmed().paint(format!("#[{}]:", i)),
-                    Blue.bold().paint(cs.func.clone()),
-                    Blue.bold().paint(cs.file.clone()),
-                    Blue.bold().paint(format!("{}", cs.lineno)),
-                ),
-                cs.locals
-                    .iter()
-                    .map(|(name, value)| {
-                        TreeItem::new_leaf(
-                            name.clone(),
-                            if value.value.is_some() {
-                                format!(
-                                    "{} = {} as {}",
-                                    name,
-                                    value.value.clone().unwrap(),
-                                    value.class
-                                )
-                            } else {
-                                "None".to_string()
-                            },
-                        )
-                    })
-                    .collect(),
-            )
-            .unwrap()
-        })
+        .map(|(i, frame)| format_frame(i, frame))
         .collect()
 }
 

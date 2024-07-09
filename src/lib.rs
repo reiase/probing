@@ -40,6 +40,7 @@ where
 }
 
 pub fn probing_command_handler(cmd: ProbingCommand) -> Result<()> {
+    println!("=={:?}", cmd);
     match cmd {
         ProbingCommand::Nil => {}
         ProbingCommand::Dump => {
@@ -65,6 +66,7 @@ pub fn probing_command_handler(cmd: ProbingCommand) -> Result<()> {
             } else {
                 format!("debug()")
             };
+            println!("==== {}", cmd);
             repl.process(cmd.as_str());
         }
         ProbingCommand::Pause { address } => pause_process(address),
@@ -96,18 +98,18 @@ fn sigusr1_handler() {
     if argstr.starts_with('[') {
         let cmds: Vec<ProbingCommand> = ron::from_str(&argstr).unwrap();
         for cmd in cmds {
-            probing_command_handler(cmd).unwrap();
+            let _ = probing_command_handler(cmd).map_err(|err| eprintln!("{}", err));
         }
     } else {
-        let cmd: ProbingCommand = ron::from_str(&argstr).unwrap();
-        probing_command_handler(cmd).unwrap();
+        let cmd: ProbingCommand = ron::from_str(&argstr).unwrap_or(ProbingCommand::Nil);
+        let _ = probing_command_handler(cmd).map_err(|err| eprintln!("{}", err));
     }
 }
 
 #[ctor]
 fn setup() {
+    eprintln!("Initializing libprobing ...");
     env_logger::init_from_env(Env::new().filter("PROBING_LOG"));
-    info!("Initializing libprobing ...");
 
     let argstr = env::var("PROBING_ARGS").unwrap_or("[]".to_string());
     debug!("Setup libprobing with PROBING_ARGS: {argstr}");
