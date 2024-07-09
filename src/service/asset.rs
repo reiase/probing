@@ -1,4 +1,4 @@
-use bytes::Bytes;
+use hyper::body::Bytes;
 use rust_embed::Embed;
 
 #[derive(Embed)]

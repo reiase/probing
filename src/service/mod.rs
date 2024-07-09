@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
-use bytes::Bytes;
 use http_body_util::Full;
+use hyper::body::Bytes;
 use hyper::service::Service;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
 

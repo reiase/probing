@@ -5,10 +5,11 @@ use nix::{sys::signal, unistd::Pid};
 
 pub mod catch;
 pub mod commands;
+pub mod console;
 pub mod debug;
 pub mod inject;
-pub mod performance;
 pub mod misc;
+pub mod performance;
 
 use crate::inject::{Injector, Process};
 use commands::Commands;
@@ -44,6 +45,7 @@ impl Cli {
             Some(Commands::Debug(cmd)) => cmd.run(pid),
             Some(Commands::Performance(cmd)) => cmd.run(pid),
             Some(Commands::Misc(cmd)) => cmd.run(pid),
+            Some(Commands::Console) => console::console_main(pid),
             // Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
             None => inject::InjectCommand::default().run(pid, &self.dll),
         }

@@ -2,15 +2,6 @@
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
-[project]
-name = "probing"
-version = "0.1.3"
-authors = [{ name = "Reiase", email = "reiase@gmail.com" }]
-description = ""
-requires-python = ">=3.7"
-readme = "README.md"
-license = { text = "Apache License Version 2.0" }
-
 [tool.maturin]
 include = ["probing-0.1.3.data/scripts/*"]
 compatibility = "manylinux2014"
