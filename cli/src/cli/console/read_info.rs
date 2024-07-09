@@ -4,6 +4,7 @@ use http_body_util::BodyExt;
 use hyper_util::rt::TokioIo;
 
 use hyperparameter::*;
+use probing_common::CallStack;
 
 async fn request(pid: i32, url: &str) -> Result<String> {
     use http_body_util::Empty;
@@ -44,7 +45,7 @@ async fn request(pid: i32, url: &str) -> Result<String> {
 }
 
 pub fn read_process_info() -> String {
-    let mut process_info = "".to_string();
+    let mut process_info = Default::default();
     with_params! {
         get pid = probing.process.pid or 0;
 
@@ -57,4 +58,20 @@ pub fn read_process_info() -> String {
     }
 
     process_info
+}
+
+pub fn read_callstack_info(tid: i32) -> Result<Vec<CallStack>> {
+    let mut ret: Vec<CallStack> = vec![];
+    with_params! {
+        get pid = probing.process.pid or 0;
+
+        let url = format!("api/callstack?tid={}", tid);
+        let info = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(request(pid as i32,  url.as_str())).unwrap();
+        ret = serde_json::from_str(info.as_str())?;
+    }
+
+    Ok(ret)
 }

@@ -7,6 +7,8 @@ use ratatui::prelude::*;
 use ratatui::widgets::Scrollbar;
 use tui_tree_widget::{Tree, TreeItem, TreeState};
 
+use crate::cli::console::{AppTab, APP};
+
 use super::app_style;
 use super::read_info::read_process_info;
 
@@ -21,7 +23,18 @@ pub static mut PROCESS_TAB: Lazy<ProcessTab> = Lazy::new(|| ProcessTab::default(
 pub fn handle_key_event(code: KeyCode) -> Result<()> {
     unsafe {
         match code {
-            KeyCode::Char('\n') | KeyCode::Enter => PROCESS_TAB.state.toggle_selected(),
+            KeyCode::Char('\n') | KeyCode::Enter => {
+                PROCESS_TAB.state.toggle_selected();
+                match PROCESS_TAB.state.selected() {
+                    [toplevel, id] => {
+                        if toplevel == "threads" {
+                            APP.selected_tab = AppTab::Activity;
+                        }
+                    }
+                    _ => {}
+                }
+                false
+            }
             KeyCode::Up => PROCESS_TAB.state.key_up(),
             KeyCode::Down => PROCESS_TAB.state.key_down(),
             KeyCode::Left => PROCESS_TAB.state.key_left(),

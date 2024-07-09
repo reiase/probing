@@ -4,8 +4,12 @@ use ratatui::{
     widgets::{block::Title, Block, Padding},
 };
 
+pub fn fgcolor() -> tailwind::Palette {
+    tailwind::SLATE
+}
+
 pub fn bgcolor() -> tailwind::Palette {
-    return tailwind::BLUE;
+    tailwind::BLUE
 }
 
 pub fn border_header<'a, T>(title: Option<T>) -> Block<'a>

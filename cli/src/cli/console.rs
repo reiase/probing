@@ -1,27 +1,27 @@
 use anyhow::Result;
 
+use once_cell::sync::Lazy;
 use ratatui::crossterm::event::KeyEventKind;
+use ratatui::crossterm::event::{self, Event, KeyCode};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Padding, Paragraph, Tabs};
-use ratatui::{
-    backend::Backend,
-    crossterm::event::{self, Event, KeyCode},
-};
 
+use hyperparameter::*;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
-use style::palette::tailwind;
 
 mod app_style;
 mod process_tab;
+mod activity_tab;
 mod read_info;
 mod utils;
-
-use hyperparameter::*;
 
 pub fn console_main(pid: i32) -> Result<()> {
     utils::init_error_hooks()?;
     let mut terminal = utils::init_terminal()?;
-    App::default().set_pid(pid).run(&mut terminal)?;
+
+    unsafe {
+        APP.set_pid(pid).run(&mut terminal).unwrap();
+    }
     utils::restore_terminal()?;
     Ok(())
 }
@@ -38,23 +38,20 @@ enum AppTab {
 impl AppTab {
     fn title(self) -> Line<'static> {
         format!("  {self}  ")
-            .fg(tailwind::SLATE.c200)
-            .bg(self.bgcolor().c900)
+            .fg(app_style::fgcolor().c200)
+            .bg(app_style::bgcolor().c900)
             .into()
-    }
-    const fn bgcolor(self) -> tailwind::Palette {
-        tailwind::BLUE
     }
     fn block(self) -> Block<'static> {
         Block::bordered()
             .border_set(symbols::border::PROPORTIONAL_TALL)
             .padding(Padding::horizontal(1))
-            .border_style(self.bgcolor().c400)
+            .border_style(app_style::bgcolor().c400)
     }
 }
 
 #[derive(Default)]
-struct App {
+pub struct App {
     pid: Option<i32>,
     is_quit: bool,
     selected_tab: AppTab,
@@ -105,7 +102,7 @@ impl App {
 
     fn render_tabs(&self, area: Rect, buf: &mut Buffer) {
         let titles = AppTab::iter().map(|t| t.title());
-        let highlight_style = (Color::default(), self.selected_tab.bgcolor().c400);
+        let highlight_style = (Color::default(), app_style::bgcolor().c400);
         let selected_tab_index = self.selected_tab as usize;
         Tabs::new(titles)
             .highlight_style(highlight_style)
@@ -115,6 +112,8 @@ impl App {
             .render(area, buf);
     }
 }
+
+pub static mut APP: Lazy<App> = Lazy::new(|| App::default());
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer)
