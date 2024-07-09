@@ -9,9 +9,9 @@ use ratatui::widgets::{Block, Padding, Paragraph, Tabs};
 use hyperparameter::*;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+mod activity_tab;
 mod app_style;
 mod process_tab;
-mod activity_tab;
 mod read_info;
 mod utils;
 
@@ -63,9 +63,13 @@ impl App {
         self
     }
     fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
-        while !self.is_quit {
-            self.draw(terminal)?;
-            self.handle_event()?;
+        with_params! {
+            set probing.process.pid = self.pid.unwrap() as i64;
+
+            while !self.is_quit {
+                self.draw(terminal)?;
+                self.handle_event()?;
+            }
         }
         Ok(())
     }
@@ -94,7 +98,7 @@ impl App {
     fn route_key_event(&mut self, code: KeyCode) -> Result<()> {
         match self.selected_tab {
             AppTab::Process => process_tab::handle_key_event(code),
-            AppTab::Activity => Ok(()),
+            AppTab::Activity => activity_tab::handle_key_event(code),
             AppTab::Debug => Ok(()),
             AppTab::Inspect => Ok(()),
         }
@@ -129,11 +133,7 @@ impl Widget for &App {
             Layout::horizontal([Length(10), Percentage(100)]).areas(header);
         "Probing".bold().render(title_area, buf);
         self.render_tabs(tab_area, buf);
-        with_params! {
-            set probing.process.pid = self.pid.unwrap() as i64;
-
-            self.selected_tab.render(body, buf);
-        }
+        self.selected_tab.render(body, buf);
     }
 }
 
@@ -144,9 +144,7 @@ impl Widget for AppTab {
     {
         match self {
             AppTab::Process => unsafe { process_tab::PROCESS_TAB.draw(area, buf) },
-            AppTab::Activity => Paragraph::new("Hello, World!!")
-                .block(self.block())
-                .render(area, buf),
+            AppTab::Activity => unsafe { activity_tab::ACTIVITY_TAB.draw(area, buf) },
             AppTab::Debug => Paragraph::new("Hello, World!!!")
                 .block(self.block())
                 .render(area, buf),

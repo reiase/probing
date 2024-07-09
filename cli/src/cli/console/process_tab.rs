@@ -9,11 +9,13 @@ use tui_tree_widget::{Tree, TreeItem, TreeState};
 
 use crate::cli::console::{AppTab, APP};
 
+use super::activity_tab::ACTIVITY_TAB;
 use super::app_style;
-use super::read_info::read_process_info;
+use super::read_info::{read_callstack_info, read_process_info};
 
 #[derive(Default, Debug)]
 pub struct ProcessTab {
+    threads: Vec<u64>,
     state: TreeState<String>,
     items: Vec<TreeItem<'static, String>>,
 }
@@ -28,6 +30,10 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
                 match PROCESS_TAB.state.selected() {
                     [toplevel, id] => {
                         if toplevel == "threads" {
+                            let tid: i32 = PROCESS_TAB.threads[id.parse::<usize>().unwrap()] as i32;
+                            ACTIVITY_TAB.set_tid(tid);
+                            ACTIVITY_TAB.callstacks =
+                                read_callstack_info(tid).unwrap_or(Default::default());
                             APP.selected_tab = AppTab::Activity;
                         }
                     }
@@ -144,6 +150,7 @@ impl ProcessTab {
                     info.threads.iter().map(|t| format!("{}", t)).collect(),
                 ),
             ];
+            self.threads = info.threads.clone();
         }
         let tree = Tree::new(&self.items)
             .expect("all item identifiers are unique")

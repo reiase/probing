@@ -12,11 +12,11 @@ async fn request(pid: i32, url: &str) -> Result<String> {
     use hyper::client::conn;
     use hyper::Request;
 
-    let prefix = "/tmp/probing/".to_string();
+    let prefix = "/tmp/probing".to_string();
     let path = format!("{}/{}", prefix, pid);
     let path = std::path::Path::new(&path);
     if !path.exists() {
-        anyhow::bail!("server not found");
+        anyhow::bail!("server not found: {}", path.display());
     }
     let stream = tokio::net::UnixStream::connect(path).await?;
     let io = TokioIo::new(stream);
@@ -65,11 +65,12 @@ pub fn read_callstack_info(tid: i32) -> Result<Vec<CallStack>> {
     with_params! {
         get pid = probing.process.pid or 0;
 
-        let url = format!("api/callstack?tid={}", tid);
+        let url = format!("apis/callstack?tid={}", tid);
         let info = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
             .build()
             .unwrap()
-            .block_on(request(pid as i32,  url.as_str())).unwrap();
+            .block_on(request(pid as i32,  url.as_str()))?;
         ret = serde_json::from_str(info.as_str())?;
     }
 
