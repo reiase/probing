@@ -4,7 +4,7 @@ use probing_common::cli::ProbingCommand;
 use std::fs;
 
 use crate::{
-    cli::usr1_handler,
+    cli::send_ctrl,
     inject::{Injector, Process},
 };
 
@@ -82,7 +82,7 @@ impl InjectCommand {
         let process = Process::get(pid as u32).unwrap();
         if self.has_probing(pid) {
             let argstr = ron::to_string(&cmds)?;
-            usr1_handler(argstr, pid)
+            send_ctrl(argstr, pid)
         } else {
             Injector::attach(process)
                 .unwrap()

@@ -6,7 +6,7 @@ use clap::Args;
 use nix::{sys::signal, unistd::Pid};
 use probing_common::cli::ProbingCommand;
 
-use super::usr1_handler;
+use super::send_ctrl;
 
 /// Debug and Inspection Tool
 #[derive(Args)]
@@ -38,13 +38,13 @@ impl DebugCommand {
                 address: self.address.clone(),
             };
             let cmd = ron::to_string(&cmd)?;
-            usr1_handler(cmd, pid)
+            send_ctrl(cmd, pid)
         } else if self.dap {
             let cmd = ProbingCommand::Dap {
                 address: self.address.clone(),
             };
             let cmd = ron::to_string(&cmd)?;
-            usr1_handler(cmd, pid)
+            send_ctrl(cmd, pid)
         } else {
             Ok(())
         }
