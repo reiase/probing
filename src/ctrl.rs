@@ -1,11 +1,14 @@
 use std::thread;
 
 use anyhow::Result;
-
+use nix::libc::SIGABRT;
 use probing_common::cli::ProbingCommand;
 
 use crate::{
-    handlers::{dump_stack, execute_handler, pause_process, pprof_handler, show_plt},
+    handlers::{
+        crash_handler, dump_stack, execute_handler, pause_process, pprof_handler, show_plt,
+    },
+    register_signal_handler,
     repl::PythonRepl,
     server::start_remote_server,
     service::CALLSTACK,
@@ -42,8 +45,7 @@ pub fn ctrl_handler(cmd: ProbingCommand) -> Result<()> {
         ProbingCommand::Pause { address } => pause_process(address),
         ProbingCommand::Perf => pprof_handler(),
         ProbingCommand::CatchCrash => {
-            //     // let tmp = args.address.clone();
-            //     // register_signal_handler(SIGABRT, move || crash_handler(tmp.clone()));
+            register_signal_handler(SIGABRT, move || crash_handler(None));
         }
         ProbingCommand::ListenRemote { address } => {
             thread::spawn(|| {

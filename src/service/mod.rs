@@ -9,6 +9,7 @@ mod process;
 mod profiler;
 mod python;
 
+use log::debug;
 pub use process::CALLSTACK;
 
 use crate::ctrl::ctrl_handler_string;
@@ -29,6 +30,7 @@ fn parse_qs(qs: Option<&str>) -> HashMap<String, String> {
 
 pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>> {
     let params = parse_qs(req.uri().query());
+    debug!("requesting: {:?} {}", req.method(), req.uri().path());
     match (req.method(), req.uri().path()) {
         (&Method::POST, "/ctrl") => {
             let whole_body = String::from_utf8(req.collect().await?.to_bytes().to_vec());

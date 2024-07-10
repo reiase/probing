@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 
 use probing_common::Process;
 use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::style::Stylize;
 use ratatui::prelude::*;
 use ratatui::widgets::Scrollbar;
 use tui_tree_widget::{Tree, TreeItem, TreeState};
@@ -52,16 +53,9 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
 }
 
 fn format_json_key(key: &str, val: String) -> TreeItem<'static, String> {
-    use nu_ansi_term::Color::Blue;
-    use nu_ansi_term::Color::DarkGray;
     TreeItem::new_leaf(
         key.to_string(),
-        format!(
-            "{} {}{}",
-            Blue.paint(key),
-            DarkGray.dimmed().paint(":"),
-            DarkGray.dimmed().paint(val)
-        ),
+        format!("{} {}{}", key.blue(), ":".dark_grey(), val.dark_grey(),),
     )
 }
 
@@ -81,17 +75,12 @@ fn format_json_key_longstr(
             }
         })
         .collect();
-    use nu_ansi_term::Color::Blue;
-    use nu_ansi_term::Color::DarkGray;
     TreeItem::new(
         key.to_string(),
         format!(
-            "{} {}{}",
-            Blue.bold().paint(key),
-            DarkGray.dimmed().paint(":"),
-            DarkGray
-                .dimmed()
-                .paint(format!("{} children", children.len()))
+            "{}{}",
+            key.blue().bold(),
+            format!(":{} children", children.len()).dark_grey().dim()
         ),
         children,
     )
@@ -99,8 +88,6 @@ fn format_json_key_longstr(
 }
 
 fn format_json_key_array(key: &str, val: Vec<String>) -> TreeItem<'static, String> {
-    use nu_ansi_term::Color::Blue;
-    use nu_ansi_term::Color::DarkGray;
     let children: Vec<_> = val
         .iter()
         .enumerate()
@@ -109,8 +96,8 @@ fn format_json_key_array(key: &str, val: Vec<String>) -> TreeItem<'static, Strin
                 format!("{i}"),
                 format!(
                     "{}{}",
-                    DarkGray.dimmed().paint(format!("[{}]=", i)),
-                    Blue.bold().paint(v),
+                    format!("[{}]=", i).dark_grey().dim(),
+                    v.clone().blue().bold(),
                 ),
             )
         })
@@ -118,12 +105,9 @@ fn format_json_key_array(key: &str, val: Vec<String>) -> TreeItem<'static, Strin
     TreeItem::new(
         key.to_string(),
         format!(
-            "{} {}{}",
-            Blue.bold().paint(key),
-            DarkGray.dimmed().paint(":"),
-            DarkGray
-                .dimmed()
-                .paint(format!("{} children", children.len()))
+            "{} {}",
+            key.blue().bold(),
+            format!(":{} children", children.len()).dark_grey().dim()
         ),
         children,
     )

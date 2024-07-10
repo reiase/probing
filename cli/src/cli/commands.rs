@@ -12,5 +12,4 @@ pub enum Commands {
     Misc(super::misc::MiscCommand),
     #[command(visible_aliases = ["con"])]
     Console,
-    // CatchCrash(super::catch::CatchCrashCommand),
 }

@@ -8,11 +8,11 @@ use hyperparameter::*;
 pub struct PprofHolder(Mutex<Option<ProfilerGuard<'static>>>);
 
 impl PprofHolder {
-    pub fn reset(&mut self) {
-        let _ = self.0.lock().map(|mut holder| {
-            *holder = None;
-        });
-    }
+    // pub fn reset(&mut self) {
+    //     let _ = self.0.lock().map(|mut holder| {
+    //         *holder = None;
+    //     });
+    // }
 
     pub fn setup(&self, freq: i32) {
         let _ = self.0.lock().map(|mut holder| {
@@ -23,18 +23,18 @@ impl PprofHolder {
         });
     }
 
-    pub fn report(&self) -> Option<String> {
-        self.0.lock().ok().and_then(|pp| match pp.as_ref() {
-            Some(pp) => {
-                if let Ok(report) = pp.report().build() {
-                    Some(format!("report: {:?}", &report))
-                } else {
-                    None
-                }
-            }
-            None => None,
-        })
-    }
+    // pub fn report(&self) -> Option<String> {
+    //     self.0.lock().ok().and_then(|pp| match pp.as_ref() {
+    //         Some(pp) => {
+    //             if let Ok(report) = pp.report().build() {
+    //                 Some(format!("report: {:?}", &report))
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //         None => None,
+    //     })
+    // }
 
     pub fn flamegraph(&self) -> Option<String> {
         self.0.lock().ok().and_then(|pp| match pp.as_ref() {

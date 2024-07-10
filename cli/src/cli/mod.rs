@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::Parser;
 use nix::{sys::signal, unistd::Pid};
 
-pub mod catch;
 pub mod commands;
 pub mod console;
 pub mod debug;

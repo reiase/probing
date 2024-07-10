@@ -2,12 +2,6 @@
 #[macro_use]
 extern crate ctor;
 
-mod ctrl;
-mod handlers;
-mod repl;
-mod server;
-mod service;
-
 use std::ffi::c_int;
 use std::str::FromStr as _;
 use std::{env, thread};
@@ -18,10 +12,13 @@ use log::debug;
 use pyo3::prelude::*;
 use signal_hook::consts::*;
 
-// use handlers::crash_handler;
+mod ctrl;
+mod handlers;
+mod repl;
+mod server;
+mod service;
 
 use handlers::dump_stack2;
-
 use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
 use server::start_local_server;
