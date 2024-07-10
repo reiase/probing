@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use anyhow::Result;
 use hyper::server::conn::http1;
+use hyper::service::service_fn;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -10,7 +11,7 @@ use tokio::net::UnixStream;
 
 use super::tokio_io::TokioIo;
 use crate::repl::Repl;
-use crate::service::ProbingService;
+use crate::service::handle_request;
 
 pub trait IsHTTP {
     async fn is_http(&mut self) -> bool;
@@ -61,7 +62,8 @@ where
 
     async fn handle_http(self) -> Result<()> {
         http1::Builder::new()
-            .serve_connection(TokioIo::new(self.inner), ProbingService::default())
+            // .serve_connection(TokioIo::new(self.inner), ProbingService::default())
+            .serve_connection(TokioIo::new(self.inner), service_fn(handle_request))
             .await
             .map_err(|err| err.into())
     }

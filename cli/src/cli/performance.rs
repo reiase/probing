@@ -3,7 +3,7 @@ use clap::Args;
 use nix::{sys::signal, unistd::Pid};
 use probing_common::cli::ProbingCommand;
 
-use super::usr1_handler;
+use super::send_ctrl;
 
 /// Performance Diagnosis Tool
 #[derive(Args, Default)]
@@ -28,7 +28,7 @@ impl PerfCommand {
                 script: "tprofile()".to_string(),
             };
             let cmd = ron::to_string(&cmd)?;
-            return usr1_handler(cmd, pid);
+            return send_ctrl(cmd, pid);
         }
         Ok(())
     }

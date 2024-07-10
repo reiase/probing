@@ -4,7 +4,7 @@ use http_body_util::BodyExt;
 use hyper_util::rt::TokioIo;
 
 use hyperparameter::*;
-use probing_common::CallStack;
+use probing_common::{CallStack, Object};
 
 async fn request(pid: i32, url: &str) -> Result<String> {
     use http_body_util::Empty;
@@ -30,16 +30,8 @@ async fn request(pid: i32, url: &str) -> Result<String> {
         .uri(&format!("/{}", url))
         .body(Empty::<Bytes>::new())
         .unwrap();
-    let mut res = sender.send_request(request).await.unwrap();
-    let mut ret: Vec<u8> = vec![];
-
-    while let Some(next) = res.frame().await {
-        if let Ok(frame) = next {
-            if let Some(chunk) = frame.data_ref() {
-                ret.extend_from_slice(chunk);
-            }
-        }
-    }
+    let res = sender.send_request(request).await.unwrap();
+    let ret = res.into_body().collect().await?.to_bytes().to_vec();
     let body = String::from_utf8(ret).unwrap();
     return Ok(body);
 }
@@ -73,6 +65,23 @@ pub fn read_callstack_info(tid: i32) -> Result<Vec<CallStack>> {
             .block_on(request(pid as i32,  url.as_str()))?;
         ret = serde_json::from_str(info.as_str())?;
     }
+
+    Ok(ret)
+}
+
+pub fn read_object_info(url: &str) -> Result<Vec<Object>> {
+    let mut ret: Vec<Object> = vec![];
+    with_params! {
+        get pid = probing.process.pid or 0;
+
+        let info = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(request(pid as i32,  url))?;
+
+        ret = serde_json::from_str(info.as_str())?;
+    };
 
     Ok(ret)
 }

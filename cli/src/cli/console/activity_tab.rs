@@ -1,11 +1,10 @@
 use anyhow::Result;
 use once_cell::sync::Lazy;
 use probing_common::CallStack;
+use ratatui::crossterm::style::Stylize;
+use ratatui::widgets::ScrollbarOrientation;
 use ratatui::{crossterm::event::KeyCode, prelude::*, widgets::Scrollbar};
 use tui_tree_widget::{Tree, TreeItem, TreeState};
-
-use nu_ansi_term::Color::Blue;
-use nu_ansi_term::Color::DarkGray;
 
 use super::app_style;
 
@@ -45,10 +44,10 @@ fn format_frame(i: usize, frame: &CallStack) -> TreeItem<'static, String> {
             format!("{}", i),
             format!(
                 "{}{} @ {}:{}",
-                DarkGray.dimmed().paint(format!("#[{}]:", i)),
-                Blue.bold().paint(frame.func.clone()),
-                Blue.bold().paint(frame.file.clone()),
-                Blue.bold().paint(format!("{}", frame.lineno)),
+                format!("#[{}]:", i).dark_grey().dim(),
+                frame.func.clone().blue().bold(),
+                frame.file.clone().blue().bold(),
+                format!("{}", frame.lineno).blue().bold(),
             ),
             frame
                 .locals
@@ -93,15 +92,17 @@ impl ActivityTab {
     {
         self.items = format_callstacks(&self.callstacks);
 
+        let depth = self.callstacks.len();
+        let title = format!(
+            "Call Stacks for #{}{}",
+            self.tid,
+            format!(":stack deepth={}", depth).dark_grey()
+        );
         let tree = Tree::new(&self.items)
             .expect("all item identifiers are unique")
-            .block(app_style::border_header(Some(format!(
-                "Call Stacks for thread {}{}",
-                self.tid,
-                DarkGray.paint(format!(":stack deepth={}", self.callstacks.len()))
-            ))))
+            .block(app_style::border_header(Some(title)))
             .experimental_scrollbar(
-                Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(None)
                     .track_symbol(None)
                     .end_symbol(None)

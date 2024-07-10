@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Args;
 use probing_common::cli::ProbingCommand;
 
-use crate::cli::usr1_handler;
+use crate::cli::send_ctrl;
 
 /// Misc. Commands
 #[derive(Args, Default)]
@@ -16,7 +16,7 @@ impl MiscCommand {
         if self.show_plt {
             let cmd = ProbingCommand::ShowPLT;
             let cmd = ron::to_string(&cmd)?;
-            return usr1_handler(cmd, pid);
+            return send_ctrl(cmd, pid);
         }
 
         Err(anyhow::anyhow!("no command specified"))

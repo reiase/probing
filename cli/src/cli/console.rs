@@ -4,13 +4,14 @@ use once_cell::sync::Lazy;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::crossterm::event::{self, Event, KeyCode};
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Padding, Paragraph, Tabs};
+use ratatui::widgets::Tabs;
 
 use hyperparameter::*;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
 mod activity_tab;
 mod app_style;
+mod inspect_tab;
 mod process_tab;
 mod read_info;
 mod utils;
@@ -31,7 +32,7 @@ enum AppTab {
     #[default]
     Process,
     Activity,
-    Debug,
+    // Debug,
     Inspect,
 }
 
@@ -41,12 +42,6 @@ impl AppTab {
             .fg(app_style::fgcolor().c200)
             .bg(app_style::bgcolor().c900)
             .into()
-    }
-    fn block(self) -> Block<'static> {
-        Block::bordered()
-            .border_set(symbols::border::PROPORTIONAL_TALL)
-            .padding(Padding::horizontal(1))
-            .border_style(app_style::bgcolor().c400)
     }
 }
 
@@ -99,8 +94,8 @@ impl App {
         match self.selected_tab {
             AppTab::Process => process_tab::handle_key_event(code),
             AppTab::Activity => activity_tab::handle_key_event(code),
-            AppTab::Debug => Ok(()),
-            AppTab::Inspect => Ok(()),
+            // AppTab::Debug => Ok(()),
+            AppTab::Inspect => inspect_tab::handle_key_event(code),
         }
     }
 
@@ -145,12 +140,10 @@ impl Widget for AppTab {
         match self {
             AppTab::Process => unsafe { process_tab::PROCESS_TAB.draw(area, buf) },
             AppTab::Activity => unsafe { activity_tab::ACTIVITY_TAB.draw(area, buf) },
-            AppTab::Debug => Paragraph::new("Hello, World!!!")
-                .block(self.block())
-                .render(area, buf),
-            AppTab::Inspect => Paragraph::new("Hello, World!!!!")
-                .block(self.block())
-                .render(area, buf),
+            // AppTab::Debug => Paragraph::new("Hello, World!!!")
+            //     .block(self.block())
+            //     .render(area, buf),
+            AppTab::Inspect => unsafe { inspect_tab::INSPECT_TAB.draw(area, buf) },
         }
     }
 }

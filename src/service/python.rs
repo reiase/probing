@@ -1,6 +1,6 @@
 use crate::repl::PythonRepl;
 
-pub fn handle(path: &str, query: Option<&str>) -> String {
+pub fn handle(path: &str, query: Option<String>) -> String {
     let request = format!(
         "handle(path=\"{}\", query={})\n",
         path,
