@@ -12,7 +12,6 @@ use tokio::net::UnixStream;
 use super::tokio_io::TokioIo;
 use crate::repl::Repl;
 use crate::service::handle_request;
-use crate::service::ProbingService;
 
 pub trait IsHTTP {
     async fn is_http(&mut self) -> bool;

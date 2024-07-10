@@ -29,8 +29,8 @@ pub struct Cli {
     pub pid: Option<i32>,
 
     /// Send ctrl commands via unix socket
-    #[arg(short = 'S', long)]
-    unix_socket: bool,
+    #[arg(long)]
+    ptrace: bool,
 
     /// target process name (e.g., "chrome.exe")
     #[arg(short, long, conflicts_with_all=["pid"])]
@@ -43,10 +43,10 @@ pub struct Cli {
 impl Cli {
     pub fn run(&self) -> Result<()> {
         let pid = self.resolve_pid()?;
-        let ctrl = if self.unix_socket {
-            "socket".to_string()
-        } else {
+        let ctrl = if self.ptrace {
             "ptrace".to_string()
+        } else {
+            "socket".to_string()
         };
 
         with_params! {
@@ -105,6 +105,12 @@ fn send_ctrl(argstr: String, pid: i32) -> Result<()> {
 }
 
 fn send_ctrl_via_socket(argstr: String, pid: i32) -> Result<()> {
+    eprintln!("sending ctrl commands via unix socket...");
+    let argstr = if argstr.starts_with("[") {
+        argstr
+    } else {
+        format!("[{}]", argstr)
+    };
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -115,6 +121,7 @@ fn send_ctrl_via_socket(argstr: String, pid: i32) -> Result<()> {
 }
 
 fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
+    eprintln!("sending ctrl commands via ptrace...");
     let process = Process::get(pid as u32).unwrap();
     Injector::attach(process)
         .unwrap()

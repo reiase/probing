@@ -21,11 +21,18 @@ pub async fn request(pid: i32, url: &str, body: Option<String>) -> Result<String
     tokio::spawn(async move {
         connection.await.unwrap();
     });
-    let request = Request::builder().method("GET").uri(&format!("/{}", url));
     let request = if let Some(body) = body {
-        request.body(Full::<Bytes>::from(body)).unwrap()
+        Request::builder()
+            .method("POST")
+            .uri(url)
+            .body(Full::<Bytes>::from(body))
+            .unwrap()
     } else {
-        request.body(Full::<Bytes>::default()).unwrap()
+        Request::builder()
+            .method("GET")
+            .uri(url)
+            .body(Full::<Bytes>::default())
+            .unwrap()
     };
 
     let mut res = sender.send_request(request).await.unwrap();
