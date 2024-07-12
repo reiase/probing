@@ -1,5 +1,3 @@
-use std::thread;
-
 use anyhow::Result;
 use nix::libc::SIGABRT;
 use probing_common::cli::ProbingCommand;
@@ -10,7 +8,7 @@ use crate::{
     },
     register_signal_handler,
     repl::PythonRepl,
-    server::start_remote_server,
+    server::remote_server,
     service::CALLSTACK,
 };
 
@@ -47,16 +45,7 @@ pub fn ctrl_handler(cmd: ProbingCommand) -> Result<()> {
         ProbingCommand::CatchCrash => {
             register_signal_handler(SIGABRT, move || crash_handler(None));
         }
-        ProbingCommand::ListenRemote { address } => {
-            thread::spawn(|| {
-                tokio::runtime::Builder::new_multi_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(start_remote_server::<PythonRepl>(address))
-                    .unwrap();
-            });
-        }
+        ProbingCommand::ListenRemote { address } => remote_server::start::<PythonRepl>(address),
         ProbingCommand::Execute { script } => execute_handler(script)?,
         ProbingCommand::ShowPLT => {
             show_plt()?;

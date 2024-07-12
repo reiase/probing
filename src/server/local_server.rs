@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::thread;
 
 use anyhow::Result;
 use hyperparameter::*;
@@ -34,7 +35,7 @@ where
     }
 }
 
-pub async fn start_local_server<T>() -> Result<()>
+async fn local_server_worker<T>() -> Result<()>
 where
     T: Repl + Default + Send,
 {
@@ -58,7 +59,21 @@ where
     }
 }
 
-pub fn stop_local_server() -> Result<()> {
+pub fn start<T>()
+where
+    T: Repl + Default + Send,
+{
+    thread::spawn(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(local_server_worker::<T>())
+            .unwrap();
+    });
+}
+
+pub fn stop() -> Result<()> {
     with_params! {
         get prefix = probing.server.unix_socket_path or "/tmp/probing/".to_string();
 
