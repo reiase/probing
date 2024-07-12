@@ -2,9 +2,7 @@
 #[macro_use]
 extern crate ctor;
 
-use std::ffi::c_int;
-use std::str::FromStr as _;
-use std::{env, thread};
+use std::{env, ffi::c_int, str::FromStr as _, thread};
 
 use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
@@ -22,6 +20,7 @@ use handlers::dump_stack2;
 use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
 use server::start_local_server;
+use server::stop_local_server;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
@@ -59,6 +58,11 @@ fn setup() {
             .block_on(start_local_server::<PythonRepl>())
             .unwrap();
     });
+}
+
+#[dtor]
+fn cleanup() {
+    let _ = stop_local_server();
 }
 
 #[pyfunction]

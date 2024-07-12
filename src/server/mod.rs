@@ -7,4 +7,5 @@ mod tokio_io;
 
 pub use crate::server::debug_server::start_debug_server;
 pub use crate::server::local_server::start_local_server;
+pub use crate::server::local_server::stop_local_server;
 pub use crate::server::remote_server::start_remote_server;

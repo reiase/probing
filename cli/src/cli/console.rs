@@ -62,6 +62,7 @@ impl App {
             set probing.process.pid = self.pid.unwrap() as i64;
 
             while !self.is_quit {
+                terminal.clear();
                 self.draw(terminal)?;
                 self.handle_event()?;
             }
