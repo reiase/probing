@@ -3,10 +3,10 @@ use clap::Parser;
 use nix::{sys::signal, unistd::Pid};
 
 pub mod commands;
-pub mod panel;
 pub mod debug;
 pub mod inject;
 pub mod misc;
+pub mod panel;
 pub mod performance;
 pub mod repl;
 
@@ -22,20 +22,22 @@ use commands::{Commands, ReplCommands};
 #[derive(Parser, Debug)]
 pub struct Cli {
     /// DLL file to be injected into the target process (e.g., <location of probing cli>/libprobing.so)
-    #[arg(short, long)]
+    #[arg(short, long, hide = true)]
     dll: Option<std::path::PathBuf>,
 
-    /// target process ID (e.g., 1234)
-    #[arg(short, long, conflicts_with_all=["name"])]
-    pub pid: Option<i32>,
-
-    /// Send ctrl commands via unix socket
+    // /// target process ID (e.g., 1234)
+    // #[arg(short, long, conflicts_with_all=["name"])]
+    // pub pid: Option<i32>,
+    /// Send ctrl commands via ptrace
     #[arg(long)]
     ptrace: bool,
 
-    /// target process name (e.g., "chrome.exe")
-    #[arg(short, long, conflicts_with_all=["pid"])]
-    pub name: Option<String>,
+    // /// target process name (e.g., "chrome.exe")
+    // #[arg(short, long, conflicts_with_all=["pid"])]
+    // pub name: Option<String>,
+    /// target process, PID (e.g., 1234) or `Name` (e.g., "chrome.exe") for local process, and <ip>:<port> for remote process
+    #[arg()]
+    target: String,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -64,14 +66,13 @@ impl Cli {
             Some(Commands::Performance(cmd)) => cmd.run(pid),
             Some(Commands::Misc(cmd)) => cmd.run(pid),
             Some(Commands::Panel) => panel::panel_main(pid),
-            Some(Commands::Repl) =>{
+            Some(Commands::Repl) => {
                 let mut repl = Repl::<ReplCommands>::default();
                 loop {
                     let line = repl.read_command(">>");
                     println!("== {:?}", line);
                 }
-                Ok(())
-            },
+            }
             None => {
                 let _ = inject::InjectCommand::default().run(pid, &self.dll);
                 panel::panel_main(pid)
@@ -79,25 +80,26 @@ impl Cli {
         }
     }
 
-    fn resolve_pid(&self) -> Result<i32, anyhow::Error> {
-        let pid = {
-            if let Some(pid) = self.pid {
-                pid
-            } else if let Some(name) = self.name.as_ref() {
-                Process::by_cmdline(name)
-                    .map_err(|err| {
-                        anyhow::anyhow!(
-                            "failed to find process with cmdline pattern {}: {}",
-                            name,
-                            err
-                        )
-                    })?
-                    .unwrap()
-            } else {
-                return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
-            }
-        };
-        Ok(pid)
+    fn resolve_pid(&self) -> Result<i32> {
+        if let Ok(pid) = self.target.parse::<i32>() {
+            return Ok(pid);
+        }
+        if let [_, _] = self.target.split(":").collect::<Vec<_>>()[..] {
+            return Ok(0);
+        }
+
+        let pid = Process::by_cmdline(&self.target).map_err(|err| {
+            anyhow::anyhow!(
+                "failed to find process with cmdline pattern {}: {}",
+                self.target,
+                err
+            )
+        })?;
+        if let Some(pid) = pid {
+            return Ok(pid);
+        } else {
+            return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
+        }
     }
 }
 
