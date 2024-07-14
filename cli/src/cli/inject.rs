@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Inject into target process
-#[derive(Args, Default)]
+#[derive(Args, Default, Debug)]
 pub struct InjectCommand {
     /// enable profiling
     #[arg(short = 'P', long)]

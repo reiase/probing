@@ -16,7 +16,7 @@ mod process_tab;
 mod read_info;
 mod utils;
 
-pub fn console_main(pid: i32) -> Result<()> {
+pub fn panel_main(pid: i32) -> Result<()> {
     utils::init_error_hooks()?;
     let mut terminal = utils::init_terminal()?;
 
@@ -127,7 +127,7 @@ impl Widget for &App {
         let [header, body] = toplevel.areas(area);
         let [title_area, tab_area] =
             Layout::horizontal([Length(10), Percentage(100)]).areas(header);
-        "Probing".bold().render(title_area, buf);
+        "Probing Panel".bold().render(title_area, buf);
         self.render_tabs(tab_area, buf);
         self.selected_tab.render(body, buf);
     }
@@ -141,9 +141,6 @@ impl Widget for AppTab {
         match self {
             AppTab::Process => unsafe { process_tab::PROCESS_TAB.draw(area, buf) },
             AppTab::Activity => unsafe { activity_tab::ACTIVITY_TAB.draw(area, buf) },
-            // AppTab::Debug => Paragraph::new("Hello, World!!!")
-            //     .block(self.block())
-            //     .render(area, buf),
             AppTab::Inspect => unsafe { inspect_tab::INSPECT_TAB.draw(area, buf) },
         }
     }

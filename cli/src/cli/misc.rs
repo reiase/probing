@@ -5,7 +5,7 @@ use probing_common::cli::ProbingCommand;
 use crate::cli::send_ctrl;
 
 /// Misc. Commands
-#[derive(Args, Default)]
+#[derive(Args, Default, Debug)]
 pub struct MiscCommand {
     #[arg(long)]
     show_plt: bool,

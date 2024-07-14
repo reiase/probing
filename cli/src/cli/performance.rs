@@ -6,7 +6,7 @@ use probing_common::cli::ProbingCommand;
 use super::send_ctrl;
 
 /// Performance Diagnosis Tool
-#[derive(Args, Default)]
+#[derive(Args, Default, Debug)]
 pub struct PerfCommand {
     /// profiling c/c++ codes
     #[arg(long, conflicts_with_all = ["torch"])]

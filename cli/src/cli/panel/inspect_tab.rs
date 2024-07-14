@@ -1,8 +1,8 @@
 use anyhow::Result;
-use nu_ansi_term::Color::DarkGray;
 use once_cell::sync::Lazy;
 use probing_common::Object;
 use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::style::Stylize;
 use ratatui::{prelude::*, widgets::Scrollbar};
 use tui_tree_widget::{Tree, TreeItem, TreeState};
 
@@ -131,7 +131,7 @@ impl InspectTab {
             .block(app_style::border_header(Some(format!(
                 "Inspect Objects of type {:?}{}",
                 self.selector,
-                DarkGray.paint(format!(":total={}", self.objects.len()))
+                format!(":total={}", self.objects.len()).dark_grey()
             ))))
             .experimental_scrollbar(
                 Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)

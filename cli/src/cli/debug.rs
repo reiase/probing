@@ -9,7 +9,7 @@ use probing_common::cli::ProbingCommand;
 use super::send_ctrl;
 
 /// Debug and Inspection Tool
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct DebugCommand {
     /// Dump the calling stack of the target process
     #[arg(short, long, conflicts_with_all=["dap", "pause"])]

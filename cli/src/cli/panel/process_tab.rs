@@ -8,7 +8,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::Scrollbar;
 use tui_tree_widget::{Tree, TreeItem, TreeState};
 
-use crate::cli::console::{AppTab, APP};
+use crate::cli::panel::{AppTab, APP};
 
 use super::activity_tab::ACTIVITY_TAB;
 use super::app_style;

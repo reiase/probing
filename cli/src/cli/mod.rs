@@ -3,21 +3,23 @@ use clap::Parser;
 use nix::{sys::signal, unistd::Pid};
 
 pub mod commands;
-pub mod console;
+pub mod panel;
 pub mod debug;
 pub mod inject;
 pub mod misc;
 pub mod performance;
+pub mod repl;
 
 mod ctrl;
 
 use hyperparameter::*;
+use repl::Repl;
 
 use crate::inject::{Injector, Process};
-use commands::Commands;
+use commands::{Commands, ReplCommands};
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct Cli {
     /// DLL file to be injected into the target process (e.g., <location of probing cli>/libprobing.so)
     #[arg(short, long)]
@@ -61,11 +63,18 @@ impl Cli {
             Some(Commands::Debug(cmd)) => cmd.run(pid),
             Some(Commands::Performance(cmd)) => cmd.run(pid),
             Some(Commands::Misc(cmd)) => cmd.run(pid),
-            Some(Commands::Console) => console::console_main(pid),
-            // Some(Commands::CatchCrash(cmd)) => cmd.run(self.pid),
+            Some(Commands::Panel) => panel::panel_main(pid),
+            Some(Commands::Repl) =>{
+                let mut repl = Repl::<ReplCommands>::default();
+                loop {
+                    let line = repl.read_command(">>");
+                    println!("== {:?}", line);
+                }
+                Ok(())
+            },
             None => {
                 let _ = inject::InjectCommand::default().run(pid, &self.dll);
-                console::console_main(pid)
+                panel::panel_main(pid)
             }
         }
     }
