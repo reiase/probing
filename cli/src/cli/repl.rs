@@ -151,7 +151,7 @@ impl ReplCommand {
                         Ok(ret) => println!("{ret}"),
                         Err(err) => println!("{err}"),
                     }
-                },
+                }
                 ReplLine::Empty => {}
                 ReplLine::Error(msg) => eprintln!("{}", msg),
                 ReplLine::Exit => return Ok(()),

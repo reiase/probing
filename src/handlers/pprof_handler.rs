@@ -8,11 +8,11 @@ use hyperparameter::*;
 pub struct PprofHolder(Mutex<Option<ProfilerGuard<'static>>>);
 
 impl PprofHolder {
-    // pub fn reset(&mut self) {
-    //     let _ = self.0.lock().map(|mut holder| {
-    //         *holder = None;
-    //     });
-    // }
+    pub fn reset(&self) {
+        let _ = self.0.lock().map(|mut holder| {
+            *holder = None;
+        });
+    }
 
     pub fn setup(&self, freq: i32) {
         let _ = self.0.lock().map(|mut holder| {

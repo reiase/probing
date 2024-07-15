@@ -51,6 +51,12 @@ pub enum BackTraceCommand {
         #[arg(short, long)]
         tid: Option<u64>,
     },
+    Trigger {
+        #[arg(long)]
+        cc: bool,
+        #[arg(long)]
+        python: bool,
+    },
 }
 
 #[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]

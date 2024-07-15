@@ -73,6 +73,9 @@ pub fn ctrl_handler_string(cmdstr: String) {
     }
 }
 
+mod backtrace;
+mod disable;
+mod enable;
 mod show;
 
 #[derive(Default)]
@@ -87,15 +90,10 @@ impl ToString for StringBuilder {
 }
 
 pub trait StringBuilderAppend {
-    fn append_to(&self, builder: &mut StringBuilder);
     fn append_line(&self, builder: &mut StringBuilder);
 }
 
 impl StringBuilderAppend for String {
-    fn append_to(&self, builder: &mut StringBuilder) {
-        builder.buf.push_str(self.as_str());
-    }
-
     fn append_line(&self, builder: &mut StringBuilder) {
         builder.buf.push_str(self.as_str());
         builder.buf.push_str("\n");
@@ -118,10 +116,10 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
 
         CtrlSignal::Execute { script } => handle_ctrl(CtrlSignal::Eval { code: script }),
         CtrlSignal::ShowPLT => handle_ctrl(Show(ShowCommand::PLT)),
-        CtrlSignal::Enable(_) => todo!(),
-        CtrlSignal::Disable(_) => todo!(),
-        CtrlSignal::Show(cmd) => show::handle(cmd),
-        CtrlSignal::Backtrace(_) => todo!(),
+        CtrlSignal::Enable(feature) => enable::handle(feature),
+        CtrlSignal::Disable(feature) => disable::handle(feature),
+        CtrlSignal::Show(topic) => show::handle(topic),
+        CtrlSignal::Backtrace(bt) => backtrace::handle(bt),
         CtrlSignal::Eval { code } => todo!(),
     }
 }

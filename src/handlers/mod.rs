@@ -1,6 +1,8 @@
 mod dump_stack;
+pub(crate) use crate::handlers::dump_stack::cc_backtrace;
 pub(crate) use crate::handlers::dump_stack::dump_stack;
 pub(crate) use crate::handlers::dump_stack::dump_stack2;
+pub(crate) use crate::handlers::dump_stack::py_backtrace;
 
 mod pause_process;
 pub(crate) use crate::handlers::pause_process::pause_process;
@@ -16,5 +18,5 @@ mod execute_handler;
 pub(crate) use crate::handlers::execute_handler::execute_handler;
 
 mod show_plt_handler;
-pub(crate) use crate::handlers::show_plt_handler::show_plt;
 pub(crate) use crate::handlers::show_plt_handler::read_plt;
+pub(crate) use crate::handlers::show_plt_handler::show_plt;
