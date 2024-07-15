@@ -3,10 +3,7 @@ use clap::Args;
 use probing_common::cli::ProbingCommand;
 use std::fs;
 
-use crate::{
-    cli::send_ctrl,
-    inject::{Injector, Process},
-};
+use crate::inject::{Injector, Process};
 
 use super::ctrl::CtrlChannel;
 
@@ -64,27 +61,33 @@ impl InjectCommand {
     }
 
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
-        let argstr = self.parse_flags();
+        let cmd = self.parse_flags();
         let soname =
             fs::read_link("/proc/self/exe").map(|path| path.with_file_name("libprobing.so"))?;
 
-        // send ctrl cmds
-        match ctrl {
-            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } if self.has_probing(pid) => {
-                send_ctrl(argstr, pid)
+        let has_probing = match ctrl {
+            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => self.has_probing(pid),
+            _ => false,
+        };
+        if has_probing {
+            ctrl.send_ctrl(cmd)
+        } else {
+            match ctrl {
+                CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
+                    let process = Process::get(pid as u32).unwrap();
+                    println!(
+                        "Injecting {} into process {pid} with arguments `{cmd}`",
+                        soname.to_str().unwrap(),
+                    );
+                    Injector::attach(process)
+                        .unwrap()
+                        .inject(&soname, Some(cmd.as_str()))
+                        .map_err(|err| {
+                            anyhow::anyhow!("failed to inject probing to {}: {}", pid, err)
+                        })
+                }
+                _ => anyhow::bail!("can not inject into remote process via tcp connection"),
             }
-            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
-                let process = Process::get(pid as u32).unwrap();
-                println!(
-                    "Injecting {} into process {pid} with arguments `{argstr}`",
-                    soname.to_str().unwrap(),
-                );
-                Injector::attach(process)
-                    .unwrap()
-                    .inject(&soname, Some(argstr.as_str()))
-                    .map_err(|err| anyhow::anyhow!("failed to inject probing to {}: {}", pid, err))
-            }
-            CtrlChannel::Remote { addr } => todo!(),
         }
     }
 }

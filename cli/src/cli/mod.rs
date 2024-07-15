@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use nix::{sys::signal, unistd::Pid};
 
 pub mod commands;
 pub mod ctrl;
@@ -11,11 +10,9 @@ pub mod panel;
 pub mod performance;
 pub mod repl;
 
-use hyperparameter::*;
 use repl::Repl;
 
 use crate::cli::ctrl::CtrlChannel;
-use crate::inject::{Injector, Process};
 use commands::{Commands, ReplCommands};
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
@@ -64,44 +61,6 @@ impl Cli {
             }
         }
     }
-}
-
-fn send_ctrl(argstr: String, pid: i32) -> Result<()> {
-    with_params! {
-        get ctrl_channel = probing.cli.ctrl_channel or "socket".to_string();
-
-        match ctrl_channel.as_str() {
-            "ptrace" => {send_ctrl_via_ptrace(argstr, pid)},
-            _ => {send_ctrl_via_socket(argstr, pid)}
-        }
-    }
-}
-
-fn send_ctrl_via_socket(argstr: String, pid: i32) -> Result<()> {
-    eprintln!("sending ctrl commands via unix socket...");
-    let argstr = if argstr.starts_with("[") {
-        argstr
-    } else {
-        format!("[{}]", argstr)
-    };
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(ctrl::request(pid, "/ctrl", argstr.into()))?;
-
-    Ok(())
-}
-
-fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
-    eprintln!("sending ctrl commands via ptrace...");
-    let process = Process::get(pid as u32).unwrap();
-    Injector::attach(process)
-        .unwrap()
-        .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
-        .map_err(|e| anyhow::anyhow!(e))?;
-    signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
-    Ok(())
 }
 
 pub fn run() -> Result<()> {

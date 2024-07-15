@@ -3,10 +3,9 @@ use anyhow::Result;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use hyperparameter::*;
+use nix::{sys::signal, unistd::Pid};
 
-use crate::inject::Process;
-
-use super::{send_ctrl_via_ptrace, send_ctrl_via_socket};
+use crate::inject::{Injector, Process};
 
 #[derive(Clone)]
 pub enum CtrlChannel {
@@ -39,9 +38,9 @@ impl TryFrom<&str> for CtrlChannel {
             anyhow::anyhow!("failed to find process with cmdline pattern {value}: {err}")
         })?;
         if let Some(pid) = pid {
-            return callback(pid);
+            callback(pid)
         } else {
-            return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
+            Err(anyhow::anyhow!("either `pid` or `name` must be specified"))
         }
     }
 }
@@ -58,7 +57,7 @@ impl Into<String> for CtrlChannel {
     fn into(self) -> String {
         match self {
             CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => format! {"{pid}"},
-            CtrlChannel::Remote { addr } => format!("{addr}"),
+            CtrlChannel::Remote { addr } => addr,
         }
     }
 }
@@ -67,30 +66,59 @@ impl CtrlChannel {
     pub fn send_ctrl(&self, cmd: String) -> Result<()> {
         match self {
             CtrlChannel::Ptrace { pid } => send_ctrl_via_ptrace(cmd, *pid),
-            CtrlChannel::Local { pid } => send_ctrl_via_socket(cmd, *pid),
-            CtrlChannel::Remote { addr } => todo!(),
+            ctrl => {
+                let cmd = if cmd.starts_with('[') {
+                    cmd
+                } else {
+                    format!("[{}]", cmd)
+                };
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(request(ctrl.clone(), "/ctrl", cmd.into()))?;
+
+                Ok(())
+            }
         }
     }
 }
 
-pub async fn request(pid: i32, url: &str, body: Option<String>) -> Result<String> {
+pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Result<String> {
     use hyper::body::Bytes;
     use hyper::client::conn;
     use hyper::Request;
 
-    let prefix = "/tmp/probing".to_string();
-    let path = format!("{}/{}", prefix, pid);
-    let path = std::path::Path::new(&path);
-    if !path.exists() {
-        anyhow::bail!("server not found: {}", path.display());
-    }
-    let stream = tokio::net::UnixStream::connect(path).await?;
-    let io = TokioIo::new(stream);
+    let mut sender = match ctrl {
+        CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
+            eprintln!("sending ctrl commands via unix socket...");
+            let prefix = "/tmp/probing".to_string();
+            let path = format!("{}/{}", prefix, pid);
+            let path = std::path::Path::new(&path);
+            if !path.exists() {
+                anyhow::bail!("server not found: {}", path.display());
+            }
+            let stream = tokio::net::UnixStream::connect(path).await?;
+            let io = TokioIo::new(stream);
 
-    let (mut sender, connection) = conn::http1::handshake(io).await?;
-    tokio::spawn(async move {
-        connection.await.unwrap();
-    });
+            let (sender, connection) = conn::http1::handshake(io).await?;
+            tokio::spawn(async move {
+                connection.await.unwrap();
+            });
+            sender
+        }
+        CtrlChannel::Remote { addr } => {
+            eprintln!("sending ctrl commands via tcp socket...");
+            let stream = tokio::net::TcpStream::connect(addr).await?;
+            let io = TokioIo::new(stream);
+
+            let (sender, connection) = conn::http1::handshake(io).await?;
+            tokio::spawn(async move {
+                connection.await.unwrap();
+            });
+            sender
+        }
+    };
     let request = if let Some(body) = body {
         Request::builder()
             .method("POST")
@@ -122,4 +150,15 @@ pub async fn request(pid: i32, url: &str, body: Option<String>) -> Result<String
     } else {
         anyhow::bail!("Error {}: {}", res.status(), body)
     }
+}
+
+fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
+    eprintln!("sending ctrl commands via ptrace...");
+    let process = Process::get(pid as u32).unwrap();
+    Injector::attach(process)
+        .unwrap()
+        .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
+        .map_err(|e| anyhow::anyhow!(e))?;
+    signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
+    Ok(())
 }
