@@ -127,13 +127,12 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
     }
 }
 
-
 /// Repl debugging shell
 #[derive(Args, Debug)]
 pub struct ReplCommand {}
 
 impl ReplCommand {
-    pub fn run(&self, ctrl: CtrlChannel) ->Result<()> {
+    pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
         let mut repl = Repl::<ReplCommands>::default();
         loop {
             let line = repl.read_command(">>")?;

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::CtrlSignal;
 
 use super::ctrl::CtrlChannel;
 
@@ -19,13 +19,13 @@ pub struct PerfCommand {
 impl PerfCommand {
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
         let cmd = if self.cc {
-            ProbingCommand::Perf
+            CtrlSignal::Perf
         } else if self.torch {
-            ProbingCommand::Execute {
+            CtrlSignal::Execute {
                 script: "tprofile()".to_string(),
             }
         } else {
-            ProbingCommand::Nil
+            CtrlSignal::Nil
         };
         let cmd = ron::to_string(&cmd)?;
         ctrl.send_ctrl(cmd)

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::CtrlSignal;
 use std::fs;
 
 use crate::inject::{Injector, Process};
@@ -42,18 +42,18 @@ impl InjectCommand {
     fn parse_flags(&self) -> String {
         let mut cmds = vec![];
         if self.pprof {
-            cmds.push(ProbingCommand::Perf);
+            cmds.push(CtrlSignal::Perf);
         }
         if self.crash {
-            cmds.push(ProbingCommand::CatchCrash);
+            cmds.push(CtrlSignal::CatchCrash);
         }
         if let Some(address) = &self.listen {
-            cmds.push(ProbingCommand::ListenRemote {
+            cmds.push(CtrlSignal::ListenRemote {
                 address: Some(address.clone()),
             });
         }
         if let Some(script) = &self.execute {
-            cmds.push(ProbingCommand::Execute {
+            cmds.push(CtrlSignal::Execute {
                 script: script.clone(),
             })
         }

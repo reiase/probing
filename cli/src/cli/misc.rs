@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::CtrlSignal;
 
 use super::ctrl::CtrlChannel;
 
@@ -14,7 +14,7 @@ pub struct MiscCommand {
 impl MiscCommand {
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
         if self.show_plt {
-            let cmd = ProbingCommand::ShowPLT;
+            let cmd = CtrlSignal::ShowPLT;
             let cmd = ron::to_string(&cmd)?;
             return ctrl.send_ctrl(cmd);
         }

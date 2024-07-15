@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use clap::Args;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::CtrlSignal;
 
 use super::ctrl::CtrlChannel;
 
@@ -28,17 +28,17 @@ pub struct DebugCommand {
 impl DebugCommand {
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
         let cmd = if self.dump {
-            ProbingCommand::Dump
+            CtrlSignal::Dump
         } else if self.pause {
-            ProbingCommand::Pause {
+            CtrlSignal::Pause {
                 address: self.address.clone(),
             }
         } else if self.dap {
-            ProbingCommand::Dap {
+            CtrlSignal::Dap {
                 address: self.address.clone(),
             }
         } else {
-            ProbingCommand::Nil
+            CtrlSignal::Nil
         };
         let cmd = ron::to_string(&cmd)?;
         ctrl.send_ctrl(cmd)

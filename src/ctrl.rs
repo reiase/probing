@@ -1,6 +1,6 @@
 use anyhow::Result;
 use nix::libc::SIGABRT;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::CtrlSignal;
 
 use crate::{
     handlers::{
@@ -12,10 +12,10 @@ use crate::{
     service::CALLSTACK,
 };
 
-pub fn ctrl_handler(cmd: ProbingCommand) -> Result<()> {
+pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
     match cmd {
-        ProbingCommand::Nil => {}
-        ProbingCommand::Dump => {
+        CtrlSignal::Nil => {}
+        CtrlSignal::Dump => {
             let ret = dump_stack()?;
             CALLSTACK
                 .lock()
@@ -24,7 +24,7 @@ pub fn ctrl_handler(cmd: ProbingCommand) -> Result<()> {
                 })
                 .unwrap();
         }
-        ProbingCommand::Dap { address } => {
+        CtrlSignal::Dap { address } => {
             let mut repl = PythonRepl::default();
             let cmd = if let Some(addr) = address {
                 if addr.contains(':') {
@@ -40,28 +40,30 @@ pub fn ctrl_handler(cmd: ProbingCommand) -> Result<()> {
             };
             repl.process(cmd.as_str());
         }
-        ProbingCommand::Pause { address } => pause_process(address),
-        ProbingCommand::Perf => pprof_handler(),
-        ProbingCommand::CatchCrash => {
+        CtrlSignal::Pause { address } => pause_process(address),
+        CtrlSignal::Perf => pprof_handler(),
+        CtrlSignal::CatchCrash => {
             register_signal_handler(SIGABRT, move || crash_handler(None));
         }
-        ProbingCommand::ListenRemote { address } => remote_server::start::<PythonRepl>(address),
-        ProbingCommand::Execute { script } => execute_handler(script)?,
-        ProbingCommand::ShowPLT => {
+        CtrlSignal::ListenRemote { address } => remote_server::start::<PythonRepl>(address),
+        CtrlSignal::Execute { script } => execute_handler(script)?,
+        CtrlSignal::ShowPLT => {
             show_plt()?;
         }
+
+        _ => (),
     };
     Ok(())
 }
 
 pub fn ctrl_handler_string(cmdstr: String) {
     if cmdstr.starts_with('[') {
-        let cmds: Vec<ProbingCommand> = ron::from_str(&cmdstr).unwrap();
+        let cmds: Vec<CtrlSignal> = ron::from_str(&cmdstr).unwrap();
         for cmd in cmds {
             let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
         }
     } else {
-        let cmd: ProbingCommand = ron::from_str(&cmdstr).unwrap_or(ProbingCommand::Nil);
+        let cmd: CtrlSignal = ron::from_str(&cmdstr).unwrap_or(CtrlSignal::Nil);
         let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
     }
 }
