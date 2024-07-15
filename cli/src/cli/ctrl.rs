@@ -2,6 +2,76 @@ use anyhow::Result;
 
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
+use hyperparameter::*;
+
+use crate::inject::Process;
+
+use super::{send_ctrl_via_ptrace, send_ctrl_via_socket};
+
+#[derive(Clone)]
+pub enum CtrlChannel {
+    Ptrace { pid: i32 },
+    Local { pid: i32 },
+    Remote { addr: String },
+}
+
+impl TryFrom<&str> for CtrlChannel {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        if let [_, _] = value.split(':').collect::<Vec<_>>()[..] {
+            return Ok(Self::Remote { addr: value.into() });
+        }
+
+        let callback = |pid| -> Result<CtrlChannel> {
+            with_params! {
+                get use_ptrace = probing.cli.ptrace or false;
+
+                Ok(if use_ptrace {Self::Ptrace { pid }} else {Self::Local { pid }})
+            }
+        };
+
+        if let Ok(pid) = value.parse::<i32>() {
+            return callback(pid);
+        }
+
+        let pid = Process::by_cmdline(value).map_err(|err| {
+            anyhow::anyhow!("failed to find process with cmdline pattern {value}: {err}")
+        })?;
+        if let Some(pid) = pid {
+            return callback(pid);
+        } else {
+            return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
+        }
+    }
+}
+
+impl TryFrom<String> for CtrlChannel {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.as_str().try_into()
+    }
+}
+
+impl Into<String> for CtrlChannel {
+    fn into(self) -> String {
+        match self {
+            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => format! {"{pid}"},
+            CtrlChannel::Remote { addr } => format!("{addr}"),
+        }
+    }
+}
+
+impl CtrlChannel {
+    pub fn send_ctrl(&self, cmd: String) -> Result<()> {
+        match self {
+            CtrlChannel::Ptrace { pid } => send_ctrl_via_ptrace(cmd, *pid),
+            CtrlChannel::Local { pid } => send_ctrl_via_socket(cmd, *pid),
+            CtrlChannel::Remote { addr } => todo!(),
+        }
+    }
+}
 
 pub async fn request(pid: i32, url: &str, body: Option<String>) -> Result<String> {
     use hyper::body::Bytes;

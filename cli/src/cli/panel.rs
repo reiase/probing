@@ -9,6 +9,8 @@ use ratatui::widgets::Tabs;
 use hyperparameter::*;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use super::ctrl::CtrlChannel;
+
 mod activity_tab;
 mod app_style;
 mod inspect_tab;
@@ -16,12 +18,12 @@ mod process_tab;
 mod read_info;
 mod utils;
 
-pub fn panel_main(pid: i32) -> Result<()> {
+pub fn panel_main(ctrl: CtrlChannel) -> Result<()> {
     utils::init_error_hooks()?;
     let mut terminal = utils::init_terminal()?;
 
     unsafe {
-        APP.set_pid(pid).run(&mut terminal).unwrap();
+        APP.with_ctrl(ctrl).run(&mut terminal).unwrap();
     }
     utils::restore_terminal()?;
     Ok(())
@@ -47,22 +49,23 @@ impl AppTab {
 
 #[derive(Default)]
 pub struct App {
-    pid: Option<i32>,
+    ctrl: Option<CtrlChannel>,
     is_quit: bool,
     selected_tab: AppTab,
 }
 
 impl App {
-    pub fn set_pid(&mut self, pid: i32) -> &mut Self {
-        self.pid = Some(pid);
+    pub fn with_ctrl(&mut self, ctrl: CtrlChannel) -> &mut Self {
+        self.ctrl = Some(ctrl);
         self
     }
     fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+        let uri: String = self.ctrl.clone().unwrap().into();
         with_params! {
-            set probing.process.pid = self.pid.unwrap() as i64;
+            set probing.ctrl.uri = uri;
 
             while !self.is_quit {
-                terminal.clear();
+                let _ = terminal.clear();
                 self.draw(terminal)?;
                 self.handle_event()?;
             }

@@ -1,12 +1,9 @@
-use anyhow::Context;
-use anyhow::Ok;
 use anyhow::Result;
 
 use clap::Args;
-use nix::{sys::signal, unistd::Pid};
 use probing_common::cli::ProbingCommand;
 
-use super::send_ctrl;
+use super::ctrl::CtrlChannel;
 
 /// Debug and Inspection Tool
 #[derive(Args, Debug)]
@@ -29,24 +26,21 @@ pub struct DebugCommand {
 }
 
 impl DebugCommand {
-    pub fn run(&self, pid: i32) -> Result<()> {
-        if self.dump {
-            signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR2)
-                .with_context(|| format!("error sending signal to pid {pid}"))
+    pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
+        let cmd = if self.dump {
+            ProbingCommand::Dump
         } else if self.pause {
-            let cmd = ProbingCommand::Pause {
+            ProbingCommand::Pause {
                 address: self.address.clone(),
-            };
-            let cmd = ron::to_string(&cmd)?;
-            send_ctrl(cmd, pid)
+            }
         } else if self.dap {
-            let cmd = ProbingCommand::Dap {
+            ProbingCommand::Dap {
                 address: self.address.clone(),
-            };
-            let cmd = ron::to_string(&cmd)?;
-            send_ctrl(cmd, pid)
+            }
         } else {
-            Ok(())
-        }
+            ProbingCommand::Nil
+        };
+        let cmd = ron::to_string(&cmd)?;
+        ctrl.send_ctrl(cmd)
     }
 }

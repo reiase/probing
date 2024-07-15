@@ -8,6 +8,8 @@ use crate::{
     inject::{Injector, Process},
 };
 
+use super::ctrl::CtrlChannel;
+
 /// Inject into target process
 #[derive(Args, Default, Debug)]
 pub struct InjectCommand {
@@ -40,7 +42,7 @@ impl InjectCommand {
             .any(|p| p.ends_with("libprobing.so") || p.ends_with("probing.abi3.so"))
     }
 
-    pub fn run(&self, pid: i32, dll: &Option<std::path::PathBuf>) -> Result<()> {
+    fn parse_flags(&self) -> String {
         let mut cmds = vec![];
         if self.pprof {
             cmds.push(ProbingCommand::Perf);
@@ -58,36 +60,31 @@ impl InjectCommand {
                 script: script.clone(),
             })
         }
-        let soname = if let Some(path) = dll {
-            Some(path.clone())
-        } else if let Ok(_path) = fs::read_link("/proc/self/exe") {
-            println!(
-                "base path: {} : {}",
-                _path.display(),
-                _path.parent().unwrap().display()
-            );
-            _path.with_file_name("libprobing.so").into()
-        } else {
-            None
-        };
+        ron::to_string(&cmds).unwrap()
+    }
 
-        let argstr = ron::to_string(&cmds)?;
-        println!(
-            "Injecting {} into process {} with arguments `{}`",
-            soname.clone().unwrap().to_str().unwrap(),
-            pid,
-            argstr,
-        );
+    pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
+        let argstr = self.parse_flags();
+        let soname =
+            fs::read_link("/proc/self/exe").map(|path| path.with_file_name("libprobing.so"))?;
 
-        let process = Process::get(pid as u32).unwrap();
-        if self.has_probing(pid) {
-            let argstr = ron::to_string(&cmds)?;
-            send_ctrl(argstr, pid)
-        } else {
-            Injector::attach(process)
-                .unwrap()
-                .inject(&soname.unwrap(), Some(argstr.as_str()))
-                .map_err(|err| anyhow::anyhow!("failed to inject probing to {}: {}", pid, err))
+        // send ctrl cmds
+        match ctrl {
+            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } if self.has_probing(pid) => {
+                send_ctrl(argstr, pid)
+            }
+            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
+                let process = Process::get(pid as u32).unwrap();
+                println!(
+                    "Injecting {} into process {pid} with arguments `{argstr}`",
+                    soname.to_str().unwrap(),
+                );
+                Injector::attach(process)
+                    .unwrap()
+                    .inject(&soname, Some(argstr.as_str()))
+                    .map_err(|err| anyhow::anyhow!("failed to inject probing to {}: {}", pid, err))
+            }
+            CtrlChannel::Remote { addr } => todo!(),
         }
     }
 }

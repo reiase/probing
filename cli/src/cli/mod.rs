@@ -3,6 +3,7 @@ use clap::Parser;
 use nix::{sys::signal, unistd::Pid};
 
 pub mod commands;
+pub mod ctrl;
 pub mod debug;
 pub mod inject;
 pub mod misc;
@@ -10,11 +11,10 @@ pub mod panel;
 pub mod performance;
 pub mod repl;
 
-mod ctrl;
-
 use hyperparameter::*;
 use repl::Repl;
 
+use crate::cli::ctrl::CtrlChannel;
 use crate::inject::{Injector, Process};
 use commands::{Commands, ReplCommands};
 
@@ -25,16 +25,10 @@ pub struct Cli {
     #[arg(short, long, hide = true)]
     dll: Option<std::path::PathBuf>,
 
-    // /// target process ID (e.g., 1234)
-    // #[arg(short, long, conflicts_with_all=["name"])]
-    // pub pid: Option<i32>,
     /// Send ctrl commands via ptrace
     #[arg(long)]
     ptrace: bool,
 
-    // /// target process name (e.g., "chrome.exe")
-    // #[arg(short, long, conflicts_with_all=["pid"])]
-    // pub name: Option<String>,
     /// target process, PID (e.g., 1234) or `Name` (e.g., "chrome.exe") for local process, and <ip>:<port> for remote process
     #[arg()]
     target: String,
@@ -45,27 +39,18 @@ pub struct Cli {
 
 impl Cli {
     pub fn run(&self) -> Result<()> {
-        let pid = self.resolve_pid()?;
-        let ctrl = if self.ptrace {
-            "ptrace".to_string()
-        } else {
-            "socket".to_string()
-        };
+        let ctrl: CtrlChannel = self.target.as_str().try_into()?;
 
-        with_params! {
-            set probing.cli.ctrl_channel = ctrl;
-
-            self.execute_command(pid)
-        }
+        self.execute_command(ctrl)
     }
 
-    fn execute_command(&self, pid: i32) -> Result<()> {
+    fn execute_command(&self, ctrl: CtrlChannel) -> Result<()> {
         match &self.command {
-            Some(Commands::Inject(cmd)) => cmd.run(pid, &self.dll),
-            Some(Commands::Debug(cmd)) => cmd.run(pid),
-            Some(Commands::Performance(cmd)) => cmd.run(pid),
-            Some(Commands::Misc(cmd)) => cmd.run(pid),
-            Some(Commands::Panel) => panel::panel_main(pid),
+            Some(Commands::Inject(cmd)) => cmd.run(ctrl),
+            Some(Commands::Debug(cmd)) => cmd.run(ctrl),
+            Some(Commands::Performance(cmd)) => cmd.run(ctrl),
+            Some(Commands::Misc(cmd)) => cmd.run(ctrl),
+            Some(Commands::Panel) => panel::panel_main(ctrl),
             Some(Commands::Repl) => {
                 let mut repl = Repl::<ReplCommands>::default();
                 loop {
@@ -74,31 +59,9 @@ impl Cli {
                 }
             }
             None => {
-                let _ = inject::InjectCommand::default().run(pid, &self.dll);
-                panel::panel_main(pid)
+                let _ = inject::InjectCommand::default().run(ctrl.clone());
+                panel::panel_main(ctrl)
             }
-        }
-    }
-
-    fn resolve_pid(&self) -> Result<i32> {
-        if let Ok(pid) = self.target.parse::<i32>() {
-            return Ok(pid);
-        }
-        if let [_, _] = self.target.split(":").collect::<Vec<_>>()[..] {
-            return Ok(0);
-        }
-
-        let pid = Process::by_cmdline(&self.target).map_err(|err| {
-            anyhow::anyhow!(
-                "failed to find process with cmdline pattern {}: {}",
-                self.target,
-                err
-            )
-        })?;
-        if let Some(pid) = pid {
-            return Ok(pid);
-        } else {
-            return Err(anyhow::anyhow!("either `pid` or `name` must be specified"));
         }
     }
 }
