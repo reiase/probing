@@ -17,3 +17,4 @@ pub(crate) use crate::handlers::execute_handler::execute_handler;
 
 mod show_plt_handler;
 pub(crate) use crate::handlers::show_plt_handler::show_plt;
+pub(crate) use crate::handlers::show_plt_handler::read_plt;

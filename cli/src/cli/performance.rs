@@ -28,6 +28,6 @@ impl PerfCommand {
             CtrlSignal::Nil
         };
         let cmd = ron::to_string(&cmd)?;
-        ctrl.send_ctrl(cmd)
+        ctrl.signal(cmd)
     }
 }

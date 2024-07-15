@@ -1,6 +1,6 @@
 use anyhow::Result;
 use nix::libc::SIGABRT;
-use probing_common::cli::CtrlSignal;
+use probing_common::cli::{BackTraceCommand, CtrlSignal, Features, ShowCommand};
 
 use crate::{
     handlers::{
@@ -11,6 +11,9 @@ use crate::{
     server::remote_server,
     service::CALLSTACK,
 };
+
+use probing_common::cli::CtrlSignal::Enable;
+use probing_common::cli::CtrlSignal::Show;
 
 pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
     match cmd {
@@ -51,7 +54,9 @@ pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
             show_plt()?;
         }
 
-        _ => (),
+        cmd => {
+            handle_ctrl(cmd)?;
+        }
     };
     Ok(())
 }
@@ -66,4 +71,61 @@ pub fn ctrl_handler_string(cmdstr: String) {
         let cmd: CtrlSignal = ron::from_str(&cmdstr).unwrap_or(CtrlSignal::Nil);
         let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
     }
+}
+
+mod show;
+
+#[derive(Default)]
+pub struct StringBuilder {
+    buf: String,
+}
+
+impl ToString for StringBuilder {
+    fn to_string(&self) -> String {
+        self.buf.clone()
+    }
+}
+
+pub trait StringBuilderAppend {
+    fn append_to(&self, builder: &mut StringBuilder);
+    fn append_line(&self, builder: &mut StringBuilder);
+}
+
+impl StringBuilderAppend for String {
+    fn append_to(&self, builder: &mut StringBuilder) {
+        builder.buf.push_str(self.as_str());
+    }
+
+    fn append_line(&self, builder: &mut StringBuilder) {
+        builder.buf.push_str(self.as_str());
+        builder.buf.push_str("\n");
+    }
+}
+
+pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
+    match ctrl {
+        CtrlSignal::Nil => Ok(Default::default()),
+        CtrlSignal::Dump => handle_ctrl(CtrlSignal::Backtrace(BackTraceCommand::Show {
+            cc: true,
+            python: true,
+            tid: None,
+        })),
+        CtrlSignal::Dap { address } => handle_ctrl(Enable(Features::Dap { address })),
+        CtrlSignal::Pause { address } => todo!(),
+        CtrlSignal::Perf => handle_ctrl(Enable(Features::Pprof)),
+        CtrlSignal::CatchCrash => handle_ctrl(Enable(Features::CatchCrash { address: None })),
+        CtrlSignal::ListenRemote { address } => handle_ctrl(Enable(Features::Remote { address })),
+
+        CtrlSignal::Execute { script } => handle_ctrl(CtrlSignal::Eval { code: script }),
+        CtrlSignal::ShowPLT => handle_ctrl(Show(ShowCommand::PLT)),
+        CtrlSignal::Enable(_) => todo!(),
+        CtrlSignal::Disable(_) => todo!(),
+        CtrlSignal::Show(cmd) => show::handle(cmd),
+        CtrlSignal::Backtrace(_) => todo!(),
+        CtrlSignal::Eval { code } => todo!(),
+    }
+}
+
+pub fn not_implemented() -> Result<String> {
+    anyhow::bail!("not implemented!")
 }

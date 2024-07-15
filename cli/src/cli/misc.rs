@@ -16,7 +16,7 @@ impl MiscCommand {
         if self.show_plt {
             let cmd = CtrlSignal::ShowPLT;
             let cmd = ron::to_string(&cmd)?;
-            return ctrl.send_ctrl(cmd);
+            return ctrl.signal(cmd);
         }
         Err(anyhow::anyhow!("no command specified"))
     }

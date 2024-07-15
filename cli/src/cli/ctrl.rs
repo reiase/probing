@@ -63,9 +63,30 @@ impl From<CtrlChannel> for String {
 }
 
 impl CtrlChannel {
-    pub fn send_ctrl(&self, cmd: String) -> Result<()> {
+    pub fn query(&self, cmd: String) -> Result<String> {
         match self {
-            CtrlChannel::Ptrace { pid } => send_ctrl_via_ptrace(cmd, *pid),
+            CtrlChannel::Ptrace { pid } => {
+                send_ctrl_via_ptrace(cmd, *pid)?;
+                Ok(Default::default())
+            }
+            ctrl => {
+                let ret = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(request(ctrl.clone(), "/ctrl", cmd.into()))?;
+
+                Ok(ret)
+            }
+        }
+    }
+
+    pub fn signal(&self, cmd: String) -> Result<()> {
+        match self {
+            CtrlChannel::Ptrace { pid } => {
+                send_ctrl_via_ptrace(cmd, *pid)?;
+                Ok(Default::default())
+            }
             ctrl => {
                 let cmd = if cmd.starts_with('[') {
                     cmd
@@ -133,23 +154,28 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
             .unwrap()
     };
 
-    let mut res = sender.send_request(request).await.unwrap();
-    let mut ret: Vec<u8> = vec![];
+    let res = sender.send_request(request).await.unwrap();
 
-    while let Some(next) = res.frame().await {
-        if let Ok(frame) = next {
-            if let Some(chunk) = frame.data_ref() {
-                ret.extend_from_slice(chunk);
-            }
-        }
-    }
-    let body = String::from_utf8(ret).unwrap();
+    let ret = res.collect().await?;
+    let ret = String::from_utf8(ret.to_bytes().to_vec())?;
+    return Ok(ret);
 
-    if res.status().is_success() {
-        Ok(body)
-    } else {
-        anyhow::bail!("Error {}: {}", res.status(), body)
-    }
+    // let mut ret: Vec<u8> = vec![];
+
+    // while let Some(next) = res.frame().await {
+    //     if let Ok(frame) = next {
+    //         if let Some(chunk) = frame.data_ref() {
+    //             ret.extend_from_slice(chunk);
+    //         }
+    //     }
+    // }
+    // let body = String::from_utf8(ret).unwrap();
+
+    // if res.status().is_success() {
+    //     Ok(body)
+    // } else {
+    //     anyhow::bail!("Error {}: {}", res.status(), body)
+    // }
 }
 
 fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {

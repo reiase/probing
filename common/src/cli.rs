@@ -29,7 +29,7 @@ pub enum CtrlSignal {
     Disable(Features),
 
     #[command(subcommand)]
-    Show(TopicCommand),
+    Show(ShowCommand),
 
     #[command(subcommand, visible_aliases = ["bt"])]
     Backtrace(BackTraceCommand),
@@ -54,7 +54,7 @@ pub enum BackTraceCommand {
 }
 
 #[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]
-pub enum TopicCommand {
+pub enum ShowCommand {
     #[command()]
     Memory,
     #[command()]

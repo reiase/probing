@@ -70,7 +70,7 @@ impl InjectCommand {
             _ => false,
         };
         if has_probing {
-            ctrl.send_ctrl(cmd)
+            ctrl.signal(cmd)
         } else {
             match ctrl {
                 CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {

@@ -145,7 +145,13 @@ impl ReplCommand {
         let mut repl = Repl::<CtrlSignal>::default();
         loop {
             match repl.read_command(">>") {
-                ReplLine::Command(cmd) => println!("== {:?}", cmd),
+                ReplLine::Command(cmd) => {
+                    let cmd = ron::to_string(&cmd).unwrap();
+                    match ctrl.query(cmd) {
+                        Ok(ret) => println!("{ret}"),
+                        Err(err) => println!("{err}"),
+                    }
+                },
                 ReplLine::Empty => {}
                 ReplLine::Error(msg) => eprintln!("{}", msg),
                 ReplLine::Exit => return Ok(()),

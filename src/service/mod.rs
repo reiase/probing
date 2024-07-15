@@ -10,9 +10,10 @@ mod profiler;
 mod python;
 
 use log::debug;
+use probing_common::cli::CtrlSignal;
 pub use process::CALLSTACK;
 
-use crate::ctrl::ctrl_handler_string;
+use crate::ctrl::{ctrl_handler_string, handle_ctrl};
 
 fn parse_qs(qs: Option<&str>) -> HashMap<String, String> {
     if let Some(qs) = qs {
@@ -35,9 +36,25 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
         (&Method::POST, "/ctrl") => {
             let whole_body = String::from_utf8(req.collect().await?.to_bytes().to_vec());
             if let Ok(cmdstr) = whole_body {
-                ctrl_handler_string(cmdstr);
+                if cmdstr.starts_with('[') {
+                    ctrl_handler_string(cmdstr);
+                    Ok(Default::default())
+                } else {
+                    if let Ok(ctrl) = ron::from_str::<CtrlSignal>(&cmdstr) {
+                        match handle_ctrl(ctrl) {
+                            Ok(resp) => {
+                                let resp = Full::new(Bytes::from(resp));
+                                Ok(Response::builder().body(resp).unwrap())
+                            }
+                            Err(err) => anyhow::bail!("internal error!"),
+                        }
+                    } else {
+                        anyhow::bail!("internal error!")
+                    }
+                }
+            } else {
+                Ok(Default::default())
             }
-            Ok(Default::default())
         }
 
         (&Method::GET, "/") | (&Method::GET, "/index.html") => Ok(Response::builder()
