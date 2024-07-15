@@ -9,6 +9,8 @@ use ratatui::widgets::Tabs;
 use hyperparameter::*;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use super::ctrl::CtrlChannel;
+
 mod activity_tab;
 mod app_style;
 mod inspect_tab;
@@ -16,12 +18,12 @@ mod process_tab;
 mod read_info;
 mod utils;
 
-pub fn console_main(pid: i32) -> Result<()> {
+pub fn panel_main(ctrl: CtrlChannel) -> Result<()> {
     utils::init_error_hooks()?;
     let mut terminal = utils::init_terminal()?;
 
     unsafe {
-        APP.set_pid(pid).run(&mut terminal).unwrap();
+        APP.with_ctrl(ctrl).run(&mut terminal).unwrap();
     }
     utils::restore_terminal()?;
     Ok(())
@@ -47,21 +49,23 @@ impl AppTab {
 
 #[derive(Default)]
 pub struct App {
-    pid: Option<i32>,
+    ctrl: Option<CtrlChannel>,
     is_quit: bool,
     selected_tab: AppTab,
 }
 
 impl App {
-    pub fn set_pid(&mut self, pid: i32) -> &mut Self {
-        self.pid = Some(pid);
+    pub fn with_ctrl(&mut self, ctrl: CtrlChannel) -> &mut Self {
+        self.ctrl = Some(ctrl);
         self
     }
     fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+        let uri: String = self.ctrl.clone().unwrap().into();
         with_params! {
-            set probing.process.pid = self.pid.unwrap() as i64;
+            set probing.ctrl.uri = uri;
 
             while !self.is_quit {
+                let _ = terminal.clear();
                 self.draw(terminal)?;
                 self.handle_event()?;
             }
@@ -79,8 +83,8 @@ impl App {
             if key.kind == KeyEventKind::Press {
                 match key.code {
                     KeyCode::Tab => {
-                        self.selected_tab = AppTab::from_repr(self.selected_tab as usize + 1)
-                            .unwrap_or(AppTab::default())
+                        self.selected_tab =
+                            AppTab::from_repr(self.selected_tab as usize + 1).unwrap_or_default()
                     }
                     KeyCode::Char('q') => self.is_quit = true,
                     code => self.route_key_event(code)?,
@@ -112,7 +116,7 @@ impl App {
     }
 }
 
-pub static mut APP: Lazy<App> = Lazy::new(|| App::default());
+pub static mut APP: Lazy<App> = Lazy::new(App::default);
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer)
@@ -126,7 +130,7 @@ impl Widget for &App {
         let [header, body] = toplevel.areas(area);
         let [title_area, tab_area] =
             Layout::horizontal([Length(10), Percentage(100)]).areas(header);
-        "Probing".bold().render(title_area, buf);
+        "Probing Panel".bold().render(title_area, buf);
         self.render_tabs(tab_area, buf);
         self.selected_tab.render(body, buf);
     }
@@ -140,9 +144,6 @@ impl Widget for AppTab {
         match self {
             AppTab::Process => unsafe { process_tab::PROCESS_TAB.draw(area, buf) },
             AppTab::Activity => unsafe { activity_tab::ACTIVITY_TAB.draw(area, buf) },
-            // AppTab::Debug => Paragraph::new("Hello, World!!!")
-            //     .block(self.block())
-            //     .render(area, buf),
             AppTab::Inspect => unsafe { inspect_tab::INSPECT_TAB.draw(area, buf) },
         }
     }

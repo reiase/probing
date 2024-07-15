@@ -2,14 +2,14 @@
 #[macro_use]
 extern crate ctor;
 
-use std::ffi::c_int;
-use std::str::FromStr as _;
-use std::{env, thread};
+use std::{env, ffi::c_int, str::FromStr as _};
 
 use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
 use log::debug;
+use log::error;
 use pyo3::prelude::*;
+use server::local_server;
 use signal_hook::consts::*;
 
 mod ctrl;
@@ -21,7 +21,6 @@ mod service;
 use handlers::dump_stack2;
 use probing_common::cli::ProbingCommand;
 use repl::PythonRepl;
-use server::start_local_server;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
@@ -51,14 +50,15 @@ fn setup() {
     for cmd in cmds {
         ctrl_handler(cmd).unwrap();
     }
-    thread::spawn(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(start_local_server::<PythonRepl>())
-            .unwrap();
-    });
+    local_server::start::<PythonRepl>();
+}
+
+#[dtor]
+fn cleanup() {
+    if let Err(e) = local_server::stop() {
+        error!("Error cleanup unix socket for {}", std::process::id());
+        error!("{}", e);
+    }
 }
 
 #[pyfunction]
@@ -82,14 +82,7 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
     for cmd in cmds {
         ctrl_handler(cmd).unwrap();
     }
-    thread::spawn(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(start_local_server::<PythonRepl>())
-            .unwrap();
-    });
+    local_server::start::<PythonRepl>();
 }
 
 #[pymodule]

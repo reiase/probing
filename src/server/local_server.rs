@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::thread;
 
 use anyhow::Result;
 use hyperparameter::*;
@@ -21,7 +22,7 @@ where
 {
     pub fn create(acceptor: UnixListener) -> Self {
         Self {
-            acceptor: acceptor,
+            acceptor,
             phantom: PhantomData,
         }
     }
@@ -34,7 +35,7 @@ where
     }
 }
 
-pub async fn start_local_server<T>() -> Result<()>
+async fn local_server_worker<T>() -> Result<()>
 where
     T: Repl + Default + Send,
 {
@@ -50,10 +51,38 @@ where
         let path = format!("{}/{}", prefix, pid);
         let path = std::path::Path::new(&path);
         if path.exists() {
-            std::fs::remove_file(&path)?;
+            std::fs::remove_file(path)?;
         }
 
-        let mut server = LocalServer::<T>::create(UnixListener::bind(&path)?);
+        let mut server = LocalServer::<T>::create(UnixListener::bind(path)?);
         server.run().await
     }
+}
+
+pub fn start<T>()
+where
+    T: Repl + Default + Send,
+{
+    thread::spawn(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(local_server_worker::<T>())
+            .unwrap();
+    });
+}
+
+pub fn stop() -> Result<()> {
+    with_params! {
+        get prefix = probing.server.unix_socket_path or "/tmp/probing/".to_string();
+
+        let pid = std::process::id();
+        let path = format!("{}/{}", prefix, pid);
+        let path = std::path::Path::new(&path);
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
+    }
+    Ok(())
 }

@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, thread};
 
 use anyhow::Result;
 use log::debug;
@@ -58,7 +58,7 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
     }
 }
 
-pub async fn start_remote_server<T>(addr: Option<String>) -> Result<()>
+pub async fn remote_server_worker<T>(addr: Option<String>) -> Result<()>
 where
     T: Repl + Default + Send,
 {
@@ -67,4 +67,18 @@ where
         None => AsyncServer::<T>::default(),
     };
     server.run().await
+}
+
+pub fn start<T>(addr: Option<String>)
+where
+    T: Repl + Default + Send,
+{
+    thread::spawn(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(remote_server_worker::<T>(addr))
+            .unwrap();
+    });
 }

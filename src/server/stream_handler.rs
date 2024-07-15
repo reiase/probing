@@ -32,7 +32,7 @@ impl IsHTTP for TcpStream {
 
 impl IsHTTP for UnixStream {
     async fn is_http(&mut self) -> bool {
-        return true;
+        true
     }
 }
 

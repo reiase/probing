@@ -1,12 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Args;
-use nix::{sys::signal, unistd::Pid};
 use probing_common::cli::ProbingCommand;
 
-use super::send_ctrl;
+use super::ctrl::CtrlChannel;
 
 /// Performance Diagnosis Tool
-#[derive(Args, Default)]
+#[derive(Args, Default, Debug)]
 pub struct PerfCommand {
     /// profiling c/c++ codes
     #[arg(long, conflicts_with_all = ["torch"])]
@@ -18,18 +17,17 @@ pub struct PerfCommand {
 }
 
 impl PerfCommand {
-    pub fn run(&self, pid: i32) -> Result<()> {
-        if self.cc {
-            return signal::kill(Pid::from_raw(pid), signal::Signal::SIGPROF)
-                .with_context(|| format!("failed to send SIGPROF to pid {}", pid));
-        }
-        if self.torch {
-            let cmd = ProbingCommand::Execute {
+    pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
+        let cmd = if self.cc {
+            ProbingCommand::Perf
+        } else if self.torch {
+            ProbingCommand::Execute {
                 script: "tprofile()".to_string(),
-            };
-            let cmd = ron::to_string(&cmd)?;
-            return send_ctrl(cmd, pid);
-        }
-        Ok(())
+            }
+        } else {
+            ProbingCommand::Nil
+        };
+        let cmd = ron::to_string(&cmd)?;
+        ctrl.send_ctrl(cmd)
     }
 }
