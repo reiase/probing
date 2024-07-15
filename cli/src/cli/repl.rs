@@ -2,6 +2,7 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
+use probing_common::cli::CtrlSignal;
 use rustyline::{
     completion::{Completer, Pair},
     config::Configurer,
@@ -13,7 +14,7 @@ use rustyline::{
     CompletionType, Editor, Helper,
 };
 
-use super::{commands::ReplCommands, ctrl::CtrlChannel};
+use super::ctrl::CtrlChannel;
 
 pub struct Repl<C: Parser + Send + Sync + 'static> {
     editor: Editor<LineReaderHelper<C>, DefaultHistory>,
@@ -40,7 +41,7 @@ impl<C: Parser + Send + Sync + 'static> Repl<C> {
 }
 
 impl<C: Parser + Send + Sync + 'static> Repl<C> {
-    pub fn read_command(&mut self, prompt: &str) -> Result<C> {
+    pub fn read_command(&mut self, prompt: &str) -> ReplLine<C> {
         let line = self.editor.readline(prompt);
         match line {
             Ok(line) => match shlex::split(&line) {
@@ -48,15 +49,16 @@ impl<C: Parser + Send + Sync + 'static> Repl<C> {
                     std::iter::once("").chain(args.iter().map(String::as_str)),
                 ) {
                     Ok(cmd) => {
-                        self.editor.add_history_entry(line)?;
-                        return Ok(cmd);
+                        self.editor.add_history_entry(line).unwrap();
+                        return ReplLine::Command(cmd);
                     }
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return ReplLine::Error(e.to_string()),
                 },
-                None => Err(anyhow::format_err!("")),
+                None => ReplLine::Empty,
             },
-            Err(ReadlineError::Interrupted) => todo!(),
-            Err(_) => todo!(),
+            Err(ReadlineError::Interrupted) => ReplLine::Exit,
+            Err(ReadlineError::Eof) => ReplLine::Exit,
+            Err(e) => ReplLine::Error(e.to_string()),
         }
     }
 }
@@ -127,16 +129,27 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
     }
 }
 
+pub enum ReplLine<C> {
+    Command(C),
+    Empty,
+    Error(String),
+    Exit,
+}
+
 /// Repl debugging shell
 #[derive(Args, Debug)]
 pub struct ReplCommand {}
 
 impl ReplCommand {
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
-        let mut repl = Repl::<ReplCommands>::default();
+        let mut repl = Repl::<CtrlSignal>::default();
         loop {
-            let line = repl.read_command(">>")?;
-            println!("{:?}", line);
+            match repl.read_command(">>") {
+                ReplLine::Command(cmd) => println!("== {:?}", cmd),
+                ReplLine::Empty => {}
+                ReplLine::Error(msg) => eprintln!("{}", msg),
+                ReplLine::Exit => return Ok(()),
+            }
         }
     }
 }
