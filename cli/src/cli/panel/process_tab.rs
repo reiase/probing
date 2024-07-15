@@ -21,7 +21,7 @@ pub struct ProcessTab {
     items: Vec<TreeItem<'static, String>>,
 }
 
-pub static mut PROCESS_TAB: Lazy<ProcessTab> = Lazy::new(|| ProcessTab::default());
+pub static mut PROCESS_TAB: Lazy<ProcessTab> = Lazy::new(ProcessTab::default);
 
 pub fn handle_key_event(code: KeyCode) -> Result<()> {
     unsafe {
@@ -134,7 +134,7 @@ impl ProcessTab {
                     info.threads.iter().map(|t| format!("{}", t)).collect(),
                 ),
             ];
-            self.threads = info.threads.clone();
+            self.threads.clone_from(&info.threads);
         }
         let tree = Tree::new(&self.items)
             .expect("all item identifiers are unique")

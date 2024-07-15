@@ -33,10 +33,10 @@ pub fn ctrl_handler(cmd: ProbingCommand) -> Result<()> {
                     let port = addr[1];
                     format!("debug(\"{}\", {})", host, port)
                 } else {
-                    format!("debug()")
+                    "debug()".to_string()
                 }
             } else {
-                format!("debug()")
+                "debug()".to_string()
             };
             repl.process(cmd.as_str());
         }

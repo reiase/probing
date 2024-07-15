@@ -25,7 +25,7 @@ pub struct InspectTab {
     items: Vec<TreeItem<'static, String>>,
 }
 
-pub static mut INSPECT_TAB: Lazy<InspectTab> = Lazy::new(|| InspectTab::default());
+pub static mut INSPECT_TAB: Lazy<InspectTab> = Lazy::new(InspectTab::default);
 
 pub fn handle_key_event(code: KeyCode) -> Result<()> {
     unsafe {
@@ -38,7 +38,7 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
                     ObjectType::TENSOR => "torch/tensors",
                     ObjectType::MODULE => "torch/modules",
                 })
-                .unwrap_or(Default::default());
+                .unwrap_or_default();
                 false
             }
             KeyCode::Char('t') => {
@@ -48,7 +48,7 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
                     ObjectType::TENSOR => "torch/tensors",
                     ObjectType::MODULE => "torch/modules",
                 })
-                .unwrap_or(Default::default());
+                .unwrap_or_default();
                 false
             }
             KeyCode::Char('m') => {
@@ -58,7 +58,7 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
                     ObjectType::TENSOR => "torch/tensors",
                     ObjectType::MODULE => "torch/modules",
                 })
-                .unwrap_or(Default::default());
+                .unwrap_or_default();
                 false
             }
             KeyCode::Up => INSPECT_TAB.state.key_up(),
@@ -71,7 +71,7 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
     Ok(())
 }
 
-fn format_objects(objects: &Vec<Object>) -> Vec<TreeItem<'static, String>> {
+fn format_objects(objects: &[Object]) -> Vec<TreeItem<'static, String>> {
     objects
         .iter()
         .enumerate()
@@ -116,13 +116,13 @@ impl InspectTab {
     where
         Self: Sized,
     {
-        if self.items.len() == 0 {
+        if self.items.is_empty() {
             self.objects = read_object_info(match self.selector {
                 ObjectType::OBJECT => "objects",
                 ObjectType::TENSOR => "torch/tensors",
                 ObjectType::MODULE => "torch/modules",
             })
-            .unwrap_or(Default::default());
+            .unwrap_or_default();
         }
         self.items = format_objects(&self.objects);
 

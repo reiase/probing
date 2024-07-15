@@ -22,7 +22,7 @@ where
 {
     pub fn create(acceptor: UnixListener) -> Self {
         Self {
-            acceptor: acceptor,
+            acceptor,
             phantom: PhantomData,
         }
     }
@@ -51,10 +51,10 @@ where
         let path = format!("{}/{}", prefix, pid);
         let path = std::path::Path::new(&path);
         if path.exists() {
-            std::fs::remove_file(&path)?;
+            std::fs::remove_file(path)?;
         }
 
-        let mut server = LocalServer::<T>::create(UnixListener::bind(&path)?);
+        let mut server = LocalServer::<T>::create(UnixListener::bind(path)?);
         server.run().await
     }
 }
@@ -81,7 +81,7 @@ pub fn stop() -> Result<()> {
         let path = format!("{}/{}", prefix, pid);
         let path = std::path::Path::new(&path);
         if path.exists() {
-            std::fs::remove_file(&path)?;
+            std::fs::remove_file(path)?;
         }
     }
     Ok(())

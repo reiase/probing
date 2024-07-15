@@ -25,7 +25,7 @@ async fn request(ctrl: CtrlChannel, url: &str) -> Result<String> {
             let stream = tokio::net::UnixStream::connect(path).await?;
             let io = TokioIo::new(stream);
 
-            let (mut sender, connection) = conn::http1::handshake(io).await?;
+            let (sender, connection) = conn::http1::handshake(io).await?;
             tokio::spawn(async move {
                 connection.await.unwrap();
             });
@@ -35,7 +35,7 @@ async fn request(ctrl: CtrlChannel, url: &str) -> Result<String> {
             let stream = tokio::net::TcpStream::connect(addr).await?;
             let io = TokioIo::new(stream);
 
-            let (mut sender, connection) = conn::http1::handshake(io).await?;
+            let (sender, connection) = conn::http1::handshake(io).await?;
             tokio::spawn(async move {
                 connection.await.unwrap();
             });
@@ -51,7 +51,7 @@ async fn request(ctrl: CtrlChannel, url: &str) -> Result<String> {
     let res = sender.send_request(request).await.unwrap();
     let ret = res.into_body().collect().await?.to_bytes().to_vec();
     let body = String::from_utf8(ret).unwrap();
-    return Ok(body);
+    Ok(body)
 }
 
 pub fn read_process_info() -> String {

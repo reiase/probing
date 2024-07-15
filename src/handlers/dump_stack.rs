@@ -16,7 +16,7 @@ pub fn dump_stack() -> Result<String> {
         .process(request.as_str())
         .ok_or(anyhow::anyhow!("dump stack failed"))?;
     let mut ret = serde_json::from_str::<Vec<CallStack>>(ret.as_str())
-        .with_context(|| format!("error deserializing dump stack result"))?;
+        .with_context(|| "error deserializing dump stack result".to_string())?;
     ret.insert(
         0,
         CallStack {
@@ -25,7 +25,7 @@ pub fn dump_stack() -> Result<String> {
         },
     );
     let ret = serde_json::to_string(&ret)?;
-    return Ok(ret);
+    Ok(ret)
 }
 
 pub fn dump_stack2() {

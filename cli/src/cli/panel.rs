@@ -83,8 +83,8 @@ impl App {
             if key.kind == KeyEventKind::Press {
                 match key.code {
                     KeyCode::Tab => {
-                        self.selected_tab = AppTab::from_repr(self.selected_tab as usize + 1)
-                            .unwrap_or(AppTab::default())
+                        self.selected_tab =
+                            AppTab::from_repr(self.selected_tab as usize + 1).unwrap_or_default()
                     }
                     KeyCode::Char('q') => self.is_quit = true,
                     code => self.route_key_event(code)?,
@@ -116,7 +116,7 @@ impl App {
     }
 }
 
-pub static mut APP: Lazy<App> = Lazy::new(|| App::default());
+pub static mut APP: Lazy<App> = Lazy::new(App::default);
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer)

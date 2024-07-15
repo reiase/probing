@@ -16,7 +16,7 @@ pub struct ActivityTab {
     items: Vec<TreeItem<'static, String>>,
 }
 
-pub static mut ACTIVITY_TAB: Lazy<ActivityTab> = Lazy::new(|| ActivityTab::default());
+pub static mut ACTIVITY_TAB: Lazy<ActivityTab> = Lazy::new(ActivityTab::default);
 pub fn handle_key_event(code: KeyCode) -> Result<()> {
     unsafe {
         match code {
@@ -73,7 +73,7 @@ fn format_frame(i: usize, frame: &CallStack) -> TreeItem<'static, String> {
     }
 }
 
-fn format_callstacks(callstacks: &Vec<CallStack>) -> Vec<TreeItem<'static, String>> {
+fn format_callstacks(callstacks: &[CallStack]) -> Vec<TreeItem<'static, String>> {
     callstacks
         .iter()
         .enumerate()
@@ -84,7 +84,7 @@ fn format_callstacks(callstacks: &Vec<CallStack>) -> Vec<TreeItem<'static, Strin
 impl ActivityTab {
     pub fn set_tid(&mut self, tid: i32) -> &Self {
         self.tid = tid;
-        return self;
+        self
     }
     pub fn draw(&mut self, area: Rect, buf: &mut Buffer)
     where
