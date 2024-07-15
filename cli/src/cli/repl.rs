@@ -1,7 +1,7 @@
 use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use rustyline::{
     completion::{Completer, Pair},
     config::Configurer,
@@ -12,6 +12,8 @@ use rustyline::{
     validate::Validator,
     CompletionType, Editor, Helper,
 };
+
+use super::{commands::ReplCommands, ctrl::CtrlChannel};
 
 pub struct Repl<C: Parser + Send + Sync + 'static> {
     editor: Editor<LineReaderHelper<C>, DefaultHistory>,
@@ -121,6 +123,21 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
             Ok((pos, candidates))
         } else {
             Ok(Default::default())
+        }
+    }
+}
+
+
+/// Repl debugging shell
+#[derive(Args, Debug)]
+pub struct ReplCommand {}
+
+impl ReplCommand {
+    pub fn run(&self, ctrl: CtrlChannel) ->Result<()> {
+        let mut repl = Repl::<ReplCommands>::default();
+        loop {
+            let line = repl.read_command(">>")?;
+            println!("{:?}", line);
         }
     }
 }

@@ -79,18 +79,6 @@ pub struct Injector {
 }
 
 impl Injector {
-    /// Spawn a new process and begin tracing it.
-    pub fn spawn(command: std::process::Command) -> Result<Self> {
-        let mut tracer = pete::Ptracer::new();
-        let child = tracer
-            .spawn(command)
-            .wrap_err("failed to spawn and trace command")?;
-        let proc =
-            Process::get(child.id()).wrap_err("failed to get newly spawned process by PID")?;
-        log::info!("Spawned process with PID {}", proc);
-        Self::new(proc, tracer)
-    }
-
     /// Attach to an existing process and begin tracing it.
     pub fn attach(proc: Process) -> Result<Self> {
         let mut tracer = pete::Ptracer::new();
