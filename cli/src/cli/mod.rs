@@ -10,17 +10,15 @@ pub mod panel;
 pub mod performance;
 pub mod repl;
 
-use repl::Repl;
-
 use crate::cli::ctrl::CtrlChannel;
-use commands::{Commands, ReplCommands};
+use commands::Commands;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]
 pub struct Cli {
-    /// DLL file to be injected into the target process (e.g., <location of probing cli>/libprobing.so)
-    #[arg(short, long, hide = true)]
-    dll: Option<std::path::PathBuf>,
+    /// Enable verbose mode
+    #[arg(short, long, global = true)]
+    verbose: bool,
 
     /// Send ctrl commands via ptrace
     #[arg(long)]
@@ -48,13 +46,7 @@ impl Cli {
             Some(Commands::Performance(cmd)) => cmd.run(ctrl),
             Some(Commands::Misc(cmd)) => cmd.run(ctrl),
             Some(Commands::Panel) => panel::panel_main(ctrl),
-            Some(Commands::Repl) => {
-                let mut repl = Repl::<ReplCommands>::default();
-                loop {
-                    let line = repl.read_command(">>");
-                    println!("== {:?}", line);
-                }
-            }
+            Some(Commands::Repl(cmd)) => cmd.run(ctrl),
             None => {
                 let _ = inject::InjectCommand::default().run(ctrl.clone());
                 panel::panel_main(ctrl)

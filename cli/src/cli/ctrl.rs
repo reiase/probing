@@ -53,9 +53,9 @@ impl TryFrom<String> for CtrlChannel {
     }
 }
 
-impl Into<String> for CtrlChannel {
-    fn into(self) -> String {
-        match self {
+impl From<CtrlChannel> for String {
+    fn from(val: CtrlChannel) -> Self {
+        match val {
             CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => format! {"{pid}"},
             CtrlChannel::Remote { addr } => addr,
         }

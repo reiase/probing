@@ -69,21 +69,17 @@ impl Process {
         log::debug!("Searching for process with executable name {}", pat);
         let ps: Vec<i32> = process::all_processes()
             .wrap_err("failed to list processes to search them")?
-            .map(|p| p.ok())
-            .flatten()
-            .map(|p| {
-                if let Ok(cmdline) = p.cmdline() {
+            .filter_map(|p| p.ok())
+            .filter_map(|p| {
+                p.cmdline().map_or(None, |cmdline| {
                     let cmdline = cmdline.join(" ");
                     if cmdline.contains(pat) {
                         Some(p.pid())
                     } else {
                         None
                     }
-                } else {
-                    None
-                }
+                })
             })
-            .flatten()
             .collect();
         match ps.len() {
             1 => Ok(Some(ps[0])),

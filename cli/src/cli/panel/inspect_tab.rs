@@ -12,9 +12,9 @@ use super::read_info::read_object_info;
 #[derive(Default, Debug)]
 pub enum ObjectType {
     #[default]
-    OBJECT,
-    TENSOR,
-    MODULE,
+    Object,
+    Tensor,
+    Module,
 }
 
 #[derive(Default, Debug)]
@@ -32,31 +32,31 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
         match code {
             KeyCode::Char('\n') | KeyCode::Enter => INSPECT_TAB.state.toggle_selected(),
             KeyCode::Char('p') => {
-                INSPECT_TAB.selector = ObjectType::OBJECT;
+                INSPECT_TAB.selector = ObjectType::Object;
                 INSPECT_TAB.objects = read_object_info(match INSPECT_TAB.selector {
-                    ObjectType::OBJECT => "objects",
-                    ObjectType::TENSOR => "torch/tensors",
-                    ObjectType::MODULE => "torch/modules",
+                    ObjectType::Object => "objects",
+                    ObjectType::Tensor => "torch/tensors",
+                    ObjectType::Module => "torch/modules",
                 })
                 .unwrap_or_default();
                 false
             }
             KeyCode::Char('t') => {
-                INSPECT_TAB.selector = ObjectType::TENSOR;
+                INSPECT_TAB.selector = ObjectType::Tensor;
                 INSPECT_TAB.objects = read_object_info(match INSPECT_TAB.selector {
-                    ObjectType::OBJECT => "objects",
-                    ObjectType::TENSOR => "torch/tensors",
-                    ObjectType::MODULE => "torch/modules",
+                    ObjectType::Object => "objects",
+                    ObjectType::Tensor => "torch/tensors",
+                    ObjectType::Module => "torch/modules",
                 })
                 .unwrap_or_default();
                 false
             }
             KeyCode::Char('m') => {
-                INSPECT_TAB.selector = ObjectType::MODULE;
+                INSPECT_TAB.selector = ObjectType::Module;
                 INSPECT_TAB.objects = read_object_info(match INSPECT_TAB.selector {
-                    ObjectType::OBJECT => "objects",
-                    ObjectType::TENSOR => "torch/tensors",
-                    ObjectType::MODULE => "torch/modules",
+                    ObjectType::Object => "objects",
+                    ObjectType::Tensor => "torch/tensors",
+                    ObjectType::Module => "torch/modules",
                 })
                 .unwrap_or_default();
                 false
@@ -118,9 +118,9 @@ impl InspectTab {
     {
         if self.items.is_empty() {
             self.objects = read_object_info(match self.selector {
-                ObjectType::OBJECT => "objects",
-                ObjectType::TENSOR => "torch/tensors",
-                ObjectType::MODULE => "torch/modules",
+                ObjectType::Object => "objects",
+                ObjectType::Tensor => "torch/tensors",
+                ObjectType::Module => "torch/modules",
             })
             .unwrap_or_default();
         }
