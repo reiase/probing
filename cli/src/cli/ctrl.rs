@@ -154,28 +154,11 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
             .unwrap()
     };
 
-    let res = sender.send_request(request).await.unwrap();
+    let res = sender.send_request(request).await?;
 
     let ret = res.collect().await?;
     let ret = String::from_utf8(ret.to_bytes().to_vec())?;
     return Ok(ret);
-
-    // let mut ret: Vec<u8> = vec![];
-
-    // while let Some(next) = res.frame().await {
-    //     if let Ok(frame) = next {
-    //         if let Some(chunk) = frame.data_ref() {
-    //             ret.extend_from_slice(chunk);
-    //         }
-    //     }
-    // }
-    // let body = String::from_utf8(ret).unwrap();
-
-    // if res.status().is_success() {
-    //     Ok(body)
-    // } else {
-    //     anyhow::bail!("Error {}: {}", res.status(), body)
-    // }
 }
 
 fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
