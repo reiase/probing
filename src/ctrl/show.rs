@@ -1,14 +1,13 @@
 use anyhow::Result;
-use probing_common::cli::ShowCommand;
+use serde_json::json;
 
-use super::not_implemented;
 use crate::handlers::read_plt;
 use crate::repl::PythonRepl;
+use probing_common::cli::ShowCommand;
 
 pub fn pyhandle(path: &str, query: Option<String>) -> String {
     let request = format!(
-        "handle(path=\"{}\", query={})\n",
-        path,
+        "handle(path=\"{path}\", query={})\n",
         query
             .map(|qs| { format!("\"{}\"", qs) })
             .unwrap_or("None".to_string())
@@ -19,7 +18,18 @@ pub fn pyhandle(path: &str, query: Option<String>) -> String {
 
 pub fn handle(topic: ShowCommand) -> Result<String> {
     match topic {
-        ShowCommand::Memory => not_implemented(),
+        ShowCommand::Memory => {
+            let current = procfs::process::Process::myself().unwrap();
+            let status = current.status()?;
+            let memory_info = json!({
+                "VmRSS": status.vmrss,
+                "VmHWM": status.vmhwm,
+                "VmPeak": status.vmpeak,
+                "VmPin": status.vmpin,
+                "VmLck": status.vmlck,
+            });
+            Ok(memory_info.to_string())
+        }
         ShowCommand::Threads => {
             let current = procfs::process::Process::myself().unwrap();
             let tasks: Vec<u64> = current
