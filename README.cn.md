@@ -1,6 +1,6 @@
 # Probing: AI应用的性能与稳定性诊断工具
 
-Probing 是一款专为AI应用设计的性能与稳定性诊断工具，旨在解决大规模、分布式、长周期AI异构计算任务（如LLM训练和推理）中的调试与优化难题。通过向目标进程植入探针服务（probing server），可以更详细地采集性能数据，或实时修改目标进程的执行行为。
+Probing 是一款专为AI应用设计的性能与稳定性诊断工具，旨在解决大规模、分布式、长周期AI异构计算任务（如LLM训练和推理）中的调试与优化难题。通过向目标进程植入探针，可以更详细地采集性能数据，或实时修改目标进程的执行行为。
 
 ## 主要特性
 
@@ -22,87 +22,85 @@ Probing的主要功能包括：
 
 ### 探针注入
 
-**通过命令行注入**
+`probing`通过探针采集数据和控制目标进程，有两种方式用于注入探针：
+
+1. **通过命令行注入**
 
 ```shell
-probing --pid <pid> inject [OPTIONS]
+probing <pid> inject [OPTIONS]
 ```
 
 选项：`-P,--pprof` 启用 profiling；`-c,--crash` 启用崩溃处理；`-l,--listen <ADDRESS>` 在指定地址服务监听远程连接。
 
-**通过代码注入**
+2. **通过代码注入**
 
 ```python
 import probing
 probing.init(listen="127.0.0.1:9922")
 ```
 
-### 调试与性能诊断
+### 命令行与REPL
 
-注入探针后，可以使用probing提供的命令进行问题诊断：
+`probing`通过一系列指令控制探针来获取数据或是执行特定操作，以下为`probing`的命令行：
 
-- `debug`命令（别名`dbg`或`d`），调试与检查工具，用于定位进程阻塞和死锁问题；
+```
+Probing CLI - A performance and stability diagnostic tool for AI applications
 
-    ```sh
-    $ probing help debug
-    Debug and Inspection Tool
+Usage: probing [OPTIONS] <TARGET> [COMMAND]
 
-    Usage: probing debug [OPTIONS]
+Commands:
+  inject     Inject into the target process [aliases: inj, i]
+  panel      Interactive visualizer in terminal [aliases: pnl, console]
+  repl       Repl debugging shell
+  enable     Enable features (`-h, --help` to see full feature list)
+  disable    Disable features (see `-h, --help` above)
+  show       Display informations from the target process (see `-h, --help` above)
+  backtrace  Show the backtrace of the target process or thread [aliases: bt]
+  eval       Evaluate code in the target process
+  help       Print this message or the help of the given subcommand(s)
 
-    Options:
-      -d, --dump               Dump the calling stack of the target process
-      -p, --pause              Pause the target process and listen for remote connection
-      -a, --address <ADDRESS>  address to listen [default: 127.0.0.1:9922]
-      -h, --help               Print help
-    ```
+Arguments:
+  <TARGET>  target process, PID (e.g., 1234) or `Name` (e.g., "chrome.exe") for local process, and <ip>:<port> for remote process
 
-    例如：
+Options:
+  -v, --verbose  Enable verbose mode
+      --ptrace   Send ctrl commands via ptrace
+  -h, --help     Print help
 
-    ```sh
-    $probing -p <pid> debug --dump # 打印目标进程的当前调用堆栈
-    $probing -p <pid> d -d         # 同上，使用简化命令
+```
 
-    $probing -p <pid> debug --pause --address 127.0.0.1:9922 #暂停目标进程，并等待远程连接
-    $probing -p <pid> d -p -a 127.0.0.1:9922                 # 同上，使用简化命令
-    ```
+其中`enable`，`disable`，`show`，`backtrace`和`eval`是主要的控制指令：
+- enable：启用某特性，特性列表如下：
+  - pprof：启用profinling；
+  - dap：启用dap远程调试；
+  - remote：启用tcp远程控制；
+  - catch-crash：启用crash handler
+- disable：禁用某特性，特性列表同上；
+- show：显示目标进程信息
+  - memory：内存信息
+  - threads：线程信息  
+  - objects：python对象信息
+  - tensors：pytorch tensor信息
+  - modules：pytorch module信息
+  - plt：过程链接表（PLT, Procedure Linkage Table）
+- backtrace：抓取目标进程调用堆栈
+- eval：向目标进程注入特定代码并执行；
 
-- `performance`命令（别名：`perf`或`p`）：性能诊断工具，用于收集性能数据、诊断性能瓶颈;
+上述指令可以通过命令行发送，也可以通过发送。
 
-    ```sh
-    $probing help performance
-    Performance Diagnosis Tool
+### Web Panel 与 Console Panel
 
-    Usage: probing performance [OPTIONS]
-
-    Options:
-          --cc     profiling c/c++ codes
-          --torch  profiling torch models
-      -h, --help   Print help
-    ```
-
-    例如：
-
-    ```sh
-    $probing -p <pid> perf --cc    # 启用c/c++ 的profiling，可输出flamegraph
-    $probing -p <pid> perf --torch # 启用torch的profiling
-    ```
-
-### 进阶功能
-
-probing 为大模型的开发与调试提供了一系列Python分析与诊断功能：
-
-- Activity分析：捕获每个线程当前执行的Python堆栈信息；
-- Debug功能：启动Python远程调试功能，可在VSCode中调试目标进程；
-- Profile功能：对torch模型执行进行profiling；
-- Inspect功能：用于检视Python对象、torch Tensor对象与torch Module模型；
-
-这些功能可以通过web界面访问。注入探针时指定服务地址，例如：
+`probing`的功能可以通过web方式可视化访问，例如：
 
 ```shell
 probing <pid> inject -l 127.0.0.1:1234
 ```
 
-之后可以通过浏览器打开`http://127.0.0.1:1234`来使用上述功能。
+之后可以通过浏览器打开`http://127.0.0.1:1234`来使用上述功能。若无法通过浏览器访问，也可从终端打开交互界面：
+
+```shell
+probing <pid> panel
+```
 
 ## 安装probing
 
