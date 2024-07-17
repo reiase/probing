@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use probing_common::cli::CtrlSignal;
+use probing_common::cli::{CtrlSignal, Features};
 use std::fs;
 
 use crate::inject::{Injector, Process};
@@ -19,7 +19,7 @@ pub struct InjectCommand {
     crash: bool,
 
     /// listen for remote connection (e.g., 127.0.0.1:8080)
-    #[arg(short = 'a', long, name = "address")]
+    #[arg(short = 'l', long, name = "address")]
     listen: Option<String>,
 
     /// execute a script (e.g., /path/to/script.py)
@@ -42,19 +42,19 @@ impl InjectCommand {
     fn parse_flags(&self) -> String {
         let mut cmds = vec![];
         if self.pprof {
-            cmds.push(CtrlSignal::Perf);
+            cmds.push(CtrlSignal::Enable(Features::Pprof));
         }
         if self.crash {
-            cmds.push(CtrlSignal::CatchCrash);
+            cmds.push(CtrlSignal::Enable(Features::CatchCrash { address: None }));
         }
         if let Some(address) = &self.listen {
-            cmds.push(CtrlSignal::ListenRemote {
+            cmds.push(CtrlSignal::Enable(Features::Remote {
                 address: Some(address.clone()),
-            });
+            }));
         }
         if let Some(script) = &self.execute {
-            cmds.push(CtrlSignal::Execute {
-                script: script.clone(),
+            cmds.push(CtrlSignal::Eval {
+                code: script.clone(),
             })
         }
         ron::to_string(&cmds).unwrap()

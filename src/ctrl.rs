@@ -1,19 +1,7 @@
 use anyhow::Result;
-use nix::libc::SIGABRT;
-use probing_common::cli::{BackTraceCommand, CtrlSignal, Features, ShowCommand};
+use probing_common::cli::{BackTraceCommand, CtrlSignal};
 
-use crate::{
-    handlers::{
-        crash_handler, dump_stack, execute_handler, pause_process, pprof_handler, show_plt,
-    },
-    register_signal_handler,
-    repl::PythonRepl,
-    server::remote_server,
-    service::CALLSTACK,
-};
-
-use probing_common::cli::CtrlSignal::Enable;
-use probing_common::cli::CtrlSignal::Show;
+use crate::{handlers::dump_stack, service::CALLSTACK};
 
 pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
     match cmd {
@@ -27,33 +15,6 @@ pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
                 })
                 .unwrap();
         }
-        CtrlSignal::Dap { address } => {
-            let mut repl = PythonRepl::default();
-            let cmd = if let Some(addr) = address {
-                if addr.contains(':') {
-                    let addr = addr.split(':').collect::<Vec<&str>>();
-                    let host = addr[0];
-                    let port = addr[1];
-                    format!("debug(\"{}\", {})", host, port)
-                } else {
-                    "debug()".to_string()
-                }
-            } else {
-                "debug()".to_string()
-            };
-            repl.process(cmd.as_str());
-        }
-        CtrlSignal::Pause { address } => pause_process(address),
-        CtrlSignal::Perf => pprof_handler(),
-        CtrlSignal::CatchCrash => {
-            register_signal_handler(SIGABRT, move || crash_handler(None));
-        }
-        CtrlSignal::ListenRemote { address } => remote_server::start::<PythonRepl>(address),
-        CtrlSignal::Execute { script } => execute_handler(script)?,
-        CtrlSignal::ShowPLT => {
-            show_plt()?;
-        }
-
         cmd => {
             handle_ctrl(cmd)?;
         }
@@ -109,14 +70,6 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
             python: true,
             tid: None,
         })),
-        CtrlSignal::Dap { address } => handle_ctrl(Enable(Features::Dap { address })),
-        CtrlSignal::Pause { address } => todo!(),
-        CtrlSignal::Perf => handle_ctrl(Enable(Features::Pprof)),
-        CtrlSignal::CatchCrash => handle_ctrl(Enable(Features::CatchCrash { address: None })),
-        CtrlSignal::ListenRemote { address } => handle_ctrl(Enable(Features::Remote { address })),
-        CtrlSignal::Execute { script } => handle_ctrl(CtrlSignal::Eval { code: script }),
-        CtrlSignal::ShowPLT => handle_ctrl(Show(ShowCommand::PLT)),
-
         CtrlSignal::Enable(feature) => enable::handle(feature),
         CtrlSignal::Disable(feature) => disable::handle(feature),
         CtrlSignal::Show(topic) => show::handle(topic),

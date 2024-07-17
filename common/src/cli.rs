@@ -7,20 +7,6 @@ pub enum CtrlSignal {
     Nil,
     #[command(hide = true)]
     Dump,
-    #[command(hide = true)]
-    Dap { address: Option<String> },
-    #[command(hide = true)]
-    Pause { address: Option<String> },
-    #[command(hide = true)]
-    Perf,
-    #[command(hide = true)]
-    CatchCrash,
-    #[command(hide = true)]
-    ListenRemote { address: Option<String> },
-    #[command(hide = true)]
-    Execute { script: String },
-    #[command(hide = true)]
-    ShowPLT,
 
     #[command(subcommand)]
     Enable(Features),
@@ -52,7 +38,7 @@ pub enum BackTraceCommand {
         tid: Option<u64>,
     },
 
-    #[command(hide=true)]
+    #[command(hide = true)]
     Trigger {
         #[arg(long)]
         cc: bool,

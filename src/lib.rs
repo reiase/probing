@@ -8,6 +8,7 @@ use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
 use log::debug;
 use log::error;
+use probing_common::cli::Features;
 use pyo3::prelude::*;
 use server::local_server;
 use signal_hook::consts::*;
@@ -72,10 +73,10 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
 
     let mut cmds = vec![];
     if background {
-        cmds.push(CtrlSignal::ListenRemote { address })
+        cmds.push(CtrlSignal::Enable(Features::Remote { address }))
     }
     if pprof {
-        cmds.push(CtrlSignal::Perf)
+        cmds.push(CtrlSignal::Enable(Features::Pprof))
     }
 
     debug!("Setup libprobing with commands: {cmds:?}");

@@ -4,11 +4,8 @@ use probing_common::cli::CtrlSignal;
 
 pub mod commands;
 pub mod ctrl;
-pub mod debug;
 pub mod inject;
-pub mod misc;
 pub mod panel;
-pub mod performance;
 pub mod repl;
 
 use crate::cli::ctrl::CtrlChannel;

@@ -5,12 +5,8 @@ use probing_common::cli::{BackTraceCommand, Features, ShowCommand};
 pub enum Commands {
     #[command(visible_aliases = ["inj", "i"])]
     Inject(super::inject::InjectCommand),
-    // #[command(visible_aliases = ["dbg", "d"])]
-    // Debug(super::debug::DebugCommand),
-    // #[command(visible_aliases = ["perf", "p"])]
-    // Performance(super::performance::PerfCommand),
 
-    /// Console visualizer
+    /// Interactive visualizer in terminal
     #[command(visible_aliases = ["pnl", "console"])]
     Panel,
 
