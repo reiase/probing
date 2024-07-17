@@ -37,7 +37,7 @@ pub fn dump_stack2() {
     });
 }
 
-fn py_backtrace() -> String {
+pub fn py_backtrace() -> String {
     Python::with_gil(|py| {
         let ret = py
             .import_bound("traceback")
@@ -60,7 +60,7 @@ fn py_backtrace() -> String {
     })
 }
 
-fn cc_backtrace() -> String {
+pub fn cc_backtrace() -> String {
     let mut ret = String::new();
     let mut cnt = 0;
     backtrace::trace(|frame| {

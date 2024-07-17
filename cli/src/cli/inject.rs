@@ -1,13 +1,13 @@
 use anyhow::Result;
 use clap::Args;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::{CtrlSignal, Features};
 use std::fs;
 
 use crate::inject::{Injector, Process};
 
 use super::ctrl::CtrlChannel;
 
-/// Inject into target process
+/// Inject into the target process
 #[derive(Args, Default, Debug)]
 pub struct InjectCommand {
     /// enable profiling
@@ -19,7 +19,7 @@ pub struct InjectCommand {
     crash: bool,
 
     /// listen for remote connection (e.g., 127.0.0.1:8080)
-    #[arg(short = 'a', long, name = "address")]
+    #[arg(short = 'l', long, name = "address")]
     listen: Option<String>,
 
     /// execute a script (e.g., /path/to/script.py)
@@ -42,19 +42,19 @@ impl InjectCommand {
     fn parse_flags(&self) -> String {
         let mut cmds = vec![];
         if self.pprof {
-            cmds.push(ProbingCommand::Perf);
+            cmds.push(CtrlSignal::Enable(Features::Pprof));
         }
         if self.crash {
-            cmds.push(ProbingCommand::CatchCrash);
+            cmds.push(CtrlSignal::Enable(Features::CatchCrash { address: None }));
         }
         if let Some(address) = &self.listen {
-            cmds.push(ProbingCommand::ListenRemote {
+            cmds.push(CtrlSignal::Enable(Features::Remote {
                 address: Some(address.clone()),
-            });
+            }));
         }
         if let Some(script) = &self.execute {
-            cmds.push(ProbingCommand::Execute {
-                script: script.clone(),
+            cmds.push(CtrlSignal::Eval {
+                code: script.clone(),
             })
         }
         ron::to_string(&cmds).unwrap()
@@ -70,7 +70,7 @@ impl InjectCommand {
             _ => false,
         };
         if has_probing {
-            ctrl.send_ctrl(cmd)
+            ctrl.signal(cmd)
         } else {
             match ctrl {
                 CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {

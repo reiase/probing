@@ -33,8 +33,7 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
                         if toplevel == "threads" {
                             let tid: i32 = PROCESS_TAB.threads[id.parse::<usize>().unwrap()] as i32;
                             ACTIVITY_TAB.set_tid(tid);
-                            ACTIVITY_TAB.callstacks =
-                                read_callstack_info(tid).unwrap_or_default();
+                            ACTIVITY_TAB.callstacks = read_callstack_info(tid).unwrap_or_default();
                             APP.selected_tab = AppTab::Activity;
                         }
                     }

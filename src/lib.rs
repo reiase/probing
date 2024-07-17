@@ -8,6 +8,7 @@ use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
 use log::debug;
 use log::error;
+use probing_common::cli::Features;
 use pyo3::prelude::*;
 use server::local_server;
 use signal_hook::consts::*;
@@ -19,7 +20,7 @@ mod server;
 mod service;
 
 use handlers::dump_stack2;
-use probing_common::cli::ProbingCommand;
+use probing_common::cli::CtrlSignal;
 use repl::PythonRepl;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
@@ -41,7 +42,7 @@ fn setup() {
 
     let argstr = env::var("PROBING_ARGS").unwrap_or("[]".to_string());
     debug!("Setup libprobing with PROBING_ARGS: {argstr}");
-    let cmds: Vec<ProbingCommand> = ron::from_str(argstr.as_str()).unwrap();
+    let cmds: Vec<CtrlSignal> = ron::from_str(argstr.as_str()).unwrap();
     debug!("Setup libprobing with commands: {cmds:?}");
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
@@ -72,10 +73,10 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
 
     let mut cmds = vec![];
     if background {
-        cmds.push(ProbingCommand::ListenRemote { address })
+        cmds.push(CtrlSignal::Enable(Features::Remote { address }))
     }
     if pprof {
-        cmds.push(ProbingCommand::Perf)
+        cmds.push(CtrlSignal::Enable(Features::Pprof))
     }
 
     debug!("Setup libprobing with commands: {cmds:?}");
