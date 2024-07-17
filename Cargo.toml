@@ -1,6 +1,6 @@
 [package]
 name = "probing"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["reiase <reiase@gmail.com>"]
 license = "GPL3"
