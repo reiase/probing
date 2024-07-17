@@ -3,10 +3,10 @@ use nix::libc::SIGABRT;
 use probing_common::cli::Features;
 
 use crate::{
-    handlers::{crash_handler, pprof_handler},
+    handlers::pprof_handler,
     register_signal_handler,
     repl::PythonRepl,
-    server::remote_server,
+    server::{remote_server, start_debug_server},
 };
 
 pub fn handle(feature: Features) -> Result<String> {
@@ -41,4 +41,9 @@ pub fn handle(feature: Features) -> Result<String> {
             Ok(Default::default())
         }
     }
+}
+
+fn crash_handler(addr: Option<String>) {
+    let mut repl = PythonRepl::default();
+    start_debug_server(addr, &mut repl);
 }

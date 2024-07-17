@@ -77,7 +77,3 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
         CtrlSignal::Eval { code } => eval::handle(code),
     }
 }
-
-pub fn not_implemented() -> Result<String> {
-    anyhow::bail!("not implemented!")
-}
