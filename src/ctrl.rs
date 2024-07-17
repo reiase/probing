@@ -76,6 +76,7 @@ pub fn ctrl_handler_string(cmdstr: String) {
 mod backtrace;
 mod disable;
 mod enable;
+mod eval;
 mod show;
 
 #[derive(Default)]
@@ -113,14 +114,14 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
         CtrlSignal::Perf => handle_ctrl(Enable(Features::Pprof)),
         CtrlSignal::CatchCrash => handle_ctrl(Enable(Features::CatchCrash { address: None })),
         CtrlSignal::ListenRemote { address } => handle_ctrl(Enable(Features::Remote { address })),
-
         CtrlSignal::Execute { script } => handle_ctrl(CtrlSignal::Eval { code: script }),
         CtrlSignal::ShowPLT => handle_ctrl(Show(ShowCommand::PLT)),
+
         CtrlSignal::Enable(feature) => enable::handle(feature),
         CtrlSignal::Disable(feature) => disable::handle(feature),
         CtrlSignal::Show(topic) => show::handle(topic),
         CtrlSignal::Backtrace(bt) => backtrace::handle(bt),
-        CtrlSignal::Eval { code } => todo!(),
+        CtrlSignal::Eval { code } => eval::handle(code),
     }
 }
 

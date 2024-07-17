@@ -51,6 +51,8 @@ pub enum BackTraceCommand {
         #[arg(short, long)]
         tid: Option<u64>,
     },
+
+    #[command(hide=true)]
     Trigger {
         #[arg(long)]
         cc: bool,

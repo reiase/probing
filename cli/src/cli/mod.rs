@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use probing_common::cli::CtrlSignal;
 
 pub mod commands;
 pub mod ctrl;
@@ -42,11 +43,25 @@ impl Cli {
     fn execute_command(&self, ctrl: CtrlChannel) -> Result<()> {
         match &self.command {
             Some(Commands::Inject(cmd)) => cmd.run(ctrl),
-            Some(Commands::Debug(cmd)) => cmd.run(ctrl),
-            Some(Commands::Performance(cmd)) => cmd.run(ctrl),
-            Some(Commands::Misc(cmd)) => cmd.run(ctrl),
+            // Some(Commands::Debug(cmd)) => cmd.run(ctrl),
+            // Some(Commands::Performance(cmd)) => cmd.run(ctrl),
             Some(Commands::Panel) => panel::panel_main(ctrl),
             Some(Commands::Repl(cmd)) => cmd.run(ctrl),
+
+            Some(Commands::Enable(feature)) => {
+                ctrl::handle(ctrl, CtrlSignal::Enable(feature.clone()))
+            }
+            Some(Commands::Disable(feature)) => {
+                ctrl::handle(ctrl, CtrlSignal::Disable(feature.clone()))
+            }
+            Some(Commands::Show(topic)) => ctrl::handle(ctrl, CtrlSignal::Show(topic.clone())),
+            Some(Commands::Backtrace(cmd)) => {
+                ctrl::handle(ctrl, CtrlSignal::Backtrace(cmd.clone()))
+            }
+            Some(Commands::Eval { code }) => {
+                ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
+            }
+
             None => {
                 let _ = inject::InjectCommand::default().run(ctrl.clone());
                 panel::panel_main(ctrl)

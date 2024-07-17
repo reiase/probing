@@ -7,7 +7,7 @@ use crate::inject::{Injector, Process};
 
 use super::ctrl::CtrlChannel;
 
-/// Inject into target process
+/// Inject into the target process
 #[derive(Args, Default, Debug)]
 pub struct InjectCommand {
     /// enable profiling
