@@ -34,7 +34,7 @@ once_cell = "1.19.0"
 pin-project-lite = "0.2"
 plt-rs = "0.2.0"
 pprof = { version = "0.13.0", features = ["cpp", "flamegraph"] }
-probing-common = { path = "common" }
+probing-common = { version = "0.1.4", path = "common" }
 procfs = { version = "0.16.0", default-features = false, features = [] }
 pyo3 = { version = "0.21.2", features = ["abi3", "abi3-py37"] }
 qstring = "0.7.2"
