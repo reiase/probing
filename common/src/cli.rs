@@ -1,3 +1,4 @@
+
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +37,17 @@ pub enum BackTraceCommand {
         python: bool,
         #[arg(short, long)]
         tid: Option<u64>,
+    },
+
+    Pause {
+        #[arg(short, long)]
+        address: Option<String>,
+
+        #[arg(short, long)]
+        tid: Option<u32>,
+
+        #[arg(hide = true, default_value = "false")]
+        signal: bool,
     },
 
     #[command(hide = true)]

@@ -62,7 +62,7 @@ pub fn read_plt() -> Result<String> {
             let dynamic_symbols = dynamic_lib.symbols().expect("symbols...");
             let string_table = dynamic_lib.string_table();
 
-            format!("dynamic addend relocations:").append_line(builder);
+            "dynamic addend relocations:".append_line(builder);
             if let Some(dyn_relas) = dynamic_lib.addend_relocs() {
                 dyn_relas
                     .entries()
@@ -74,7 +74,7 @@ pub fn read_plt() -> Result<String> {
                     .for_each(|s| format!("\t{}", s).append_line(builder));
             }
 
-            format!("dynamic relocations:").append_line(builder);
+            "dynamic relocations:".append_line(builder);
             if let Some(dyn_relocs) = dynamic_lib.relocs() {
                 dyn_relocs
                     .entries()
@@ -86,7 +86,7 @@ pub fn read_plt() -> Result<String> {
                     .for_each(|s| format!("\t{}", s).append_line(builder));
             }
 
-            format!("plt:").append_line(builder);
+            "plt:".append_line(builder);
             if let Some(plt) = dynamic_lib.plt() {
                 match plt {
                     RelocationTable::WithAddend(rel) => {
@@ -112,7 +112,7 @@ pub fn read_plt() -> Result<String> {
                 }
             }
         }
-        format!("").append_line(builder);
+        "".append_line(builder);
     }
 
     Ok(builder.to_string())

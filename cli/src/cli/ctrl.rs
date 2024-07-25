@@ -95,7 +95,7 @@ impl CtrlChannel {
         match self {
             CtrlChannel::Ptrace { pid } => {
                 send_ctrl_via_ptrace(cmd, *pid)?;
-                Ok(Default::default())
+                Ok(())
             }
             ctrl => {
                 let cmd = if cmd.starts_with('[') {
@@ -168,7 +168,7 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
 
     let ret = res.collect().await?;
     let ret = String::from_utf8(ret.to_bytes().to_vec())?;
-    return Ok(ret);
+    Ok(ret)
 }
 
 fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {

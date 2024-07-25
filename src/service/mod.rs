@@ -39,18 +39,16 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
                 if cmdstr.starts_with('[') {
                     ctrl_handler_string(cmdstr);
                     Ok(Default::default())
-                } else {
-                    if let Ok(ctrl) = ron::from_str::<CtrlSignal>(&cmdstr) {
-                        match handle_ctrl(ctrl) {
-                            Ok(resp) => {
-                                let resp = Full::new(Bytes::from(resp));
-                                Ok(Response::builder().body(resp).unwrap())
-                            }
-                            Err(_) => anyhow::bail!("internal error!"),
+                } else if let Ok(ctrl) = ron::from_str::<CtrlSignal>(&cmdstr) {
+                    match handle_ctrl(ctrl) {
+                        Ok(resp) => {
+                            let resp = Full::new(Bytes::from(resp));
+                            Ok(Response::builder().body(resp).unwrap())
                         }
-                    } else {
-                        anyhow::bail!("internal error!")
+                        Err(_) => anyhow::bail!("internal error!"),
                     }
+                } else {
+                    anyhow::bail!("internal error!")
                 }
             } else {
                 Ok(Default::default())

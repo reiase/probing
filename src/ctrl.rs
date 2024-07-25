@@ -1,3 +1,5 @@
+use std::path::Display;
+
 use anyhow::Result;
 use probing_common::cli::{BackTraceCommand, CtrlSignal};
 
@@ -58,7 +60,14 @@ pub trait StringBuilderAppend {
 impl StringBuilderAppend for String {
     fn append_line(&self, builder: &mut StringBuilder) {
         builder.buf.push_str(self.as_str());
-        builder.buf.push_str("\n");
+        builder.buf.push('\n');
+    }
+}
+
+impl StringBuilderAppend for &str {
+    fn append_line(&self, builder: &mut StringBuilder) {
+        builder.buf.push_str(self);
+        builder.buf.push('\n');
     }
 }
 
