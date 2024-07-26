@@ -78,7 +78,7 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             Ok(Response::builder().body(resp).unwrap())
         }
 
-        (&Method::GET, "/apis/flamegraph") => {
+        (&Method::GET, "/apis/flamegraph") | (&Method::GET, "/flamegraph.svg") => {
             let resp = profiler::flamegraph();
             let resp = Full::new(Bytes::from(resp));
             Ok(Response::builder().body(resp).unwrap())

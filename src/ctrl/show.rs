@@ -1,10 +1,15 @@
+use std::ffi::CString;
+
 use anyhow::Result;
+use nix::libc::c_char;
 use plt_rs::{collect_modules, DynamicLibrary, RelocationTable};
 use serde_json::json;
 
 use crate::ctrl::{StringBuilder, StringBuilderAppend};
 use crate::repl::PythonRepl;
 use probing_common::cli::ShowCommand;
+
+type QueryFn = fn() -> *mut c_char;
 
 pub fn pyhandle(path: &str, query: Option<String>) -> String {
     let request = format!(
@@ -43,6 +48,29 @@ pub fn handle(topic: ShowCommand) -> Result<String> {
         ShowCommand::Tensors => Ok(pyhandle("/torch/tensors", None)),
         ShowCommand::Modules => Ok(pyhandle("/torch/modules", None)),
         ShowCommand::PLT => read_plt(),
+        ShowCommand::FFI { name } => {
+            let answer = unsafe {
+                let handle = nix::libc::dlopen(std::ptr::null::<i8>(), nix::libc::RTLD_LAZY);
+                if handle.is_null() {
+                    eprintln!("unable of open dll");
+                    return Err(anyhow::anyhow!("unable of open dll"));
+                }
+                let symbol = nix::libc::dlsym(handle, name.as_ptr() as *const i8);
+                if symbol.is_null() {
+                    eprintln!("symbol not found: {}", name);
+                    return Err(anyhow::anyhow!("symbol not found: {}", name));
+                }
+                let symbol: QueryFn = std::mem::transmute(symbol);
+                let ptr = symbol();
+                let answer = CString::from_raw(ptr)
+                    .to_owned()
+                    .to_string_lossy()
+                    .to_string();
+                nix::libc::dlclose(handle);
+                answer
+            };
+            Ok(answer)
+        }
     }
 }
 

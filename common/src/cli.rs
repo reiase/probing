@@ -1,4 +1,3 @@
-
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 
@@ -30,15 +29,22 @@ pub enum CtrlSignal {
 
 #[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]
 pub enum BackTraceCommand {
+    /// show backtrace
     Show {
+        /// enable C/C++ backtrace
         #[arg(long)]
         cc: bool,
+
+        /// enable Python backtrace
         #[arg(long)]
         python: bool,
+
+        /// target thread id, default is the main thread
         #[arg(short, long)]
         tid: Option<u64>,
     },
 
+    /// pause the target process and start a debug server
     Pause {
         #[arg(short, long)]
         address: Option<String>,
@@ -61,31 +67,50 @@ pub enum BackTraceCommand {
 
 #[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]
 pub enum ShowCommand {
+    /// show memory usages
     #[command()]
     Memory,
+
+    /// show threads
     #[command()]
     Threads,
+
+    /// show python objects
     #[command()]
     Objects,
+
+    /// show torch tensors
     #[command()]
     Tensors,
+
+    /// show torch modules
     #[command()]
     Modules,
+
+    /// show hookable C functions
     #[command()]
     PLT,
+
+    /// read information from ffi function [()->char*] call, e.g. `get_current_dir_name()`
+    #[command()]
+    FFI { name: String },
 }
 
 #[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]
 pub enum Features {
+    /// pprof-like performance data visualization
     #[command()]
     Pprof,
 
+    /// debug python with DAP (debug adapter protocol)
     #[command()]
     Dap { address: Option<String> },
 
+    /// remote control the target process
     #[command()]
     Remote { address: Option<String> },
 
+    /// catch process crash and start a server for remote debugging
     #[command()]
     CatchCrash { address: Option<String> },
 }
