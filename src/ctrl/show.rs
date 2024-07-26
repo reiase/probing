@@ -7,7 +7,7 @@ use serde_json::json;
 
 use crate::ctrl::{StringBuilder, StringBuilderAppend};
 use crate::repl::PythonRepl;
-use probing_common::cli::ShowCommand;
+use probing_ppp::cli::ShowCommand;
 
 type QueryFn = fn() -> *mut c_char;
 

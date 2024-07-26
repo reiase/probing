@@ -6,7 +6,7 @@ use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
 
 use crate::inject::{Injector, Process};
-use probing_common::cli::CtrlSignal;
+use probing_ppp::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     let cmd = ron::to_string(&sig)?;

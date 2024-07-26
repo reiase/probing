@@ -1,3 +1,4 @@
+use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_meta::{provide_meta_context, Meta, Stylesheet, Title};
@@ -60,35 +61,35 @@ pub fn HeaderBar() -> impl IntoView {
                 style="margin-left: 2em"
             >
                 <H1 style="color: white;">"Probing"</H1>
-                <Button on_click=move |_| {
+                <Button on_press=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate("/", Default::default());
                 }>
                     <Icon icon=icondata::AiHomeOutlined/>
                     "Overview"
                 </Button>
-                <Button on_click=move |_| {
+                <Button on_press=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate("/activity", Default::default());
                 }>
                     <Icon icon=icondata::BsActivity/>
                     "Activity"
                 </Button>
-                <Button on_click=move |_| {
+                <Button on_press=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate("/debug", Default::default());
                 }>
                     <Icon icon=icondata::VsDebug/>
                     "Debug"
                 </Button>
-                <Button on_click=move |_| {
+                <Button on_press=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate("/profiler", Default::default());
                 }>
                     <Icon icon=icondata::CgPerformance/>
                     "Profiler"
                 </Button>
-                <Button on_click=move |_| {
+                <Button on_press=move |_| {
                     let navigate = leptos_router::use_navigate();
                     navigate("/inspect", Default::default());
                 }>

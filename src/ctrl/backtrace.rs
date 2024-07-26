@@ -6,7 +6,7 @@ use nix::{
     sys::signal,
     unistd::{sleep, Pid},
 };
-use probing_common::cli::{BackTraceCommand, CtrlSignal};
+use probing_ppp::cli::{BackTraceCommand, CtrlSignal};
 use pyo3::Python;
 
 use crate::{

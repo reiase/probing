@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 use gloo_net::http::Request;
-use probing_common::Object;
+use probing_ppp::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {
@@ -205,9 +205,9 @@ pub fn ModuleView(#[prop(into)] obj: Object) -> impl IntoView {
     };
     view! {
         <pre style="white-space: pre-wrap; word-break: break-word;">{value}</pre>
-        <Button on_click=act1>"profile 1 step"</Button>
-        <Button on_click=act5>"profile 5 steps"</Button>
-        <Button on_click=act10>"profile 10 steps"</Button>
+        <Button on_press=act1>"profile 1 step"</Button>
+        <Button on_press=act5>"profile 5 steps"</Button>
+        <Button on_press=act10>"profile 10 steps"</Button>
         {device}
     }
 }

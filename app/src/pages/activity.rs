@@ -1,9 +1,10 @@
+use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_router::use_params_map;
 
 use gloo_net::http::Request;
-use probing_common::CallStack;
+use probing_ppp::CallStack;
 
 use super::common::*;
 
@@ -65,14 +66,12 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
     if let Some(cstack) = callstack.cstack {
         view! {
             <Collapsible>
-            <CollapsibleHeader slot>
-                <Chip>
-                    "C/C++ Call Stack"
-                </Chip>
-            </CollapsibleHeader>
-            <CollapsibleBody class="my-body" slot>
-                <pre>{cstack}</pre>
-            </CollapsibleBody>
+                <CollapsibleHeader slot>
+                    <Chip>"C/C++ Call Stack"</Chip>
+                </CollapsibleHeader>
+                <CollapsibleBody class="my-body" slot>
+                    <pre>{cstack}</pre>
+                </CollapsibleBody>
             </Collapsible>
         }
     } else {
@@ -90,7 +89,7 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
                             {file}
                         </a> {":"} {lineno}
                     </Chip>
-                    <Button on_click=move |_| {
+                    <Button on_press=move |_| {
                         let navigate = leptos_router::use_navigate();
                         navigate(route_url.as_str(), Default::default());
                     }>

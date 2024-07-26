@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_common::cli::CtrlSignal;
+use probing_ppp::cli::CtrlSignal;
 
 pub mod commands;
 pub mod ctrl;

@@ -1,5 +1,5 @@
 use clap::Subcommand;
-use probing_common::cli::{BackTraceCommand, Features, ShowCommand};
+use probing_ppp::cli::{BackTraceCommand, Features, ShowCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
