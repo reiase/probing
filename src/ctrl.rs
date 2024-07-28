@@ -39,6 +39,7 @@ mod disable;
 mod enable;
 mod eval;
 mod show;
+mod trace;
 
 #[derive(Default)]
 pub struct StringBuilder {
@@ -81,6 +82,8 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
         CtrlSignal::Disable(feature) => disable::handle(feature),
         CtrlSignal::Show(topic) => show::handle(topic),
         CtrlSignal::Backtrace(bt) => backtrace::handle(bt),
+        CtrlSignal::Trace(cmd) => trace::handle(cmd),
         CtrlSignal::Eval { code } => eval::handle(code),
+       
     }
 }

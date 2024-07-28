@@ -17,21 +17,18 @@ traced_functions = {}
 
 def probe(func=None, watch=[], depth=1):
     if func is not None:
-        tracer = ProbingTracer(depth, watch)
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            tracer = ProbingTracer(depth, watch)
             with tracer:
                 return func(*args, **kwargs)
 
         return wrapper
     else:
-
         def decorator(func):
-            tracer = ProbingTracer(depth, watch)
-
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
+                tracer = ProbingTracer(depth, watch)
                 with tracer:
                     return func(*args, **kwargs)
 
@@ -291,3 +288,6 @@ def untrace(func_or_name):
             return
     else:
         raise NotImplementedError("Only string names are supported for tracing.")
+
+def show_trace():
+    return json.dumps([x for x in traced_functions.keys()], indent=2)

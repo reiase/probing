@@ -55,6 +55,9 @@ impl Cli {
             Some(Commands::Backtrace(cmd)) => {
                 ctrl::handle(ctrl, CtrlSignal::Backtrace(cmd.clone()))
             }
+            Some(Commands::Trace(cmd)) => {
+                ctrl::handle(ctrl, CtrlSignal::Trace(cmd.clone()))
+            },
             Some(Commands::Eval { code }) => {
                 ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
             }

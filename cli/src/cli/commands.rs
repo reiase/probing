@@ -1,5 +1,5 @@
 use clap::Subcommand;
-use probing_ppp::cli::{BackTraceCommand, Features, ShowCommand};
+use probing_ppp::cli::{BackTraceCommand, Features, ShowCommand, TraceCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -29,6 +29,10 @@ pub enum Commands {
     /// Show the backtrace of the target process or thread
     #[command(subcommand, visible_aliases = ["bt"])]
     Backtrace(BackTraceCommand),
+
+    /// Trace function call and variable changes
+    #[command(subcommand)]
+    Trace(TraceCommand),
 
     /// Evaluate code in the target process
     #[command()]

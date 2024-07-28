@@ -20,6 +20,9 @@ pub enum CtrlSignal {
     #[command(subcommand, visible_aliases = ["bt"])]
     Backtrace(BackTraceCommand),
 
+    #[command(subcommand)]
+    Trace(TraceCommand),
+
     #[command()]
     Eval {
         #[arg()]
@@ -89,7 +92,7 @@ pub enum ShowCommand {
 
     /// show traceable functions
     #[command()]
-    Traceable {filter: Option<String> },
+    Traceable { filter: Option<String> },
 
     /// show hookable C functions
     #[command()]
@@ -117,4 +120,16 @@ pub enum Features {
     /// catch process crash and start a server for remote debugging
     #[command()]
     CatchCrash { address: Option<String> },
+}
+
+#[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]
+pub enum TraceCommand {
+    #[command(visible_aliases=["py"])]
+    Python { function: String, watch: String },
+
+    #[command(visible_aliases=["c"])]
+    Clear { function: String },
+
+    #[command(visible_aliases=["all"])]
+    Show,
 }
