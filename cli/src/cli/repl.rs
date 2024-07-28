@@ -50,9 +50,9 @@ impl<C: Parser + Send + Sync + 'static> Repl<C> {
                 ) {
                     Ok(cmd) => {
                         self.editor.add_history_entry(line).unwrap();
-                        return ReplLine::Command(cmd);
+                        ReplLine::Command(cmd)
                     }
-                    Err(e) => return ReplLine::Error(e.to_string()),
+                    Err(e) => ReplLine::Error(e.to_string()),
                 },
                 None => ReplLine::Empty,
             },

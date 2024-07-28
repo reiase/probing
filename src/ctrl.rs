@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::Result;
 use probing_ppp::cli::{BackTraceCommand, CtrlSignal};
 
@@ -46,9 +48,9 @@ pub struct StringBuilder {
     buf: String,
 }
 
-impl ToString for StringBuilder {
-    fn to_string(&self) -> String {
-        self.buf.clone()
+impl Display for StringBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.buf)
     }
 }
 
@@ -84,6 +86,5 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
         CtrlSignal::Backtrace(bt) => backtrace::handle(bt),
         CtrlSignal::Trace(cmd) => trace::handle(cmd),
         CtrlSignal::Eval { code } => eval::handle(code),
-       
     }
 }

@@ -49,7 +49,7 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
                             let resp = err.to_string();
                             let resp = Full::new(Bytes::from(resp));
                             Ok(Response::builder().status(500).body(resp).unwrap())
-                        },
+                        }
                     }
                 } else {
                     anyhow::bail!("internal error!")

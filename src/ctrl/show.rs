@@ -48,9 +48,7 @@ pub fn handle(topic: ShowCommand) -> Result<String> {
         ShowCommand::Objects => Ok(pyhandle("/objects", None)),
         ShowCommand::Tensors => Ok(pyhandle("/torch/tensors", None)),
         ShowCommand::Modules => Ok(pyhandle("/torch/modules", None)),
-        ShowCommand::Traceable { filter } => {
-            show_traceable_functions(filter)
-        }
+        ShowCommand::Traceable { filter } => show_traceable_functions(filter),
         ShowCommand::PLT => read_plt(),
         ShowCommand::FFI { name } => {
             let answer = unsafe {
