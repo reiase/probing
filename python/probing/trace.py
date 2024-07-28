@@ -12,6 +12,8 @@ from types import ModuleType
 thread_global = threading.local()
 internal_directories = os.path.dirname((lambda: 0).__code__.co_filename)
 
+traced_functions = {}
+
 
 def probe(func=None, watch=[], depth=1):
     if func is not None:
@@ -174,12 +176,15 @@ def ProbingTensor(*args, **kwargs):
     return __ProbingTensor(*args, **kwargs)
 
 
-def list_traceable_functions(prefix):
+def list_traceable_functions(prefix=None):
     if prefix is None:
         filter = lambda x: True
     else:
         filter = lambda x: x.startswith(prefix)
 
+    whitelist = [
+        "__main__",
+    ]
     blacklist = [
         "numpy",
         "typing",
@@ -219,8 +224,70 @@ def list_traceable_functions(prefix):
 
     for k, v in sys.modules.items():
         if isinstance(v, ModuleType) and hasattr(v, "__spec__"):
+            if k in whitelist:
+                travel(v, k)
+                continue
             if v.__spec__ is None or not "site-packages" in v.__spec__.origin:
                 continue
-        if isinstance(k, str) and not k.startswith("__"):
-            travel(v, k)
+            if isinstance(k, str) and not k.startswith("__"):
+                travel(v, k)
     return json.dumps(traceable_functions, indent=2)
+
+
+def trace(func_or_name, watch=[], depth=1, callback=None):
+    def get_func(name):
+        names = name.split(".")
+        parent = sys.modules.get(names[0], None)
+        names = names[1:]
+        while parent is not None and len(names) > 0:
+            if hasattr(parent, names[0]):
+                if len(names) == 1:
+                    return parent, getattr(parent, names[0]), names[0]
+                parent = getattr(parent, names[0])
+                names = names[1:]
+            else:
+                raise ValueError(f"{names[0]} not found in {parent}.")
+
+    if isinstance(func_or_name, str):
+        if func_or_name in traced_functions:
+            print(f"Function {func_or_name} is already being traced.")
+            return
+        try:
+            parent, func, name = get_func(func_or_name)
+            traced_functions[func_or_name] = func
+            func = probe(func, watch=watch, depth=depth)
+            parent.__setattr__(name, func)
+        except Exception:
+            print(f"Function {func_or_name} not found.")
+            return
+    else:
+        raise NotImplementedError("Only string names are supported for tracing.")
+
+
+def untrace(func_or_name):
+    def get_func(name):
+        names = name.split(".")
+        parent = sys.modules.get(names[0], None)
+        names = names[1:]
+        while parent is not None and len(names) > 0:
+            if hasattr(parent, names[0]):
+                if len(names) == 1:
+                    return parent, getattr(parent, names[0]), names[0]
+                parent = getattr(parent, names[0])
+                names = names[1:]
+            else:
+                raise ValueError(f"{names[0]} not found in {parent}.")
+
+    if isinstance(func_or_name, str):
+        if func_or_name not in traced_functions:
+            print(f"Function {func_or_name} is not being traced.")
+            return
+        try:
+            parent, func, name = get_func(func_or_name)
+            func = traced_functions.pop(func_or_name)
+            parent.__setattr__(name, func)
+        except Exception:
+            print(f"Function {func_or_name} not found.")
+            return
+    else:
+        raise NotImplementedError("Only string names are supported for tracing.")
