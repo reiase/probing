@@ -486,7 +486,3 @@ class DebugConsole(code.InteractiveConsole):
         self.buffer.append(line)
         source = "\n".join(self.buffer)
         return self.runsource(source, self.filename)
-
-
-debug_console = DebugConsole()
-globals()
