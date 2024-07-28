@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate ctor;
 
-use anyhow::Result;
 use std::{env, ffi::c_int, str::FromStr as _};
 
 use ctrl::{ctrl_handler, ctrl_handler_string};

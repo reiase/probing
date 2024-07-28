@@ -174,55 +174,53 @@ def ProbingTensor(*args, **kwargs):
     return __ProbingTensor(*args, **kwargs)
 
 
-class TraceModule:
-    @staticmethod
-    def list_traceable_functions(prefix):
-        if prefix is None:
-            filter = lambda x: True
+def list_traceable_functions(prefix):
+    if prefix is None:
+        filter = lambda x: True
+    else:
+        filter = lambda x: x.startswith(prefix)
+
+    blacklist = [
+        "numpy",
+        "typing",
+        "typing.io",
+        "typing_extensions",
+    ]
+    traceable_functions = []
+    travel_history = set()
+
+    def getname(obj):
+        if hasattr(obj, "__name__") and isinstance(obj.__name__, str):
+            return obj.__name__
         else:
-            filter = lambda x: x.startswith(prefix)
+            return None
 
-        blacklist = [
-            "numpy",
-            "typing",
-            "typing.io",
-            "typing_extensions",
-        ]
-        traceable_functions = []
-        travel_history = set()
-
-        def getname(obj):
-            if hasattr(obj, "__name__") and isinstance(obj.__name__, str):
-                return obj.__name__
-            else:
-                return None
-
-        def travel(obj, prefix=""):
-            if id(obj) in travel_history or prefix in blacklist:
+    def travel(obj, prefix=""):
+        if id(obj) in travel_history or prefix in blacklist:
+            return
+        if prefix.startswith("torch"):
+            if not (
+                prefix.startswith("torch.nn")
+                or prefix.startswith("torch.cuda")
+                or prefix.startswith("torch.distributed")
+                or prefix.startswith("torch.optim")
+            ):
                 return
-            if prefix.startswith("torch"):
-                if not (
-                    prefix.startswith("torch.nn")
-                    or prefix.startswith("torch.cuda")
-                    or prefix.startswith("torch.distributed")
-                    or prefix.startswith("torch.optim")
-                ):
-                    return
-            travel_history.add(id(obj))
-            if hasattr(obj, "__dict__"):
-                for k, v in obj.__dict__.items():
-                    name = getname(v)
-                    if name is not None and not name.startswith("__") and filter(name):
-                        if isinstance(v, FunctionType) and hasattr(v, "__code__"):
-                            traceable_functions.append(f"{prefix}.{k}")
-                        else:
-                            if not isinstance(v, ModuleType):
-                                travel(v, f"{prefix}.{k}")
+        travel_history.add(id(obj))
+        if hasattr(obj, "__dict__"):
+            for k, v in obj.__dict__.items():
+                name = getname(v)
+                if name is not None and not name.startswith("__") and filter(name):
+                    if isinstance(v, FunctionType) and hasattr(v, "__code__"):
+                        traceable_functions.append(f"{prefix}.{k}")
+                    else:
+                        if not isinstance(v, ModuleType):
+                            travel(v, f"{prefix}.{k}")
 
-        for k, v in sys.modules.items():
-            if isinstance(v, ModuleType) and hasattr(v, "__spec__"):
-                if v.__spec__ is None or not "site-packages" in v.__spec__.origin:
-                    continue
-            if isinstance(k, str) and not k.startswith("__"):
-                travel(v, k)
-        return json.dumps(traceable_functions, indent=2)
+    for k, v in sys.modules.items():
+        if isinstance(v, ModuleType) and hasattr(v, "__spec__"):
+            if v.__spec__ is None or not "site-packages" in v.__spec__.origin:
+                continue
+        if isinstance(k, str) and not k.startswith("__"):
+            travel(v, k)
+    return json.dumps(traceable_functions, indent=2)
