@@ -7,6 +7,7 @@ use serde_json::json;
 
 use crate::ctrl::{StringBuilder, StringBuilderAppend};
 use crate::repl::PythonRepl;
+use crate::trace::show_traceable_functions;
 use probing_ppp::cli::ShowCommand;
 
 type QueryFn = fn() -> *mut c_char;
@@ -47,6 +48,9 @@ pub fn handle(topic: ShowCommand) -> Result<String> {
         ShowCommand::Objects => Ok(pyhandle("/objects", None)),
         ShowCommand::Tensors => Ok(pyhandle("/torch/tensors", None)),
         ShowCommand::Modules => Ok(pyhandle("/torch/modules", None)),
+        ShowCommand::Traceable { filter } => {
+            show_traceable_functions(filter)
+        }
         ShowCommand::PLT => read_plt(),
         ShowCommand::FFI { name } => {
             let answer = unsafe {

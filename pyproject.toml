@@ -4,6 +4,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 include = ["probing-0.1.5.data/scripts/*"]
+python-source = "python"
 compatibility = "manylinux2014"
 skip-auditwheel = false
 

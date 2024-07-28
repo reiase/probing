@@ -87,6 +87,10 @@ pub enum ShowCommand {
     #[command()]
     Modules,
 
+    /// show traceable functions
+    #[command()]
+    Traceable {filter: Option<String> },
+
     /// show hookable C functions
     #[command()]
     PLT,
