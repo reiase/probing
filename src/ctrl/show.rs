@@ -7,7 +7,7 @@ use crate::core::pltffi;
 use crate::core::trace;
 use crate::repl::PythonRepl;
 
-pub fn pyhandle(path: &str, query: Option<String>) -> String {
+pub fn pyhandle(path: &str, query: Option<String>) -> Result<String> {
     let request = format!(
         "handle(path=\"{path}\", query={})\n",
         query
@@ -15,7 +15,8 @@ pub fn pyhandle(path: &str, query: Option<String>) -> String {
             .unwrap_or("None".to_string())
     );
     let mut repl = PythonRepl::default();
-    repl.process(request.as_str()).unwrap_or("".to_string())
+    repl.process(request.as_str())
+        .ok_or(anyhow::anyhow!("no result"))
 }
 
 pub fn handle(topic: ShowCommand) -> Result<String> {
@@ -40,9 +41,9 @@ pub fn handle(topic: ShowCommand) -> Result<String> {
                 .unwrap_or_default();
             Ok(serde_json::to_string(&tasks)?)
         }
-        ShowCommand::Objects => Ok(pyhandle("/objects", None)),
-        ShowCommand::Tensors => Ok(pyhandle("/torch/tensors", None)),
-        ShowCommand::Modules => Ok(pyhandle("/torch/modules", None)),
+        ShowCommand::Objects => pyhandle("/objects", None),
+        ShowCommand::Tensors => pyhandle("/torch/tensors", None),
+        ShowCommand::Modules => pyhandle("/torch/modules", None),
         ShowCommand::Traceable { filter } => trace::show_traceable(filter),
         ShowCommand::PLT => pltffi::read_plt(),
         ShowCommand::FFI { name } => pltffi::call_func(name),
