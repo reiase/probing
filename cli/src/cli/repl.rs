@@ -2,7 +2,7 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
-use probing_ppp::cli::CtrlSignal;
+use ppp::cli::CtrlSignal;
 use rustyline::{
     completion::{Completer, Pair},
     config::Configurer,

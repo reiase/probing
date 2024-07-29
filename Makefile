@@ -36,7 +36,7 @@ ${data_scripts_dir}:
 
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing
 ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
-	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probing-cli 
+	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package cli
 	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${data_scripts_dir}
 
@@ -44,5 +44,3 @@ ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
 ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist
 	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
-
-

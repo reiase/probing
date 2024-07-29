@@ -20,8 +20,8 @@ mod service;
 mod trace;
 
 use handlers::dump_stack2;
-use probing_ppp::cli::CtrlSignal;
-use probing_ppp::cli::Features;
+use ppp::cli::CtrlSignal;
+use ppp::cli::Features;
 use repl::PythonRepl;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)

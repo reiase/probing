@@ -3,7 +3,7 @@ use leptos::*;
 
 use gloo_net::http::Request;
 
-use probing_ppp::Process;
+use ppp::Process;
 
 #[component]
 pub fn Overview() -> impl IntoView {

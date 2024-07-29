@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use probing_ppp::cli::{BackTraceCommand, CtrlSignal};
+use ppp::cli::{BackTraceCommand, CtrlSignal};
 
 use crate::{handlers::dump_stack, service::CALLSTACK};
 

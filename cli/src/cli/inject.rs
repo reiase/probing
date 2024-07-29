@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use probing_ppp::cli::{CtrlSignal, Features};
+use ppp::cli::{CtrlSignal, Features};
 use std::fs;
 
 use crate::inject::{Injector, Process};

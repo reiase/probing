@@ -1,5 +1,5 @@
 use anyhow::Result;
-use probing_ppp::cli::Features;
+use ppp::cli::Features;
 
 use crate::handlers::PPROF_HOLDER;
 

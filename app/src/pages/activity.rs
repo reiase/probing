@@ -4,7 +4,7 @@ use leptos::*;
 use leptos_router::use_params_map;
 
 use gloo_net::http::Request;
-use probing_ppp::CallStack;
+use ppp::CallStack;
 
 use super::common::*;
 

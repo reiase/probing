@@ -4,7 +4,7 @@ use http_body_util::BodyExt;
 use hyper_util::rt::TokioIo;
 
 use hyperparameter::*;
-use probing_ppp::{CallStack, Object};
+use ppp::{CallStack, Object};
 
 use crate::cli::ctrl::CtrlChannel;
 

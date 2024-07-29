@@ -1,12 +1,9 @@
 use std::env;
 
 use anyhow::Result;
-
-use nix::{
-    sys::signal,
-    unistd::{sleep, Pid},
-};
-use probing_ppp::cli::{BackTraceCommand, CtrlSignal};
+use nix::sys::signal;
+use nix::unistd::sleep;
+use nix::unistd::Pid;
 use pyo3::Python;
 
 use crate::{
@@ -15,6 +12,7 @@ use crate::{
     server::start_debug_server,
     service::CALLSTACK,
 };
+use ppp::cli::{BackTraceCommand, CtrlSignal};
 
 pub fn handle(bt: BackTraceCommand) -> Result<String> {
     match bt {
