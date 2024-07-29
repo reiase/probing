@@ -12,12 +12,12 @@ use pyo3::prelude::*;
 use server::local_server;
 use signal_hook::consts::*;
 
+mod core;
 mod ctrl;
 mod handlers;
 mod repl;
 mod server;
 mod service;
-mod trace;
 
 use handlers::dump_stack2;
 use ppp::cli::CtrlSignal;
