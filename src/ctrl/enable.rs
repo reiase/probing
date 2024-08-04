@@ -1,6 +1,6 @@
 use anyhow::Result;
 use nix::libc::SIGABRT;
-use probing_common::cli::Features;
+use ppp::cli::Features;
 
 use crate::{
     handlers::pprof_handler,

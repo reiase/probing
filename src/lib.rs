@@ -8,11 +8,11 @@ use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
 use log::debug;
 use log::error;
-use probing_common::cli::Features;
 use pyo3::prelude::*;
 use server::local_server;
 use signal_hook::consts::*;
 
+mod core;
 mod ctrl;
 mod handlers;
 mod repl;
@@ -20,7 +20,8 @@ mod server;
 mod service;
 
 use handlers::dump_stack2;
-use probing_common::cli::CtrlSignal;
+use ppp::cli::CtrlSignal;
+use ppp::cli::Features;
 use repl::PythonRepl;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)

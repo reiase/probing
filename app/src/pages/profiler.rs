@@ -1,5 +1,5 @@
 use gloo_net::http::Request;
-use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 use leptos_router::use_query_map;
 

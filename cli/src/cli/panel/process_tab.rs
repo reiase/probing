@@ -1,7 +1,7 @@
 use anyhow::Result;
 use once_cell::sync::Lazy;
 
-use probing_common::Process;
+use ppp::Process;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::style::Stylize;
 use ratatui::prelude::*;
@@ -28,16 +28,13 @@ pub fn handle_key_event(code: KeyCode) -> Result<()> {
         match code {
             KeyCode::Char('\n') | KeyCode::Enter => {
                 PROCESS_TAB.state.toggle_selected();
-                match PROCESS_TAB.state.selected() {
-                    [toplevel, id] => {
-                        if toplevel == "threads" {
-                            let tid: i32 = PROCESS_TAB.threads[id.parse::<usize>().unwrap()] as i32;
-                            ACTIVITY_TAB.set_tid(tid);
-                            ACTIVITY_TAB.callstacks = read_callstack_info(tid).unwrap_or_default();
-                            APP.selected_tab = AppTab::Activity;
-                        }
+                if let [toplevel, id] = PROCESS_TAB.state.selected() {
+                    if toplevel == "threads" {
+                        let tid: i32 = PROCESS_TAB.threads[id.parse::<usize>().unwrap()] as i32;
+                        ACTIVITY_TAB.set_tid(tid);
+                        ACTIVITY_TAB.callstacks = read_callstack_info(tid).unwrap_or_default();
+                        APP.selected_tab = AppTab::Activity;
                     }
-                    _ => {}
                 }
                 false
             }

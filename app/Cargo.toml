@@ -1,42 +1,63 @@
 [package]
-name = "probing-app"
-version = "0.1.0"
-edition = "2021"
+name = "app"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
-[profile.dev]
-# Potential to opt-in on higher optimization for our code. This may increase incremental compilation times, but will reduce binaty size.
-opt-level = 0
-[profile.dev.package."*"]
-# High optimization for our dependencies. This should increase performance drastically whithout hitting our incremental compilation times.
-# This will lead to obscure error messages from third party libraries. Comment this out when experiencing a tricky bug.
-opt-level = 3
+[package.metadata.leptonic]
+js-dir = "public/js"
+style-dir = "style"
 
-[profile.release]
-opt-level = "z"
-lto = "fat"
-debug = 0
-strip = true
-codegen-units = 1
+[dependencies]
+console_error_panic_hook = "0.1.7"
+serde_json = "1.0.117"
+thiserror = "1.0.56"
+
+[dependencies.gloo-net]
+version = "0.6.0"
+features = ["http"]
+
+[dependencies.leptonic]
+git = "https://github.com/lpotthast/leptonic.git"
+rev = "6c2959f"
+features = []
+
+[dependencies.leptos]
+version = "0.6.13"
+features = ["csr"]
+
+[dependencies.leptos_meta]
+version = "0.6.13"
+features = []
+default-features = false
+
+[dependencies.leptos_router]
+version = "0.6.13"
+features = ["csr"]
+
+[dependencies.ppp]
+path = "../ppp"
+features = []
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
 
 [features]
 debug = []
 
-[dependencies]
-console_error_panic_hook = "0.1.7"
-gloo-net = {version = "0.5.0", features = ["http"] }
-leptonic = { version = "0.5.0", features = ["csr"] }
-leptos = { version = "0.6.5", features = ["csr"] }
-leptos_meta = { version = "0.6.5", features = ["csr"] }
-leptos_router = { version = "0.6.5", features = ["csr"] }
-thiserror = "1.0.56"
-serde = { version = "1", features = ["derive"] }
-probing-common = {path="../common"}
-serde_json = "1.0.117"
+[profile.release]
+opt-level = "z"
+debug = false
+lto = true
+codegen-units = 1
+strip = true
 
-[package.metadata.leptonic]
-# REQUIRED: Leptonic's build-script will copy the Leptonic themes to this directory. Relative to your project root.
-style-dir = "style"
+[profile.release.package]
 
-# REQUIRED: Leptonic's build-script will copy static JS dependencies to this directory. Relative to your project root.
-# Leptonic's `<Root>` component expects JS files to be available at a "js" directory at runtime (for dynamic script includes). Specify a different prop value if you choose a non-stadard location here. 
-js-dir = "public/js"
+[profile.dev]
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 3

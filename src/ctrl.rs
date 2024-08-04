@@ -1,5 +1,7 @@
+use std::fmt::Display;
+
 use anyhow::Result;
-use probing_common::cli::{BackTraceCommand, CtrlSignal};
+use ppp::cli::{BackTraceCommand, CtrlSignal};
 
 use crate::{handlers::dump_stack, service::CALLSTACK};
 
@@ -39,15 +41,16 @@ mod disable;
 mod enable;
 mod eval;
 mod show;
+mod trace;
 
 #[derive(Default)]
 pub struct StringBuilder {
     buf: String,
 }
 
-impl ToString for StringBuilder {
-    fn to_string(&self) -> String {
-        self.buf.clone()
+impl Display for StringBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.buf)
     }
 }
 
@@ -58,7 +61,14 @@ pub trait StringBuilderAppend {
 impl StringBuilderAppend for String {
     fn append_line(&self, builder: &mut StringBuilder) {
         builder.buf.push_str(self.as_str());
-        builder.buf.push_str("\n");
+        builder.buf.push('\n');
+    }
+}
+
+impl StringBuilderAppend for &str {
+    fn append_line(&self, builder: &mut StringBuilder) {
+        builder.buf.push_str(self);
+        builder.buf.push('\n');
     }
 }
 
@@ -74,6 +84,7 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
         CtrlSignal::Disable(feature) => disable::handle(feature),
         CtrlSignal::Show(topic) => show::handle(topic),
         CtrlSignal::Backtrace(bt) => backtrace::handle(bt),
+        CtrlSignal::Trace(cmd) => trace::handle(cmd),
         CtrlSignal::Eval { code } => eval::handle(code),
     }
 }

@@ -1,3 +1,4 @@
+use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::*;
 
@@ -99,13 +100,13 @@ fn ObjectSelector(
     };
     if selected.eq(target) {
         view! {
-            <Button on_click=on_click color=ButtonColor::Primary>
+            <Button on_press=on_click color=ButtonColor::Primary>
                 {target}
             </Button>
         }
     } else {
         view! {
-            <Button on_click=on_click color=ButtonColor::Secondary>
+            <Button on_press=on_click color=ButtonColor::Secondary>
                 {target}
             </Button>
         }

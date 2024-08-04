@@ -1,8 +1,8 @@
-use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 use gloo_net::http::Request;
-use probing_common::DebugState;
+use ppp::DebugState;
 
 #[component]
 pub fn DebugView() -> impl IntoView {
@@ -38,7 +38,7 @@ pub fn DebugView() -> impl IntoView {
                                     <span>
                                         "execute `pip install debugpy` to install debugger. or click the following button:"
                                         <Button
-                                            on_click=move |_| {
+                                            on_press=move |_| {
                                                 spawn_local(async move {
                                                     let _ = Request::get("/apis/debug/install").send().await;
                                                 });
@@ -105,7 +105,7 @@ pub fn DebugView() -> impl IntoView {
                                      <span>
                                          "click the following button to enable debugger:"
                                          <Button
-                                             on_click=move |_| {
+                                             on_press=move |_| {
                                                  spawn_local(async move {
                                                      let _ = Request::get("/apis/debug/enable").send().await;
                                                  });

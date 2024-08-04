@@ -2,7 +2,7 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
-use probing_common::cli::CtrlSignal;
+use ppp::cli::CtrlSignal;
 use rustyline::{
     completion::{Completer, Pair},
     config::Configurer,
@@ -50,9 +50,9 @@ impl<C: Parser + Send + Sync + 'static> Repl<C> {
                 ) {
                     Ok(cmd) => {
                         self.editor.add_history_entry(line).unwrap();
-                        return ReplLine::Command(cmd);
+                        ReplLine::Command(cmd)
                     }
-                    Err(e) => return ReplLine::Error(e.to_string()),
+                    Err(e) => ReplLine::Error(e.to_string()),
                 },
                 None => ReplLine::Empty,
             },
@@ -108,14 +108,14 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
                 .map(|c| {
                     let display = format!(
                         "{}: {}",
-                        c.0.to_string_lossy(),
-                        if let Some(s) = c.1 {
+                        c.get_content().to_string_lossy(),
+                        if let Some(s) = c.get_help() {
                             s.to_string()
                         } else {
                             "".to_string()
                         }
                     );
-                    let replacement = c.0.to_string_lossy().to_string();
+                    let replacement = c.get_content().to_string_lossy().to_string();
                     Self::Candidate {
                         display,
                         replacement,
