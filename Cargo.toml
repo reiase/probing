@@ -64,7 +64,7 @@ codegen-units = 1
 members = ["app", "cli"]
 
 [workspace.package]
-version = "0.1.5"
+version = "0.1.6"
 authors = ["reiase <reiase@gmail.com>"]
 edition = "2021"
 license = "GPL3"
