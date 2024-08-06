@@ -8,13 +8,15 @@ use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
 use log::debug;
 use log::error;
+use nix::libc::SIGUSR1;
+use nix::libc::SIGUSR2;
 use pyo3::prelude::*;
 use server::local_server;
-use signal_hook::consts::*;
 
 mod core;
 mod ctrl;
 mod handlers;
+mod hooks;
 mod repl;
 mod server;
 mod service;
@@ -28,7 +30,7 @@ fn register_signal_handler<F>(sig: c_int, handler: F)
 where
     F: Fn() + Sync + Send + 'static,
 {
-    unsafe { signal_hook::low_level::register(sig, handler).unwrap() };
+    unsafe { signal_hook_registry::register_unchecked(sig, move |_: &_| handler()).unwrap() };
 }
 
 fn sigusr1_handler() {
@@ -84,7 +86,7 @@ fn init(address: Option<String>, background: bool, pprof: bool, log_level: Optio
     for cmd in cmds {
         ctrl_handler(cmd).unwrap();
     }
-    local_server::start::<PythonRepl>();
+    // local_server::start::<PythonRepl>();
 }
 
 #[pymodule]

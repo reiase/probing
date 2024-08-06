@@ -1,5 +1,5 @@
 use anyhow::Result;
-use nix::libc::SIGABRT;
+use nix::libc::{SIGABRT, SIGBUS, SIGFPE, SIGSEGV};
 use ppp::cli::Features;
 
 use crate::{
@@ -37,7 +37,18 @@ pub fn handle(feature: Features) -> Result<String> {
             Ok(Default::default())
         }
         Features::CatchCrash { address } => {
-            register_signal_handler(SIGABRT, move || crash_handler(address.clone()));
+            let addr = address.clone();
+            register_signal_handler(SIGABRT, move || crash_handler(addr.clone()));
+
+            let addr = address.clone();
+            register_signal_handler(SIGBUS, move || crash_handler(addr.clone()));
+
+            let addr = address.clone();
+            register_signal_handler(SIGSEGV, move || crash_handler(addr.clone()));
+
+            let addr = address.clone();
+            register_signal_handler(SIGFPE, move || crash_handler(addr.clone()));
+
             Ok(Default::default())
         }
     }

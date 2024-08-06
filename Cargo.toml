@@ -39,9 +39,10 @@ procfs = { version = "0.16.0", default-features = false, features = [] }
 pyo3 = { version = "0.22.2", features = ["abi3", "abi3-py37"] }
 qstring = "0.7.2"
 ron = "0.8.1"
-rust-embed = "8.4.0"
+# rust-embed = {version="8.4.0", features = ["include-flate"]}
+include_dir = "=0.7.4"
 serde_json = "1.0.117"
-signal-hook = { version = "0.3.17", default-features = false, features = [] }
+signal-hook-registry = "1.4.2"
 
 [dependencies.tokio]
 version = "1.35.1"

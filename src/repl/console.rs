@@ -3,17 +3,23 @@ use pyo3::{
     Bound, Py, PyAny, Python,
 };
 
-use rust_embed::Embed;
-
 use crate::repl::python_repl::PythonConsole;
 
-#[derive(Embed)]
-#[folder = "src/repl/"]
-struct Asset;
+#[cfg(not(debug_assertions))]
+use include_dir::{include_dir, Dir};
 
+#[cfg(not(debug_assertions))]
+static ASSET: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/repl/");
+
+#[cfg(debug_assertions)]
 fn get_repl_code() -> String {
-    let code = Asset::get("debug_console.py").unwrap();
-    String::from_utf8(code.data.to_vec()).unwrap()
+    std::fs::read_to_string("src/repl/debug_console.py").unwrap()
+}
+
+#[cfg(not(debug_assertions))]
+fn get_repl_code() -> String {
+    let code = ASSET.get_file("debug_console.py").unwrap();
+    code.contents_utf8().unwrap().to_string()
 }
 
 pub struct NativePythonConsole {
