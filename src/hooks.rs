@@ -1,5 +1,7 @@
 use std::ffi::{c_int, c_void};
 
+mod catch_alloctor;
+
 type SigHandler = fn(c_int);
 
 #[no_mangle]
