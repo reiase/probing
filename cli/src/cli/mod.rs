@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use ppp::cli::CtrlSignal;
+use dpp::cli::CtrlSignal;
 
 pub mod commands;
 pub mod ctrl;

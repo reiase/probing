@@ -1,5 +1,5 @@
 use clap::Subcommand;
-use ppp::cli::{BackTraceCommand, Features, ShowCommand, TraceCommand};
+use dpp::cli::{BackTraceCommand, Features, ShowCommand, TraceCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {

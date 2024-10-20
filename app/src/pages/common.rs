@@ -4,7 +4,7 @@ use leptonic::components::prelude::*;
 use leptos::*;
 
 use gloo_net::http::Request;
-use ppp::Object;
+use dpp::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {

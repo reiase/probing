@@ -21,7 +21,7 @@ libloading = "0.8.3"
 log = "0.4"
 once_cell = "1.19.0"
 pete = "0.12.0"
-ppp = { path = "../ppp" }
+dpp = { path = "../dpp" }
 procfs = { version = "0.16.0", default-features = false, features = [] }
 ratatui = "0.27.0"
 ron = "0.8.1"

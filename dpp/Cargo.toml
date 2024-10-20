@@ -1,6 +1,6 @@
 [package]
-name = "ppp"
-description = "Portable Probing Protocol"
+name = "dpp"
+description = "Distributed Probe Protocol"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-clap = { version = "4.5.11", default_features = false, features = [
+clap = { version = "4.5.11", default-features = false, features = [
     "derive",
     "std",
     "help",

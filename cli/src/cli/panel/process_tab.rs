@@ -1,7 +1,7 @@
 use anyhow::Result;
 use once_cell::sync::Lazy;
 
-use ppp::Process;
+use dpp::Process;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::style::Stylize;
 use ratatui::prelude::*;

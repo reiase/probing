@@ -36,8 +36,8 @@ default-features = false
 version = "0.6.13"
 features = ["csr"]
 
-[dependencies.ppp]
-path = "../ppp"
+[dependencies.dpp]
+path = "../dpp"
 features = []
 
 [dependencies.serde]
