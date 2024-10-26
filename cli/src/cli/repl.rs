@@ -1,7 +1,7 @@
 use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser};
 use dpp::cli::CtrlSignal;
 use rustyline::{
     completion::{Completer, Pair},
@@ -83,12 +83,9 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
         ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
         let _ = (line, pos, ctx);
-
-        let cmd = C::command();
-        let mut cmd = clap_complete::dynamic::shells::CompleteCommand::augment_subcommands(cmd);
-        let args = shlex::Shlex::new(line);
+        let mut cmd = C::command();
         let mut args = std::iter::once("".to_owned())
-            .chain(args)
+            .chain(shlex::Shlex::new(line))
             .map(OsString::from)
             .collect::<Vec<_>>();
         if line.ends_with(' ') {
@@ -97,7 +94,7 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
         let arg_index = args.len() - 1;
 
         let pos = pos - args[arg_index].len();
-        if let Ok(candidates) = clap_complete::dynamic::complete(
+        if let Ok(candidates) = clap_complete::engine::complete(
             &mut cmd,
             args,
             arg_index,
@@ -108,14 +105,14 @@ impl<C: Parser + Send + Sync + 'static> Completer for LineReaderHelper<C> {
                 .map(|c| {
                     let display = format!(
                         "{}: {}",
-                        c.get_content().to_string_lossy(),
+                        c.get_value().to_string_lossy(),
                         if let Some(s) = c.get_help() {
                             s.to_string()
                         } else {
                             "".to_string()
                         }
                     );
-                    let replacement = c.get_content().to_string_lossy().to_string();
+                    let replacement = c.get_value().to_string_lossy().to_string();
                     Self::Candidate {
                         display,
                         replacement,

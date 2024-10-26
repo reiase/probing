@@ -55,7 +55,7 @@ pub enum BackTraceCommand {
         #[arg(short, long)]
         tid: Option<u32>,
 
-        #[arg(hide = true, default_value = "false")]
+        #[arg(short, long, hide = true, default_value = "false")]
         signal: bool,
     },
 
