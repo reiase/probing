@@ -1,5 +1,7 @@
-use leptonic::components::prelude::*;
+use leptos_router::use_navigate;
+use thaw::*;
 use leptos::*;
+use leptos_meta::Style;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
@@ -35,26 +37,38 @@ pub fn ErrorTemplate(
     let num_errors = errors.len();
 
     view! {
-        <Box style="display: flex; flex-direction: column; align-items:center;">
-            <H1>
+        <Style id="header-bar">
+            "
+            .header-bar {
+                display: flex;
+                flex-direction: column;
+                align-items:center;
+            }
+            "
+        </Style>
+        <Space class="header-bar">
+            <h1>
                 {match num_errors {
                     1 => "Error",
                     _ => "Errors",
                 }}
 
-            </H1>
+            </h1>
 
             <For
                 each=move || { errors.clone().into_iter().enumerate() }
                 key=|(index, _error)| *index
                 children=move |(_index, error)| {
                     match error {
-                        AppError::NotFound => view! { <P>"404 - Not Found"</P> },
+                        AppError::NotFound => view! { <p>"404 - Not Found"</p> },
                     }
                 }
             />
 
-            <LinkButton href="/">"Back"</LinkButton>
-        </Box>
+            <Button on_click=move |_| {
+                let navigate = use_navigate();
+                navigate("/", Default::default());
+            }>"Back"</Button>
+        </Space>
     }
 }
