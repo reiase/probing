@@ -1,138 +1,148 @@
-use leptonic::components::prelude::*;
 use leptos::*;
+use leptos_meta::Style;
+use thaw::*;
 
-use gloo_net::http::Request;
+use dpp::Process;
 
-use ppp::Process;
+use crate::url_read::url_read_resource;
 
 #[component]
 pub fn Overview() -> impl IntoView {
-    let resp = create_resource(
-        move || {},
-        move |_| async move {
-            let resp = Request::get("/apis/overview")
-                .send()
-                .await
-                .map_err(|err| {
-                    eprintln!("error getting overview: {}", err);
-                })
-                .unwrap()
-                .json::<Process>()
-                .await
-                .map_err(|err| {
-                    eprintln!("error decoding overview: {}", err);
-                })
-                .ok();
-            resp.unwrap_or(Default::default())
-        },
-    );
-
-    let thread_info = move || {
-        resp.get()
-            .map(|proc| {
-                let threads: Vec<_> = proc
-                    .threads
-                    .iter()
-                    .map(|t| {
-                        let tid = *t;
-                        let url = format!("/activity/{}", tid);
-
-                        if tid == proc.main_thread {
-                            view! {
-                                <Chip color=ChipColor::Primary>
-                                    <a href=url>{tid}</a>
-                                </Chip>
-                            }
-                        } else {
-                            view! {
-                                <Chip color=ChipColor::Secondary>
-                                    <a href=url>{tid}</a>
-                                </Chip>
-                            }
-                        }
-                    })
-                    .collect();
-                view! { <Box>{threads}</Box> }
-            })
-            .unwrap_or(view! {
-                <Box>
-                    <span>{"no threads found"}</span>
-                </Box>
-            })
-    };
+    let resp = url_read_resource::<Process>("/apis/overview");
 
     let process_info = move || {
-        resp.get()
-            .map(|proc| {
-                view! {
-                    <Box>
-                        <Ul>
-                            <Li slot>
-                                <b>"Process ID(pid):"</b>
-                                <span style="float:right;">{proc.pid.to_string()}</span>
-                            </Li>
-                            <Li slot>
-                                <b>"Executable Path(exe):"</b>
-                                <span style="float:right;">{proc.exe.to_string()}</span>
-                            </Li>
-                            <Li slot>
-                                <b>"Command Line(cmd):"</b>
-                                <span style="float:right;">{proc.cmd.to_string()}</span>
-                            </Li>
-                            <Li slot>
-                                <b>"Current Working Dirctory(cwd):"</b>
-                                <span style="float:right;">{proc.cwd.to_string()}</span>
-                            </Li>
-                        </Ul>
-                    </Box>
-                }
-            })
-            .unwrap_or(view! {
-                <Box>
-                    <span>"no process information"</span>
-                </Box>
-            })
+        resp.and_then(|process| {
+            let process = process.clone();
+            view! {
+                <Space>
+                    <Table>
+                        <tbody>
+                            <tr>
+                                <td>"Process ID(pid)"</td>
+                                <td>{process.pid.to_string()}</td>
+                            </tr>
+                            <tr>
+                                <td>"Executable Path(exe)"</td>
+                                <td>{process.exe.to_string()}</td>
+                            </tr>
+                            <tr>
+                                <td>"Command Line(cmd)"</td>
+                                <td>{process.cmd.to_string()}</td>
+                            </tr>
+                            <tr>
+                                <td>"Current Working Dirctory(cwd)"</td>
+                                <td>{process.cwd.to_string()}</td>
+                            </tr>
+                        </tbody>
+                    </Table>
+
+                </Space>
+            }
+        })
+        .map(|x| x.ok())
+        .flatten()
+        .unwrap_or(view! {
+            <Space>
+                <span>"no process information"</span>
+            </Space>
+        })
     };
+
+    let thread_info = move || {
+        resp.and_then(|process| {
+            let threads = process
+                .threads
+                .iter()
+                .map(|t| {
+                    let tid = *t;
+                    let url = format!("/activity/{}", tid);
+
+                    if tid == process.main_thread {
+                        view! {
+                            <Button color=ButtonColor::Primary style="margin: 5px">
+                                <a href=url>{tid}</a>
+                            </Button>
+                        }
+                    } else {
+                        view! {
+                            <Button color=ButtonColor::Success style="margin: 5px">
+                                <a href=url>{tid}</a>
+                            </Button>
+                        }
+                    }
+                })
+                .collect::<Vec<_>>();
+            view! { <Space>{threads}</Space> }
+        })
+        .map(|x| x.ok())
+        .flatten()
+        .unwrap_or(view! {
+            <Space>
+                <span>{"no threads found"}</span>
+            </Space>
+        })
+    };
+
+
 
     let environments = move || {
-        resp.get()
-            .map(|proc| {
-                let envs: Vec<_> = proc
-                    .env
-                    .split_terminator('\n')
-                    .filter_map(|kv| {
-                        if let Some((name, value)) = kv.split_once('=') {
-                            Some(view! {
-                                <li>
-                                    <b>{name.to_string()} " :"</b>
-                                    {value.to_string()}
-                                </li>
-                            })
-                        } else {
-                            None
-                        }
+        resp.and_then(|process| {
+            let envs: Vec<_> = process
+            .env
+            .split_terminator('\n')
+            .filter_map(|kv| {
+                if let Some((name, value)) = kv.split_once('=') {
+                    Some(view! {
+                        <li>
+                            <b>{name.to_string()} " :"</b>
+                            {value.to_string()}
+                        </li>
                     })
-                    .collect();
-
-                view! {
-                    <Box>
-                        <ul>{envs}</ul>
-                    </Box>
+                } else {
+                    None
                 }
             })
-            .unwrap_or(view! {
-                <Box>
-                    <span>"no environment variables"</span>
-                </Box>
-            })
+            .collect();
+        view! {
+            <Space>
+                <ul>{envs}</ul>
+            </Space>
+        }
+        })   .map(|x| x.ok())
+        .flatten()
+        .unwrap_or(view! {
+            <Space>
+                <span>"no environment variables"</span>
+            </Space>
+        })
     };
+
     view! {
-        <H3>"Process Information"</H3>
-        {process_info}
-        <H3>"Threads"</H3>
-        <span>"click to show thread call stack"</span>
-        {thread_info}
-        <H3>"Environment Variables"</H3>
-        {environments}
+        <Style>
+            "
+            .doc-content {
+                    margin: 0 auto;
+                    width: 100%;
+                    display: grid;
+            }
+            @media screen and (max-width: 1200px) {
+                .doc-content {
+                    width: 100%;
+                }
+            }
+            "
+        </Style>
+        <Layout
+            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
+            class="doc-content"
+        >
+            <Space align=SpaceAlign::Center vertical=true class="doc-content">
+                <Card title="Process Information">{process_info}</Card>
+                <Card title="Threads">
+                    {thread_info} <CardFooter slot>"click to show thread call stack"</CardFooter>
+                </Card>
+                <Card title="Environment Variables">{environments}</Card>
+            </Space>
+        </Layout>
     }
 }

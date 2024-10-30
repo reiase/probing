@@ -1,6 +1,6 @@
 use leptonic::components::prelude::*;
 use leptos::*;
-use ppp::Object;
+use dpp::Object;
 
 use serde_json;
 

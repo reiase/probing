@@ -1,6 +1,6 @@
 use anyhow::Result;
 use once_cell::sync::Lazy;
-use ppp::CallStack;
+use dpp::CallStack;
 use ratatui::crossterm::style::Stylize;
 use ratatui::widgets::ScrollbarOrientation;
 use ratatui::{crossterm::event::KeyCode, prelude::*, widgets::Scrollbar};

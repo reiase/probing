@@ -22,8 +22,8 @@ mod server;
 mod service;
 
 use handlers::dump_stack2;
-use ppp::cli::CtrlSignal;
-use ppp::cli::Features;
+use dpp::cli::CtrlSignal;
+use dpp::cli::Features;
 use repl::PythonRepl;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)

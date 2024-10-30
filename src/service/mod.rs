@@ -10,7 +10,7 @@ mod profiler;
 mod python;
 
 use log::debug;
-use ppp::cli::CtrlSignal;
+use dpp::cli::CtrlSignal;
 pub use process::CALLSTACK;
 
 use crate::ctrl::{ctrl_handler_string, handle_ctrl};
