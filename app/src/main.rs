@@ -1,8 +1,9 @@
 use leptos::*;
 
 mod app;
-mod errors;
+mod components;
 mod error_template;
+mod errors;
 mod pages;
 mod url_read;
 
