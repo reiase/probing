@@ -1,10 +1,11 @@
 use leptos::*;
 use leptos_meta::Style;
+use leptos_router::use_navigate;
 use thaw::*;
 
 use dpp::Process;
 
-use crate::url_read::url_read_resource;
+use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
 
 #[component]
 pub fn Overview() -> impl IntoView {
@@ -59,14 +60,22 @@ pub fn Overview() -> impl IntoView {
 
                     if tid == process.main_thread {
                         view! {
-                            <Button color=ButtonColor::Primary style="margin: 5px">
-                                <a href=url>{tid}</a>
+                            <Button
+                                color=ButtonColor::Primary
+                                style="margin: 5px"
+                                on_click=move |_| use_navigate()(url.as_str(), Default::default())
+                            >
+                                {tid}
                             </Button>
                         }
                     } else {
                         view! {
-                            <Button color=ButtonColor::Success style="margin: 5px">
-                                <a href=url>{tid}</a>
+                            <Button
+                                color=ButtonColor::Success
+                                style="margin: 5px"
+                                on_click=move |_| use_navigate()(url.as_str(), Default::default())
+                            >
+                                {tid}
                             </Button>
                         }
                     }
@@ -83,32 +92,31 @@ pub fn Overview() -> impl IntoView {
         })
     };
 
-
-
     let environments = move || {
         resp.and_then(|process| {
             let envs: Vec<_> = process
-            .env
-            .split_terminator('\n')
-            .filter_map(|kv| {
-                if let Some((name, value)) = kv.split_once('=') {
-                    Some(view! {
-                        <li>
-                            <b>{name.to_string()} " :"</b>
-                            {value.to_string()}
-                        </li>
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect();
-        view! {
-            <Space>
-                <ul>{envs}</ul>
-            </Space>
-        }
-        })   .map(|x| x.ok())
+                .env
+                .split_terminator('\n')
+                .filter_map(|kv| {
+                    if let Some((name, value)) = kv.split_once('=') {
+                        Some(view! {
+                            <li>
+                                <b>{name.to_string()} " :"</b>
+                                {value.to_string()}
+                            </li>
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            view! {
+                <Space>
+                    <ul>{envs}</ul>
+                </Space>
+            }
+        })
+        .map(|x| x.ok())
         .flatten()
         .unwrap_or(view! {
             <Space>
@@ -132,6 +140,7 @@ pub fn Overview() -> impl IntoView {
             }
             "
         </Style>
+        <HeaderBar/>
         <Layout
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"

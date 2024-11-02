@@ -9,8 +9,8 @@ mod process;
 mod profiler;
 mod python;
 
-use log::debug;
 use dpp::cli::CtrlSignal;
+use log::debug;
 pub use process::CALLSTACK;
 
 use crate::ctrl::{ctrl_handler_string, handle_ctrl};
@@ -59,10 +59,12 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             }
         }
 
-        (&Method::GET, "/") | (&Method::GET, "/index.html") => Ok(Response::builder()
-            .header("Content-Type", "text/html")
-            .body(Full::new(asset::get("/index.html")))
-            .unwrap()),
+        (&Method::GET, "/") | (&Method::GET, "/activity") | (&Method::GET, "/index.html") => {
+            Ok(Response::builder()
+                .header("Content-Type", "text/html")
+                .body(Full::new(asset::get("/index.html")))
+                .unwrap())
+        }
 
         (&Method::GET, "/apis/overview") => {
             let resp = process::overview();

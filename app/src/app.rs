@@ -7,6 +7,7 @@ use crate::components::header_bar::HeaderBar;
 
 use crate::{
     error_template::{AppError, ErrorTemplate},
+    pages::activity::Activity,
     // pages::{
     //     activity::Activity, debug::DebugView, files::Files, overview::Overview, profiler::Profiler,
     //     python::Python,
@@ -23,27 +24,15 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Router
-            set_is_routing
-            fallback=|| {
-                let mut outside_errors = Errors::default();
-                outside_errors.insert_with_default_key(AppError::NotFound);
-                view! { <ErrorTemplate outside_errors/> }
-            }
-        >
+        <Router set_is_routing>
+            // fallback=|| {
+            // let mut outside_errors = Errors::default();
+            // outside_errors.insert_with_default_key(AppError::NotFound);
+            // view! { <ErrorTemplate outside_errors/> }
+            // }
 
             <TheProvider>
-                <HeaderBar/>
                 <TheRouter is_routing/>
-            // <Routes>
-            // <Route path="/" view=|| view! { <Overview/> }/>
-            // // <Route path="/activity" view=|| view! { <Activity/> }/>
-            // // <Route path="/activity/:tid" view=|| view! { <Activity/> }/>
-            // // <Route path="/debug" view=|| view! { <DebugView/> }/>
-            // // <Route path="/profiler" view=|| view! { <Profiler/> }/>
-            // // <Route path="/inspect" view=|| view! { <Python/> }/>
-            // // <Route path="/files" view=|| view! { <Files/> }/>
-            // </Routes>
             </TheProvider>
         </Router>
     }
@@ -62,7 +51,13 @@ fn TheRouter(is_routing: RwSignal<bool>) -> impl IntoView {
 
     view! {
         <Routes>
-            <Route path="/" view=|| view! { <Overview/> }/>
+            <Route path="/" view=Overview/>
+            <Route path="/activity" view=Activity/>
+            <Route path="/activity/:tid" view=Activity/>
+        // <Route path="/debug" view=|| view! { <DebugView/> }/>
+        // <Route path="/profiler" view=|| view! { <Profiler/> }/>
+        // <Route path="/inspect" view=|| view! { <Python/> }/>
+        // <Route path="/files" view=|| view! { <Files/> }/>
         </Routes>
     }
 }

@@ -1,9 +1,8 @@
-use thiserror::Error;
-use serde::Serialize;
 use serde::Deserialize;
+use serde::Serialize;
+use thiserror::Error;
 
-#[derive(Serialize, Deserialize)]
-#[derive(Clone, Debug, Error)]
+#[derive(Serialize, Deserialize, Clone, Debug, Error)]
 pub enum AppError {
     #[error("Page Not Found")]
     NotFound,
