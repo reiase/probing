@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use leptos::*;
 use leptos_struct_table::*;
+use thaw::*;
 
 use dpp::Object;
 
@@ -66,9 +67,9 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Object>) -> impl IntoView {
         .collect::<Vec<_>>();
 
     view! {
-        <table>
+        <Table>
             <TableContent rows/>
-        </table>
+        </Table>
     }
 }
 

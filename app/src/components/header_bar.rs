@@ -70,6 +70,12 @@ pub fn HeaderBar() -> impl IntoView {
                 </Button>
                 <Button
                     variant=ButtonVariant::Text
+                    on_click=move |_| use_navigate()("/inspect", Default::default())
+                >
+                    "Inspect"
+                </Button>
+                <Button
+                    color=ButtonColor::Primary
                     on_click=Callback::new(move |_| change_theme.call(()))
                 >
                     {move || theme_name.get()}

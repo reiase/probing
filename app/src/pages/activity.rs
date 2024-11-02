@@ -1,7 +1,6 @@
 use leptos::*;
 use leptos_meta::Style;
 use leptos_router::use_params_map;
-use log::info;
 use thaw::*;
 
 use dpp::CallStack;
@@ -24,7 +23,6 @@ pub fn Activity() -> impl IntoView {
     let callstacks = move || {
         callstacks
             .and_then(|callstacks| {
-                info!("output some activity");
                 callstacks
                     .iter()
                     .map(|callstack| {
@@ -78,21 +76,22 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
         let lineno = callstack.lineno;
         let locals = callstack.locals.clone();
         let url = format!("/apis/files?path={}", file.clone());
-        let route_url = format!("/files?path={}", file);
+        // let route_url = format!("/files?path={}", file);
         let key = format!("{func} @ {file}: {lineno}");
         view! {
             <CollapseItem title=key.clone() key=key>
-                // <title slot>
-                // {func} "@" <a href=url target="_blank">
-                // {file}
-                // </a> {":"} {lineno}
+                <b>"local:"</b>
+                <span style="padding: 5px">
+                    {func} "@" <a href=url target="_blank">
+                        {file}
+                    </a> {":"} {lineno}
                 // <Button on_click=move |_| {
                 // let navigate = leptos_router::use_navigate();
                 // navigate(route_url.as_str(), Default::default());
                 // }>
                 // <Icon icon=icondata::BiFileRegular/>
                 // </Button>
-                // </title>
+                </span>
                 <VariablesList variables=locals/>
             </CollapseItem>
         }

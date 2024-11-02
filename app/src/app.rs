@@ -3,17 +3,8 @@ use leptos_meta::provide_meta_context;
 use leptos_router::*;
 use thaw::*;
 
-use crate::components::header_bar::HeaderBar;
 
-use crate::{
-    error_template::{AppError, ErrorTemplate},
-    pages::activity::Activity,
-    // pages::{
-    //     activity::Activity, debug::DebugView, files::Files, overview::Overview, profiler::Profiler,
-    //     python::Python,
-    // },
-    pages::overview::Overview,
-};
+use crate::pages::{activity::Activity, overview::Overview, python::Python};
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -54,9 +45,9 @@ fn TheRouter(is_routing: RwSignal<bool>) -> impl IntoView {
             <Route path="/" view=Overview/>
             <Route path="/activity" view=Activity/>
             <Route path="/activity/:tid" view=Activity/>
-        // <Route path="/debug" view=|| view! { <DebugView/> }/>
-        // <Route path="/profiler" view=|| view! { <Profiler/> }/>
-        // <Route path="/inspect" view=|| view! { <Python/> }/>
+            // <Route path="/debug" view=|| view! { <DebugView/> }/>
+            // <Route path="/profiler" view=|| view! { <Profiler/> }/>
+            <Route path="/inspect" view=|| view! { <Python/> }/>
         // <Route path="/files" view=|| view! { <Files/> }/>
         </Routes>
     }

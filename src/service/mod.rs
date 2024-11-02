@@ -59,7 +59,7 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             }
         }
 
-        (&Method::GET, "/") | (&Method::GET, "/activity") | (&Method::GET, "/index.html") => {
+        (&Method::GET, "/") | (&Method::GET, "/activity")| (&Method::GET, "/inspect") | (&Method::GET, "/index.html") => {
             Ok(Response::builder()
                 .header("Content-Type", "text/html")
                 .body(Full::new(asset::get("/index.html")))
