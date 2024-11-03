@@ -58,11 +58,24 @@ pub fn HeaderBar() -> impl IntoView {
             <Space class="header-bar-right" align=SpaceAlign::Center>
                 <Button
                     variant=ButtonVariant::Text
-                    on_click=move |_| use_navigate()("/", Default::default())>
+                    on_click=move |_| use_navigate()("/", Default::default())
+                >
                     "Overview"
                 </Button>
                 <Button
                     variant=ButtonVariant::Text
+                    on_click=move |_| use_navigate()("/activity", Default::default())
+                >
+                    "Activity"
+                </Button>
+                <Button
+                    variant=ButtonVariant::Text
+                    on_click=move |_| use_navigate()("/inspect", Default::default())
+                >
+                    "Inspect"
+                </Button>
+                <Button
+                    color=ButtonColor::Primary
                     on_click=Callback::new(move |_| change_theme.call(()))
                 >
                     {move || theme_name.get()}
@@ -76,6 +89,7 @@ pub fn HeaderBar() -> impl IntoView {
                         _ = window().open_with_url("http://github.com/reiase/probing");
                     }
                 />
+
             </Space>
         </LayoutHeader>
     }

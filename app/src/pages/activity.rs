@@ -1,10 +1,11 @@
-use leptonic::components::prelude::*;
-use leptonic::prelude::*;
 use leptos::*;
+use leptos_meta::Style;
 use leptos_router::use_params_map;
+use thaw::*;
 
-use gloo_net::http::Request;
 use dpp::CallStack;
+
+use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
 
 use super::common::*;
 
@@ -16,48 +17,48 @@ pub fn Activity() -> impl IntoView {
     } else {
         "/apis/callstack".to_string()
     };
-    let callstacks = create_resource(
-        move || url.clone(),
-        move |url| async move {
-            let resp = Request::get(url.as_str())
-                .send()
-                .await
-                .map_err(|err| {
-                    logging::log!("error getting callstack: {}", err);
-                })
-                .unwrap()
-                .json::<Vec<CallStack>>()
-                .await
-                .map_err(|err| {
-                    logging::log!("error decoding callstack: {}", err);
-                })
-                .ok();
-            resp.unwrap_or(Default::default())
-        },
-    );
 
-    let activity_info = move || {
+    let callstacks = url_read_resource::<Vec<CallStack>>(url.as_str());
+
+    let callstacks = move || {
         callstacks
-            .get()
-            .map(|callstacks| {
-                let views = callstacks
+            .and_then(|callstacks| {
+                callstacks
                     .iter()
                     .map(|callstack| {
                         view! { <CallStackView callstack=callstack.clone()/> }
                     })
-                    .collect::<Vec<_>>();
-                view! { <Stack spacing=Size::Em(0.6)>{views}</Stack> }
+                    .collect::<Vec<_>>()
             })
-            .unwrap_or(view! {
-                <Stack spacing=Size::Em(0.6)>
-                    <span>{"no call stack"}</span>
-                </Stack>
-            })
+            .map(|x| x.ok())
+            .flatten()
     };
 
     view! {
-        <H3>"Call Stacks"</H3>
-        <Collapsibles default_on_open=OnOpen::CloseOthers>{activity_info}</Collapsibles>
+        <Style>
+            "
+            .doc-content {
+                margin: 0 auto;
+                width: 100%;
+                display: grid;
+            }
+            @media screen and (max-width: 1200px) {
+                .doc-content {
+                    width: 100%;
+                }
+            }
+            "
+        </Style>
+        <HeaderBar/>
+        <Layout
+            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
+            class="doc-content"
+        >
+            <Space align=SpaceAlign::Center vertical=true class="doc-content">
+                <h3>"Call Stacks"</h3>
+                <Collapse>{callstacks}</Collapse>
+            </Space>
+        </Layout>
     }
 }
 
@@ -65,14 +66,9 @@ pub fn Activity() -> impl IntoView {
 fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
     if let Some(cstack) = callstack.cstack {
         view! {
-            <Collapsible>
-                <CollapsibleHeader slot>
-                    <Chip>"C/C++ Call Stack"</Chip>
-                </CollapsibleHeader>
-                <CollapsibleBody class="my-body" slot>
-                    <pre>{cstack}</pre>
-                </CollapsibleBody>
-            </Collapsible>
+            <CollapseItem title="C/C++ Call Stack" key="C/C++">
+                <pre>{cstack}</pre>
+            </CollapseItem>
         }
     } else {
         let file = callstack.file.clone();
@@ -80,26 +76,24 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
         let lineno = callstack.lineno;
         let locals = callstack.locals.clone();
         let url = format!("/apis/files?path={}", file.clone());
-        let route_url = format!("/files?path={}", file);
+        // let route_url = format!("/files?path={}", file);
+        let key = format!("{func} @ {file}: {lineno}");
         view! {
-            <Collapsible>
-                <CollapsibleHeader slot>
-                    <Chip>
-                        {func} "@" <a href=url target="_blank">
-                            {file}
-                        </a> {":"} {lineno}
-                    </Chip>
-                    <Button on_press=move |_| {
-                        let navigate = leptos_router::use_navigate();
-                        navigate(route_url.as_str(), Default::default());
-                    }>
-                        <Icon icon=icondata::FaFileRegular/>
-                    </Button>
-                </CollapsibleHeader>
-                <CollapsibleBody class="my-body" slot>
-                    <VariablesView variables=locals/>
-                </CollapsibleBody>
-            </Collapsible>
+            <CollapseItem title=key.clone() key=key>
+                <b>"local:"</b>
+                <span style="padding: 5px">
+                    {func} "@" <a href=url target="_blank">
+                        {file}
+                    </a> {":"} {lineno}
+                // <Button on_click=move |_| {
+                // let navigate = leptos_router::use_navigate();
+                // navigate(route_url.as_str(), Default::default());
+                // }>
+                // <Icon icon=icondata::BiFileRegular/>
+                // </Button>
+                </span>
+                <VariablesList variables=locals/>
+            </CollapseItem>
         }
     }
 }
