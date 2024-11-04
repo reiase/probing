@@ -24,3 +24,4 @@ pkg/
 */scripts/*
 .VSCodeCounter/
 *.pyc
+venv/
