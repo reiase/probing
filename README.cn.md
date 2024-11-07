@@ -117,6 +117,9 @@ $pip install probing
 `probing` 构建时依赖`trunk`工具，可通过如下命令安装，若已经安装可以跳过此步：
 ```shell
 cargo install trunk
+
+# 安装 wasm-bindgen-cli 工具
+cargo install --locked wasm-bindgen-cli
 ```
 构建环境准备就绪后，可以通过`make`命令来完成构建
 ```shell
