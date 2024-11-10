@@ -1,0 +1,23 @@
+[package]
+name = "engine"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0.86"
+log = "0.4"
+once_cell = "1.19.0"
+ron = "0.8.1"
+datafusion = {version = "42.2.0", default-features = false, features = []}
+use = "0.0.1-pre.0"
+async-trait = "0.1.83"
+
+[dependencies.tokio]
+version = "1.35.1"
+default-features = false
+features = ["net", "io-util", "rt-multi-thread"]
