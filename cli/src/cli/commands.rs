@@ -6,10 +6,6 @@ pub enum Commands {
     #[command(visible_aliases = ["inj", "i"])]
     Inject(super::inject::InjectCommand),
 
-    /// Interactive visualizer in terminal
-    #[command(visible_aliases = ["pnl", "console"])]
-    Panel,
-
     /// Repl debugging shell
     #[command()]
     Repl(super::repl::ReplCommand),

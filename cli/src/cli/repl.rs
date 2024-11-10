@@ -138,6 +138,8 @@ pub enum ReplLine<C> {
 pub struct ReplCommand {}
 
 impl ReplCommand {
+    pub fn new()->ReplCommand {ReplCommand {}}
+
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
         let mut repl = Repl::<CtrlSignal>::default();
         loop {

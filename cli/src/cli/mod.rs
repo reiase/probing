@@ -1,11 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
 use dpp::cli::CtrlSignal;
+use repl::ReplCommand;
 
 pub mod commands;
 pub mod ctrl;
 pub mod inject;
-pub mod panel;
 pub mod repl;
 
 use crate::cli::ctrl::CtrlChannel;
@@ -42,7 +42,6 @@ impl Cli {
             Some(Commands::Inject(cmd)) => cmd.run(ctrl),
             // Some(Commands::Debug(cmd)) => cmd.run(ctrl),
             // Some(Commands::Performance(cmd)) => cmd.run(ctrl),
-            Some(Commands::Panel) => panel::panel_main(ctrl),
             Some(Commands::Repl(cmd)) => cmd.run(ctrl),
 
             Some(Commands::Enable(feature)) => {
@@ -57,12 +56,12 @@ impl Cli {
             }
             Some(Commands::Trace(cmd)) => ctrl::handle(ctrl, CtrlSignal::Trace(cmd.clone())),
             Some(Commands::Eval { code }) => {
-                ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
+                    ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
             }
 
             None => {
                 let _ = inject::InjectCommand::default().run(ctrl.clone());
-                panel::panel_main(ctrl)
+                ReplCommand::new().run(ctrl)
             }
         }
     }
