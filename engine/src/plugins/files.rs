@@ -29,6 +29,7 @@ impl Plugin for FilesPlugin {
         "files".to_string()
     }
 
+    #[allow(unused)]
     fn register_schema(
         &self,
         catalog: Arc<dyn CatalogProvider>,
@@ -79,6 +80,7 @@ impl SchemaProvider for FileSystemSchema {
         Ok(Some(Arc::new(table)))
     }
 
+    #[allow(unused)]
     fn register_table(
         &self,
         name: String,

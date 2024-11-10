@@ -16,9 +16,13 @@ pub trait Plugin {
     fn name(&self) -> String;
     fn kind(&self) -> PluginType;
     fn category(&self) -> String;
+
+    #[allow(unused)]
     fn register_table(&self, schema: Arc<dyn SchemaProvider>, state: &SessionState) -> Result<()> {
         Ok(())
     }
+
+    #[allow(unused)]
     fn register_schema(
         &self,
         catalog: Arc<dyn CatalogProvider>,
@@ -28,6 +32,7 @@ pub trait Plugin {
     }
 }
 
+#[allow(unused)]
 pub struct Engine {
     context: SessionContext,
     plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
@@ -64,7 +69,7 @@ impl Engine {
         .unwrap();
         if plugin.kind() == PluginType::SchemaProviderPlugin {
             let state: SessionState = self.context.state();
-            plugin.register_schema(catalog, &state);
+            plugin.register_schema(catalog, &state)?;
         } else if plugin.kind() == PluginType::TableProviderPlugin {
             let schema = if catalog.schema_names().contains(&category) {
                 catalog.schema(&category.as_str())
@@ -74,7 +79,7 @@ impl Engine {
                 catalog.schema(&category.as_str())
             };
             let state: SessionState = self.context.state();
-            plugin.register_table(schema.unwrap(), &state);
+            plugin.register_table(schema.unwrap(), &state)?;
         }
         Ok(())
     }

@@ -36,7 +36,7 @@ impl Plugin for EnvPlugin {
         "process".to_string()
     }
 
-    fn register_table(&self, schema: Arc<dyn SchemaProvider>, state: &SessionState) -> Result<()> {
+    fn register_table(&self, schema: Arc<dyn SchemaProvider>, _: &SessionState) -> Result<()> {
         schema.register_table(self.name(), Arc::new(EnvDataSource::default()))?;
         Ok(())
     }
@@ -44,6 +44,22 @@ impl Plugin for EnvPlugin {
 
 #[derive(Clone, Default)]
 pub struct EnvDataSource {}
+
+impl EnvDataSource {
+    // pub fn is_supported(&self, filter: &Expr) -> bool {
+    //     match filter {
+    //         Expr::BinaryExpr(BinaryExpr {
+    //             left: col,
+    //             op: Operator::Eq,
+    //             right: _,
+    //         }) => match *col.clone() {
+    //             Expr::Column(Column { relation: _, name }) => name.eq("name"),
+    //             _ => false,
+    //         },
+    //         _ => false,
+    //     }
+    // }
+}
 
 #[async_trait]
 impl TableProvider for EnvDataSource {
@@ -58,6 +74,22 @@ impl TableProvider for EnvDataSource {
         ]))
     }
 
+    // fn supports_filters_pushdown(
+    //     &self,
+    //     filters: &[&Expr],
+    // ) -> Result<Vec<TableProviderFilterPushDown>> {
+    //     Ok(filters
+    //         .iter()
+    //         .map(|f| {
+    //             if self.is_supported(f) {
+    //                 TableProviderFilterPushDown::Inexact
+    //             } else {
+    //                 TableProviderFilterPushDown::Unsupported
+    //             }
+    //         })
+    //         .collect())
+    // }
+
     fn table_type(&self) -> TableType {
         TableType::Base
     }
@@ -70,13 +102,19 @@ impl TableProvider for EnvDataSource {
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        Ok(Arc::new(EnvDataSourceExec::new(projection, self.schema())))
+        Ok(Arc::new(
+            EnvDataSourceExec::new(projection, self.schema())
+                .filters(&_filters)
+                .limit(_limit),
+        ))
     }
 }
 
 #[derive(Debug, Clone)]
 struct EnvDataSourceExec {
     projected_schema: SchemaRef,
+    filters: Vec<Expr>,
+    limit: Option<usize>,
     cache: PlanProperties,
 }
 
@@ -92,7 +130,17 @@ impl EnvDataSourceExec {
         Self {
             projected_schema,
             cache,
+            filters: Default::default(),
+            limit: Default::default(),
         }
+    }
+    pub fn filters(mut self, exprs: &[Expr]) -> Self {
+        self.filters = exprs.iter().map(|x| x.clone()).collect::<Vec<_>>();
+        self
+    }
+    pub fn limit(mut self, value: Option<usize>) -> Self {
+        self.limit = value;
+        self
     }
 }
 
@@ -121,24 +169,34 @@ impl ExecutionPlan for EnvDataSourceExec {
 
     fn with_new_children(
         self: Arc<Self>,
-        children: Vec<Arc<dyn ExecutionPlan>>,
+        _children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(self)
     }
 
     fn execute(
         &self,
-        partition: usize,
-        context: Arc<datafusion::execution::TaskContext>,
+        _partition: usize,
+        _context: Arc<datafusion::execution::TaskContext>,
     ) -> Result<datafusion::execution::SendableRecordBatchStream> {
-        let envs = std::env::vars().collect::<Vec<_>>();
+        let envs = std::env::vars();
+        // let envs = envs.iter();
+        // for filter in self.filters.iter() {
+        //     println!("filters: {}", filter);
+        // }
+
+        let envs = if let Some(limit) = self.limit {
+            envs.take(limit).collect::<Vec<_>>()
+        } else {
+            envs.collect::<Vec<_>>()
+        };
 
         let mut names = GenericStringBuilder::<i32>::new();
         let mut values = GenericStringBuilder::<i32>::new();
 
         for env in envs {
-            names.append_value(env.0);
-            values.append_value(env.1);
+            names.append_value(env.0.clone());
+            values.append_value(env.1.clone());
         }
 
         Ok(Box::pin(MemoryStream::try_new(
