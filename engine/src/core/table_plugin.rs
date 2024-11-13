@@ -172,7 +172,7 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> ExecutionPlan
                 .map(|rb| {
                     let cols = projection
                         .iter()
-                        .map(|x| rb.column(*x - 1).clone())
+                        .map(|x| rb.column(*x).clone())
                         .collect::<Vec<_>>();
                     RecordBatch::try_new(self.projected_schema.clone(), cols).unwrap()
                 })

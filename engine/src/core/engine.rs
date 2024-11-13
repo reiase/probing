@@ -42,7 +42,7 @@ impl Engine {
     pub fn new() -> Self {
         let config = SessionConfig::default()
             .with_information_schema(true)
-            .with_default_catalog_and_schema("probe", "prove");
+            .with_default_catalog_and_schema("probe", "probe");
         let engine = Engine {
             context: SessionContext::new_with_config(config),
             plugins: Default::default(),
