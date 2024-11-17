@@ -1363,6 +1363,7 @@ dependencies = [
  "futures",
  "log",
  "once_cell",
+ "procfs",
  "rmesg",
  "ron",
  "tokio",
@@ -3146,6 +3147,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "731e0d9356b0c25f16f33b5be79b1c57b562f141ebfcdb0ad8ac2c13a24293b4"
 dependencies = [
  "bitflags 2.6.0",
+ "chrono",
  "hex",
  "lazy_static",
  "procfs-core",

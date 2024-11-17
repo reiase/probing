@@ -4,7 +4,10 @@ use datafusion::arrow::{
     array::{GenericStringBuilder, RecordBatch, TimestampMicrosecondBuilder},
     datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
 };
-use rmesg;
+use rmesg::{
+    self,
+    entry::{LogFacility, LogLevel},
+};
 
 use crate::core::{CustomTable, TablePlugin};
 
@@ -36,21 +39,17 @@ impl CustomTable for KMsgTable {
         let mut level = GenericStringBuilder::<i32>::new();
         let mut message = GenericStringBuilder::<i32>::new();
 
+        let boot_time = match procfs::boot_time() {
+            Ok(time) => time,
+            Err(_) => return vec![],
+        };
+        let boot_time_micro = boot_time.timestamp_micros();
+
         for entry in entries {
             let ts = entry.timestamp_from_system_start;
-            timestamp.append_value(ts.unwrap_or_default().as_micros() as i64);
-            facility.append_value(
-                entry
-                    .facility
-                    .unwrap_or(rmesg::entry::LogFacility::User)
-                    .to_string(),
-            );
-            level.append_value(
-                entry
-                    .level
-                    .unwrap_or(rmesg::entry::LogLevel::Info)
-                    .to_string(),
-            );
+            timestamp.append_value(ts.unwrap_or_default().as_micros() as i64 + boot_time_micro);
+            facility.append_value(entry.facility.unwrap_or(LogFacility::User).to_string());
+            level.append_value(entry.level.unwrap_or(LogLevel::Info).to_string());
             message.append_value(entry.message);
         }
 
