@@ -36,4 +36,11 @@ pub enum Commands {
         #[arg()]
         code: String,
     },
+
+    /// Query data from the target process
+    #[command()]
+    Query {
+        #[arg()]
+        query: String,
+    },
 }

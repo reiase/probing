@@ -650,6 +650,7 @@ name = "cli"
 version = "0.1.7"
 dependencies = [
  "anyhow",
+ "arrow",
  "clap 4.5.20",
  "clap_complete",
  "dpp",
@@ -1356,8 +1357,10 @@ name = "engine"
 version = "0.1.7"
 dependencies = [
  "anyhow",
+ "arrow",
  "async-trait",
  "datafusion",
+ "futures",
  "log",
  "once_cell",
  "rmesg",
@@ -1820,9 +1823,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41296eb09f183ac68eec06e03cdbea2e759633d4067b2f6552fc2e009bcad08b"
+checksum = "df2dcfbe0677734ab2f3ffa7fa7bfd4706bfdc1ef393f2ee30184aed67e631b4"
 dependencies = [
  "bytes",
  "futures-channel",
