@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use arrow::ipc::reader::StreamReader;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use hyperparameter::*;
@@ -10,8 +11,28 @@ use dpp::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     let cmd = ron::to_string(&sig)?;
-    match ctrl.query(cmd) {
-        Ok(ret) => println!("{ret}"),
+    match ctrl.execute(cmd) {
+        Ok(ret) => {
+            let ret = String::from_utf8(ret)?;
+            println!("{ret}");
+        }
+        Err(err) => println!("{err}"),
+    }
+    Ok(())
+}
+
+pub fn query(ctrl: CtrlChannel, query: CtrlSignal) -> Result<()> {
+    let cmd = ron::to_string(&query)?;
+    match ctrl.execute(cmd) {
+        Ok(ret) => {
+            let reader = StreamReader::try_new(ret.as_slice(), None)?;
+            for batch in reader {
+                if let Ok(rb) = batch {
+                    let rbs = [rb];
+                    arrow::util::pretty::print_batches(&rbs)?;
+                }
+            }
+        }
         Err(err) => println!("{err}"),
     }
     Ok(())
@@ -73,7 +94,7 @@ impl From<CtrlChannel> for String {
 }
 
 impl CtrlChannel {
-    pub fn query(&self, cmd: String) -> Result<String> {
+    pub fn execute(&self, cmd: String) -> Result<Vec<u8>> {
         match self {
             CtrlChannel::Ptrace { pid } => {
                 send_ctrl_via_ptrace(cmd, *pid)?;
@@ -115,7 +136,7 @@ impl CtrlChannel {
     }
 }
 
-pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Result<String> {
+pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Result<Vec<u8>> {
     use hyper::body::Bytes;
     use hyper::client::conn;
     use hyper::Request;
@@ -166,9 +187,7 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
 
     let res = sender.send_request(request).await?;
 
-    let ret = res.collect().await?;
-    let ret = String::from_utf8(ret.to_bytes().to_vec())?;
-    Ok(ret)
+    Ok(res.collect().await.map(|x| x.to_bytes().to_vec())?)
 }
 
 fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {

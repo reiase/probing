@@ -28,6 +28,12 @@ pub enum CtrlSignal {
         #[arg()]
         code: String,
     },
+
+    #[command()]
+    Query {
+        #[arg()]
+        query: String,
+    }
 }
 
 #[derive(Subcommand, Serialize, Deserialize, Debug, Clone)]

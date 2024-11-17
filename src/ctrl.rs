@@ -72,7 +72,7 @@ impl StringBuilderAppend for &str {
     }
 }
 
-pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
+pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
     match ctrl {
         CtrlSignal::Nil => Ok(Default::default()),
         CtrlSignal::Dump => handle_ctrl(CtrlSignal::Backtrace(BackTraceCommand::Show {
@@ -80,11 +80,14 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<String> {
             python: true,
             tid: None,
         })),
-        CtrlSignal::Enable(feature) => enable::handle(feature),
-        CtrlSignal::Disable(feature) => disable::handle(feature),
-        CtrlSignal::Show(topic) => show::handle(topic),
-        CtrlSignal::Backtrace(bt) => backtrace::handle(bt),
-        CtrlSignal::Trace(cmd) => trace::handle(cmd),
-        CtrlSignal::Eval { code } => eval::handle(code),
+        CtrlSignal::Enable(feature) => enable::handle(feature).map(|x|x.into_bytes()),
+        CtrlSignal::Disable(feature) => disable::handle(feature).map(|x|x.into_bytes()),
+        CtrlSignal::Show(topic) => show::handle(topic).map(|x|x.into_bytes()),
+        CtrlSignal::Backtrace(bt) => backtrace::handle(bt).map(|x|x.into_bytes()),
+        CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x|x.into_bytes()),
+        CtrlSignal::Eval { code } => eval::handle(code).map(|x|x.into_bytes()),
+        CtrlSignal::Query { query } => {
+            engine::create_engine().execute(query.as_str())
+        }
     }
 }

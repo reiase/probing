@@ -56,9 +56,14 @@ impl Cli {
             }
             Some(Commands::Trace(cmd)) => ctrl::handle(ctrl, CtrlSignal::Trace(cmd.clone())),
             Some(Commands::Eval { code }) => {
-                    ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
+                ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
             }
-
+            Some(Commands::Query { query }) => ctrl::query(
+                ctrl,
+                CtrlSignal::Query {
+                    query: query.clone(),
+                },
+            ),
             None => {
                 let _ = inject::InjectCommand::default().run(ctrl.clone());
                 ReplCommand::new().run(ctrl)

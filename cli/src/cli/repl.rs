@@ -14,7 +14,7 @@ use rustyline::{
     CompletionType, Editor, Helper,
 };
 
-use super::ctrl::CtrlChannel;
+use super::ctrl::{self, CtrlChannel};
 
 pub struct Repl<C: Parser + Send + Sync + 'static> {
     editor: Editor<LineReaderHelper<C>, DefaultHistory>,
@@ -138,19 +138,23 @@ pub enum ReplLine<C> {
 pub struct ReplCommand {}
 
 impl ReplCommand {
-    pub fn new()->ReplCommand {ReplCommand {}}
+    pub fn new() -> ReplCommand {
+        ReplCommand {}
+    }
 
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
         let mut repl = Repl::<CtrlSignal>::default();
         loop {
             match repl.read_command(">>") {
-                ReplLine::Command(cmd) => {
-                    let cmd = ron::to_string(&cmd).unwrap();
-                    match ctrl.query(cmd) {
-                        Ok(ret) => println!("{ret}"),
-                        Err(err) => println!("{err}"),
-                    }
-                }
+                ReplLine::Command(cmd) => match cmd {
+                    CtrlSignal::Query { query } => ctrl::query(
+                        ctrl.clone(),
+                        CtrlSignal::Query {
+                            query: query.clone(),
+                        },
+                    )?,
+                    cmd => ctrl::handle(ctrl.clone(), cmd)?,
+                },
                 ReplLine::Empty => {}
                 ReplLine::Error(msg) => eprintln!("{}", msg),
                 ReplLine::Exit => return Ok(()),
