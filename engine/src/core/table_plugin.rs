@@ -9,7 +9,7 @@ use super::Plugin;
 use async_trait::async_trait;
 use datafusion::{arrow::array::RecordBatch, error::Result, physical_plan::memory::MemoryStream};
 use datafusion::{
-    arrow::datatypes::{DataType, Field, Schema, SchemaRef},
+    arrow::datatypes::SchemaRef,
     catalog::{Session, TableProvider},
     common::project_schema,
     datasource::TableType,
