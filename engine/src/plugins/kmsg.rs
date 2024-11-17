@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
-use datafusion::arrow::{
-    array::{GenericStringBuilder, RecordBatch, TimestampMicrosecondBuilder},
-    datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
-};
-use rmesg::{
-    self,
-    entry::{LogFacility, LogLevel},
-};
+use datafusion::arrow::array::{GenericStringBuilder, RecordBatch, TimestampMicrosecondBuilder};
+use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
+use rmesg::entry::{LogFacility, LogLevel};
+use rmesg::log_entries;
+use rmesg::Backend;
 
 use crate::core::{CustomTable, TablePlugin};
 
@@ -33,7 +30,7 @@ impl CustomTable for KMsgTable {
     }
 
     fn data() -> Vec<datafusion::arrow::array::RecordBatch> {
-        let entries = rmesg::log_entries(rmesg::Backend::KLogCtl, false).unwrap();
+        let entries = log_entries(Backend::KLogCtl, false).unwrap();
         let mut timestamp = TimestampMicrosecondBuilder::new();
         let mut facility = GenericStringBuilder::<i32>::new();
         let mut level = GenericStringBuilder::<i32>::new();
