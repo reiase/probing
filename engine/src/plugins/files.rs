@@ -3,9 +3,9 @@ use std::{any::Any, sync::Arc};
 
 use async_trait::async_trait;
 use datafusion::catalog::{CatalogProvider, SchemaProvider, TableProvider};
-use datafusion::datasource::file_format::csv::CsvFormat;
-use datafusion::datasource::listing::{
-    ListingOptions, ListingTable, ListingTableConfig, ListingTableUrl,
+use datafusion::datasource::{
+    file_format::csv::CsvFormat,
+    listing::{ListingOptions, ListingTable, ListingTableConfig, ListingTableUrl},
 };
 use datafusion::error::{DataFusionError, Result};
 use datafusion::execution::SessionState;

@@ -54,6 +54,10 @@ impl Engine {
         engine
     }
 
+    pub fn builder() -> EngineBuilder {
+        EngineBuilder::new()
+    }
+
     pub async fn sql(self, query: &str) -> Result<DataFrame> {
         self.context.sql(query).await
     }
@@ -104,5 +108,49 @@ impl Engine {
             plugin.register_table(schema.unwrap(), &state)?;
         }
         Ok(())
+    }
+}
+
+// Define the EngineBuilder struct
+pub struct EngineBuilder {
+    config: SessionConfig,
+    plugins: Vec<(String, Arc<dyn Plugin>)>,
+}
+
+impl EngineBuilder {
+    // Create a new EngineBuilder with default settings
+    pub fn new() -> Self {
+        EngineBuilder {
+            config: SessionConfig::default(),
+            plugins: Vec::new(),
+        }
+    }
+
+    // Set the default catalog and schema
+    pub fn with_default_catalog_and_schema(mut self, catalog: &str, schema: &str) -> Self {
+        self.config = self.config.with_default_catalog_and_schema(catalog, schema);
+        self
+    }
+
+    // Enable or disable the information schema
+    pub fn with_information_schema(mut self, enabled: bool) -> Self {
+        self.config = self.config.with_information_schema(enabled);
+        self
+    }
+
+    // Add a plugin to the builder
+    pub fn with_plugin(mut self, namespace: String, plugin: Arc<dyn Plugin>) -> Self {
+        self.plugins.push((namespace, plugin));
+        self
+    }
+
+    // Build the Engine with the specified configurations
+    pub fn build(self) -> Result<Engine> {
+        let context = SessionContext::new_with_config(self.config);
+        let engine = Engine { context };
+        for (namespace, plugin) in self.plugins {
+            engine.enable(namespace, plugin)?;
+        }
+        Ok(engine)
     }
 }
