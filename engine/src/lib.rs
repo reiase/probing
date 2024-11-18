@@ -7,11 +7,10 @@ use plugins::{envs::EnvPlugin, files::FilesPlugin, kmsg::KMsgPlugin};
 pub mod core;
 pub mod plugins;
 
-fn init_engine(engine: &Engine) ->Result<()> {
-    engine.enable("probe".to_string(), Arc::new(EnvPlugin::default()))?;
-    engine.enable("probe".to_string(), Arc::new(FilesPlugin::default()))?;
-    engine.enable("probe".to_string(), Arc::new(EnvPlugin::new("envs".to_string(), "process".to_string())))?;
-    engine.enable("probe".to_string(), Arc::new(KMsgPlugin::new("kmsg".to_string(), "system".to_string())))?;
+fn init_engine(engine: &Engine) -> Result<()> {
+    engine.enable("probe", Arc::new(EnvPlugin::new("envs", "process")))?;
+    engine.enable("probe", Arc::new(KMsgPlugin::new("kmsg", "system")))?;
+    engine.enable("probe", Arc::new(FilesPlugin::default()))?;
     Ok(())
 }
 

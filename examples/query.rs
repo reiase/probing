@@ -13,10 +13,9 @@ use engine::plugins::kmsg::KMsgPlugin;
 async fn main() -> Result<()> {
     let engine = Engine::new();
 
-    engine.enable("probe".to_string(), Arc::new(FilesPlugin::default()))?;
-    engine.enable("probe".to_string(), Arc::new(EnvPlugin::new("envs".to_string(), "process".to_string())))?;
-    engine.enable("probe".to_string(), Arc::new(KMsgPlugin::new("kmsg".to_string(), "system".to_string())))?;
-
+    engine.enable("probe", Arc::new(FilesPlugin::default()))?;
+    engine.enable("probe", Arc::new(EnvPlugin::new("envs", "process")))?;
+    engine.enable("probe", Arc::new(KMsgPlugin::new("kmsg", "system")))?;
 
     let query = std::env::args().collect::<Vec<_>>()[1].clone();
     let rb = engine.sql(query.as_str()).await?.collect().await?;

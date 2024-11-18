@@ -16,7 +16,6 @@ pub trait CustomTable {
     fn data() -> Vec<RecordBatch>;
 }
 
-#[derive(Default)]
 pub struct TablePlugin<T: CustomTable> {
     name: String,
     category: String,
@@ -24,11 +23,21 @@ pub struct TablePlugin<T: CustomTable> {
     data: PhantomData<T>,
 }
 
-impl<T: CustomTable> TablePlugin<T> {
-    pub fn new(name: String, category: String) -> Self {
+impl<T: CustomTable> Default for TablePlugin<T> {
+    fn default() -> Self {
         Self {
-            name,
-            category,
+            name: T::name().to_string(),
+            category: "probe".to_string(),
+            data: Default::default(),
+        }
+    }
+}
+
+impl<T: CustomTable> TablePlugin<T> {
+    pub fn new<S: Into<String>>(name: S, category: S) -> Self {
+        Self {
+            name: name.into(),
+            category: category.into(),
             data: PhantomData::<T> {},
         }
     }

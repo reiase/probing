@@ -10,7 +10,7 @@ pub struct EnvTable {}
 
 impl CustomTable for EnvTable {
     fn name() -> &'static str {
-        "envs2"
+        "envs"
     }
 
     fn schema() -> datafusion::arrow::datatypes::SchemaRef {

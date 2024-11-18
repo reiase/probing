@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use arrow::ipc::writer::{IpcWriteOptions, StreamWriter};
 use arrow::ipc::MetadataVersion;
@@ -35,10 +37,9 @@ pub trait Plugin {
     }
 }
 
-#[allow(unused)]
 pub struct Engine {
     context: SessionContext,
-    // plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
+    plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
 }
 
 impl Engine {
@@ -48,7 +49,7 @@ impl Engine {
             .with_default_catalog_and_schema("probe", "probe");
         let engine = Engine {
             context: SessionContext::new_with_config(config),
-            // plugins: Default::default(),
+            plugins: Default::default(),
         };
 
         engine
@@ -81,21 +82,23 @@ impl Engine {
         })
     }
 
-    pub fn enable(&self, catalog_name: String, plugin: Arc<dyn Plugin>) -> Result<()> {
+    pub fn enable<S: AsRef<str>>(&self, domain: S, plugin: Arc<dyn Plugin>) -> Result<()> {
         let category = plugin.category();
 
-        let catalog = if self.context.catalog_names().contains(&catalog_name) {
-            self.context.catalog(catalog_name.as_str())
+        let catalog = if let Some(catalog) = self.context.catalog(domain.as_ref()) {
+            catalog
         } else {
-            let catalog = MemoryCatalogProvider::new();
             self.context
-                .register_catalog(category.clone(), Arc::new(catalog));
-            self.context.catalog(catalog_name.as_str())
-        }
-        .unwrap();
+                .register_catalog(category.clone(), Arc::new(MemoryCatalogProvider::new()));
+            self.context.catalog(domain.as_ref()).unwrap()
+        };
+
         if plugin.kind() == PluginType::SchemaProviderPlugin {
             let state: SessionState = self.context.state();
             plugin.register_schema(catalog, &state)?;
+            if let Ok(mut maps) = self.plugins.write() {
+                maps.insert(format!("{}.{}", domain.as_ref(), category), plugin);
+            }
         } else if plugin.kind() == PluginType::TableProviderPlugin {
             let schema = if catalog.schema_names().contains(&category) {
                 catalog.schema(&category.as_str())
@@ -106,6 +109,12 @@ impl Engine {
             };
             let state: SessionState = self.context.state();
             plugin.register_table(schema.unwrap(), &state)?;
+            if let Ok(mut maps) = self.plugins.write() {
+                maps.insert(
+                    format!("{}.{}.{}", domain.as_ref(), category, plugin.name()),
+                    plugin,
+                );
+            }
         }
         Ok(())
     }
@@ -147,9 +156,12 @@ impl EngineBuilder {
     // Build the Engine with the specified configurations
     pub fn build(self) -> Result<Engine> {
         let context = SessionContext::new_with_config(self.config);
-        let engine = Engine { context };
+        let engine = Engine {
+            context,
+            plugins: Default::default(),
+        };
         for (namespace, plugin) in self.plugins {
-            engine.enable(namespace, plugin)?;
+            engine.enable(namespace.as_str(), plugin)?;
         }
         Ok(engine)
     }
