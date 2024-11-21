@@ -19,11 +19,13 @@ extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 # rust-embed = {version="8.4.0", features = ["include-flate"]}
+cli = { path = "cli" }
+dpp = { path = "dpp" }
+engine = {path = "engine"}
+
 anyhow = "1.0.86"
 backtrace = { version = "0.3.69", features = ["cpp_demangle", "std"] }
 ctor = "0.2.6"
-dpp = { path = "dpp" }
-engine = {path = "engine"}
 env_logger = { version = "0.11.3", default-features = false, features = ["humantime"] }
 http-body-util = { version = "0.1" }
 hyper = { version = "1.3.1", features = ["server", "http1"] }
