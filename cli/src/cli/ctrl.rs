@@ -7,6 +7,7 @@ use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
 
 use crate::inject::{Injector, Process};
+use crate::table::render_table;
 use dpp::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
@@ -29,7 +30,7 @@ pub fn query(ctrl: CtrlChannel, query: CtrlSignal) -> Result<()> {
             for batch in reader {
                 if let Ok(rb) = batch {
                     let rbs = [rb];
-                    arrow::util::pretty::print_batches(&rbs)?;
+                    render_table(&rbs);
                 }
             }
         }
