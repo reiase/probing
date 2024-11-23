@@ -6,6 +6,7 @@ use anyhow::Result;
 use engine::core::Engine;
 use engine::plugins::envs::EnvPlugin;
 use engine::plugins::files::FilesPlugin;
+use engine::plugins::file::FilePlugin;
 use engine::plugins::kmsg::KMsgPlugin;
 
 use cli::table::render_table;
@@ -15,6 +16,7 @@ async fn main() -> Result<()> {
     let engine = Engine::new();
 
     engine.enable("probe", Arc::new(FilesPlugin::default()))?;
+    engine.enable("probe", Arc::new(FilePlugin::new("file")))?;
     engine.enable("probe", Arc::new(EnvPlugin::new("envs", "process")))?;
     engine.enable("probe", Arc::new(KMsgPlugin::new("kmsg", "system")))?;
 
