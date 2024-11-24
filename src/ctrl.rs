@@ -1,9 +1,11 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
 use dpp::cli::{BackTraceCommand, CtrlSignal};
 
-use crate::{handlers::dump_stack, service::CALLSTACK};
+use crate::handlers::dump_stack;
+use crate::plugins::python::PythonPlugin;
+use crate::service::CALLSTACK;
 
 pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
     match cmd {
@@ -80,14 +82,16 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
             python: true,
             tid: None,
         })),
-        CtrlSignal::Enable(feature) => enable::handle(feature).map(|x|x.into_bytes()),
-        CtrlSignal::Disable(feature) => disable::handle(feature).map(|x|x.into_bytes()),
-        CtrlSignal::Show(topic) => show::handle(topic).map(|x|x.into_bytes()),
-        CtrlSignal::Backtrace(bt) => backtrace::handle(bt).map(|x|x.into_bytes()),
-        CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x|x.into_bytes()),
-        CtrlSignal::Eval { code } => eval::handle(code).map(|x|x.into_bytes()),
+        CtrlSignal::Enable(feature) => enable::handle(feature).map(|x| x.into_bytes()),
+        CtrlSignal::Disable(feature) => disable::handle(feature).map(|x| x.into_bytes()),
+        CtrlSignal::Show(topic) => show::handle(topic).map(|x| x.into_bytes()),
+        CtrlSignal::Backtrace(bt) => backtrace::handle(bt).map(|x| x.into_bytes()),
+        CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x| x.into_bytes()),
+        CtrlSignal::Eval { code } => eval::handle(code).map(|x| x.into_bytes()),
         CtrlSignal::Query { query } => {
-            engine::create_engine().execute(query.as_str())
+            let engine = engine::create_engine();
+            engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+            engine.execute(query.as_str())
         }
     }
 }

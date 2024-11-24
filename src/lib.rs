@@ -20,6 +20,7 @@ mod hooks;
 mod repl;
 mod server;
 mod service;
+mod plugins;
 
 use handlers::dump_stack2;
 use dpp::cli::CtrlSignal;
