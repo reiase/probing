@@ -652,35 +652,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
-name = "cli"
-version = "0.1.7"
-dependencies = [
- "anyhow",
- "arrow",
- "clap 4.5.20",
- "clap_complete",
- "dpp",
- "eyre",
- "http-body-util",
- "hyper",
- "hyper-util",
- "hyperparameter",
- "libloading",
- "log",
- "nix 0.29.0",
- "once_cell",
- "pete",
- "procfs",
- "ron",
- "rustyline",
- "serde_json",
- "shlex",
- "strum 0.26.3",
- "tabled",
- "tokio",
-]
-
-[[package]]
 name = "clipboard-win"
 version = "5.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3028,7 +2999,6 @@ dependencies = [
  "anyhow",
  "arrow",
  "backtrace",
- "cli",
  "ctor",
  "dpp",
  "env_logger",
@@ -3043,6 +3013,7 @@ dependencies = [
  "pin-project-lite",
  "plt-rs",
  "pprof",
+ "probing-cli",
  "probing-engine",
  "procfs",
  "pyo3",
@@ -3051,6 +3022,35 @@ dependencies = [
  "ron",
  "serde_json",
  "signal-hook-registry",
+ "tokio",
+]
+
+[[package]]
+name = "probing-cli"
+version = "0.1.7"
+dependencies = [
+ "anyhow",
+ "arrow",
+ "clap 4.5.20",
+ "clap_complete",
+ "dpp",
+ "eyre",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "hyperparameter",
+ "libloading",
+ "log",
+ "nix 0.29.0",
+ "once_cell",
+ "pete",
+ "procfs",
+ "ron",
+ "rustyline",
+ "serde_json",
+ "shlex",
+ "strum 0.26.3",
+ "tabled",
  "tokio",
 ]
 

@@ -8,7 +8,7 @@ use probing_engine::plugins::files::FilesPlugin;
 use probing_engine::plugins::file::FilePlugin;
 use probing_engine::plugins::kmsg::KMsgPlugin;
 
-use cli::table::render_table;
+use probing_cli::table::render_table;
 
 #[tokio::main]
 async fn main() -> Result<()> {

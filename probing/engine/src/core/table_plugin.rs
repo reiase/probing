@@ -102,6 +102,7 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> TableProvider
     }
 }
 
+#[allow(unused)]
 #[async_trait]
 pub trait CustomSchema: Sync + Send {
     fn name() -> &'static str;
