@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use dpp::cli::TraceCommand;
+use probing_dpp::cli::TraceCommand;
 use pyo3::{types::PyAnyMethods, Python};
 
 pub fn handle(cmd: TraceCommand) -> Result<String> {

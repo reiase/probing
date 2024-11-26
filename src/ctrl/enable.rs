@@ -1,6 +1,6 @@
 use anyhow::Result;
 use nix::libc::{SIGABRT, SIGBUS, SIGFPE, SIGSEGV};
-use dpp::cli::Features;
+use probing_dpp::cli::Features;
 
 use crate::{
     handlers::pprof_handler,

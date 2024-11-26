@@ -9,7 +9,7 @@ mod process;
 mod profiler;
 mod python;
 
-use dpp::cli::CtrlSignal;
+use probing_dpp::cli::CtrlSignal;
 use log::debug;
 pub use process::CALLSTACK;
 
