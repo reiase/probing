@@ -117,19 +117,17 @@ impl PythonSchema {
         } else if obj.is_instance_of::<PyString>() {
             let array = StringArray::from(vec![obj.extract::<String>()?]);
             columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::UInt8, true));
+            fields.push(Field::new("value", DataType::Utf8, true));
         } else {
             let array = StringArray::from(vec![obj.to_string()]);
             columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::UInt8, true));
+            fields.push(Field::new("value", DataType::Utf8, true));
         }
 
         let schema = SchemaRef::new(Schema::new(fields));
         let batches = vec![RecordBatch::try_new(schema, columns).unwrap()];
-        println!("size: {} / {}", batches[0].num_rows(), batches[0].num_columns());
+        
         Ok(batches)
-
-        // Err(anyhow::anyhow!("error converting object to recordbatch"))
     }
 
     pub fn list_to_recordbatch(&self, list: Bound<'_, PyList>) -> Result<Vec<RecordBatch>> {
