@@ -1,4 +1,4 @@
-use dpp::Object;
+use probing_dpp::Object;
 use leptos::*;
 
 use leptos_meta::Style;

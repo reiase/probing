@@ -4,7 +4,7 @@ use leptos::*;
 use leptos_struct_table::*;
 use thaw::*;
 
-use dpp::Object;
+use probing_dpp::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {
