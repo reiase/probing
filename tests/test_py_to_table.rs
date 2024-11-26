@@ -1,5 +1,6 @@
-use engine::core::DataType;
 use probing::plugins::python::PythonSchema;
+use probing_engine::core::DataType;
+use pyo3::ffi::c_str;
 use pyo3::Python;
 
 use arrow::csv::Writer;
@@ -7,7 +8,7 @@ use arrow::csv::Writer;
 #[test]
 fn test_int_to_table() {
     let rb = Python::with_gil(|py| {
-        let value = py.eval_bound("1", None, None).unwrap();
+        let value = py.eval(c_str!("1"), None, None).unwrap();
         PythonSchema::object_to_recordbatch(value).unwrap()
     });
 
@@ -21,7 +22,7 @@ fn test_int_to_table() {
 #[test]
 fn test_float_to_table() {
     let rb = Python::with_gil(|py| {
-        let value = py.eval_bound("2.0", None, None).unwrap();
+        let value = py.eval(c_str!("2.0"), None, None).unwrap();
         PythonSchema::object_to_recordbatch(value).unwrap()
     });
 
@@ -35,7 +36,7 @@ fn test_float_to_table() {
 #[test]
 fn test_string_to_table() {
     let rb = Python::with_gil(|py| {
-        let value = py.eval_bound("'str'", None, None).unwrap();
+        let value = py.eval(c_str!("'str'"), None, None).unwrap();
         PythonSchema::object_to_recordbatch(value).unwrap()
     });
 
@@ -49,7 +50,7 @@ fn test_string_to_table() {
 #[test]
 fn test_dict_to_table() {
     let rb = Python::with_gil(|py| {
-        let value = py.eval_bound("{'a':1, 'b':2}", None, None).unwrap();
+        let value = py.eval(c_str!("{'a':1, 'b':2}"), None, None).unwrap();
         PythonSchema::object_to_recordbatch(value).unwrap()
     });
 
@@ -64,7 +65,7 @@ fn test_dict_to_table() {
 #[test]
 fn test_object_to_table() {
     let rb = Python::with_gil(|py| {
-        let value = py.eval_bound("lambda x: x*2", None, None).unwrap();
+        let value = py.eval(c_str!("lambda x: x*2"), None, None).unwrap();
         PythonSchema::object_to_recordbatch(value).unwrap()
     });
 
@@ -72,5 +73,7 @@ fn test_object_to_table() {
 
     let mut buf = Vec::new();
     Writer::new(&mut buf).write(&rb[0]).unwrap();
-    assert!(String::from_utf8(buf).unwrap().starts_with("value\n<function <lambda> at "));
+    assert!(String::from_utf8(buf)
+        .unwrap()
+        .starts_with("value\n<function <lambda> at "));
 }

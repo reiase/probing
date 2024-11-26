@@ -3,17 +3,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use engine::core::ArrayRef;
-use engine::core::CustomSchema;
-use engine::core::DataType;
-use engine::core::Field;
-use engine::core::Float64Array;
-use engine::core::Int64Array;
-use engine::core::RecordBatch;
-use engine::core::Schema;
-use engine::core::SchemaPlugin;
-use engine::core::SchemaRef;
-use engine::core::StringArray;
+use probing_engine::core::{
+    ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
+    SchemaPlugin, SchemaRef, StringArray,
+};
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyDict;
 use pyo3::types::PyDictMethods;
@@ -126,7 +119,7 @@ impl PythonSchema {
 
         let schema = SchemaRef::new(Schema::new(fields));
         let batches = vec![RecordBatch::try_new(schema, columns).unwrap()];
-        
+
         Ok(batches)
     }
 

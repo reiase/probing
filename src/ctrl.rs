@@ -89,7 +89,7 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
         CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x| x.into_bytes()),
         CtrlSignal::Eval { code } => eval::handle(code).map(|x| x.into_bytes()),
         CtrlSignal::Query { query } => {
-            let engine = engine::create_engine();
+            let engine = probing_engine::create_engine();
             engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
             engine.execute(query.as_str())
         }
