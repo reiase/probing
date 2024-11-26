@@ -24,8 +24,8 @@ mod service;
 pub mod plugins;
 
 use handlers::dump_stack2;
-use dpp::cli::CtrlSignal;
-use dpp::cli::Features;
+use probing_dpp::cli::CtrlSignal;
+use probing_dpp::cli::Features;
 use repl::PythonRepl;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)

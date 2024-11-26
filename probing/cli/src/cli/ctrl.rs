@@ -8,7 +8,7 @@ use nix::{sys::signal, unistd::Pid};
 
 use crate::inject::{Injector, Process};
 use crate::table::render_table;
-use dpp::cli::CtrlSignal;
+use probing_dpp::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     let cmd = ron::to_string(&sig)?;

@@ -1,7 +1,7 @@
 use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
-use dpp::cli::{BackTraceCommand, CtrlSignal};
+use probing_dpp::cli::{BackTraceCommand, CtrlSignal};
 
 use crate::handlers::dump_stack;
 use crate::plugins::python::PythonPlugin;

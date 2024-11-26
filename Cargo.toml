@@ -20,7 +20,7 @@ extension-module = ["pyo3/extension-module"]
 [dependencies]
 # rust-embed = {version="8.4.0", features = ["include-flate"]}
 probing-cli = { path = "probing/cli" }
-dpp = { path = "dpp" }
+probing-dpp = { path = "probing/dpp" }
 probing-engine = { path = "probing/engine" }
 
 anyhow = "1.0.86"
@@ -71,7 +71,7 @@ debug = 0
 codegen-units = 1
 
 [workspace]
-members = ["app", "probing/cli", "probing/engine"]
+members = ["app", "probing/cli", "probing/dpp", "probing/engine"]
 
 [workspace.package]
 version = "0.1.7"

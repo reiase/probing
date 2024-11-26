@@ -79,7 +79,6 @@ version = "0.1.7"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
- "dpp",
  "gloo-net",
  "icondata",
  "leptos",
@@ -87,6 +86,7 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "log",
+ "probing-dpp",
  "serde",
  "serde_json",
  "thaw",
@@ -1308,14 +1308,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.85",
-]
-
-[[package]]
-name = "dpp"
-version = "0.1.7"
-dependencies = [
- "clap 4.5.20",
- "serde",
 ]
 
 [[package]]
@@ -3000,7 +2992,6 @@ dependencies = [
  "arrow",
  "backtrace",
  "ctor",
- "dpp",
  "env_logger",
  "http-body-util",
  "hyper",
@@ -3014,6 +3005,7 @@ dependencies = [
  "plt-rs",
  "pprof",
  "probing-cli",
+ "probing-dpp",
  "probing-engine",
  "procfs",
  "pyo3",
@@ -3033,7 +3025,6 @@ dependencies = [
  "arrow",
  "clap 4.5.20",
  "clap_complete",
- "dpp",
  "eyre",
  "http-body-util",
  "hyper",
@@ -3044,6 +3035,7 @@ dependencies = [
  "nix 0.29.0",
  "once_cell",
  "pete",
+ "probing-dpp",
  "procfs",
  "ron",
  "rustyline",
@@ -3052,6 +3044,14 @@ dependencies = [
  "strum 0.26.3",
  "tabled",
  "tokio",
+]
+
+[[package]]
+name = "probing-dpp"
+version = "0.1.7"
+dependencies = [
+ "clap 4.5.20",
+ "serde",
 ]
 
 [[package]]

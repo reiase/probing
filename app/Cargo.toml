@@ -36,8 +36,8 @@ default-features = false
 version = "0.6.15"
 features = ["csr"]
 
-[dependencies.dpp]
-path = "../dpp"
+[dependencies.probing-dpp]
+path = "../probing/dpp"
 features = []
 
 [dependencies.serde]

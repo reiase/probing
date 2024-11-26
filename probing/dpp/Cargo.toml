@@ -1,5 +1,5 @@
 [package]
-name = "dpp"
+name = "probing-dpp"
 description = "Distributed Probe Protocol"
 version.workspace = true
 authors.workspace = true

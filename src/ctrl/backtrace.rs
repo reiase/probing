@@ -12,7 +12,7 @@ use crate::{
     server::start_debug_server,
     service::CALLSTACK,
 };
-use dpp::cli::{BackTraceCommand, CtrlSignal};
+use probing_dpp::cli::{BackTraceCommand, CtrlSignal};
 
 pub fn handle(bt: BackTraceCommand) -> Result<String> {
     match bt {
