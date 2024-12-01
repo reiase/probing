@@ -1,14 +1,16 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_dpp::cli::CtrlSignal;
+use process_monitor::ProcessMonitor;
 use repl::ReplCommand;
 
 pub mod commands;
 pub mod ctrl;
 pub mod inject;
+pub mod process_monitor;
 pub mod repl;
 
 use crate::cli::ctrl::CtrlChannel;
+use probing_dpp::cli::CtrlSignal as Signal;
 use commands::Commands;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
@@ -24,7 +26,7 @@ pub struct Cli {
 
     /// target process, PID (e.g., 1234) or `Name` (e.g., "chrome.exe") for local process, and <ip>:<port> for remote process
     #[arg()]
-    target: String,
+    target: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -32,48 +34,43 @@ pub struct Cli {
 
 impl Cli {
     pub fn run(&self) -> Result<()> {
-        let ctrl: CtrlChannel = self.target.as_str().try_into()?;
+        let target = self.target.clone().unwrap_or("0".to_string());
+        let ctrl: CtrlChannel = target.as_str().try_into()?;
 
         self.execute_command(ctrl)
     }
 
     fn execute_command(&self, ctrl: CtrlChannel) -> Result<()> {
-        match &self.command {
-            Some(Commands::Inject(cmd)) => cmd.run(ctrl),
-            // Some(Commands::Debug(cmd)) => cmd.run(ctrl),
-            // Some(Commands::Performance(cmd)) => cmd.run(ctrl),
-            Some(Commands::Repl(cmd)) => cmd.run(ctrl),
+        if self.command.is_none() {
+            inject::InjectCommand::default().run(ctrl.clone())?;
+            ReplCommand::new().run(ctrl)?;
+            return Ok(());
+        }
+        let command = self.command.as_ref().unwrap();
+        match command {
+            Commands::Inject(cmd) => cmd.run(ctrl),
+            Commands::Repl(cmd) => cmd.run(ctrl),
 
-            Some(Commands::Enable(feature)) => {
-                ctrl::handle(ctrl, CtrlSignal::Enable(feature.clone()))
-            }
-            Some(Commands::Disable(feature)) => {
-                ctrl::handle(ctrl, CtrlSignal::Disable(feature.clone()))
-            }
-            Some(Commands::Show(topic)) => ctrl::handle(ctrl, CtrlSignal::Show(topic.clone())),
-            Some(Commands::Backtrace(cmd)) => {
-                ctrl::handle(ctrl, CtrlSignal::Backtrace(cmd.clone()))
-            }
-            Some(Commands::Trace(cmd)) => ctrl::handle(ctrl, CtrlSignal::Trace(cmd.clone())),
-            Some(Commands::Eval { code }) => {
-                ctrl::handle(ctrl, CtrlSignal::Eval { code: code.clone() })
-            }
-            Some(Commands::Query { query }) => ctrl::query(
+            Commands::Enable(feature) => ctrl::handle(ctrl, Signal::Enable(feature.clone())),
+            Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
+            Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),
+            Commands::Backtrace(cmd) => ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
+            Commands::Trace(cmd) => ctrl::handle(ctrl, Signal::Trace(cmd.clone())),
+            Commands::Eval { code } => ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
+
+            Commands::Query { query } => ctrl::query(
                 ctrl,
-                CtrlSignal::Query {
+                Signal::Query {
                     query: query.clone(),
                 },
             ),
-            None => {
-                let _ = inject::InjectCommand::default().run(ctrl.clone());
-                ReplCommand::new().run(ctrl)
+            Commands::Launch { recursive, args } => {
+                ProcessMonitor::new(args, *recursive)?.monitor()
             }
         }
     }
 }
 
 pub fn run() -> Result<()> {
-    let cli: Cli = Cli::parse();
-
-    cli.run()
+    Cli::parse().run()
 }

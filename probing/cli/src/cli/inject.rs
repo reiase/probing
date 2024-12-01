@@ -1,11 +1,9 @@
-use anyhow::Result;
+use anyhow::{anyhow, Error, Result};
 use clap::Args;
-use probing_dpp::cli::{CtrlSignal, Features};
-use std::fs;
 
+use crate::cli::ctrl::CtrlChannel;
 use crate::inject::{Injector, Process};
-
-use super::ctrl::CtrlChannel;
+use probing_dpp::cli::{CtrlSignal, Features};
 
 /// Inject into the target process
 #[derive(Args, Default, Debug)]
@@ -21,73 +19,73 @@ pub struct InjectCommand {
     /// listen for remote connection (e.g., 127.0.0.1:8080)
     #[arg(short = 'l', long, name = "address")]
     listen: Option<String>,
-
-    /// execute a script (e.g., /path/to/script.py)
-    #[arg(short = 'e', long, name = "script")]
-    execute: Option<String>,
 }
 
 impl InjectCommand {
-    fn has_probing(&self, pid: i32) -> bool {
-        let target = procfs::process::Process::new(pid).unwrap();
-        let maps = target.maps().unwrap();
-        maps.iter()
-            .map(|m| match &m.pathname {
-                procfs::process::MMapPath::Path(p) => p.to_string_lossy().to_string(),
-                _ => "".to_string(),
-            })
-            .any(|p| p.ends_with("libprobing.so") || p.ends_with("probing.abi3.so"))
+    fn check_library(&self, pid: i32, lib_name: &str) -> Result<bool> {
+        Ok(procfs::process::Process::new(pid)?.maps()?.iter().any(|m| {
+            matches!(&m.pathname,
+                procfs::process::MMapPath::Path(p) if p
+                    .file_name()
+                    .map(|n| n.to_string_lossy().contains(lib_name))
+                    .unwrap_or(false)
+            )
+        }))
     }
 
-    fn parse_flags(&self) -> String {
-        let mut cmds = vec![];
-        if self.pprof {
-            cmds.push(CtrlSignal::Enable(Features::Pprof));
+    fn wait_for_library(&self, pid: i32, lib_name: &str) -> Result<()> {
+        for _ in 0..5 {
+            if self.check_library(pid, lib_name)? {
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
-        if self.crash {
-            cmds.push(CtrlSignal::Enable(Features::CatchCrash { address: None }));
-        }
-        if let Some(address) = &self.listen {
-            cmds.push(CtrlSignal::Enable(Features::Remote {
+        Err(anyhow!("Library {} not found in target process", lib_name))
+    }
+
+    fn build_command_string(&self) -> Result<String> {
+        let cmds = vec![
+            self.pprof.then(|| Features::Pprof),
+            self.crash.then(|| Features::CatchCrash {
+                address: self.listen.clone(),
+            }),
+            self.listen.as_ref().map(|address| Features::Remote {
                 address: Some(address.clone()),
-            }));
+            }),
+        ]
+        .iter()
+        .flatten()
+        .map(|x| CtrlSignal::Enable(x.clone()))
+        .collect::<Vec<_>>();
+
+        if cmds.is_empty() {
+            return Err(anyhow!("No commands to inject"));
         }
-        if let Some(script) = &self.execute {
-            cmds.push(CtrlSignal::Eval {
-                code: script.clone(),
-            })
-        }
-        ron::to_string(&cmds).unwrap()
+        Ok(ron::to_string(&cmds)?)
+    }
+
+    fn inject(&self, pid: i32) -> Result<()> {
+        let soname = std::fs::read_link("/proc/self/exe")?.with_file_name("libprobing.so");
+        let cmd = self.build_command_string().ok();
+
+        println!("Injecting {} into {}", soname.display(), pid);
+        Injector::attach(Process::get(pid as u32).map_err(Error::msg)?)
+            .map_err(Error::msg)?
+            .inject(&soname, cmd.as_deref())
+            .map_err(|e| anyhow!("Failed to inject probing: {}", e))
     }
 
     pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
-        let cmd = self.parse_flags();
-        let soname =
-            fs::read_link("/proc/self/exe").map(|path| path.with_file_name("libprobing.so"))?;
-
-        let has_probing = match ctrl {
-            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => self.has_probing(pid),
-            _ => false,
-        };
-        if has_probing {
-            ctrl.signal(cmd)
-        } else {
-            match ctrl {
-                CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
-                    let process = Process::get(pid as u32).unwrap();
-                    println!(
-                        "Injecting {} into process {pid} with arguments `{cmd}`",
-                        soname.to_str().unwrap(),
-                    );
-                    Injector::attach(process)
-                        .unwrap()
-                        .inject(&soname, Some(cmd.as_str()))
-                        .map_err(|err| {
-                            anyhow::anyhow!("failed to inject probing to {}: {}", pid, err)
-                        })
+        match ctrl {
+            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
+                if !self.check_library(pid, "libprobing.so")? {
+                    self.wait_for_library(pid, "python")?;
+                    self.inject(pid)
+                } else {
+                    ctrl.signal(self.build_command_string()?)
                 }
-                _ => anyhow::bail!("can not inject into remote process via tcp connection"),
             }
+            _ => Ok(()),
         }
     }
 }

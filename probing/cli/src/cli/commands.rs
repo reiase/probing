@@ -43,4 +43,13 @@ pub enum Commands {
         #[arg()]
         query: String,
     },
+
+    #[command()]
+    Launch {
+        #[arg(short, long)]
+        recursive: bool,
+
+        #[arg()]
+        args: Vec<String>,
+    },
 }

@@ -44,6 +44,7 @@ pub enum CtrlChannel {
     Ptrace { pid: i32 },
     Local { pid: i32 },
     Remote { addr: String },
+    Launch { cmd: String },
 }
 
 impl TryFrom<&str> for CtrlChannel {
@@ -90,6 +91,7 @@ impl From<CtrlChannel> for String {
         match val {
             CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => format! {"{pid}"},
             CtrlChannel::Remote { addr } => addr,
+            CtrlChannel::Launch { cmd } => cmd,
         }
     }
 }
@@ -171,6 +173,7 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
             });
             sender
         }
+        _ => todo!(),
     };
     let request = if let Some(body) = body {
         Request::builder()
