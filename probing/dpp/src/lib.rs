@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod cli;
+pub mod protocol;
+
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Process {
     pub pid: i32,

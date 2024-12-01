@@ -39,9 +39,9 @@ impl ProcessMonitor {
     }
 
     pub fn monitor(&mut self) -> Result<()> {
-        self.inject(self.child.id() as i32)?;
-
         if !self.recursive {
+            self.inject(self.child.id() as i32)?;
+
             return self.child.wait().map_err(Error::msg).map(|_| ());
         }
 

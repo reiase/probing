@@ -80,6 +80,11 @@ pub fn render_table(data: &[RecordBatch]) {
                     table.put((row + i, col), value.unwrap_or_default().to_string());
                 });
             }
+            if let Some(array) = field.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                array.iter().enumerate().for_each(|(i, value)| {
+                    table.put((row + i, col), value.unwrap_or_default().to_string());
+                });
+            }
             if let Some(array) = field.as_any().downcast_ref::<arrow::array::Int64Array>() {
                 array.iter().enumerate().for_each(|(i, value)| {
                     table.put((row + i, col), value.unwrap_or_default().to_string());

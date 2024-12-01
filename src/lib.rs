@@ -2,12 +2,14 @@
 #[macro_use]
 extern crate ctor;
 
+use anyhow::Result;
 use std::{env, ffi::c_int, str::FromStr as _};
 
 use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
 use log::debug;
 use log::error;
+use nix::libc;
 use nix::libc::SIGUSR1;
 use nix::libc::SIGUSR2;
 use pyo3::prelude::*;
@@ -27,6 +29,8 @@ use handlers::dump_stack2;
 use probing_dpp::cli::CtrlSignal;
 use probing_dpp::cli::Features;
 use repl::PythonRepl;
+use server::remote_server;
+use server::report::start_report_worker;
 
 fn register_signal_handler<F>(sig: c_int, handler: F)
 where
@@ -40,9 +44,31 @@ fn sigusr1_handler() {
     ctrl_handler_string(cmdstr);
 }
 
+pub fn get_hostname() -> Result<String> {
+    let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
+    let size = libc::c_long::max(limit, 256) as usize;
+
+    // Reserve additional space for terminating nul byte.
+    let mut buffer = vec![0u8; size + 1];
+
+    #[allow(trivial_casts)]
+    let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
+
+    if result != 0 {
+        return Err(anyhow::anyhow!("gethostname failed"));
+    }
+
+    let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
+
+    Ok(hostname.to_str()?.to_string())
+}
+
 #[ctor]
 fn setup() {
-    eprintln!("Initializing libprobing ...");
+    eprintln!(
+        "Initializing libprobing for process {} ...",
+        std::process::id()
+    );
     env_logger::init_from_env(Env::new().filter("PROBING_LOG"));
 
     let argstr = env::var("PROBING_ARGS").unwrap_or("[]".to_string());
@@ -57,6 +83,27 @@ fn setup() {
         ctrl_handler(cmd).unwrap();
     }
     local_server::start::<PythonRepl>();
+
+    if let Ok(port) = std::env::var("PROBING_PORT") {
+        let local_rank = std::env::var("LOCAL_RANK")
+            .unwrap_or("0".to_string())
+            .parse()
+            .unwrap_or(0);
+        let hostname = if std::env::var("RANK").unwrap_or("0".to_string()) == "0" {
+            "0.0.0.0".to_string()
+        } else {
+            get_hostname().unwrap_or("localhost".to_string())
+        };
+
+        let address = format!("{}:{}", hostname, port.parse().unwrap_or(9700) + local_rank);
+        println!(
+            "Starting remote server for process {} at {}",
+            std::process::id(),
+            address
+        );
+        remote_server::start::<PythonRepl>(Some(address));
+        start_report_worker();
+    }
 }
 
 #[dtor]

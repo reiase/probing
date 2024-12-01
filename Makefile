@@ -36,7 +36,7 @@ ${data_scripts_dir}:
 
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing
 ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
-	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package cli
+	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probing-cli
 	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${data_scripts_dir}
 

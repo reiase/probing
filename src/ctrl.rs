@@ -2,6 +2,7 @@ use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
 use probing_dpp::cli::{BackTraceCommand, CtrlSignal};
+use probing_engine::plugins::cluster::ClusterPlugin;
 
 use crate::handlers::dump_stack;
 use crate::plugins::python::PythonPlugin;
@@ -91,6 +92,7 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
         CtrlSignal::Query { query } => {
             let engine = probing_engine::create_engine();
             engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+            engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
             engine.execute(query.as_str())
         }
     }

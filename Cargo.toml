@@ -1,3 +1,12 @@
+[workspace]
+members = ["app", "probing/cli", "probing/dpp", "probing/engine"]
+
+[workspace.package]
+version = "0.1.7"
+authors = ["reiase <reiase@gmail.com>"]
+edition = "2021"
+license = "GPL3"
+
 [package]
 name = "probing"
 version.workspace = true
@@ -50,6 +59,8 @@ qstring = "0.7.2"
 ron = "0.8.1"
 serde_json = "1.0.117"
 signal-hook-registry = "1.4.2"
+reqwest = { version = "0.12", features = ["json"] }
+dns-lookup = "2.0.4"
 
 [dependencies.tokio]
 version = "1.35.1"
@@ -67,14 +78,4 @@ opt-level = "z"   # Optimize for size.
 panic = "unwind"
 strip = true      # Automatically strip symbols from the binary.
 lto = "fat"
-debug = 0
 codegen-units = 1
-
-[workspace]
-members = ["app", "probing/cli", "probing/dpp", "probing/engine"]
-
-[workspace.package]
-version = "0.1.7"
-authors = ["reiase <reiase@gmail.com>"]
-edition = "2021"
-license = "GPL3"
