@@ -7,6 +7,7 @@ use arrow::array::{ArrayRef, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use crate::core::CustomTable;
+use crate::core::TablePlugin;
 
 #[derive(Default, Debug)]
 pub struct ClusterTable {}
@@ -57,3 +58,5 @@ impl CustomTable for ClusterTable {
         }
     }
 }
+
+pub type ClusterPlugin = TablePlugin<ClusterTable>;
