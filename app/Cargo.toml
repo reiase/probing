@@ -6,8 +6,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
 console_error_panic_hook = "0.1.7"
-serde_json = "1.0.117"
 thaw = {version="0.3.4", features=["csr"]}
 thiserror = "1.0.56"
 icondata = { version = "0.4.0", default-features = false, features = [
@@ -16,7 +19,6 @@ icondata = { version = "0.4.0", default-features = false, features = [
     "lucide",
 ] }
 console_log = "1"
-log = "0.4"
 leptos-struct-table = "0.13.1"
 
 [dependencies.gloo-net]
@@ -39,10 +41,6 @@ features = ["csr"]
 [dependencies.probing-dpp]
 path = "../probing/dpp"
 features = []
-
-[dependencies.serde]
-version = "1"
-features = ["derive"]
 
 [features]
 debug = []
