@@ -33,7 +33,22 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let listener = TcpListener::bind(self.self_addr.as_ref().unwrap()).await?;
+        let listener = if let Some((host, port)) = self.self_addr.as_ref().unwrap().split_once(":")
+        {
+            let addr = dns_lookup::lookup_host(host).map_err(|e| {
+                println!("resolve {} failed: {}", host, e);
+                e
+            })?;
+            let addr = addr
+                .iter()
+                .filter(|ipaddr| ipaddr.is_ipv4())
+                .collect::<Vec<_>>();
+            let addr = format!("{}:{}", addr[0], port);
+            println!("resolve {} to {}", self.self_addr.as_ref().unwrap(), addr);
+            TcpListener::bind(addr).await?
+        } else {
+            TcpListener::bind(self.self_addr.as_ref().unwrap()).await?
+        };
         if let Ok(addr) = listener.local_addr() {
             use Color::{Green, Red};
 

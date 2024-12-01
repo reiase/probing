@@ -9,8 +9,8 @@ mod process;
 mod profiler;
 mod python;
 
-use probing_dpp::cli::CtrlSignal;
 use log::debug;
+use probing_dpp::cli::CtrlSignal;
 pub use process::CALLSTACK;
 
 use crate::ctrl::{ctrl_handler_string, handle_ctrl};
@@ -59,12 +59,13 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             }
         }
 
-        (&Method::GET, "/") | (&Method::GET, "/activity")| (&Method::GET, "/inspect") | (&Method::GET, "/index.html") => {
-            Ok(Response::builder()
-                .header("Content-Type", "text/html")
-                .body(Full::new(asset::get("/index.html")))
-                .unwrap())
-        }
+        (&Method::GET, "/")
+        | (&Method::GET, "/activity")
+        | (&Method::GET, "/inspect")
+        | (&Method::GET, "/index.html") => Ok(Response::builder()
+            .header("Content-Type", "text/html")
+            .body(Full::new(asset::get("/index.html")))
+            .unwrap()),
 
         (&Method::GET, "/apis/overview") => {
             let resp = process::overview();
@@ -88,6 +89,28 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             let resp = profiler::flamegraph();
             let resp = Full::new(Bytes::from(resp));
             Ok(Response::builder().body(resp).unwrap())
+        }
+
+        (&Method::PUT, "/apis/nodes") => {
+            use probing_engine::plugins::cluster::service::update_node;
+            if let Ok(whole_body) = String::from_utf8(req.collect().await?.to_bytes().to_vec()) {
+                ron::from_str(whole_body.as_str()).map(|nodes| {
+                    update_node(nodes);
+                })?;
+            }
+            Ok(Default::default())
+        }
+
+        (&Method::GET, "/apis/nodes") => {
+            use probing_engine::plugins::cluster::service::get_nodes;
+
+            let nodes = get_nodes();
+            if let Ok(ret) = ron::to_string(&nodes) {
+                let resp = Full::new(Bytes::from(ret));
+                Ok(Response::builder().body(resp).unwrap())
+            } else {
+                Ok(Default::default())
+            }
         }
 
         (&Method::GET, filename) if asset::contains(filename) => {

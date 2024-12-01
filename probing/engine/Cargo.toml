@@ -9,6 +9,8 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+probing-dpp = { path = "../dpp" }
+
 anyhow = "1.0.86"
 arrow = {version="53.2", default-features = false}
 async-trait = "0.1.83"
