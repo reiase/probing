@@ -1,4 +1,8 @@
+use std::os::fd::AsFd;
+use std::time::{Duration, SystemTime};
+
 use arrow::array::RecordBatch;
+use chrono::{DateTime, Utc};
 use tabled::builder::Builder;
 use tabled::grid::{
     config::Position,
@@ -75,6 +79,22 @@ pub fn render_table(data: &[RecordBatch]) {
         }
         for col in 0..ncol {
             let field = batch.column(col);
+            if let Some(array) = field
+                .as_any()
+                .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
+            {
+                array.iter().enumerate().for_each(|(i, value)| {
+                    let datetime_str = value.map_or_else(
+                        || String::new(),
+                        |v| {
+                            let datetime: DateTime<Utc> =
+                                (SystemTime::UNIX_EPOCH + Duration::from_micros(v as u64)).into();
+                            datetime.to_rfc3339()
+                        },
+                    );
+                    table.put((row + i, col), datetime_str);
+                });
+            }
             if let Some(array) = field.as_any().downcast_ref::<arrow::array::StringArray>() {
                 array.iter().enumerate().for_each(|(i, value)| {
                     table.put((row + i, col), value.unwrap_or_default().to_string());
@@ -103,5 +123,37 @@ pub fn render_table(data: &[RecordBatch]) {
         }
         row += batch.num_rows();
     }
-    println!("{}", table.draw(80).unwrap());
+    println!(
+        "{}",
+        table.draw(terminal_width().unwrap_or(80) as usize).unwrap()
+    );
+}
+
+fn terminal_width() -> Option<u32> {
+    if let Some(width) = terminal_size_of(std::io::stdout()) {
+        Some(width)
+    } else if let Some(width) = terminal_size_of(std::io::stderr()) {
+        Some(width)
+    } else if let Some(width) = terminal_size_of(std::io::stdin()) {
+        Some(width)
+    } else {
+        None
+    }
+}
+
+fn terminal_size_of<Fd: AsFd>(fd: Fd) -> Option<u32> {
+    use rustix::termios::{isatty, tcgetwinsize};
+
+    if !isatty(&fd) {
+        return None;
+    }
+
+    let winsize = tcgetwinsize(&fd).ok()?;
+    let cols = winsize.ws_col;
+
+    if cols > 0 {
+        Some(cols as u32)
+    } else {
+        None
+    }
 }

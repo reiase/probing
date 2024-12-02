@@ -1,5 +1,6 @@
 pub mod service;
 
+use arrow::datatypes::TimeUnit;
 use service::extract_array;
 use service::get_nodes;
 
@@ -32,6 +33,7 @@ impl CustomTable for ClusterTable {
             Field::new("role_rank", DataType::Int32, true),
             Field::new("role_world_size", DataType::Int32, true),
             Field::new("status", DataType::Utf8, true),
+            Field::new("timestamp", DataType::Timestamp(TimeUnit::Microsecond, None), false),
         ]))
     }
 
@@ -41,15 +43,16 @@ impl CustomTable for ClusterTable {
 
         fields.push(extract_array(&nodes, |n| n.host.clone()));
         fields.push(extract_array(&nodes, |n| n.addr.clone()));
-        fields.push(extract_array(&nodes, |n| n.local_rank.clone()));
-        fields.push(extract_array(&nodes, |n| n.rank.clone()));
-        fields.push(extract_array(&nodes, |n| n.world_size.clone()));
-        fields.push(extract_array(&nodes, |n| n.group_rank.clone()));
-        fields.push(extract_array(&nodes, |n| n.group_world_size.clone()));
+        fields.push(extract_array(&nodes, |n| n.local_rank));
+        fields.push(extract_array(&nodes, |n| n.rank));
+        fields.push(extract_array(&nodes, |n| n.world_size));
+        fields.push(extract_array(&nodes, |n| n.group_rank));
+        fields.push(extract_array(&nodes, |n| n.group_world_size));
         fields.push(extract_array(&nodes, |n| n.role_name.clone()));
-        fields.push(extract_array(&nodes, |n| n.role_rank.clone()));
-        fields.push(extract_array(&nodes, |n| n.role_world_size.clone()));
+        fields.push(extract_array(&nodes, |n| n.role_rank));
+        fields.push(extract_array(&nodes, |n| n.role_world_size));
         fields.push(extract_array(&nodes, |n| n.status.clone()));
+        fields.push(extract_array(&nodes, |n| std::time::Duration::from_micros(n.timestamp as u64)));
 
         if let Ok(batches) = RecordBatch::try_new(Self::schema(), fields) {
             vec![batches]

@@ -1,6 +1,6 @@
 use std::sync::{Arc, LazyLock, RwLock};
 
-use arrow::array::{ArrayRef, Int32Array, StringArray};
+use arrow::array::{ArrayRef, Int32Array, StringArray, TimestampMicrosecondArray};
 use probing_dpp::protocol::cluster;
 
 pub trait IntoArrow {
@@ -16,17 +16,26 @@ impl IntoArrow for String {
     }
 }
 
-// Implementation for String
 impl IntoArrow for Option<String> {
     fn into_arrow_array(values: Vec<Self>) -> ArrayRef {
         Arc::new(StringArray::from(values))
     }
 }
 
-// Implementation for i32
 impl IntoArrow for Option<i32> {
     fn into_arrow_array(values: Vec<Self>) -> ArrayRef {
         Arc::new(Int32Array::from(values))
+    }
+}
+
+impl IntoArrow for std::time::Duration {
+    fn into_arrow_array(values: Vec<Self>) -> ArrayRef {
+        Arc::new(TimestampMicrosecondArray::from(
+            values
+                .iter()
+                .map(|v| Some(v.as_micros() as i64))
+                .collect::<Vec<_>>(),
+        ))
     }
 }
 
@@ -43,6 +52,11 @@ pub static CLUSTER: LazyLock<RwLock<cluster::Cluster>> =
     LazyLock::new(|| RwLock::new(cluster::Cluster::default()));
 
 pub fn update_node(node: cluster::Node) {
+    let mut node = node.clone();
+    node.timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_micros() as u64;
     CLUSTER.write().unwrap().put(node);
 }
 

@@ -94,8 +94,8 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
         (&Method::PUT, "/apis/nodes") => {
             use probing_engine::plugins::cluster::service::update_node;
             if let Ok(whole_body) = String::from_utf8(req.collect().await?.to_bytes().to_vec()) {
-                ron::from_str(whole_body.as_str()).map(|nodes| {
-                    update_node(nodes);
+                ron::from_str(whole_body.as_str()).map(|node| {
+                    update_node(node);
                 })?;
             }
             Ok(Default::default())

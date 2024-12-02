@@ -37,6 +37,7 @@ async fn report_worker() {
                 role_rank: get_i32_env("ROLE_RANK"),
                 role_world_size: get_i32_env("ROLE_WORLD_SIZE"),
                 status: Some("running".to_string()),
+                timestamp: 0,
             };
 
             if let Err(err) = reqwest::Client::new()

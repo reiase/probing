@@ -21,6 +21,7 @@ pub struct Node {
     pub role_world_size: Option<i32>,
 
     pub status: Option<String>,
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
