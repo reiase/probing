@@ -120,6 +120,7 @@ checksum = "c042108f3ed77fd83760a5fd79b53be043192bb3b9dba91d8c574c0ada7850c8"
 name = "app"
 version = "0.1.7"
 dependencies = [
+ "chrono",
  "console_error_panic_hook",
  "console_log",
  "gloo-net",

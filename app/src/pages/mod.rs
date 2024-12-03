@@ -1,8 +1,9 @@
 pub mod activity;
+pub mod cluster;
+pub mod overview;
+pub mod python;
+// pub mod profiler;
 // pub mod debug;
 // pub mod files;
-pub mod overview;
-// pub mod profiler;
-pub mod python;
 
 mod common;

@@ -60,6 +60,8 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
         }
 
         (&Method::GET, "/")
+        | (&Method::GET, "/cluster")
+        | (&Method::GET, "/overview")
         | (&Method::GET, "/activity")
         | (&Method::GET, "/inspect")
         | (&Method::GET, "/index.html") => Ok(Response::builder()
@@ -94,7 +96,7 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
         (&Method::PUT, "/apis/nodes") => {
             use probing_engine::plugins::cluster::service::update_node;
             if let Ok(whole_body) = String::from_utf8(req.collect().await?.to_bytes().to_vec()) {
-                ron::from_str(whole_body.as_str()).map(|node| {
+                serde_json::from_str(whole_body.as_str()).map(|node| {
                     update_node(node);
                 })?;
             }
@@ -105,7 +107,7 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             use probing_engine::plugins::cluster::service::get_nodes;
 
             let nodes = get_nodes();
-            if let Ok(ret) = ron::to_string(&nodes) {
+            if let Ok(ret) = serde_json::to_string(&nodes) {
                 let resp = Full::new(Bytes::from(ret));
                 Ok(Response::builder().body(resp).unwrap())
             } else {

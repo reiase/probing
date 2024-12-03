@@ -64,6 +64,12 @@ pub fn HeaderBar() -> impl IntoView {
                 </Button>
                 <Button
                     variant=ButtonVariant::Text
+                    on_click=move |_| use_navigate()("/cluster", Default::default())
+                >
+                    "Cluster"
+                </Button>
+                <Button
+                    variant=ButtonVariant::Text
                     on_click=move |_| use_navigate()("/activity", Default::default())
                 >
                     "Activity"

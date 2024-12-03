@@ -4,7 +4,7 @@ use leptos_router::*;
 use thaw::*;
 
 
-use crate::pages::{activity::Activity, overview::Overview, python::Python};
+use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -43,6 +43,7 @@ fn TheRouter(is_routing: RwSignal<bool>) -> impl IntoView {
     view! {
         <Routes>
             <Route path="/" view=Overview/>
+            <Route path="/cluster" view=Cluster/>
             <Route path="/activity" view=Activity/>
             <Route path="/activity/:tid" view=Activity/>
             // <Route path="/debug" view=|| view! { <DebugView/> }/>

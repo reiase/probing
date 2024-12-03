@@ -23,8 +23,15 @@ async fn report_worker() {
         {
             let report_addr = format!("http://{}:{}/apis/nodes", master_addr, probing_port);
             let hostname = get_hostname().unwrap_or("localhost".to_string());
-            let local_rank = std::env::var("LOCAL_RANK").unwrap_or("0".to_string()).parse().unwrap_or(0);
-            let address = format!("{}:{}", hostname, probing_port.parse().unwrap_or(9700)+local_rank);
+            let local_rank = std::env::var("LOCAL_RANK")
+                .unwrap_or("0".to_string())
+                .parse()
+                .unwrap_or(0);
+            let address = format!(
+                "{}:{}",
+                hostname,
+                probing_port.parse().unwrap_or(9700) + local_rank
+            );
             let node = Node {
                 host: hostname.clone(),
                 addr: address,
@@ -42,7 +49,7 @@ async fn report_worker() {
 
             if let Err(err) = reqwest::Client::new()
                 .put(&report_addr)
-                .body(ron::to_string(&node).unwrap())
+                .body(serde_json::to_string(&node).unwrap())
                 .send()
                 .await
             {
