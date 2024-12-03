@@ -1,0 +1,10 @@
+[package]
+name = "probing-vars"
+description = "variables for probing"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }

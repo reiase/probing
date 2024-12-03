@@ -26,20 +26,20 @@ pub struct Node {
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Cluster {
-    pub nodes: HashMap<String, Node>,
+    pub nodes: HashMap<i32, Node>,
 }
 
 impl Cluster {
     pub fn put(&mut self, node: Node) {
-        self.nodes.insert(node.addr.clone(), node);
+        self.nodes.insert(node.rank.unwrap_or(-1), node);
     }
 
-    pub fn get(&self, addr: &str) -> Option<&Node> {
-        self.nodes.get(addr)
+    pub fn get(&self, rank: i32) -> Option<&Node> {
+        self.nodes.get(&rank)
     }
 
-    pub fn remove(&mut self, addr: &str) -> Option<Node> {
-        self.nodes.remove(addr)
+    pub fn remove(&mut self, rank: i32) -> Option<Node> {
+        self.nodes.remove(&rank)
     }
 
     pub fn list(&self) -> Vec<Node> {

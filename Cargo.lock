@@ -3284,6 +3284,7 @@ dependencies = [
  "probing-cli",
  "probing-dpp",
  "probing-engine",
+ "probing-vars",
  "procfs",
  "pyo3",
  "pyo3-build-config",
@@ -3353,6 +3354,13 @@ dependencies = [
  "ron",
  "tokio",
  "use",
+]
+
+[[package]]
+name = "probing-vars"
+version = "0.1.7"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

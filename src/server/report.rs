@@ -4,6 +4,8 @@ use probing_dpp::protocol::cluster::Node;
 
 use crate::get_hostname;
 
+use super::vars::PROBING_ADDRESS;
+
 pub fn start_report_worker() {
     thread::spawn(|| {
         tokio::runtime::Builder::new_multi_thread()
@@ -27,11 +29,18 @@ async fn report_worker() {
                 .unwrap_or("0".to_string())
                 .parse()
                 .unwrap_or(0);
-            let address = format!(
+            let mut address = format!(
                 "{}:{}",
                 hostname,
                 probing_port.parse().unwrap_or(9700) + local_rank
             );
+            {
+                let probing_address = PROBING_ADDRESS.read().unwrap();
+                let probing_address: String = (*probing_address).clone();
+                if !probing_address.is_empty() {
+                    address = probing_address;
+                }
+            }
             let node = Node {
                 host: hostname.clone(),
                 addr: address,

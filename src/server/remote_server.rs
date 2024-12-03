@@ -6,7 +6,7 @@ use nu_ansi_term::Color;
 use tokio::net::{TcpListener, TcpStream};
 
 use super::stream_handler::StreamHandler;
-use crate::repl::Repl;
+use crate::{repl::Repl, server::vars::PROBING_ADDRESS};
 
 pub struct AsyncServer<T> {
     self_addr: Option<String>,
@@ -54,6 +54,10 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
 
             eprintln!("{}", Red.bold().paint("probing server is available on:"));
             eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+            {
+                let mut probing_address = PROBING_ADDRESS.write().unwrap();
+                *probing_address = addr.to_string();
+            }
             Some(addr.to_string())
         } else {
             None
