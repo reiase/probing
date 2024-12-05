@@ -55,7 +55,7 @@ pub fn HeaderBar() -> impl IntoView {
         </Style>
         <LayoutHeader class="header-bar">
             <Space on:click=move |_| navigate_signal.get()("/", Default::default())>
-                <img src="/logo.png" style="width: 36px"/>
+                <img src="/logo.png" style="width: 36px" />
                 <div class="header-name">"Probing"</div>
             </Space>
             <Space class="header-bar-right" align=SpaceAlign::Center>

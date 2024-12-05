@@ -7,31 +7,12 @@ use thaw::*;
 
 use probing_dpp::protocol::cluster::Node;
 
-use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
+use crate::components::{header_bar::HeaderBar, panel::Panel};
+use crate::url_read::url_read_resource;
 
 #[component]
 pub fn Cluster() -> impl IntoView {
     let resp = url_read_resource::<Vec<Node>>("/apis/nodes");
-
-    let cluster_info = move || {
-        view! {
-            <Suspense fallback=move || {
-                view! { <p>"Loading..."</p> }
-            }>
-                {move || Suspend::new(async move {
-                    resp.await
-                        .map(|nodes| {
-                            let nnodes = nodes.len();
-                            view! {
-                                <b>"Number of Nodes"</b>
-                                <span>{nnodes.to_string()}</span>
-                            }
-                        })
-                })}
-
-            </Suspense>
-        }
-    };
 
     let node_info = move || {
         view! {
@@ -51,22 +32,34 @@ pub fn Cluster() -> impl IntoView {
                                     let timestamp = datetime.to_rfc3339();
                                     let url = format!("http://{}", node.addr);
                                     view! {
-                                        <tr>
-                                            <td>{node.host.to_string()}</td>
-                                            <td>
+                                        <TableRow>
+                                            <TableCell>{node.host.to_string()}</TableCell>
+                                            <TableCell>
                                                 <a href=url>{node.addr.to_string()}</a>
-                                            </td>
-                                            <td>{node.local_rank.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.rank.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.world_size.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.group_rank.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.group_world_size.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.role_name}</td>
-                                            <td>{node.role_rank.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.role_world_size.unwrap_or(-1).to_string()}</td>
-                                            <td>{node.status}</td>
-                                            <td>{timestamp}</td>
-                                        </tr>
+                                            </TableCell>
+                                            <TableCell>
+                                                {node.local_rank.unwrap_or(-1).to_string()}
+                                            </TableCell>
+                                            <TableCell>{node.rank.unwrap_or(-1).to_string()}</TableCell>
+                                            <TableCell>
+                                                {node.world_size.unwrap_or(-1).to_string()}
+                                            </TableCell>
+                                            <TableCell>
+                                                {node.group_rank.unwrap_or(-1).to_string()}
+                                            </TableCell>
+                                            <TableCell>
+                                                {node.group_world_size.unwrap_or(-1).to_string()}
+                                            </TableCell>
+                                            <TableCell>{node.role_name}</TableCell>
+                                            <TableCell>
+                                                {node.role_rank.unwrap_or(-1).to_string()}
+                                            </TableCell>
+                                            <TableCell>
+                                                {node.role_world_size.unwrap_or(-1).to_string()}
+                                            </TableCell>
+                                            <TableCell>{node.status}</TableCell>
+                                            <TableCell>{timestamp}</TableCell>
+                                        </TableRow>
                                     }
                                 })
                                 .collect::<Vec<_>>()
@@ -92,37 +85,32 @@ pub fn Cluster() -> impl IntoView {
             }
             "
         </Style>
-        <HeaderBar/>
+        <HeaderBar />
         <Layout
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
         >
-            // <Space align=SpaceAlign::Center vertical=true class="doc-content">
-            <Card>
-                <CardHeader>{cluster_info}</CardHeader>
-                <CardPreview>
-                    <Table>
-                        <thead>
-                            <tr>
-                                <th>host</th>
-                                <th>address</th>
-                                <th>local_rank</th>
-                                <th>rank</th>
-                                <th>world_size</th>
-                                <th>group_rank</th>
-                                <th>group_world_size</th>
-                                <th>role_name</th>
-                                <th>role_rank</th>
-                                <th>role_world_size</th>
-                                <th>status</th>
-                                <th>timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody>{node_info}</tbody>
-                    </Table>
-                </CardPreview>
-            </Card>
-        // </Space>
+            <Panel title="Nodes">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHeaderCell>host</TableHeaderCell>
+                            <TableHeaderCell>address</TableHeaderCell>
+                            <TableHeaderCell>local_rank</TableHeaderCell>
+                            <TableHeaderCell>rank</TableHeaderCell>
+                            <TableHeaderCell>world_size</TableHeaderCell>
+                            <TableHeaderCell>group_rank</TableHeaderCell>
+                            <TableHeaderCell>group_world_size</TableHeaderCell>
+                            <TableHeaderCell>role_name</TableHeaderCell>
+                            <TableHeaderCell>role_rank</TableHeaderCell>
+                            <TableHeaderCell>role_world_size</TableHeaderCell>
+                            <TableHeaderCell>status</TableHeaderCell>
+                            <TableHeaderCell>timestamp</TableHeaderCell>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>{node_info}</TableBody>
+                </Table>
+            </Panel>
         </Layout>
     }
 }

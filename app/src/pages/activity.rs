@@ -20,15 +20,21 @@ pub fn Activity() -> impl IntoView {
 
     let callstacks = url_read_resource::<Vec<CallStack>>(url.as_str());
 
-    let callstacks = move || view!{
+    let callstacks = move || view! {
         <Suspense fallback=move || {
             view! { <p>"Loading..."</p> }
         }>
             {move || Suspend::new(async move {
-                callstacks.await.unwrap_or(Default::default()).iter().map(|callstack| {
-                    view! { <CallStackView callstack=callstack.clone()/> }
-                }).collect::<Vec<_>>()
+                callstacks
+                    .await
+                    .unwrap_or(Default::default())
+                    .iter()
+                    .map(|callstack| {
+                        view! { <CallStackView callstack=callstack.clone() /> }
+                    })
+                    .collect::<Vec<_>>()
             })}
+
         </Suspense>
     };
 
@@ -47,7 +53,7 @@ pub fn Activity() -> impl IntoView {
             }
             "
         </Style>
-        <HeaderBar/>
+        <HeaderBar />
         <Layout
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
@@ -92,7 +98,7 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
                 // <Icon icon=icondata::BiFileRegular/>
                 // </Button>
                 </span>
-                <VariablesList variables=locals/>
+                <VariablesList variables=locals />
             </AccordionItem>
         }
     }

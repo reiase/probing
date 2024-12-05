@@ -1,7 +1,6 @@
 use leptos::{prelude::*, reactive::wrappers::write::SignalSetter};
 use leptos_meta::provide_meta_context;
 use leptos_router::components::{Route, Router, Routes};
-use leptos_router::hooks::use_query_map;
 use leptos_router::path;
 use thaw::*;
 
@@ -15,7 +14,7 @@ pub fn App() -> impl IntoView {
         <ConfigProvider>
             <ToasterProvider>
                 <LoadingBarProvider>
-                    <TheRouter/>
+                    <TheRouter />
                 </LoadingBarProvider>
             </ToasterProvider>
         </ConfigProvider>
@@ -45,42 +44,15 @@ fn TheRouter() -> impl IntoView {
     view! {
         <Router set_is_routing>
             <Routes fallback=|| "404">
-                <Route path=path!("/") view=Overview/>
-                <Route path=path!("/cluster") view=Cluster/>
-                <Route path=path!("/activity") view=Activity/>
-                <Route path=path!("/activity/:tid") view=Activity/>
+                <Route path=path!("/") view=Overview />
+                <Route path=path!("/cluster") view=Cluster />
+                <Route path=path!("/activity") view=Activity />
+                <Route path=path!("/activity/:tid") view=Activity />
                 // <Route path="/debug" view=|| view! { <DebugView/> }/>
                 // <Route path="/profiler" view=|| view! { <Profiler/> }/>
-                <Route path=path!("/inspect") view=|| view! { <Python/> }/>
+                <Route path=path!("/inspect") view=|| view! { <Python /> } />
             // <Route path="/files" view=|| view! { <Files/> }/>
             </Routes>
         </Router>
     }
 }
-
-// #[component]
-// fn TheProvider(children: Children) -> impl IntoView {
-//     fn use_query_value(key: &str) -> Option<String> {
-//         let query_map = use_query_map();
-//         query_map.with_untracked(|query| query.get(key).cloned())
-//     }
-//     let theme = use_query_value("theme").map_or_else(Theme::light, |name| {
-//         if name == "light" {
-//             Theme::light()
-//         } else if name == "dark" {
-//             Theme::dark()
-//         } else {
-//             Theme::light()
-//         }
-//     });
-//     let theme = RwSignal::new(theme);
-
-//     view! {
-//         <ThemeProvider theme>
-//             <GlobalStyle/>
-//             <MessageProvider>
-//                 <LoadingBarProvider>{children()}</LoadingBarProvider>
-//             </MessageProvider>
-//         </ThemeProvider>
-//     }
-// }
