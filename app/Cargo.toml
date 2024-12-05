@@ -12,7 +12,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 console_error_panic_hook = "0.1.7"
-thaw = {version="0.3.4", features=["csr"]}
+thaw = { version="=0.4.0-beta5", features=["csr"]}
 thiserror = "1.0.56"
 icondata = { version = "0.4.0", default-features = false, features = [
     "ant-design-icons",
@@ -20,24 +20,23 @@ icondata = { version = "0.4.0", default-features = false, features = [
     "lucide",
 ] }
 console_log = "1"
-leptos-struct-table = "0.13.1"
 
 [dependencies.gloo-net]
 version = "0.6.0"
 features = ["http"]
 
 [dependencies.leptos]
-version = "0.6.15"
+version = "0.7.0"
 features = ["csr"]
 
 [dependencies.leptos_meta]
-version = "0.6.15"
-features = ["csr"]
+version = "0.7.0"
+# features = ["csr"]
 default-features = false
 
 [dependencies.leptos_router]
-version = "0.6.15"
-features = ["csr"]
+version = "0.7.0"
+# features = ["csr"]
 
 [dependencies.probing-dpp]
 path = "../probing/dpp"

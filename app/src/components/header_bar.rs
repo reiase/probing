@@ -1,12 +1,15 @@
-use leptos::*;
+use hooks::use_navigate;
+use leptos::prelude::*;
 use leptos_meta::Style;
 use leptos_router::*;
 use thaw::*;
 
 #[component]
 pub fn HeaderBar() -> impl IntoView {
-    let theme = use_rw_theme();
-    let theme_name = create_memo(move |_| {
+    let navigate = use_navigate();
+    let navigate_signal = RwSignal::new(use_navigate());
+    let theme = Theme::use_rw_theme();
+    let theme_name = Memo::new(move |_| {
         theme.with(|theme| {
             if theme.name == *"light" {
                 "Dark".to_string()
@@ -15,16 +18,16 @@ pub fn HeaderBar() -> impl IntoView {
             }
         })
     });
-    let change_theme = Callback::new(move |_| {
+    let change_theme = move |_| {
         if theme_name.get_untracked() == "Light" {
             theme.set(Theme::light());
         } else {
             theme.set(Theme::dark());
         }
-    });
-    let style = create_memo(move |_| {
-        theme.with(|theme| format!("border-bottom: 1px solid {}", theme.common.border_color))
-    });
+    };
+    // let style = Memo::new(move |_| {
+    //     theme.with(|theme| format!("border-bottom: 1px solid {}", theme.common.border_color))
+    // });
     view! {
         <Style id="header-bar">
             "
@@ -50,47 +53,43 @@ pub fn HeaderBar() -> impl IntoView {
             }
             "
         </Style>
-        <LayoutHeader class="header-bar" style>
-            <Space on:click=move |_| use_navigate()("/", Default::default())>
+        <LayoutHeader class="header-bar">
+            <Space on:click=move |_| navigate_signal.get()("/", Default::default())>
                 <img src="/logo.png" style="width: 36px"/>
                 <div class="header-name">"Probing"</div>
             </Space>
             <Space class="header-bar-right" align=SpaceAlign::Center>
                 <Button
-                    variant=ButtonVariant::Text
-                    on_click=move |_| use_navigate()("/", Default::default())
+                    appearance=ButtonAppearance::Transparent
+                    on_click=move |_| navigate_signal.get()("/", Default::default())
                 >
                     "Overview"
                 </Button>
                 <Button
-                    variant=ButtonVariant::Text
-                    on_click=move |_| use_navigate()("/cluster", Default::default())
+                    appearance=ButtonAppearance::Transparent
+                    on_click=move |_| navigate_signal.get()("/cluster", Default::default())
                 >
                     "Cluster"
                 </Button>
                 <Button
-                    variant=ButtonVariant::Text
-                    on_click=move |_| use_navigate()("/activity", Default::default())
+                    appearance=ButtonAppearance::Transparent
+                    on_click=move |_| navigate_signal.get()("/activity", Default::default())
                 >
                     "Activity"
                 </Button>
                 <Button
-                    variant=ButtonVariant::Text
-                    on_click=move |_| use_navigate()("/inspect", Default::default())
+                    appearance=ButtonAppearance::Transparent
+                    on_click=move |_| navigate_signal.get()("/inspect", Default::default())
                 >
                     "Inspect"
                 </Button>
-                <Button
-                    color=ButtonColor::Primary
-                    on_click=Callback::new(move |_| change_theme.call(()))
-                >
+                <Button appearance=ButtonAppearance::Primary on_click=change_theme>
                     {move || theme_name.get()}
                 </Button>
                 <Button
-                    variant=ButtonVariant::Text
+                    appearance=ButtonAppearance::Transparent
                     icon=icondata::AiGithubOutlined
-                    round=true
-                    style="font-size: 22px; padding: 0px 6px;"
+                    // style="font-size: 22px; padding: 0px 6px;"
                     on_click=move |_| {
                         _ = window().open_with_url("http://github.com/reiase/probing");
                     }

@@ -1,7 +1,7 @@
 use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::Style;
 use thaw::*;
 
@@ -14,54 +14,67 @@ pub fn Cluster() -> impl IntoView {
     let resp = url_read_resource::<Vec<Node>>("/apis/nodes");
 
     let cluster_info = move || {
-        resp.and_then(|nodes| {
-            let nnodes = nodes.len();
-            view! {
-                <Table>
-                    <tbody>
-                        <tr>
-                            <td>"Number of Nodes"</td>
-                            <td>{nnodes.to_string()}</td>
-                        </tr>
-                    </tbody>
-                </Table>
-            }
-        })
+        view! {
+            <Suspense fallback=move || {
+                view! { <p>"Loading..."</p> }
+            }>
+                {move || Suspend::new(async move {
+                    resp.await
+                        .map(|nodes| {
+                            let nnodes = nodes.len();
+                            view! {
+                                <b>"Number of Nodes"</b>
+                                <span>{nnodes.to_string()}</span>
+                            }
+                        })
+                })}
+
+            </Suspense>
+        }
     };
 
     let node_info = move || {
-        resp.and_then(|nodes| {
-            nodes
-                .iter()
-                .map(|node| {
-                    let node = node.clone();
-                    logging::log!("node: {:?}", node);
-                    let datetime: DateTime<Utc> = (SystemTime::UNIX_EPOCH
-                        + Duration::from_micros(node.timestamp as u64))
-                    .into();
-                    let timestamp = datetime.to_rfc3339();
-                    let url = format!("http://{}", node.addr);
-                    view! {
-                        <tr>
-                            <td>{node.host.to_string()}</td>
-                            <td>
-                                <a href=url>{node.addr.to_string()}</a>
-                            </td>
-                            <td>{node.local_rank.unwrap_or(-1).to_string()}</td>
-                            <td>{node.rank.unwrap_or(-1).to_string()}</td>
-                            <td>{node.world_size.unwrap_or(-1).to_string()}</td>
-                            <td>{node.group_rank.unwrap_or(-1).to_string()}</td>
-                            <td>{node.group_world_size.unwrap_or(-1).to_string()}</td>
-                            <td>{node.role_name}</td>
-                            <td>{node.role_rank.unwrap_or(-1).to_string()}</td>
-                            <td>{node.role_world_size.unwrap_or(-1).to_string()}</td>
-                            <td>{node.status}</td>
-                            <td>{timestamp}</td>
-                        </tr>
-                    }
-                })
-                .collect::<Vec<_>>()
-        })
+        view! {
+            <Suspense fallback=move || {
+                view! { <p>"Loading..."</p> }
+            }>
+                {move || Suspend::new(async move {
+                    resp.await
+                        .map(|nodes| {
+                            nodes
+                                .iter()
+                                .map(|node| {
+                                    let node = node.clone();
+                                    let datetime: DateTime<Utc> = (SystemTime::UNIX_EPOCH
+                                        + Duration::from_micros(node.timestamp as u64))
+                                        .into();
+                                    let timestamp = datetime.to_rfc3339();
+                                    let url = format!("http://{}", node.addr);
+                                    view! {
+                                        <tr>
+                                            <td>{node.host.to_string()}</td>
+                                            <td>
+                                                <a href=url>{node.addr.to_string()}</a>
+                                            </td>
+                                            <td>{node.local_rank.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.rank.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.world_size.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.group_rank.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.group_world_size.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.role_name}</td>
+                                            <td>{node.role_rank.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.role_world_size.unwrap_or(-1).to_string()}</td>
+                                            <td>{node.status}</td>
+                                            <td>{timestamp}</td>
+                                        </tr>
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                })}
+
+            </Suspense>
+        }
     };
 
     view! {
@@ -84,9 +97,10 @@ pub fn Cluster() -> impl IntoView {
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
         >
-            <Space align=SpaceAlign::Center vertical=true class="doc-content">
-                <Card title="Cluster Information">{cluster_info}</Card>
-                <Card title="Nodes Information">
+            // <Space align=SpaceAlign::Center vertical=true class="doc-content">
+            <Card>
+                <CardHeader>{cluster_info}</CardHeader>
+                <CardPreview>
                     <Table>
                         <thead>
                             <tr>
@@ -106,8 +120,9 @@ pub fn Cluster() -> impl IntoView {
                         </thead>
                         <tbody>{node_info}</tbody>
                     </Table>
-                </Card>
-            </Space>
+                </CardPreview>
+            </Card>
+        // </Space>
         </Layout>
     }
 }

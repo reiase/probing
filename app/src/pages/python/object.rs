@@ -6,21 +6,13 @@ use probing_dpp::Object;
 use serde_json;
 
 use crate::pages::common::ObjectKind;
-use crate::pages::common::ObjectView;
 
 #[component]
 pub fn ObjectList(
     #[prop(into)] text: Option<String>,
     #[prop(into)] kind: ObjectKind,
 ) -> impl IntoView {
-    let header = view! {
-        <tr>
-            <td min_width=true>"#"</td>
-            <td>"Class"</td>
-            <td>"Value"</td>
-        </tr>
-    };
-    let body: Vec<_> = text
+    let rows: Vec<_> = text
         .map(|text| serde_json::from_str::<Vec<Object>>(text.as_str()).unwrap_or_default())
         .unwrap_or_default()
         .iter()
@@ -29,21 +21,29 @@ pub fn ObjectList(
             let class = obj.class.clone();
             let obj = obj.clone();
             view! {
-                <tr>
-                    <td>{id}</td>
-                    <td>{class}</td>
-                    <td>
+                <TableRow>
+                    <TableCell>{id}</TableCell>
+                    <TableCell>{class}</TableCell>
+                    <TableCell>
                         // <ObjectView obj=obj kind=kind/>
                         "123"
-                    </td>
-                </tr>
+                    </TableCell>
+                </TableRow>
             }
         })
         .collect();
     view! {
         <Table>
-            <thead>{header}</thead>
-            <tbody>{body}</tbody>
+            <TableHeader>
+                <TableRow>
+                    <TableHeaderCell resizable=true min_width=10.0 max_width=40.0>
+                        "#"
+                    </TableHeaderCell>
+                    <TableHeaderCell resizable=true>"Class"</TableHeaderCell>
+                    <TableHeaderCell>"Value"</TableHeaderCell>
+                </TableRow>
+            </TableHeader>
+            <TableBody>{rows}</TableBody>
         </Table>
     }
 }

@@ -1,6 +1,6 @@
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::Style;
-use leptos_router::use_params_map;
+use leptos_router::hooks::use_params_map;
 use thaw::*;
 
 use probing_dpp::CallStack;
@@ -20,18 +20,16 @@ pub fn Activity() -> impl IntoView {
 
     let callstacks = url_read_resource::<Vec<CallStack>>(url.as_str());
 
-    let callstacks = move || {
-        callstacks
-            .and_then(|callstacks| {
-                callstacks
-                    .iter()
-                    .map(|callstack| {
-                        view! { <CallStackView callstack=callstack.clone()/> }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .map(|x| x.ok())
-            .flatten()
+    let callstacks = move || view!{
+        <Suspense fallback=move || {
+            view! { <p>"Loading..."</p> }
+        }>
+            {move || Suspend::new(async move {
+                callstacks.await.unwrap_or(Default::default()).iter().map(|callstack| {
+                    view! { <CallStackView callstack=callstack.clone()/> }
+                }).collect::<Vec<_>>()
+            })}
+        </Suspense>
     };
 
     view! {
@@ -56,7 +54,7 @@ pub fn Activity() -> impl IntoView {
         >
             <Space align=SpaceAlign::Center vertical=true class="doc-content">
                 <h3>"Call Stacks"</h3>
-                <Collapse>{callstacks}</Collapse>
+                <Accordion multiple=true>{callstacks}</Accordion>
             </Space>
         </Layout>
     }
@@ -66,9 +64,10 @@ pub fn Activity() -> impl IntoView {
 fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
     if let Some(cstack) = callstack.cstack {
         view! {
-            <CollapseItem title="C/C++ Call Stack" key="C/C++">
+            <AccordionItem value="C/C++">
+                <AccordionHeader slot>"C/C++ Call Stack"</AccordionHeader>
                 <pre>{cstack}</pre>
-            </CollapseItem>
+            </AccordionItem>
         }
     } else {
         let file = callstack.file.clone();
@@ -79,7 +78,8 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
         // let route_url = format!("/files?path={}", file);
         let key = format!("{func} @ {file}: {lineno}");
         view! {
-            <CollapseItem title=key.clone() key=key>
+            <AccordionItem value=key.clone()>
+                <AccordionHeader slot>{key.clone()}</AccordionHeader>
                 <b>"local:"</b>
                 <span style="padding: 5px">
                     {func} "@" <a href=url target="_blank">
@@ -93,7 +93,7 @@ fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
                 // </Button>
                 </span>
                 <VariablesList variables=locals/>
-            </CollapseItem>
+            </AccordionItem>
         }
     }
 }
