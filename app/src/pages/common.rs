@@ -128,6 +128,7 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Object>) -> impl IntoView {
     }
 }
 
+
 // #[component]
 // pub fn ModuleView(#[prop(into)] obj: Object) -> impl IntoView {
 //     let id = obj.id;
