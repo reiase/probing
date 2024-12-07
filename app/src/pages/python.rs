@@ -1,5 +1,5 @@
 use probing_dpp::Object;
-use leptos::*;
+use leptos::prelude::*;
 
 use leptos_meta::Style;
 use thaw::*;
@@ -29,16 +29,25 @@ pub fn SelectedObjectList(
         path.to_string()
     };
     let objects = url_read_resource::<Vec<Object>>(path.as_str());
-    let objects = move || {
-        objects.and_then(|objs| objs.clone()).map(|x| x.ok()).flatten().map(|objects| {
-            view! {
-                <Space>
-                    <ObjectList objects/>
-                </Space>
-            }
-        }).unwrap_or(view! { <Space>"no python objects"</Space> })
-    };
-    view! { {objects} }
+    view! {
+        <Suspense fallback=move || {
+            view! { <p>"Loading..."</p> }
+        }>
+            {move || Suspend::new(async move {
+                objects
+                    .await
+                    .map(|objects| {
+                        view! {
+                            <Flex>
+                                <ObjectList objects />
+                            </Flex>
+                        }
+                    })
+                    .unwrap_or(view! { <Flex>"no python objects"</Flex> })
+            })}
+
+        </Suspense>
+    }
 }
 
 #[component]
@@ -61,46 +70,45 @@ pub fn Python() -> impl IntoView {
             }
             "
         </Style>
-        <HeaderBar/>
+        <HeaderBar />
         <Layout
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
         >
             <h3>Object Inspection</h3>
 
-            <Space align=SpaceAlign::Center>
-                <span>"limits: "</span>
-                <Select
-                    value=limits
-                    options=vec![
-                        SelectOption::new("10", 10),
-                        SelectOption::new("100", 100),
-                        SelectOption::new("1000", 1000),
-                        SelectOption::new("ALL", -1),
-                    ]
-                >
+        // <Flex align=SpaceAlign::Center>
+        // <span>"limits: "</span>
+        // <Select
+        // value=limits
+        // options=vec![
+        // SelectOption::new("10", 10),
+        // SelectOption::new("100", 100),
+        // SelectOption::new("1000", 1000),
+        // SelectOption::new("ALL", -1),
+        // ]
+        // >
 
-                    <SelectLabel slot>"limits:"</SelectLabel>
-                </Select>
-            </Space>
-            <Tabs value=selected>
-                <Tab key="Python" label="Python">
-                    <div style="width: 100%">
-                        <SelectedObjectList selected="Python".to_string() limits/>
-                    </div>
-                </Tab>
-                <Tab key="Tensor" label="Tensor">
-                    <div style="width: 100%">
-                        <SelectedObjectList selected="Tensor".to_string() limits/>
-                    </div>
-                </Tab>
-                <Tab key="Module" label="Module">
-                    <div style="width: 100%">
-                        <SelectedObjectList selected="Module".to_string() limits/>
-                    </div>
-                </Tab>
-            </Tabs>
-
+        // <SelectLabel slot>"limits:"</SelectLabel>
+        // </Select>
+        // </Flex>
+        // <TabList selected_value=selected>
+        // <Tab value="Python" label="Python">
+        // <div style="width: 100%">
+        // <SelectedObjectList selected="Python".to_string() limits/>
+        // </div>
+        // </Tab>
+        // <Tab key="Tensor" label="Tensor">
+        // <div style="width: 100%">
+        // <SelectedObjectList selected="Tensor".to_string() limits/>
+        // </div>
+        // </Tab>
+        // <Tab key="Module" label="Module">
+        // <div style="width: 100%">
+        // <SelectedObjectList selected="Module".to_string() limits/>
+        // </div>
+        // </Tab>
+        // </TabList>
         </Layout>
     }
 }
@@ -116,13 +124,13 @@ fn ObjectSelector(
     };
     if selected.eq(target) {
         view! {
-            <Button on_click color=ButtonColor::Primary>
+            <Button on_click appearance=ButtonAppearance::Primary>
                 {target}
             </Button>
         }
     } else {
         view! {
-            <Button on_click color=ButtonColor::Success>
+            <Button on_click appearance=ButtonAppearance::Secondary>
                 {target}
             </Button>
         }

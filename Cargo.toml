@@ -4,7 +4,6 @@ members = [
     "probing/cli",
     "probing/dpp",
     "probing/engine",
-    "probing/vars",
 ]
 
 [workspace.package]
@@ -55,7 +54,6 @@ extension-module = ["pyo3/extension-module"]
 probing-cli = { path = "probing/cli" }
 probing-dpp = { path = "probing/dpp" }
 probing-engine = { path = "probing/engine" }
-probing-vars = { path = "probing/vars" }
 
 anyhow = { workspace = true }
 log = { workspace = true }

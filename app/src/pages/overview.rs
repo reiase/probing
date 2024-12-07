@@ -1,128 +1,91 @@
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::Style;
-use leptos_router::use_navigate;
 use thaw::*;
 
+use probing_dpp::protocol::dataframe::Table;
 use probing_dpp::Process;
 
-use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
+use crate::components::header_bar::HeaderBar;
+use crate::components::panel::Panel;
+use crate::components::tableview::TableView;
+use crate::url_read::url_read_resource;
 
 #[component]
 pub fn Overview() -> impl IntoView {
     let resp = url_read_resource::<Process>("/apis/overview");
 
-    let process_info = move || {
-        resp.and_then(|process| {
-            let process = process.clone();
-            view! {
-                <Space>
-                    <Table>
-                        <tbody>
-                            <tr>
-                                <td>"Process ID(pid)"</td>
-                                <td>{process.pid.to_string()}</td>
-                            </tr>
-                            <tr>
-                                <td>"Executable Path(exe)"</td>
-                                <td>{process.exe.to_string()}</td>
-                            </tr>
-                            <tr>
-                                <td>"Command Line(cmd)"</td>
-                                <td>{process.cmd.to_string()}</td>
-                            </tr>
-                            <tr>
-                                <td>"Current Working Dirctory(cwd)"</td>
-                                <td>{process.cwd.to_string()}</td>
-                            </tr>
-                        </tbody>
-                    </Table>
-
-                </Space>
-            }
-        })
-        .map(|x| x.ok())
-        .flatten()
-        .unwrap_or(view! {
-            <Space>
-                <span>"no process information"</span>
-            </Space>
-        })
+    let process_info = view! {
+        <Suspense fallback=move || {
+            view! { <p>"Loading..."</p> }
+        }>
+            {move || Suspend::new(async move {
+                let process = resp.await.unwrap_or_default();
+                let tbl = Table::new(
+                    vec!["name", "value"],
+                    vec![
+                        vec!["Process ID(pid)".to_string(), process.pid.to_string()],
+                        vec!["Executable Path(exe)".to_string(), process.exe.to_string()],
+                        vec!["Command Line(cmd)".to_string(), process.cmd.to_string()],
+                        vec!["Current Working Dirctory(cwd)".to_string(), process.cwd.to_string()],
+                    ],
+                );
+                view! { <TableView tbl /> }
+            })}
+        </Suspense>
     };
 
-    let thread_info = move || {
-        resp.and_then(|process| {
-            let threads = process
-                .threads
-                .iter()
-                .map(|t| {
-                    let tid = *t;
-                    let url = format!("/activity/{}", tid);
+    let thread_info = view! {
+        <Suspense fallback=move || {
+            view! { <p>"Loading..."</p> }
+        }>
+            {move || Suspend::new(async move {
+                resp.await
+                    .map(|process| {
+                        let threads = process
+                            .threads
+                            .iter()
+                            .map(|t| {
+                                let tid = *t;
+                                let url = format!("/activity/{}", tid);
+                                view! { <Link href=url>{tid}</Link> }
+                            })
+                            .collect::<Vec<_>>();
+                        view! { <Flex>{threads}</Flex> }
+                    })
+                    .unwrap_or(
+                        view! {
+                            <Flex>
+                                <span>{"no threads found"}</span>
+                            </Flex>
+                        },
+                    )
+            })}
 
-                    if tid == process.main_thread {
-                        view! {
-                            <Button
-                                color=ButtonColor::Primary
-                                style="margin: 5px"
-                                on_click=move |_| use_navigate()(url.as_str(), Default::default())
-                            >
-                                {tid}
-                            </Button>
-                        }
-                    } else {
-                        view! {
-                            <Button
-                                color=ButtonColor::Success
-                                style="margin: 5px"
-                                on_click=move |_| use_navigate()(url.as_str(), Default::default())
-                            >
-                                {tid}
-                            </Button>
-                        }
-                    }
-                })
-                .collect::<Vec<_>>();
-            view! { <Space>{threads}</Space> }
-        })
-        .map(|x| x.ok())
-        .flatten()
-        .unwrap_or(view! {
-            <Space>
-                <span>{"no threads found"}</span>
-            </Space>
-        })
+        </Suspense>
     };
 
-    let environments = move || {
-        resp.and_then(|process| {
-            let envs: Vec<_> = process
-                .env
-                .split_terminator('\n')
-                .filter_map(|kv| {
-                    if let Some((name, value)) = kv.split_once('=') {
-                        Some(view! {
-                            <li>
-                                <b>{name.to_string()} " :"</b>
-                                {value.to_string()}
-                            </li>
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            view! {
-                <Space>
-                    <ul>{envs}</ul>
-                </Space>
-            }
-        })
-        .map(|x| x.ok())
-        .flatten()
-        .unwrap_or(view! {
-            <Space>
-                <span>"no environment variables"</span>
-            </Space>
-        })
+    let environments = view! {
+        <Suspense fallback=move || {
+            view! { <p>"Loading..."</p> }
+        }>
+            {move || Suspend::new(async move {
+                let process = resp.await.unwrap_or_default();
+                let names = vec!["name", "value"];
+                let rows = process
+                    .env
+                    .split('\n')
+                    .map(|kv| {
+                        if let Some((name, value)) = kv.split_once('=') {
+                            vec![name.to_string(), value.to_string()]
+                        } else {
+                            vec!["".to_string(), kv.to_string()]
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                view! { <TableView tbl=Table::new(names, rows) /> }
+            })}
+        </Suspense>
     };
 
     view! {
@@ -140,18 +103,16 @@ pub fn Overview() -> impl IntoView {
             }
             "
         </Style>
-        <HeaderBar/>
+        <HeaderBar />
         <Layout
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
         >
-            <Space align=SpaceAlign::Center vertical=true class="doc-content">
-                <Card title="Process Information">{process_info}</Card>
-                <Card title="Threads">
-                    {thread_info} <CardFooter slot>"click to show thread call stack"</CardFooter>
-                </Card>
-                <Card title="Environment Variables">{environments}</Card>
-            </Space>
+            // <Flex align=FlexAlign::Center vertical=true class="doc-content">
+            <Panel title="Process Information">{process_info}</Panel>
+            <Panel title="Threads Information">{thread_info}</Panel>
+            <Panel title="Environment Variables">{environments}</Panel>
+        // </Flex>
         </Layout>
     }
 }

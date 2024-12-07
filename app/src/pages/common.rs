@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use leptos::*;
-use leptos_struct_table::*;
+use leptos::prelude::*;
 use thaw::*;
 
 use probing_dpp::Object;
@@ -13,13 +12,14 @@ pub enum ObjectKind {
     Module,
 }
 
-#[derive(TableRow, Clone)]
-#[table(impl_vec_data_provider)]
+#[derive(Clone)]
 pub struct VariableView {
     id: u64,
     name: String,
     value: String,
 }
+
+
 
 #[component]
 pub fn VariablesList(#[prop(into)] variables: HashMap<String, Object>) -> impl IntoView {
@@ -32,17 +32,39 @@ pub fn VariablesList(#[prop(into)] variables: HashMap<String, Object>) -> impl I
                 Some(v) => v.clone(),
                 None => "None".to_string(),
             },
+        }).map(|v|{
+            view! {
+                <TableRow>
+                    <TableCell>
+                        <TableCellLayout truncate=true>{v.id}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout truncate=true>{v.name}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout>{v.value}</TableCellLayout>
+                    </TableCell>
+                </TableRow>
+            }
         })
         .collect::<Vec<_>>();
     view! {
-        <table>
-            <TableContent rows/>
-        </table>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHeaderCell resizable=true min_width=10.0 max_width=40.0>
+                        "#"
+                    </TableHeaderCell>
+                    <TableHeaderCell resizable=true>"Name"</TableHeaderCell>
+                    <TableHeaderCell>"Value"</TableHeaderCell>
+                </TableRow>
+            </TableHeader>
+            <TableBody>{rows}</TableBody>
+        </Table>
     }
 }
 
-#[derive(TableRow, Clone)]
-#[table(impl_vec_data_provider)]
+#[derive(Clone)]
 pub struct ObjectView {
     pub id: u64,
     pub class: String,
@@ -63,15 +85,49 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Object>) -> impl IntoView {
             dtype: obj.dtype.clone(),
             device: obj.device.clone(),
             value: obj.value.clone(),
+        }).map(|v| view! {
+            <TableRow>
+                <TableCell>
+                    <TableCellLayout truncate=true>{v.id}</TableCellLayout>
+                </TableCell>
+                <TableCell>
+                    <TableCellLayout truncate=true>{v.class}</TableCellLayout>
+                </TableCell>
+                <TableCell>
+                    <TableCellLayout>{v.shape}</TableCellLayout>
+                </TableCell>
+                <TableCell>
+                    <TableCellLayout>{v.dtype}</TableCellLayout>
+                </TableCell>
+                <TableCell>
+                    <TableCellLayout>{v.device}</TableCellLayout>
+                </TableCell>
+                <TableCell>
+                    <TableCellLayout>{v.value}</TableCellLayout>
+                </TableCell>
+            </TableRow>
         })
         .collect::<Vec<_>>();
 
     view! {
         <Table>
-            <TableContent rows/>
+            <TableHeader>
+                <TableRow>
+                    <TableHeaderCell resizable=true min_width=10.0 max_width=40.0>
+                        "#"
+                    </TableHeaderCell>
+                    <TableHeaderCell resizable=true>"class"</TableHeaderCell>
+                    <TableHeaderCell>"shape"</TableHeaderCell>
+                    <TableHeaderCell>"dtype"</TableHeaderCell>
+                    <TableHeaderCell>"device"</TableHeaderCell>
+                    <TableHeaderCell>"value"</TableHeaderCell>
+                </TableRow>
+            </TableHeader>
+            <TableBody>{rows}</TableBody>
         </Table>
     }
 }
+
 
 // #[component]
 // pub fn ModuleView(#[prop(into)] obj: Object) -> impl IntoView {

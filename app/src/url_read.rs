@@ -1,5 +1,5 @@
 use gloo_net::http::Request;
-use leptos::{create_resource, Resource};
+use leptos::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 
@@ -30,18 +30,15 @@ pub async fn url_read<T: DeserializeOwned>(url: &str) -> Result<T, AppError> {
     }
 }
 
-pub fn url_read_resource<T: Serialize + DeserializeOwned>(
+pub fn url_read_resource<T: Serialize + DeserializeOwned + 'static>(
     url: &str,
-) -> Resource<(), Result<T, AppError>> {
+) -> LocalResource<Result<T, AppError>> {
     let url = url.to_string();
-    create_resource(
-        move || {},
-        move |_| {
-            let value = url.clone();
-            async move {
-                let url = value.clone();
-                url_read(url.as_str()).await
-            }
-        },
-    )
+    LocalResource::new(move || {
+        let value = url.clone();
+        async move {
+            let url = value.clone();
+            url_read(url.as_str()).await
+        }
+    })
 }
