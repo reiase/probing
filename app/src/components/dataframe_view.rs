@@ -25,6 +25,7 @@ pub fn DataFrameView(df: DataFrame) -> impl IntoView {
             let row = df.cols
                 .iter()
                 .map(move |col| match col.get(i) {
+                    Value::Nil => view! { <TableCell>{"nil".to_string()}</TableCell> },
                     Value::Int32(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                     Value::Int64(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                     Value::Float32(x) => view! { <TableCell>{x.to_string()}</TableCell> },

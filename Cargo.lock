@@ -3191,6 +3191,8 @@ dependencies = [
  "procfs",
  "rmesg",
  "ron",
+ "serde",
+ "serde_json",
  "tokio",
  "use",
 ]

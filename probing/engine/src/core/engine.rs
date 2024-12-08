@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use arrow::ipc::writer::{IpcWriteOptions, StreamWriter};
-use arrow::ipc::MetadataVersion;
+use arrow::compute::concat_batches;
 use datafusion::arrow::array::RecordBatch;
 use datafusion::catalog::{CatalogProvider, SchemaProvider};
 use datafusion::catalog_common::{MemoryCatalogProvider, MemorySchemaProvider};
@@ -11,6 +10,8 @@ use datafusion::error::Result;
 use datafusion::execution::SessionState;
 use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
 use futures;
+
+use super::chunked_encode::chunked_encode;
 
 #[derive(PartialEq, Eq)]
 pub enum PluginType {
@@ -67,18 +68,12 @@ impl Engine {
         self.context.sql(query.as_str()).await?.collect().await
     }
 
-    pub fn execute(self, query: &str) -> anyhow::Result<Vec<u8>> {
+    pub fn execute<E: Into<String>>(self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>>
+    {
         futures::executor::block_on(async {
-            let res = self.sql(query).await?.collect().await?;
-            let buffer: Vec<u8> = Vec::new();
-            let schema = res[0].schema();
-            let options = IpcWriteOptions::try_new(8, false, MetadataVersion::V5)?;
-            let mut writer = StreamWriter::try_new_with_options(buffer, &schema, options)?;
-            for batch in res.iter() {
-                writer.write(batch)?;
-            }
-            writer.finish()?;
-            Ok(writer.into_inner()?)
+            let batches = self.sql(query).await?.collect().await?;
+            let merged = concat_batches(&batches[0].schema(), batches.iter())?;
+            chunked_encode(&merged, encoder)
         })
     }
 

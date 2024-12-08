@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Value {
+    Nil,
     Int32(i32),
     Int64(i64),
     Float32(f32),
@@ -13,6 +14,7 @@ pub enum Value {
 impl ToString for Value {
     fn to_string(&self) -> String {
         match self {
+            Value::Nil => "nil".to_string(),
             Value::Int32(x) => x.to_string(),
             Value::Int64(x) => x.to_string(),
             Value::Float32(x) => x.to_string(),
@@ -66,7 +68,13 @@ impl Array {
     }
 
     pub fn get(&self, idx: usize) -> Value {
-        self.get(idx)
+        match self {
+            Array::Int32Array(vec) => vec.get(idx).map(|x| Value::Int32(*x)),
+            Array::Int64Array(vec) => vec.get(idx).map(|x| Value::Int64(*x)),
+            Array::Float32Array(vec) => vec.get(idx).map(|x| Value::Float32(*x)),
+            Array::Float64Array(vec) => vec.get(idx).map(|x| Value::Float64(*x)),
+            Array::TextArray(vec) => vec.get(idx).map(|x| Value::Text(x.clone())),
+        }.unwrap_or(Value::Nil)
     }
 }
 

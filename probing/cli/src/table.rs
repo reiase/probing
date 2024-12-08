@@ -17,6 +17,8 @@ use tabled::settings::{
     Alignment, Settings, Style, Width,
 };
 
+use probing_dpp::protocol::dataframe::{DataFrame, Value};
+
 pub struct Table {
     data: VecRecords<Text<String>>,
 }
@@ -59,6 +61,36 @@ impl Table {
         ));
         Some(table.to_string())
     }
+}
+
+pub fn render_dataframe(df: &DataFrame) {
+    let ncol = df.names.len();
+    let nrow = df.cols.iter().map(|col| col.len()).max().unwrap_or(0);
+
+    let mut table = Table::new(ncol, nrow);
+
+    for (col, name) in df.names.iter().enumerate() {
+        table.put((0, col), name.clone());
+    }
+
+    for (col, col_data) in df.cols.iter().enumerate() {
+        for row in 0..col_data.len() {
+            let value = match col_data.get(row) {
+                Value::Nil => "nil".to_string(),
+                Value::Int32(x) => x.to_string(),
+                Value::Int64(x) => x.to_string(),
+                Value::Float32(x) => x.to_string(),
+                Value::Float64(x) => x.to_string(),
+                Value::Text(x) => x.to_string(),
+                Value::Url(x) => x.to_string(),
+            };
+            table.put((row + 1, col), value);
+        }
+    }
+    println!(
+        "{}",
+        table.draw(terminal_width().unwrap_or(80) as usize).unwrap()
+    );
 }
 
 pub fn render_table(data: &[RecordBatch]) {

@@ -1,13 +1,14 @@
 use anyhow::Result;
 
-use arrow::ipc::reader::StreamReader;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
+use probing_dpp::protocol::dataframe::DataFrame;
+use probing_dpp::protocol::query::Query;
 
 use crate::inject::{Injector, Process};
-use crate::table::render_table;
+use crate::table::render_dataframe;
 use probing_dpp::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
@@ -22,17 +23,24 @@ pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     Ok(())
 }
 
-pub fn query(ctrl: CtrlChannel, query: CtrlSignal) -> Result<()> {
-    let cmd = ron::to_string(&query)?;
+pub fn query(ctrl: CtrlChannel, query: Query) -> Result<()> {
+    use probing_dpp::protocol::query::{OutputFormat, QueryMessage};
+
+    let msg = QueryMessage::Query(query);
+    let cmd = ron::to_string(&msg)?;
     match ctrl.execute(cmd) {
         Ok(ret) => {
-            let reader = StreamReader::try_new(ret.as_slice(), None)?;
-            for batch in reader {
-                if let Ok(rb) = batch {
-                    let rbs = [rb];
-                    render_table(&rbs);
-                }
-            }
+            let message: QueryMessage = ron::from_str(String::from_utf8(ret)?.as_str())?;
+            if let QueryMessage::Result(result) = message {
+                let df: DataFrame = match result.format {
+                    OutputFormat::JSON => {
+                        serde_json::from_slice(&result.result)?
+                    },
+                    OutputFormat::RON => ron::from_str(String::from_utf8(result.result)?.as_str())?,
+                    _ => todo!(),
+                };
+                render_dataframe(&df);
+            };
         }
         Err(err) => println!("{err}"),
     }
