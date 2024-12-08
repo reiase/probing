@@ -11,7 +11,7 @@ mod python;
 
 use log::debug;
 use probing_proto::cli::CtrlSignal;
-use probing_proto::protocol::query::Message;
+use probing_proto::prelude::*;
 pub use process::CALLSTACK;
 
 use crate::ctrl::{ctrl_handler_string, handle_ctrl, handle_query};
@@ -52,7 +52,7 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
                             Ok(Response::builder().status(500).body(resp).unwrap())
                         }
                     }
-                } else if let Ok(msg) = ron::from_str::<Message>(&cmdstr) {
+                } else if let Ok(msg) = ron::from_str::<QueryMessage>(&cmdstr) {
                     match handle_query(msg) {
                         Ok(resp) => {
                             let resp = Full::new(Bytes::from(resp));

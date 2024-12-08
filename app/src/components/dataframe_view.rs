@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use thaw::*;
 
-use probing_proto::protocol::dataframe::DataFrame;
+use probing_proto::prelude::DataFrame;
 use probing_proto::protocol::dataframe::Value;
 
 #[component]
