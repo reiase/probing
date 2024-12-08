@@ -3,17 +3,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Query {
     pub expr: String,
-    pub flags: Option<QueryFlags>,
+    pub opts: Option<Options>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct QueryFlags {
+pub struct Options {
     pub limit: Option<usize>,
-    pub format: OutputFormat,
+    pub format: Format,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum OutputFormat{
+pub enum Format{
     JSON,
     RON,
     BITCODE,
@@ -22,14 +22,13 @@ pub enum OutputFormat{
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct QueryResult {
-    pub result: Vec<u8>,
-    pub format: OutputFormat,
+pub struct Reply {
+    pub data: Vec<u8>,
+    pub format: Format,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum QueryMessage {
+pub enum Message {
     Query(Query),
-    Result(QueryResult),
-    
+    Reply(Reply),
 }

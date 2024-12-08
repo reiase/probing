@@ -63,7 +63,7 @@ impl Cli {
                 ctrl,
                 Query {
                     expr: query.clone(),
-                    flags: None,
+                    opts: None,
                 },
             ),
             Commands::Launch { recursive, args } => {

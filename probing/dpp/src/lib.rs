@@ -45,3 +45,17 @@ pub struct DebugState {
     pub debugger_installed: bool,
     pub debugger_address: Option<String>,
 }
+
+pub mod prelude {
+    pub use crate::protocol::query::Message as QueryMessage;
+    pub use crate::protocol::query::Query as QueryRequest;
+    pub use crate::protocol::query::Reply as QueryReply;
+    pub use crate::protocol::query::Format as QueryDataFormat;
+    pub use crate::protocol::query::Options as QueryOptions;
+
+    pub use crate::protocol::cluster::Cluster;
+    pub use crate::protocol::cluster::Node;
+
+    pub use crate::protocol::dataframe::DataFrame;
+    pub use crate::protocol::dataframe::Table;
+}

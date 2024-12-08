@@ -4,7 +4,6 @@ use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
-use probing_dpp::protocol::dataframe::DataFrame;
 use probing_dpp::protocol::query::Query;
 
 use crate::inject::{Injector, Process};
@@ -24,19 +23,17 @@ pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
 }
 
 pub fn query(ctrl: CtrlChannel, query: Query) -> Result<()> {
-    use probing_dpp::protocol::query::{OutputFormat, QueryMessage};
+    use probing_dpp::prelude::*;
 
     let msg = QueryMessage::Query(query);
     let cmd = ron::to_string(&msg)?;
     match ctrl.execute(cmd) {
         Ok(ret) => {
             let message: QueryMessage = ron::from_str(String::from_utf8(ret)?.as_str())?;
-            if let QueryMessage::Result(result) = message {
-                let df: DataFrame = match result.format {
-                    OutputFormat::JSON => {
-                        serde_json::from_slice(&result.result)?
-                    },
-                    OutputFormat::RON => ron::from_str(String::from_utf8(result.result)?.as_str())?,
+            if let QueryMessage::Reply(reply) = message {
+                let df: DataFrame = match reply.format {
+                    QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
+                    QueryDataFormat::RON => ron::from_str(String::from_utf8(reply.data)?.as_str())?,
                     _ => todo!(),
                 };
                 render_dataframe(&df);

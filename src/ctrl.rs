@@ -2,7 +2,7 @@ use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
 use probing_dpp::cli::{BackTraceCommand, CtrlSignal};
-use probing_dpp::protocol::query::{OutputFormat, QueryMessage, QueryResult};
+use probing_dpp::protocol::query::{Format, Message, Reply};
 use probing_engine::plugins::cluster::ClusterPlugin;
 
 use crate::handlers::dump_stack;
@@ -38,7 +38,7 @@ pub fn ctrl_handler_string(cmdstr: String) {
         if let Ok(cmd) = ron::from_str::<CtrlSignal>(&cmdstr) {
             let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
             return;
-        } else if let Ok(msg) = ron::from_str::<QueryMessage>(&cmdstr) {
+        } else if let Ok(msg) = ron::from_str::<Message>(&cmdstr) {
             let _ = handle_query(msg).map_err(|err| eprintln!("{}", err));
             return;
         }
@@ -106,15 +106,15 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
     }
 }
 
-pub fn handle_query(query: QueryMessage) -> Result<Vec<u8>> {
+pub fn handle_query(query: Message) -> Result<Vec<u8>> {
     let engine = probing_engine::create_engine();
     engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
     engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
-    if let QueryMessage::Query(query) = query {
+    if let Message::Query(query) = query {
         let resp = engine.execute(&query.expr, "ron")?;
-        Ok(ron::to_string(&QueryMessage::Result(QueryResult {
-            result: resp,
-            format: OutputFormat::RON,
+        Ok(ron::to_string(&Message::Reply(Reply {
+            data: resp,
+            format: Format::RON,
         }))?
         .as_bytes()
         .to_vec())
