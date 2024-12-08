@@ -10,8 +10,8 @@ mod profiler;
 mod python;
 
 use log::debug;
-use probing_dpp::cli::CtrlSignal;
-use probing_dpp::protocol::query::Message;
+use probing_proto::cli::CtrlSignal;
+use probing_proto::protocol::query::Message;
 pub use process::CALLSTACK;
 
 use crate::ctrl::{ctrl_handler_string, handle_ctrl, handle_query};

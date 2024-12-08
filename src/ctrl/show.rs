@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde_json::json;
 
-use probing_dpp::cli::ShowCommand;
+use probing_proto::cli::ShowCommand;
 
 use crate::core::pltffi;
 use crate::core::trace;

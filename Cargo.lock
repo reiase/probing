@@ -140,7 +140,7 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "log",
- "probing-dpp",
+ "probing-proto",
  "serde",
  "serde_json",
  "thaw",
@@ -3122,8 +3122,8 @@ dependencies = [
  "plt-rs",
  "pprof",
  "probing-cli",
- "probing-dpp",
  "probing-engine",
+ "probing-proto",
  "procfs",
  "pyo3",
  "pyo3-build-config",
@@ -3156,7 +3156,7 @@ dependencies = [
  "nix 0.29.0",
  "once_cell",
  "pete",
- "probing-dpp",
+ "probing-proto",
  "procfs",
  "ron",
  "rustix",
@@ -3166,14 +3166,6 @@ dependencies = [
  "strum 0.26.3",
  "tabled",
  "tokio",
-]
-
-[[package]]
-name = "probing-dpp"
-version = "0.1.7"
-dependencies = [
- "clap 4.5.20",
- "serde",
 ]
 
 [[package]]
@@ -3187,7 +3179,7 @@ dependencies = [
  "futures",
  "log",
  "once_cell",
- "probing-dpp",
+ "probing-proto",
  "procfs",
  "rmesg",
  "ron",
@@ -3195,6 +3187,14 @@ dependencies = [
  "serde_json",
  "tokio",
  "use",
+]
+
+[[package]]
+name = "probing-proto"
+version = "0.1.7"
+dependencies = [
+ "clap 4.5.20",
+ "serde",
 ]
 
 [[package]]

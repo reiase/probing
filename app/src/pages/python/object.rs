@@ -1,7 +1,7 @@
 use leptos::*;
 use thaw::*;
 
-use probing_dpp::Object;
+use probing_proto::Object;
 
 use serde_json;
 

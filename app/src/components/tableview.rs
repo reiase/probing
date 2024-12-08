@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use thaw::*;
 
-use probing_dpp::protocol::dataframe::Table;
+use probing_proto::protocol::dataframe::Table;
 
 #[component]
 pub fn TableView(tbl: Table) -> impl IntoView {

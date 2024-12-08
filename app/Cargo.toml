@@ -35,8 +35,8 @@ default-features = false
 [dependencies.leptos_router]
 version = "0.7.0"
 
-[dependencies.probing-dpp]
-path = "../probing/dpp"
+[dependencies.probing-proto]
+path = "../probing/proto"
 features = []
 
 [features]

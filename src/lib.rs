@@ -26,8 +26,8 @@ mod service;
 pub mod plugins;
 
 use handlers::dump_stack2;
-use probing_dpp::cli::CtrlSignal;
-use probing_dpp::cli::Features;
+use probing_proto::cli::CtrlSignal;
+use probing_proto::cli::Features;
 use repl::PythonRepl;
 use server::remote_server;
 use server::report::start_report_worker;

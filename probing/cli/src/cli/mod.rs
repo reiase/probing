@@ -11,8 +11,8 @@ pub mod repl;
 
 use crate::cli::ctrl::CtrlChannel;
 use commands::Commands;
-use probing_dpp::cli::CtrlSignal as Signal;
-use probing_dpp::protocol::query::Query;
+use probing_proto::cli::CtrlSignal as Signal;
+use probing_proto::protocol::query::Query;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]

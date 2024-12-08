@@ -99,8 +99,8 @@ mod test {
     use arrow::array::StringArray;
 
     use anyhow::Result;
-    use probing_dpp::protocol::dataframe::Array;
-    use probing_dpp::protocol::dataframe::DataFrame;
+    use probing_proto::protocol::dataframe::Array;
+    use probing_proto::protocol::dataframe::DataFrame;
 
     use super::DataFrameChunk;
 

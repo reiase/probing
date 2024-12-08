@@ -1,8 +1,8 @@
 use leptos::prelude::*;
 use thaw::*;
 
-use probing_dpp::protocol::dataframe::DataFrame;
-use probing_dpp::protocol::dataframe::Value;
+use probing_proto::protocol::dataframe::DataFrame;
+use probing_proto::protocol::dataframe::Value;
 
 #[component]
 pub fn DataFrameView(df: DataFrame) -> impl IntoView {

@@ -4,11 +4,11 @@ use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
-use probing_dpp::protocol::query::Query;
+use probing_proto::protocol::query::Query;
 
 use crate::inject::{Injector, Process};
 use crate::table::render_dataframe;
-use probing_dpp::cli::CtrlSignal;
+use probing_proto::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     let cmd = ron::to_string(&sig)?;
@@ -23,7 +23,7 @@ pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
 }
 
 pub fn query(ctrl: CtrlChannel, query: Query) -> Result<()> {
-    use probing_dpp::prelude::*;
+    use probing_proto::prelude::*;
 
     let msg = QueryMessage::Query(query);
     let cmd = ron::to_string(&msg)?;

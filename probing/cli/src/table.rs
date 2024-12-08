@@ -17,7 +17,7 @@ use tabled::settings::{
     Alignment, Settings, Style, Width,
 };
 
-use probing_dpp::protocol::dataframe::{DataFrame, Value};
+use probing_proto::protocol::dataframe::{DataFrame, Value};
 
 pub struct Table {
     data: VecRecords<Text<String>>,

@@ -9,7 +9,7 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-probing-dpp = { path = "../dpp" }
+probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false, features = ["csv"]}

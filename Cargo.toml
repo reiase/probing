@@ -2,7 +2,7 @@
 members = [
     "app",
     "probing/cli",
-    "probing/dpp",
+    "probing/proto",
     "probing/engine",
 ]
 
@@ -52,7 +52,7 @@ extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 probing-cli = { path = "probing/cli" }
-probing-dpp = { path = "probing/dpp" }
+probing-proto = { path = "probing/proto" }
 probing-engine = { path = "probing/engine" }
 
 anyhow = { workspace = true }

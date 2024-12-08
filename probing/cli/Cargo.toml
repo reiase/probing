@@ -22,7 +22,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 
 clap_complete = { version = "4.5.11", features = ["unstable-dynamic"] }
-probing-dpp = { path = "../dpp", features = ["cli"] }
+probing-proto = { path = "../proto", features = ["cli"] }
 eyre = "0.6"
 http-body-util = { version = "0.1" }
 hyper = { version = "1.3.1", features = ["client", "http1"] }

@@ -1,8 +1,8 @@
 use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
-use probing_dpp::cli::{BackTraceCommand, CtrlSignal};
-use probing_dpp::protocol::query::{Format, Message, Reply};
+use probing_proto::cli::{BackTraceCommand, CtrlSignal};
+use probing_proto::protocol::query::{Format, Message, Reply};
 use probing_engine::plugins::cluster::ClusterPlugin;
 
 use crate::handlers::dump_stack;

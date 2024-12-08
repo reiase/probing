@@ -1,6 +1,6 @@
 use std::thread;
 
-use probing_dpp::protocol::cluster::Node;
+use probing_proto::protocol::cluster::Node;
 
 use crate::get_hostname;
 

@@ -1,7 +1,7 @@
 use std::sync::{Arc, LazyLock, RwLock};
 
 use arrow::array::{ArrayRef, Int32Array, StringArray, TimestampMicrosecondArray};
-use probing_dpp::protocol::cluster;
+use probing_proto::protocol::cluster;
 
 pub trait IntoArrow {
     fn into_arrow_array(values: Vec<Self>) -> ArrayRef
