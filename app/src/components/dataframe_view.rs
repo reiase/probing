@@ -22,7 +22,8 @@ pub fn DataFrameView(df: DataFrame) -> impl IntoView {
     let nrows = df.cols.clone().iter().map(|x| x.len()).max().unwrap_or(0);
     let rows = (0..nrows)
         .map(|i| {
-            let row = df.cols
+            let row = df
+                .cols
                 .iter()
                 .map(move |col| match col.get(i) {
                     Value::Nil => view! { <TableCell>{"nil".to_string()}</TableCell> },
@@ -36,6 +37,7 @@ pub fn DataFrameView(df: DataFrame) -> impl IntoView {
                             <Link href=x.to_string()>{x.to_string()}</Link>
                         </TableCell>
                     },
+                    Value::DataTime(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                 })
                 .collect::<Vec<_>>();
             view! { <TableRow>{row}</TableRow> }

@@ -1,3 +1,6 @@
+use std::time::{Duration, SystemTime};
+
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
@@ -9,6 +12,7 @@ pub enum Value {
     Float64(f64),
     Text(String),
     Url(String),
+    DataTime(u64),
 }
 
 impl ToString for Value {
@@ -21,6 +25,11 @@ impl ToString for Value {
             Value::Float64(x) => x.to_string(),
             Value::Text(x) => x.to_string(),
             Value::Url(x) => x.to_string(),
+            Value::DataTime(x) => {
+                let datetime: DateTime<Utc> =
+                    (SystemTime::UNIX_EPOCH + Duration::from_micros(*x)).into();
+                datetime.to_rfc3339()
+            }
         }
     }
 }
@@ -44,6 +53,7 @@ pub enum Array {
     Float32Array(Vec<f32>),
     Float64Array(Vec<f64>),
     TextArray(Vec<String>),
+    DateTime(Vec<u64>),
 }
 
 impl Array {
@@ -54,6 +64,7 @@ impl Array {
             Array::Float32Array(vec) => vec.len(),
             Array::Float64Array(vec) => vec.len(),
             Array::TextArray(vec) => vec.len(),
+            Array::DateTime(vec) => vec.len(),
         }
     }
 
@@ -64,6 +75,11 @@ impl Array {
             Array::Float32Array(vec) => vec.get(idx).map(|x| x.to_string()),
             Array::Float64Array(vec) => vec.get(idx).map(|x| x.to_string()),
             Array::TextArray(vec) => vec.get(idx).map(|x| x.to_string()),
+            Array::DateTime(vec) => vec.get(idx).map(|x| {
+                let datetime: DateTime<Utc> =
+                    (SystemTime::UNIX_EPOCH + Duration::from_micros(*x)).into();
+                datetime.to_rfc3339()
+            }),
         }
     }
 
@@ -74,7 +90,9 @@ impl Array {
             Array::Float32Array(vec) => vec.get(idx).map(|x| Value::Float32(*x)),
             Array::Float64Array(vec) => vec.get(idx).map(|x| Value::Float64(*x)),
             Array::TextArray(vec) => vec.get(idx).map(|x| Value::Text(x.clone())),
-        }.unwrap_or(Value::Nil)
+            Array::DateTime(vec) => vec.get(idx).map(|x| Value::DataTime(*x)),
+        }
+        .unwrap_or(Value::Nil)
     }
 }
 
@@ -87,9 +105,10 @@ pub struct Table {
 impl Table {
     pub fn new<N: Into<String>, V: Into<Value>>(names: Vec<N>, rows: Vec<Vec<V>>) -> Self {
         let names = names.into_iter().map(|x| x.into()).collect();
-        let rows = rows.into_iter().map(|r| {
-            r.into_iter().map(|x| x.into()).collect()
-        }).collect();
+        let rows = rows
+            .into_iter()
+            .map(|r| r.into_iter().map(|x| x.into()).collect())
+            .collect();
         Self { names, rows }
     }
 }

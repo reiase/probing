@@ -3142,7 +3142,6 @@ name = "probing-cli"
 version = "0.1.7"
 dependencies = [
  "anyhow",
- "arrow",
  "chrono",
  "clap 4.5.20",
  "clap_complete",
@@ -3193,6 +3192,7 @@ dependencies = [
 name = "probing-proto"
 version = "0.1.7"
 dependencies = [
+ "chrono",
  "clap 4.5.20",
  "serde",
 ]
