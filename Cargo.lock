@@ -3149,7 +3149,6 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "hyperparameter",
  "libloading",
  "log",
  "nix 0.29.0",

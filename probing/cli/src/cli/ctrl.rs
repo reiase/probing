@@ -2,7 +2,6 @@ use anyhow::Result;
 
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
-use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
 use probing_proto::protocol::query::Query;
 
@@ -60,26 +59,9 @@ impl TryFrom<&str> for CtrlChannel {
             return Ok(Self::Remote { addr: value.into() });
         }
 
-        let callback = |pid| -> Result<CtrlChannel> {
-            with_params! {
-                get use_ptrace = probing.cli.ptrace or false;
-
-                Ok(if use_ptrace {Self::Ptrace { pid }} else {Self::Local { pid }})
-            }
-        };
-
-        if let Ok(pid) = value.parse::<i32>() {
-            return callback(pid);
-        }
-
-        let pid = Process::by_cmdline(value).map_err(|err| {
-            anyhow::anyhow!("failed to find process with cmdline pattern {value}: {err}")
-        })?;
-        if let Some(pid) = pid {
-            callback(pid)
-        } else {
-            Err(anyhow::anyhow!("either `pid` or `name` must be specified"))
-        }
+        Ok(Self::Local {
+            pid: value.parse::<i32>()?,
+        })
     }
 }
 
