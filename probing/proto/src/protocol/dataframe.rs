@@ -48,12 +48,13 @@ impl Into<Value> for String {
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Array {
+    Nil,
     Int32Array(Vec<i32>),
     Int64Array(Vec<i64>),
     Float32Array(Vec<f32>),
     Float64Array(Vec<f64>),
     TextArray(Vec<String>),
-    DateTime(Vec<u64>),
+    DateTimeArray(Vec<u64>),
 }
 
 impl Array {
@@ -64,7 +65,8 @@ impl Array {
             Array::Float32Array(vec) => vec.len(),
             Array::Float64Array(vec) => vec.len(),
             Array::TextArray(vec) => vec.len(),
-            Array::DateTime(vec) => vec.len(),
+            Array::DateTimeArray(vec) => vec.len(),
+            Array::Nil => 0,
         }
     }
 
@@ -75,11 +77,12 @@ impl Array {
             Array::Float32Array(vec) => vec.get(idx).map(|x| x.to_string()),
             Array::Float64Array(vec) => vec.get(idx).map(|x| x.to_string()),
             Array::TextArray(vec) => vec.get(idx).map(|x| x.to_string()),
-            Array::DateTime(vec) => vec.get(idx).map(|x| {
+            Array::DateTimeArray(vec) => vec.get(idx).map(|x| {
                 let datetime: DateTime<Utc> =
                     (SystemTime::UNIX_EPOCH + Duration::from_micros(*x)).into();
                 datetime.to_rfc3339()
             }),
+            Array::Nil => None,
         }
     }
 
@@ -90,7 +93,8 @@ impl Array {
             Array::Float32Array(vec) => vec.get(idx).map(|x| Value::Float32(*x)),
             Array::Float64Array(vec) => vec.get(idx).map(|x| Value::Float64(*x)),
             Array::TextArray(vec) => vec.get(idx).map(|x| Value::Text(x.clone())),
-            Array::DateTime(vec) => vec.get(idx).map(|x| Value::DataTime(*x)),
+            Array::DateTimeArray(vec) => vec.get(idx).map(|x| Value::DataTime(*x)),
+            Array::Nil => None,
         }
         .unwrap_or(Value::Nil)
     }
@@ -117,4 +121,13 @@ impl Table {
 pub struct DataFrame {
     pub names: Vec<String>,
     pub cols: Vec<Array>,
+}
+
+impl DataFrame {
+    pub fn new(names: Vec<String>, columns: Vec<Array>) -> Self {
+        DataFrame {
+            names: names,
+            cols: columns,
+        }
+    }
 }

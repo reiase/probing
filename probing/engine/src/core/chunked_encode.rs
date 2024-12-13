@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use arrow::array::{
-    Array, Float32Array, Float64Array, Int32Array, Int64Array, RecordBatch, StringArray,
+    Array, Float32Array, Float64Array, Int32Array, Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray,
 };
 use serde::{ser::SerializeStruct, Serialize};
 
@@ -83,7 +83,14 @@ impl<'a> Serialize for ArrayChunk<'a> {
                 .map(|x| array.value(x).to_string())
                 .collect::<Vec<_>>();
             serializer.serialize_newtype_variant("Array", 0, "TextArray", &values)
-        } else {
+        } else if let Some(array) = self.chunk.as_any().downcast_ref::<TimestampMicrosecondArray>() {
+            serializer.serialize_newtype_variant(
+                "Array",
+                0,
+                "DateTimeArray",
+                &array.values().to_vec(),
+            )
+        }else {
             Err(serde::ser::Error::custom("Unsupported array type"))
         }
     }

@@ -1,15 +1,10 @@
 use std::os::fd::AsFd;
-// use std::time::{Duration, SystemTime};
 
-// // use arrow::array::RecordBatch;
-// use chrono::{DateTime, Utc};
 use tabled::builder::Builder;
-use tabled::grid::{
-    config::Position,
-    records::{
-        vec_records::{Text, VecRecords},
-        ExactRecords, Records,
-    },
+use tabled::grid::config::Position;
+use tabled::grid::records::{
+    vec_records::{Text, VecRecords},
+    ExactRecords, Records,
 };
 use tabled::settings::{
     object::Segment,
@@ -93,74 +88,6 @@ pub fn render_dataframe(df: &DataFrame) {
         table.draw(terminal_width().unwrap_or(80) as usize).unwrap()
     );
 }
-
-// pub fn render_table(data: &[RecordBatch]) {
-//     if data.is_empty() {
-//         return;
-//     }
-//     let ncol = data[0].schema().fields().len();
-//     let nrow = data.iter().map(|batch| batch.num_rows()).sum();
-//     let mut table = Table::new(ncol, nrow);
-
-//     let mut row = 0;
-//     for batch in data {
-//         if row == 0 {
-//             for (col, field) in batch.schema().fields().iter().enumerate() {
-//                 table.put((0, col), field.name().clone());
-//             }
-//             row = 1;
-//         }
-//         for col in 0..ncol {
-//             let field = batch.column(col);
-//             if let Some(array) = field
-//                 .as_any()
-//                 .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
-//             {
-//                 array.iter().enumerate().for_each(|(i, value)| {
-//                     let datetime_str = value.map_or_else(
-//                         || String::new(),
-//                         |v| {
-//                             let datetime: DateTime<Utc> =
-//                                 (SystemTime::UNIX_EPOCH + Duration::from_micros(v as u64)).into();
-//                             datetime.to_rfc3339()
-//                         },
-//                     );
-//                     table.put((row + i, col), datetime_str);
-//                 });
-//             }
-//             if let Some(array) = field.as_any().downcast_ref::<arrow::array::StringArray>() {
-//                 array.iter().enumerate().for_each(|(i, value)| {
-//                     table.put((row + i, col), value.unwrap_or_default().to_string());
-//                 });
-//             }
-//             if let Some(array) = field.as_any().downcast_ref::<arrow::array::Int32Array>() {
-//                 array.iter().enumerate().for_each(|(i, value)| {
-//                     table.put((row + i, col), value.unwrap_or_default().to_string());
-//                 });
-//             }
-//             if let Some(array) = field.as_any().downcast_ref::<arrow::array::Int64Array>() {
-//                 array.iter().enumerate().for_each(|(i, value)| {
-//                     table.put((row + i, col), value.unwrap_or_default().to_string());
-//                 });
-//             }
-//             if let Some(array) = field.as_any().downcast_ref::<arrow::array::Float64Array>() {
-//                 array.iter().enumerate().for_each(|(i, value)| {
-//                     table.put((row + i, col), value.unwrap_or_default().to_string());
-//                 });
-//             }
-//             if let Some(array) = field.as_any().downcast_ref::<arrow::array::StringArray>() {
-//                 array.iter().enumerate().for_each(|(i, value)| {
-//                     table.put((row + i, col), value.unwrap_or_default().to_string());
-//                 });
-//             }
-//         }
-//         row += batch.num_rows();
-//     }
-//     println!(
-//         "{}",
-//         table.draw(terminal_width().unwrap_or(80) as usize).unwrap()
-//     );
-// }
 
 fn terminal_width() -> Option<u32> {
     if let Some(width) = terminal_size_of(std::io::stdout()) {
