@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use leptos_meta::Style;
 use thaw::*;
 
-use probing_dpp::protocol::cluster::Node;
+use probing_proto::prelude::*;
 
 use crate::components::{header_bar::HeaderBar, panel::Panel};
 use crate::url_read::url_read_resource;

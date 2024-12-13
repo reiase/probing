@@ -4,7 +4,7 @@ use nix::{
     sys::signal,
     unistd::{sleep, Pid},
 };
-use probing_dpp::{cli::CtrlSignal, Process};
+use probing_proto::{cli::CtrlSignal, Process};
 use procfs::process;
 
 pub fn overview() -> String {

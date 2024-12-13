@@ -2,15 +2,22 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use arrow::ipc::writer::{IpcWriteOptions, StreamWriter};
-use arrow::ipc::MetadataVersion;
-use datafusion::arrow::array::RecordBatch;
+use arrow::array::Float32Array;
+use arrow::array::Float64Array;
+use arrow::array::Int32Array;
+use arrow::array::Int64Array;
+use arrow::array::StringArray;
+use arrow::array::TimestampMicrosecondArray;
+use arrow::compute::concat_batches;
 use datafusion::catalog::{CatalogProvider, SchemaProvider};
 use datafusion::catalog_common::{MemoryCatalogProvider, MemorySchemaProvider};
 use datafusion::error::Result;
 use datafusion::execution::SessionState;
 use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
 use futures;
+
+use super::chunked_encode::chunked_encode;
+use probing_proto::protocol::dataframe::Array;
 
 #[derive(PartialEq, Eq)]
 pub enum PluginType {
@@ -63,22 +70,49 @@ impl Engine {
         self.context.sql(query).await
     }
 
-    pub async fn async_execute(self, query: String) -> Result<Vec<RecordBatch>> {
-        self.context.sql(query.as_str()).await?.collect().await
+    pub fn query<T: Into<String>>(self, q: T) -> anyhow::Result<probing_proto::prelude::DataFrame> {
+        let batch = futures::executor::block_on(async {
+            let q: String = q.into();
+            let batches = self.sql(q.as_str()).await?.collect().await?;
+            anyhow::Ok(concat_batches(&batches[0].schema(), batches.iter())?)
+        })?;
+
+        let names = batch
+            .schema()
+            .fields()
+            .iter()
+            .map(|x| x.name().clone())
+            .collect::<Vec<_>>();
+        let columns = batch
+            .columns()
+            .iter()
+            .map(|col| {
+                if let Some(array) = col.as_any().downcast_ref::<Int32Array>() {
+                    Array::Int32Array(array.values().to_vec())
+                } else if let Some(array) = col.as_any().downcast_ref::<Int64Array>() {
+                    Array::Int64Array(array.values().to_vec())
+                } else if let Some(array) = col.as_any().downcast_ref::<Float32Array>() {
+                    Array::Float32Array(array.values().to_vec())
+                } else if let Some(array) = col.as_any().downcast_ref::<Float64Array>() {
+                    Array::Float64Array(array.values().to_vec())
+                } else if let Some(array) = col.as_any().downcast_ref::<StringArray>() {
+                    Array::TextArray((0..col.len()).map(|x| array.value(x).to_string()).collect())
+                } else if let Some(array) = col.as_any().downcast_ref::<TimestampMicrosecondArray>()
+                {
+                    Array::Int64Array(array.values().to_vec())
+                } else {
+                    Array::Nil
+                }
+            })
+            .collect::<Vec<_>>();
+        Ok(probing_proto::prelude::DataFrame::new(names, columns))
     }
 
-    pub fn execute(self, query: &str) -> anyhow::Result<Vec<u8>> {
+    pub fn execute<E: Into<String>>(self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>> {
         futures::executor::block_on(async {
-            let res = self.sql(query).await?.collect().await?;
-            let buffer: Vec<u8> = Vec::new();
-            let schema = res[0].schema();
-            let options = IpcWriteOptions::try_new(8, false, MetadataVersion::V5)?;
-            let mut writer = StreamWriter::try_new_with_options(buffer, &schema, options)?;
-            for batch in res.iter() {
-                writer.write(batch)?;
-            }
-            writer.finish()?;
-            Ok(writer.into_inner()?)
+            let batches = self.sql(query).await?.collect().await?;
+            let merged = concat_batches(&batches[0].schema(), batches.iter())?;
+            chunked_encode(&merged, encoder)
         })
     }
 

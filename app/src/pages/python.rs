@@ -1,4 +1,4 @@
-use probing_dpp::Object;
+use probing_proto::Object;
 use leptos::prelude::*;
 
 use leptos_meta::Style;

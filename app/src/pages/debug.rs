@@ -2,7 +2,7 @@ use leptonic::components::prelude::*;
 use leptos::*;
 
 use gloo_net::http::Request;
-use probing_dpp::DebugState;
+use probing_proto::DebugState;
 
 #[component]
 pub fn DebugView() -> impl IntoView {

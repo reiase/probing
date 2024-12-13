@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use leptos::prelude::*;
 use thaw::*;
 
-use probing_dpp::Object;
+use probing_proto::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {

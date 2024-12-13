@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use log::info;
 use nix::unistd::{getpid, gettid};
-use probing_dpp::CallStack;
+use probing_proto::CallStack;
 use pyo3::{types::PyAnyMethods, Python, ToPyObject};
 
 use crate::repl::PythonRepl;

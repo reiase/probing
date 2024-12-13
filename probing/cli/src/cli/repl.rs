@@ -2,7 +2,7 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 use clap::{Args, Parser};
-use probing_dpp::cli::CtrlSignal;
+use probing_proto::cli::CtrlSignal;
 use rustyline::{
     completion::{Completer, Pair},
     config::Configurer,
@@ -147,12 +147,12 @@ impl ReplCommand {
         loop {
             match repl.read_command(">>") {
                 ReplLine::Command(cmd) => match cmd {
-                    CtrlSignal::Query { query } => ctrl::query(
-                        ctrl.clone(),
-                        CtrlSignal::Query {
-                            query: query.clone(),
-                        },
-                    )?,
+                    // CtrlSignal::Query { query } => ctrl::query(
+                    //     ctrl.clone(),
+                    //     CtrlSignal::Query {
+                    //         query: query.clone(),
+                    //     },
+                    // )?,
                     cmd => ctrl::handle(ctrl.clone(), cmd)?,
                 },
                 ReplLine::Empty => {}

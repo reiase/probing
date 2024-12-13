@@ -10,8 +10,9 @@ pub mod process_monitor;
 pub mod repl;
 
 use crate::cli::ctrl::CtrlChannel;
-use probing_dpp::cli::CtrlSignal as Signal;
 use commands::Commands;
+use probing_proto::cli::CtrlSignal as Signal;
+use probing_proto::protocol::query::Query;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]
@@ -60,8 +61,9 @@ impl Cli {
 
             Commands::Query { query } => ctrl::query(
                 ctrl,
-                Signal::Query {
-                    query: query.clone(),
+                Query {
+                    expr: query.clone(),
+                    opts: None,
                 },
             ),
             Commands::Launch { recursive, args } => {

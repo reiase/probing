@@ -3,7 +3,7 @@ use clap::Args;
 
 use crate::cli::ctrl::CtrlChannel;
 use crate::inject::{Injector, Process};
-use probing_dpp::cli::{CtrlSignal, Features};
+use probing_proto::cli::{CtrlSignal, Features};
 
 /// Inject into the target process
 #[derive(Args, Default, Debug)]

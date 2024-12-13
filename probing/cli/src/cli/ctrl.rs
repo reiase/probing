@@ -1,14 +1,13 @@
 use anyhow::Result;
 
-use arrow::ipc::reader::StreamReader;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
-use hyperparameter::*;
 use nix::{sys::signal, unistd::Pid};
+use probing_proto::protocol::query::Query;
 
 use crate::inject::{Injector, Process};
-use crate::table::render_table;
-use probing_dpp::cli::CtrlSignal;
+use crate::table::render_dataframe;
+use probing_proto::cli::CtrlSignal;
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     let cmd = ron::to_string(&sig)?;
@@ -22,17 +21,22 @@ pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     Ok(())
 }
 
-pub fn query(ctrl: CtrlChannel, query: CtrlSignal) -> Result<()> {
-    let cmd = ron::to_string(&query)?;
+pub fn query(ctrl: CtrlChannel, query: Query) -> Result<()> {
+    use probing_proto::prelude::*;
+
+    let msg = QueryMessage::Query(query);
+    let cmd = ron::to_string(&msg)?;
     match ctrl.execute(cmd) {
         Ok(ret) => {
-            let reader = StreamReader::try_new(ret.as_slice(), None)?;
-            for batch in reader {
-                if let Ok(rb) = batch {
-                    let rbs = [rb];
-                    render_table(&rbs);
-                }
-            }
+            let message: QueryMessage = ron::from_str(String::from_utf8(ret)?.as_str())?;
+            if let QueryMessage::Reply(reply) = message {
+                let df: DataFrame = match reply.format {
+                    QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
+                    QueryDataFormat::RON => ron::from_str(String::from_utf8(reply.data)?.as_str())?,
+                    _ => todo!(),
+                };
+                render_dataframe(&df);
+            };
         }
         Err(err) => println!("{err}"),
     }
@@ -55,26 +59,9 @@ impl TryFrom<&str> for CtrlChannel {
             return Ok(Self::Remote { addr: value.into() });
         }
 
-        let callback = |pid| -> Result<CtrlChannel> {
-            with_params! {
-                get use_ptrace = probing.cli.ptrace or false;
-
-                Ok(if use_ptrace {Self::Ptrace { pid }} else {Self::Local { pid }})
-            }
-        };
-
-        if let Ok(pid) = value.parse::<i32>() {
-            return callback(pid);
-        }
-
-        let pid = Process::by_cmdline(value).map_err(|err| {
-            anyhow::anyhow!("failed to find process with cmdline pattern {value}: {err}")
-        })?;
-        if let Some(pid) = pid {
-            callback(pid)
-        } else {
-            Err(anyhow::anyhow!("either `pid` or `name` must be specified"))
-        }
+        Ok(Self::Local {
+            pid: value.parse::<i32>()?,
+        })
     }
 }
 

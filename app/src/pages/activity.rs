@@ -3,7 +3,7 @@ use leptos_meta::Style;
 use leptos_router::hooks::use_params_map;
 use thaw::*;
 
-use probing_dpp::CallStack;
+use probing_proto::CallStack;
 
 use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
 

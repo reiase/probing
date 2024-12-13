@@ -2,8 +2,8 @@ use leptos::prelude::*;
 use leptos_meta::Style;
 use thaw::*;
 
-use probing_dpp::protocol::dataframe::Table;
-use probing_dpp::Process;
+use probing_proto::prelude::*;
+use probing_proto::Process;
 
 use crate::components::header_bar::HeaderBar;
 use crate::components::panel::Panel;

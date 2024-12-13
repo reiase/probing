@@ -1,21 +1,18 @@
 use std::os::fd::AsFd;
-use std::time::{Duration, SystemTime};
 
-use arrow::array::RecordBatch;
-use chrono::{DateTime, Utc};
 use tabled::builder::Builder;
-use tabled::grid::{
-    config::Position,
-    records::{
-        vec_records::{Text, VecRecords},
-        ExactRecords, Records,
-    },
+use tabled::grid::config::Position;
+use tabled::grid::records::{
+    vec_records::{Text, VecRecords},
+    ExactRecords, Records,
 };
 use tabled::settings::{
     object::Segment,
     peaker::{PriorityMax, PriorityMin},
     Alignment, Settings, Style, Width,
 };
+
+use probing_proto::protocol::dataframe::{DataFrame, Value};
 
 pub struct Table {
     data: VecRecords<Text<String>>,
@@ -61,67 +58,30 @@ impl Table {
     }
 }
 
-pub fn render_table(data: &[RecordBatch]) {
-    if data.is_empty() {
-        return;
-    }
-    let ncol = data[0].schema().fields().len();
-    let nrow = data.iter().map(|batch| batch.num_rows()).sum();
+pub fn render_dataframe(df: &DataFrame) {
+    let ncol = df.names.len();
+    let nrow = df.cols.iter().map(|col| col.len()).max().unwrap_or(0);
+
     let mut table = Table::new(ncol, nrow);
 
-    let mut row = 0;
-    for batch in data {
-        if row == 0 {
-            for (col, field) in batch.schema().fields().iter().enumerate() {
-                table.put((0, col), field.name().clone());
-            }
-            row = 1;
+    for (col, name) in df.names.iter().enumerate() {
+        table.put((0, col), name.clone());
+    }
+
+    for (col, col_data) in df.cols.iter().enumerate() {
+        for row in 0..col_data.len() {
+            let value = match col_data.get(row) {
+                Value::Nil => "nil".to_string(),
+                Value::Int32(x) => x.to_string(),
+                Value::Int64(x) => x.to_string(),
+                Value::Float32(x) => x.to_string(),
+                Value::Float64(x) => x.to_string(),
+                Value::Text(x) => x.to_string(),
+                Value::Url(x) => x.to_string(),
+                Value::DataTime(x) => x.to_string(),
+            };
+            table.put((row + 1, col), value);
         }
-        for col in 0..ncol {
-            let field = batch.column(col);
-            if let Some(array) = field
-                .as_any()
-                .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
-            {
-                array.iter().enumerate().for_each(|(i, value)| {
-                    let datetime_str = value.map_or_else(
-                        || String::new(),
-                        |v| {
-                            let datetime: DateTime<Utc> =
-                                (SystemTime::UNIX_EPOCH + Duration::from_micros(v as u64)).into();
-                            datetime.to_rfc3339()
-                        },
-                    );
-                    table.put((row + i, col), datetime_str);
-                });
-            }
-            if let Some(array) = field.as_any().downcast_ref::<arrow::array::StringArray>() {
-                array.iter().enumerate().for_each(|(i, value)| {
-                    table.put((row + i, col), value.unwrap_or_default().to_string());
-                });
-            }
-            if let Some(array) = field.as_any().downcast_ref::<arrow::array::Int32Array>() {
-                array.iter().enumerate().for_each(|(i, value)| {
-                    table.put((row + i, col), value.unwrap_or_default().to_string());
-                });
-            }
-            if let Some(array) = field.as_any().downcast_ref::<arrow::array::Int64Array>() {
-                array.iter().enumerate().for_each(|(i, value)| {
-                    table.put((row + i, col), value.unwrap_or_default().to_string());
-                });
-            }
-            if let Some(array) = field.as_any().downcast_ref::<arrow::array::Float64Array>() {
-                array.iter().enumerate().for_each(|(i, value)| {
-                    table.put((row + i, col), value.unwrap_or_default().to_string());
-                });
-            }
-            if let Some(array) = field.as_any().downcast_ref::<arrow::array::StringArray>() {
-                array.iter().enumerate().for_each(|(i, value)| {
-                    table.put((row + i, col), value.unwrap_or_default().to_string());
-                });
-            }
-        }
-        row += batch.num_rows();
     }
     println!(
         "{}",

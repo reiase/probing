@@ -30,12 +30,6 @@ pub enum CtrlSignal {
         #[cfg_attr(feature = "cli", arg())]
         code: String,
     },
-
-    #[cfg_attr(feature = "cli", command())]
-    Query {
-        #[cfg_attr(feature = "cli", arg())]
-        query: String,
-    }
 }
 
 #[cfg_attr(feature = "cli", derive(Subcommand))]

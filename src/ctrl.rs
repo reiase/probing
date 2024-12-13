@@ -1,7 +1,8 @@
 use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
-use probing_dpp::cli::{BackTraceCommand, CtrlSignal};
+use probing_proto::cli::{BackTraceCommand, CtrlSignal};
+use probing_proto::protocol::query::{Format, Message, Reply};
 use probing_engine::plugins::cluster::ClusterPlugin;
 
 use crate::handlers::dump_stack;
@@ -34,6 +35,13 @@ pub fn ctrl_handler_string(cmdstr: String) {
             let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
         }
     } else {
+        if let Ok(cmd) = ron::from_str::<CtrlSignal>(&cmdstr) {
+            let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
+            return;
+        } else if let Ok(msg) = ron::from_str::<Message>(&cmdstr) {
+            let _ = handle_query(msg).map_err(|err| eprintln!("{}", err));
+            return;
+        }
         let cmd: CtrlSignal = ron::from_str(&cmdstr).unwrap_or(CtrlSignal::Nil);
         let _ = ctrl_handler(cmd).map_err(|err| eprintln!("{}", err));
     }
@@ -89,11 +97,28 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
         CtrlSignal::Backtrace(bt) => backtrace::handle(bt).map(|x| x.into_bytes()),
         CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x| x.into_bytes()),
         CtrlSignal::Eval { code } => eval::handle(code).map(|x| x.into_bytes()),
-        CtrlSignal::Query { query } => {
-            let engine = probing_engine::create_engine();
-            engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
-            engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
-            engine.execute(query.as_str())
-        }
+        // CtrlSignal::Query { query } => {
+        //     let engine = probing_engine::create_engine();
+        //     engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+        //     engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+        //     engine.execute(query.as_str(), "ron")
+        // }
+    }
+}
+
+pub fn handle_query(query: Message) -> Result<Vec<u8>> {
+    let engine = probing_engine::create_engine();
+    engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+    engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+    if let Message::Query(query) = query {
+        let resp = engine.execute(&query.expr, "ron")?;
+        Ok(ron::to_string(&Message::Reply(Reply {
+            data: resp,
+            format: Format::RON,
+        }))?
+        .as_bytes()
+        .to_vec())
+    } else {
+        Err(anyhow::anyhow!("Invalid query message"))
     }
 }
