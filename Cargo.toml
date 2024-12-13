@@ -85,7 +85,7 @@ pyo3 = { version = "0.23.2", features = [
 ] }
 qstring = "0.7.2"
 signal-hook-registry = "1.4.2"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
 dns-lookup = "2.0.4"
 rustnix = "0.0.1"
 
