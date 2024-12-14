@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::sync::Arc;
 use std::thread;
 
 use anyhow::Result;
@@ -7,38 +7,35 @@ use tokio::net::UnixListener;
 use tokio::net::UnixStream;
 
 use super::stream_handler::StreamHandler;
-use crate::repl::Repl;
+use probing_core::ProbeFactory;
 
-pub struct LocalServer<T> {
+pub struct LocalServer {
     acceptor: UnixListener,
-    phantom: PhantomData<T>,
+    probe_factory: Arc<dyn ProbeFactory>,
 }
 
-unsafe impl<T> Send for LocalServer<T> {}
+unsafe impl Send for LocalServer {}
 
-impl<T> LocalServer<T>
-where
-    T: Repl + Default + Send,
-{
-    pub fn create(acceptor: UnixListener) -> Self {
+impl LocalServer {
+    pub fn new(acceptor: UnixListener, probe_factory: Arc<dyn ProbeFactory>) -> Self {
         Self {
             acceptor,
-            phantom: PhantomData,
+            probe_factory,
         }
     }
 
     async fn run(&mut self) -> Result<()> {
         loop {
             let (stream, _) = self.acceptor.accept().await?;
-            tokio::spawn(async move { StreamHandler::<UnixStream, T>::new(stream).run().await });
+            let probe = self.probe_factory.create();
+            tokio::spawn(
+                async move { StreamHandler::<UnixStream>::new(stream, probe).run().await },
+            );
         }
     }
 }
 
-async fn local_server_worker<T>() -> Result<()>
-where
-    T: Repl + Default + Send,
-{
+async fn local_server_worker(probe_factory: Arc<dyn ProbeFactory>) -> Result<()> {
     with_params! {
         get prefix = probing.server.unix_socket_path or "/tmp/probing/".to_string();
 
@@ -54,21 +51,18 @@ where
             std::fs::remove_file(path)?;
         }
 
-        let mut server = LocalServer::<T>::create(UnixListener::bind(path)?);
+        let mut server = LocalServer::new(UnixListener::bind(path)?, probe_factory);
         server.run().await
     }
 }
 
-pub fn start<T>()
-where
-    T: Repl + Default + Send,
-{
+pub fn start(probe_factory: Arc<dyn ProbeFactory>) {
     thread::spawn(|| {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap()
-            .block_on(local_server_worker::<T>())
+            .block_on(local_server_worker(probe_factory))
             .unwrap();
     });
 }

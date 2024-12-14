@@ -12,8 +12,13 @@ probing-engine = { path = "../engine" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false}
+log = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace=true }
 
 hyper = { version = "1", features = ["server", "http1"] }
 hyperparameter = { version = "0.5.12", default-features = false }
+pin-project-lite = "0.2"
+http-body-util = { version = "0.1" }
+dns-lookup = "2.0.4"
+nu-ansi-term = "0.50.0"

@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, thread};
+use std::{sync::Arc, thread};
 
 use anyhow::Result;
 use log::debug;
@@ -6,29 +6,20 @@ use nu_ansi_term::Color;
 use tokio::net::{TcpListener, TcpStream};
 
 use super::stream_handler::StreamHandler;
-use crate::{repl::Repl, server::vars::PROBING_ADDRESS};
+use probing_core::ProbeFactory;
 
-pub struct AsyncServer<T> {
+pub struct AsyncServer {
     self_addr: Option<String>,
-    phantom: PhantomData<T>,
+    probe_factory: Arc<dyn ProbeFactory>,
 }
 
-unsafe impl<T> Send for AsyncServer<T> {}
+unsafe impl Send for AsyncServer {}
 
-impl<T> Default for AsyncServer<T> {
-    fn default() -> Self {
-        Self {
-            self_addr: Some("0.0.0.0:0".to_string()),
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<T: Repl + Default + Send> AsyncServer<T> {
-    pub fn new(addr: String) -> Self {
+impl AsyncServer {
+    pub fn new(addr: String, probe_factory: Arc<dyn ProbeFactory>) -> Self {
         Self {
             self_addr: Some(addr),
-            phantom: PhantomData,
+            probe_factory,
         }
     }
 
@@ -54,10 +45,6 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
 
             eprintln!("{}", Red.bold().paint("probing server is available on:"));
             eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
-            {
-                let mut probing_address = PROBING_ADDRESS.write().unwrap();
-                *probing_address = addr.to_string();
-            }
             Some(addr.to_string())
         } else {
             None
@@ -72,32 +59,29 @@ impl<T: Repl + Default + Send> AsyncServer<T> {
             stream.nodelay().unwrap();
 
             debug!("new connection from {}", addr);
-            tokio::spawn(async move { StreamHandler::<TcpStream, T>::new(stream).run().await });
+            let probe = self.probe_factory.create();
+
+            tokio::spawn(async move { StreamHandler::<TcpStream>::new(stream, probe).run().await });
         }
     }
 }
 
-pub async fn remote_server_worker<T>(addr: Option<String>) -> Result<()>
-where
-    T: Repl + Default + Send,
-{
-    let mut server = match addr {
-        Some(addr) => AsyncServer::<T>::new(addr),
-        None => AsyncServer::<T>::default(),
-    };
+pub async fn remote_server_worker(
+    addr: Option<String>,
+    probe_factory: Arc<dyn ProbeFactory>,
+) -> Result<()> {
+    let addr = addr.unwrap_or("0.0.0.0:0".to_string());
+    let mut server = AsyncServer::new(addr, probe_factory);
     server.run().await
 }
 
-pub fn start<T>(addr: Option<String>)
-where
-    T: Repl + Default + Send,
-{
+pub fn start(addr: Option<String>, probe_factory: Arc<dyn ProbeFactory>) {
     thread::spawn(|| {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap()
-            .block_on(remote_server_worker::<T>(addr))
+            .block_on(remote_server_worker(addr, probe_factory))
             .unwrap();
     });
 }
