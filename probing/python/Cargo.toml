@@ -1,0 +1,24 @@
+[package]
+name = "probing-python"
+description = "Python support for probing"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+probing-core = { path = "../core" }
+probing-engine = { path = "../engine" }
+
+anyhow = { workspace = true }
+arrow = { workspace = true, default-features=false}
+serde_json = { workspace = true }
+
+pyo3 = { version = "0.23.2", features = [
+    "abi3",
+    "abi3-py37",
+    "auto-initialize",
+] }
+
+[build-dependencies]
+pyo3-build-config = "0.23.2"

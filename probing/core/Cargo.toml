@@ -1,0 +1,12 @@
+[package]
+name = "probing-core"
+description = "Core component for probing"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+probing-proto = { path = "../proto" }
+
+anyhow = { workspace = true }
