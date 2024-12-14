@@ -31,7 +31,7 @@ impl Default for NativePythonConsole {
     fn default() -> Self {
         Self {
             console: Python::with_gil(|py| {
-                let global = PyDict::new_bound(py);
+                let global = PyDict::new(py);
                 let code = get_repl_code();
                 let _ = py.run_bound(code.as_str(), Some(&global), Some(&global));
                 let ret: Bound<'_, PyAny> = global

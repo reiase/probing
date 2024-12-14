@@ -15,7 +15,7 @@ pub fn Panel(
                 css_vars.push_str("--panel-border-color: #383f52;");
                 css_vars.push_str("--panel-background-color: #242832;");
             } else {
-                css_vars.push_str(&format!("--panel-border-color: var(--colorNeutralStroke2);",));
+                css_vars.push_str("--panel-border-color: var(--colorNeutralStroke2);");
                 css_vars.push_str("--panel-background-color: #f9fafb;");
             }
         });

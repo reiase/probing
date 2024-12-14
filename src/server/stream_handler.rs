@@ -22,7 +22,7 @@ impl IsHTTP for TcpStream {
         let mut peek_buf = [0u8; 4];
         std::thread::sleep(std::time::Duration::from_millis(10));
 
-        self.peek(&mut peek_buf).await.ok().map_or(false, |ulen| {
+        self.peek(&mut peek_buf).await.ok().is_some_and(|ulen| {
             ulen == 4
                 && (peek_buf.starts_with("GET ".as_bytes())
                     || peek_buf.starts_with("PUT ".as_bytes())

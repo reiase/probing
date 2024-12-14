@@ -7,9 +7,9 @@ use probing_proto::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {
-    Object,
-    Tensor,
-    Module,
+    // Object,
+    // Tensor,
+    // Module,
 }
 
 #[derive(Clone)]

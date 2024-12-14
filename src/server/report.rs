@@ -62,10 +62,7 @@ async fn report_worker() {
                 .send()
                 .await
             {
-                eprintln!(
-                    "failed to report node status to {}: {err}",
-                    format!("{}:{}", master_addr, probing_port),
-                );
+                eprintln!("failed to report node status to {master_addr}:{probing_port}, {err}");
             }
         }
     }

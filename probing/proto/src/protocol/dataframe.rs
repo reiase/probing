@@ -126,7 +126,7 @@ pub struct DataFrame {
 impl DataFrame {
     pub fn new(names: Vec<String>, columns: Vec<Array>) -> Self {
         DataFrame {
-            names: names,
+            names,
             cols: columns,
         }
     }

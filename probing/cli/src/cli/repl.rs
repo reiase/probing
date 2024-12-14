@@ -162,3 +162,9 @@ impl ReplCommand {
         }
     }
 }
+
+impl Default for ReplCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}

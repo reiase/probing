@@ -52,21 +52,21 @@ impl CustomSchema for PythonSchema {
 
             let ret = ret.unwrap();
             if ret.is_instance_of::<PyList>() {
-                println!("list: {}", ret.to_string());
-                if let Ok(list) = ret.downcast::<PyList>() {
+                println!("list: {ret}");
+                if let Ok(_list) = ret.downcast::<PyList>() {
                     return vec![];
                 }
                 return vec![];
             }
 
             if ret.is_instance_of::<PyDict>() {
-                println!("dict: {}", ret.to_string());
-                if let Ok(dict) = ret.downcast::<PyDict>() {
+                println!("dict: {ret}");
+                if let Ok(_dict) = ret.downcast::<PyDict>() {
                     return vec![];
                 }
                 return vec![];
             }
-            println!("object: {}", ret.to_string());
+            println!("object: {ret}");
             Self::object_to_recordbatch(ret).unwrap()
         })
     }
@@ -127,7 +127,7 @@ impl PythonSchema {
         let mut names: Vec<String> = vec![];
         let mut datas: HashMap<String, Vec<Option<Bound<'_, PyAny>>>> = Default::default();
 
-        for (index, item) in list.iter()?.enumerate() {
+        for (index, item) in list.try_iter()?.enumerate() {
             let item = item?;
             let item = if let Ok(dict) = item.downcast::<PyDict>() {
                 Some(dict.clone())

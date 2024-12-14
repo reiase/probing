@@ -6,13 +6,13 @@ use serde::ser::Serialize;
 use crate::errors::AppError;
 
 pub async fn url_read_str(url: &str) -> Result<String, AppError> {
-    Ok(Request::get(url)
+    Request::get(url)
         .send()
         .await
         .map_err(|e| AppError::HttpError(e.to_string()))?
         .text()
         .await
-        .map_err(|_| AppError::HttpError("Bad Response: String is Expected.".to_string()))?)
+        .map_err(|_| AppError::HttpError("Bad Response: String is Expected.".to_string()))
 }
 
 pub async fn url_read<T: DeserializeOwned>(url: &str) -> Result<T, AppError> {
