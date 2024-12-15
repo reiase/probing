@@ -6,7 +6,6 @@ use thaw::*;
 
 #[component]
 pub fn HeaderBar() -> impl IntoView {
-    let navigate = use_navigate();
     let navigate_signal = RwSignal::new(use_navigate());
     let theme = Theme::use_rw_theme();
     let theme_name = Memo::new(move |_| {

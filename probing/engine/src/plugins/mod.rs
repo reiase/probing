@@ -1,6 +1,6 @@
 pub mod envs;
-pub mod files;
 pub mod file;
+pub mod files;
 pub mod kmsg;
 
 pub mod cluster;

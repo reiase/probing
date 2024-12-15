@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
@@ -15,34 +16,34 @@ pub enum Value {
     DataTime(u64),
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Nil => "nil".to_string(),
-            Value::Int32(x) => x.to_string(),
-            Value::Int64(x) => x.to_string(),
-            Value::Float32(x) => x.to_string(),
-            Value::Float64(x) => x.to_string(),
-            Value::Text(x) => x.to_string(),
-            Value::Url(x) => x.to_string(),
+            Value::Nil => f.write_str("nil"),
+            Value::Int32(x) => f.write_fmt(format_args!("{x}")),
+            Value::Int64(x) => f.write_fmt(format_args!("{x}")),
+            Value::Float32(x) => f.write_fmt(format_args!("{x}")),
+            Value::Float64(x) => f.write_fmt(format_args!("{x}")),
+            Value::Text(x) => f.write_fmt(format_args!("{x}")),
+            Value::Url(x) => f.write_fmt(format_args!("{x}")),
             Value::DataTime(x) => {
                 let datetime: DateTime<Utc> =
                     (SystemTime::UNIX_EPOCH + Duration::from_micros(*x)).into();
-                datetime.to_rfc3339()
+                f.write_fmt(format_args!("{}", datetime.to_rfc3339()))
             }
         }
     }
 }
 
-impl Into<Value> for &str {
-    fn into(self) -> Value {
-        Value::Text(self.to_string())
+impl From<&str> for Value {
+    fn from(val: &str) -> Self {
+        Value::Text(val.to_string())
     }
 }
 
-impl Into<Value> for String {
-    fn into(self) -> Value {
-        Value::Text(self.to_string())
+impl From<String> for Value {
+    fn from(val: String) -> Self {
+        Value::Text(val.to_string())
     }
 }
 
@@ -67,6 +68,13 @@ impl Array {
             Array::TextArray(vec) => vec.len(),
             Array::DateTimeArray(vec) => vec.len(),
             Array::Nil => 0,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Array::Nil => true,
+            other => other.len() == 0,
         }
     }
 
@@ -126,7 +134,7 @@ pub struct DataFrame {
 impl DataFrame {
     pub fn new(names: Vec<String>, columns: Vec<Array>) -> Self {
         DataFrame {
-            names: names,
+            names,
             cols: columns,
         }
     }

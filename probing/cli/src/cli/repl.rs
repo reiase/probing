@@ -146,19 +146,17 @@ impl ReplCommand {
         let mut repl = Repl::<CtrlSignal>::default();
         loop {
             match repl.read_command(">>") {
-                ReplLine::Command(cmd) => match cmd {
-                    // CtrlSignal::Query { query } => ctrl::query(
-                    //     ctrl.clone(),
-                    //     CtrlSignal::Query {
-                    //         query: query.clone(),
-                    //     },
-                    // )?,
-                    cmd => ctrl::handle(ctrl.clone(), cmd)?,
-                },
+                ReplLine::Command(cmd) => ctrl::handle(ctrl.clone(), cmd)?,
                 ReplLine::Empty => {}
                 ReplLine::Error(msg) => eprintln!("{}", msg),
                 ReplLine::Exit => return Ok(()),
             }
         }
+    }
+}
+
+impl Default for ReplCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }

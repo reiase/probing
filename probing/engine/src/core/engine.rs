@@ -49,19 +49,19 @@ pub struct Engine {
     plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
 }
 
-impl Engine {
-    pub fn new() -> Self {
+impl Default for Engine {
+    fn default() -> Self {
         let config = SessionConfig::default()
             .with_information_schema(true)
             .with_default_catalog_and_schema("probe", "probe");
-        let engine = Engine {
+        Engine {
             context: SessionContext::new_with_config(config),
             plugins: Default::default(),
-        };
-
-        engine
+        }
     }
+}
 
+impl Engine {
     pub fn builder() -> EngineBuilder {
         EngineBuilder::new()
     }
@@ -135,11 +135,11 @@ impl Engine {
             }
         } else if plugin.kind() == PluginType::TableProviderPlugin {
             let schema = if catalog.schema_names().contains(&category) {
-                catalog.schema(&category.as_str())
+                catalog.schema(category.as_str())
             } else {
                 let schema = MemorySchemaProvider::new();
                 catalog.register_schema(category.as_str(), Arc::new(schema))?;
-                catalog.schema(&category.as_str())
+                catalog.schema(category.as_str())
             };
             let state: SessionState = self.context.state();
             plugin.register_table(schema.unwrap(), &state)?;
@@ -198,5 +198,11 @@ impl EngineBuilder {
             engine.enable(namespace.as_str(), plugin)?;
         }
         Ok(engine)
+    }
+}
+
+impl Default for EngineBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

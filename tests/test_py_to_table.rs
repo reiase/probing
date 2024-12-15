@@ -1,5 +1,5 @@
-use probing::plugins::python::PythonSchema;
 use probing_engine::core::DataType;
+use probing_python::plugins::python::PythonSchema;
 use pyo3::ffi::c_str;
 use pyo3::Python;
 

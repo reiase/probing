@@ -112,7 +112,7 @@ pub trait CustomSchema: Sync + Send {
     }
     async fn table(expr: String) -> Result<Option<Arc<dyn TableProvider>>> {
         let data = Self::data(expr.as_str());
-        if data.len() > 0 {
+        if !data.is_empty() {
             let data = MemTable::try_new(data[0].schema(), vec![data]).ok();
             let data = data.map(|x| Arc::new(x) as Arc<dyn TableProvider>);
             Ok(data)

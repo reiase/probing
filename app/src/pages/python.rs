@@ -1,5 +1,5 @@
-use probing_proto::Object;
 use leptos::prelude::*;
+use probing_proto::Object;
 
 use leptos_meta::Style;
 use thaw::*;
@@ -52,8 +52,8 @@ pub fn SelectedObjectList(
 
 #[component]
 pub fn Python() -> impl IntoView {
-    let limits = create_rw_signal(Some((100)));
-    let selected = create_rw_signal(String::from("Python"));
+    let limits = RwSignal::new(Some(100));
+    let selected = RwSignal::new(String::from("Python"));
 
     view! {
         <Style>

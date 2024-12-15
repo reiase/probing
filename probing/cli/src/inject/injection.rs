@@ -307,7 +307,7 @@ impl<'a> Injection<'a> {
     }
 }
 
-impl<'a> Drop for Injection<'a> {
+impl Drop for Injection<'_> {
     fn drop(&mut self) {
         if !self.removed {
             log::warn!("Injection dropped without being removed, removing now");

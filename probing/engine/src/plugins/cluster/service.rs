@@ -39,7 +39,7 @@ impl IntoArrow for std::time::Duration {
     }
 }
 
-pub fn extract_array<T, V, F>(nodes: &Vec<T>, f: F) -> ArrayRef
+pub fn extract_array<T, V, F>(nodes: &[T], f: F) -> ArrayRef
 where
     F: FnMut(&T) -> V,
     V: IntoArrow,

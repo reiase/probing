@@ -15,7 +15,7 @@ fn init_engine(engine: &Engine) -> Result<()> {
 }
 
 pub fn create_engine() -> Engine {
-    let engine = Engine::new();
+    let engine = Engine::default();
 
     if let Err(e) = init_engine(&engine) {
         println!("{e}");

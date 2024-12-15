@@ -90,15 +90,7 @@ pub fn render_dataframe(df: &DataFrame) {
 }
 
 fn terminal_width() -> Option<u32> {
-    if let Some(width) = terminal_size_of(std::io::stdout()) {
-        Some(width)
-    } else if let Some(width) = terminal_size_of(std::io::stderr()) {
-        Some(width)
-    } else if let Some(width) = terminal_size_of(std::io::stdin()) {
-        Some(width)
-    } else {
-        None
-    }
+    terminal_size_of(std::io::stdout())
 }
 
 fn terminal_size_of<Fd: AsFd>(fd: Fd) -> Option<u32> {
