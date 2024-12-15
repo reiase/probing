@@ -805,12 +805,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "const-str"
-version = "0.5.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3618cccc083bb987a415d85c02ca6c9994ea5b44731ec28b9ecf09658655fba9"
-
-[[package]]
 name = "const_format"
 version = "0.2.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1842,18 +1836,6 @@ dependencies = [
  "tokio",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "hyperparameter"
-version = "0.5.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9879b62b9147d734a6faab87d9dc87fb049983da834392df377d8b66586aad8c"
-dependencies = [
- "const-str",
- "lazy_static",
- "phf",
- "xxhash-rust",
 ]
 
 [[package]]
@@ -3065,7 +3047,6 @@ dependencies = [
  "env_logger",
  "http-body-util",
  "hyper",
- "hyperparameter",
  "include_dir",
  "log",
  "nix 0.29.0",
@@ -3105,6 +3086,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
+ "include_dir",
  "probing-core",
  "probing-engine",
  "pyo3",
@@ -3118,12 +3100,13 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
+ "bytes",
  "dns-lookup",
  "http-body-util",
  "hyper",
- "hyperparameter",
  "include_dir",
  "log",
+ "nix 0.29.0",
  "nu-ansi-term",
  "pin-project-lite",
  "probing-core",
@@ -3131,6 +3114,7 @@ dependencies = [
  "probing-legacy",
  "probing-proto",
  "qstring",
+ "reqwest",
  "serde_json",
  "tokio",
 ]

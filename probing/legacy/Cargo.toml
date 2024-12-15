@@ -39,7 +39,7 @@ env_logger = { version = "0.11.3", default-features = false, features = [
 ] }
 http-body-util = { version = "0.1" }
 hyper = { version = "1.5.1", features = ["server", "http1"] }
-hyperparameter = { version = "0.5.12", default-features = false }
+# hyperparameter = { version = "0.5.12", default-features = false }
 include_dir = "=0.7.4"
 nix = { version = "0.29.0", default-features = false, features = ["signal"] }
 nu-ansi-term = "0.50.0"

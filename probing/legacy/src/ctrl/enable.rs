@@ -6,7 +6,7 @@ use crate::{
     handlers::pprof_handler,
     register_signal_handler,
     repl::PythonRepl,
-    server::{remote_server, start_debug_server},
+    // server::{remote_server, start_debug_server},
 };
 
 pub fn handle(feature: Features) -> Result<String> {
@@ -33,7 +33,7 @@ pub fn handle(feature: Features) -> Result<String> {
             Ok(Default::default())
         }
         Features::Remote { address } => {
-            remote_server::start::<PythonRepl>(address);
+            // remote_server::start::<PythonRepl>(address);
             Ok(Default::default())
         }
         Features::CatchCrash { address } => {
@@ -56,5 +56,5 @@ pub fn handle(feature: Features) -> Result<String> {
 
 fn crash_handler(addr: Option<String>) {
     let mut repl = PythonRepl::default();
-    start_debug_server(addr, &mut repl);
+    // start_debug_server(addr, &mut repl);
 }

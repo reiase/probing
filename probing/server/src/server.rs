@@ -1,0 +1,152 @@
+use std::sync::Arc;
+use std::thread;
+
+use anyhow::Result;
+use tokio::net::TcpListener;
+use tokio::net::UnixListener;
+use tokio::net::UnixStream;
+
+use super::stream_handler::StreamHandler;
+use probing_core::ProbeFactory;
+
+trait Acceptor: Send + Sync + 'static {
+    type Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static;
+
+    async fn accept(&self) -> Result<(Self::Stream, String)>;
+    fn addr(&self) -> String;
+}
+
+impl Acceptor for UnixListener {
+    type Stream = UnixStream;
+
+    async fn accept(&self) -> Result<(Self::Stream, String)> {
+        let (stream, _) = self.accept().await?;
+        Ok((stream, self.addr()))
+    }
+    fn addr(&self) -> String {
+        if let Ok(addr) = self.local_addr() {
+            addr.as_pathname()
+                .map(|addr| addr.to_string_lossy().to_string())
+                .unwrap_or("unix://".to_string())
+        } else {
+            "unix://".to_string()
+        }
+    }
+}
+
+impl Acceptor for TcpListener {
+    type Stream = tokio::net::TcpStream;
+
+    async fn accept(&self) -> Result<(Self::Stream, String)> {
+        let stream = TcpListener::accept(self).await?;
+        Ok((stream.0, stream.1.to_string()))
+    }
+
+    fn addr(&self) -> String {
+        self.local_addr()
+            .map(|addr| addr.to_string())
+            .unwrap_or("tcp://".to_string())
+    }
+}
+
+struct Server<A: Acceptor> {
+    acceptor: Box<A>,
+    probe_factory: Arc<dyn ProbeFactory>,
+}
+
+impl<A: Acceptor> Server<A> {
+    pub fn new(acceptor: Box<A>, probe_factory: Arc<dyn ProbeFactory>) -> Self {
+        Self {
+            acceptor,
+            probe_factory,
+        }
+    }
+
+    async fn run(&mut self) -> Result<()> {
+        log::info!("Server listening on {}", self.acceptor.addr());
+        loop {
+            let (stream, peer_addr) = self.acceptor.accept().await?;
+            log::debug!("New connection from {}", peer_addr);
+
+            let probe = self.probe_factory.create();
+            tokio::spawn(async move { StreamHandler::new(stream, probe).run().await });
+        }
+    }
+}
+
+impl Server<UnixListener> {
+    async fn local(probe_factory: Arc<dyn ProbeFactory>) -> Result<Self> {
+        let socket_path = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
+        let socket_path = format!("{}/{}", socket_path, std::process::id());
+
+        if let Some(parent) = std::path::Path::new(&socket_path).parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let _ = tokio::fs::remove_file(&socket_path).await;
+
+        let acceptor = Box::new(UnixListener::bind(&socket_path)?);
+        Ok(Server::new(acceptor, probe_factory))
+    }
+}
+
+impl Server<TcpListener> {
+    async fn remote(addr: String, probe_factory: Arc<dyn ProbeFactory>) -> Result<Self> {
+        let reslved_addr = if let Some((host, port)) = addr.split_once(":") {
+            let ip = dns_lookup::lookup_host(host).map_err(|e| {
+                println!("resolve {} failed: {}", host, e);
+                e
+            })?;
+            let ip = ip
+                .iter()
+                .filter(|ipaddr| ipaddr.is_ipv4())
+                .collect::<Vec<_>>();
+            let reslved_addr = format!("{}:{}", ip[0], port);
+            println!("resolve {} to {}", addr, reslved_addr);
+            reslved_addr
+        } else {
+            addr
+        };
+        let acceptor = Box::new(TcpListener::bind(reslved_addr).await?);
+        Ok(Server::new(acceptor, probe_factory))
+    }
+}
+
+pub fn start_local(probe_factory: Arc<dyn ProbeFactory>) {
+    thread::spawn(move || {
+        let _ = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async move {
+                let mut server = Server::local(probe_factory).await?;
+                server.run().await
+            });
+    });
+}
+
+pub fn start_remote(addr: Option<String>, probe_factory: Arc<dyn ProbeFactory>) {
+    let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
+    thread::spawn(move || {
+        let _ = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async move {
+                let mut server = Server::remote(addr, probe_factory).await?;
+                server.run().await
+            });
+    });
+}
+
+pub fn cleanup() -> Result<()> {
+    let prefix = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
+
+    let pid = std::process::id();
+    let path = format!("{}/{}", prefix, pid);
+    let path = std::path::Path::new(&path);
+    if path.exists() {
+        std::fs::remove_file(path)?;
+    }
+
+    Ok(())
+}

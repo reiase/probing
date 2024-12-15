@@ -24,10 +24,6 @@ where
     }
 
     pub async fn run(self) -> Result<()> {
-        self.handle_http().await
-    }
-
-    async fn handle_http(self) -> Result<()> {
         http1::Builder::new()
             // .serve_connection(TokioIo::new(self.inner), ProbingService::default())
             .serve_connection(TokioIo::new(self.inner), service_fn(handle_request))

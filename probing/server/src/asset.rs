@@ -1,8 +1,8 @@
 use std::env;
 
-use hyper::body::Bytes;
-
-use include_dir::{include_dir, Dir};
+use bytes::Bytes;
+use include_dir::include_dir;
+use include_dir::Dir;
 
 static ASSET: Dir = include_dir!("app/dist");
 
@@ -21,10 +21,9 @@ pub fn get(path: &str) -> Bytes {
         let content = std::fs::read(path).unwrap();
         Bytes::from(content)
     } else {
-        let content = ASSET
+        ASSET
             .get_file(path.trim_start_matches('/'))
-            .unwrap()
-            .contents();
-        Bytes::copy_from_slice(content)
+            .map(|f| Bytes::copy_from_slice(f.contents()))
+            .unwrap_or_default()
     }
 }

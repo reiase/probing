@@ -2,7 +2,6 @@ use std::sync::Arc;
 use std::thread;
 
 use anyhow::Result;
-use hyperparameter::*;
 use tokio::net::UnixListener;
 use tokio::net::UnixStream;
 
@@ -36,47 +35,42 @@ impl LocalServer {
 }
 
 async fn local_server_worker(probe_factory: Arc<dyn ProbeFactory>) -> Result<()> {
-    with_params! {
-        get prefix = probing.server.unix_socket_path or "/tmp/probing/".to_string();
+    let prefix = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
 
-        let path = std::path::Path::new(&prefix);
-        if !path.exists(){
-            std::fs::create_dir_all(path)?;
-        }
-
-        let pid = std::process::id();
-        let path = format!("{}/{}", prefix, pid);
-        let path = std::path::Path::new(&path);
-        if path.exists() {
-            std::fs::remove_file(path)?;
-        }
-
-        let mut server = LocalServer::new(UnixListener::bind(path)?, probe_factory);
-        server.run().await
+    let path = std::path::Path::new(&prefix);
+    if !path.exists() {
+        std::fs::create_dir_all(path)?;
     }
+
+    let path = format!("{}/{}", prefix, std::process::id());
+    let path = std::path::Path::new(&path);
+    if path.exists() {
+        std::fs::remove_file(path)?;
+    }
+
+    let mut server = LocalServer::new(UnixListener::bind(path)?, probe_factory);
+    server.run().await
 }
 
 pub fn start(probe_factory: Arc<dyn ProbeFactory>) {
     thread::spawn(move || {
-        tokio::runtime::Builder::new_multi_thread()
+        let _ = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap()
-            .block_on(local_server_worker(probe_factory))
-            .unwrap();
+            .block_on(local_server_worker(probe_factory));
     });
 }
 
 pub fn stop() -> Result<()> {
-    with_params! {
-        get prefix = probing.server.unix_socket_path or "/tmp/probing/".to_string();
+    let prefix = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
 
-        let pid = std::process::id();
-        let path = format!("{}/{}", prefix, pid);
-        let path = std::path::Path::new(&path);
-        if path.exists() {
-            std::fs::remove_file(path)?;
-        }
+    let pid = std::process::id();
+    let path = format!("{}/{}", prefix, pid);
+    let path = std::path::Path::new(&path);
+    if path.exists() {
+        std::fs::remove_file(path)?;
     }
+
     Ok(())
 }

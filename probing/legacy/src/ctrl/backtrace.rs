@@ -9,7 +9,7 @@ use pyo3::Python;
 use crate::{
     handlers::{cc_backtrace, py_backtrace},
     repl::PythonRepl,
-    server::start_debug_server,
+    // server::start_debug_server,
     service::CALLSTACK,
 };
 use probing_proto::cli::{BackTraceCommand, CtrlSignal};
@@ -45,7 +45,7 @@ pub fn handle(bt: BackTraceCommand) -> Result<String> {
         } => {
             if signal {
                 let mut repl = PythonRepl::default();
-                start_debug_server(address, &mut repl);
+                // start_debug_server(address, &mut repl);
             } else {
                 let tid = tid.unwrap_or(std::process::id());
                 let cmd = CtrlSignal::Backtrace(BackTraceCommand::Pause {

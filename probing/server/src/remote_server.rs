@@ -45,6 +45,10 @@ impl AsyncServer {
 
             eprintln!("{}", Red.bold().paint("probing server is available on:"));
             eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+            {
+                let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
+                *probing_address = addr.to_string();
+            }
             Some(addr.to_string())
         } else {
             None

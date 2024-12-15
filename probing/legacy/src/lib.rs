@@ -15,11 +15,11 @@ use nix::libc;
 // use server::local_server;
 
 mod core;
-mod ctrl;
+pub mod ctrl;
 mod handlers;
 mod hooks;
 mod repl;
-pub mod server;
+// pub mod server;
 pub mod service;
 
 // use handlers::dump_stack2;

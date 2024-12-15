@@ -3,7 +3,7 @@ use pprof::ProfilerGuard;
 use pprof::ProfilerGuardBuilder;
 use std::sync::Mutex;
 
-use hyperparameter::*;
+// use hyperparameter::*;
 
 pub struct PprofHolder(Mutex<Option<ProfilerGuard<'static>>>);
 
@@ -55,9 +55,5 @@ impl PprofHolder {
 pub static PPROF_HOLDER: Lazy<PprofHolder> = Lazy::new(|| PprofHolder(Mutex::new(None)));
 
 pub fn pprof_handler() {
-    with_params! {
-        get freq = probing.pprof.freq or 100;
-
-        PPROF_HOLDER.setup(freq as i32);
-    }
+    PPROF_HOLDER.setup(100);
 }

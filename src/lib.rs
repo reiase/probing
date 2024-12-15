@@ -1,14 +1,6 @@
 #[macro_use]
 extern crate ctor;
 
-use probing_legacy::get_hostname;
-use probing_legacy::register_signal_handler;
-use probing_legacy::server::report::start_report_worker;
-use probing_legacy::sigusr1_handler;
-use probing_proto::cli::CtrlSignal;
-use probing_python::PythonProbeFactory;
-use probing_server::local_server;
-use probing_server::remote_server;
 use std::env;
 use std::sync::Arc;
 
@@ -17,26 +9,42 @@ use log::debug;
 use log::error;
 use nix::libc::SIGUSR1;
 
+use probing_legacy::ctrl::ctrl_handler;
+use probing_legacy::get_hostname;
+use probing_legacy::register_signal_handler;
+use probing_legacy::sigusr1_handler;
+use probing_proto::cli::CtrlSignal;
+use probing_python::PythonProbeFactory;
+use probing_server::report::start_report_worker;
+
+const ENV_PROBING_LOG: &str = "PROBING_LOG";
+const ENV_PROBING_ARGS: &str = "PROBING_ARGS";
+const ENV_PROBING_PORT: &str = "PROBING_PORT";
+
+const DEFAULT_PORT: u16 = 9700;
+
 #[ctor]
 fn setup() {
     let pid = std::process::id();
     eprintln!("Initializing libprobing for process {pid} ...",);
-    env_logger::init_from_env(Env::new().filter("PROBING_LOG"));
+    env_logger::init_from_env(Env::new().filter(ENV_PROBING_LOG));
 
-    let argstr = env::var("PROBING_ARGS").unwrap_or("[]".to_string());
+    let argstr = env::var(ENV_PROBING_ARGS).unwrap_or("[]".to_string());
     debug!("Setup libprobing with PROBING_ARGS: {argstr}");
-    let cmds: Vec<CtrlSignal> = ron::from_str(argstr.as_str()).unwrap();
+    let cmds = ron::from_str::<Vec<CtrlSignal>>(argstr.as_str());
     debug!("Setup libprobing with commands: {cmds:?}");
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
     // register_signal_handler(SIGUSR2, dump_stack2);
 
-    // for cmd in cmds {
-    //     ctrl_handler(cmd).unwrap();
-    // }
-    local_server::start(Arc::new(PythonProbeFactory::default()));
+    if let Ok(cmds) = cmds {
+        for cmd in cmds {
+            ctrl_handler(cmd).unwrap();
+        }
+    }
+    probing_server::start_local(Arc::new(PythonProbeFactory::default()));
 
-    if let Ok(port) = std::env::var("PROBING_PORT") {
+    if let Ok(port) = std::env::var(ENV_PROBING_PORT) {
         let local_rank = std::env::var("LOCAL_RANK")
             .unwrap_or("0".to_string())
             .parse()
@@ -47,21 +55,24 @@ fn setup() {
             get_hostname().unwrap_or("localhost".to_string())
         };
 
-        let address = format!("{}:{}", hostname, port.parse().unwrap_or(9700) + local_rank);
+        let address = format!(
+            "{}:{}",
+            hostname,
+            port.parse().unwrap_or(DEFAULT_PORT) + local_rank
+        );
         println!(
             "Starting remote server for process {} at {}",
             std::process::id(),
             address
         );
-        remote_server::start(Some(address), Arc::new(PythonProbeFactory::default()));
+        probing_server::start_remote(Some(address), Arc::new(PythonProbeFactory::default()));
         start_report_worker();
     }
 }
 
 #[dtor]
 fn cleanup() {
-    if let Err(e) = local_server::stop() {
-        error!("Error cleanup unix socket for {}", std::process::id());
-        error!("{}", e);
+    if let Err(e) = probing_server::cleanup() {
+        error!("Failed to cleanup unix socket: {}", e);
     }
 }
