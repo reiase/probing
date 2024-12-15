@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 #[macro_use]
 extern crate ctor;
 
@@ -10,21 +9,18 @@ use probing_proto::cli::CtrlSignal;
 use probing_python::PythonProbeFactory;
 use probing_server::local_server;
 use probing_server::remote_server;
-use std::sync::Arc;
 use std::env;
+use std::sync::Arc;
 
 use env_logger::Env;
 use log::debug;
 use log::error;
 use nix::libc::SIGUSR1;
 
-
 #[ctor]
 fn setup() {
-    eprintln!(
-        "Initializing libprobing for process {} ...",
-        std::process::id()
-    );
+    let pid = std::process::id();
+    eprintln!("Initializing libprobing for process {pid} ...",);
     env_logger::init_from_env(Env::new().filter("PROBING_LOG"));
 
     let argstr = env::var("PROBING_ARGS").unwrap_or("[]".to_string());

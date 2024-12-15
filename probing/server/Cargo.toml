@@ -10,6 +10,7 @@ license.workspace = true
 probing-core = { path = "../core" }
 probing-engine = { path = "../engine" }
 probing-proto = { path = "../proto" }
+probing-legacy = { path = "../legacy" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false}

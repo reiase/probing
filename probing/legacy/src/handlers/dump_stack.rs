@@ -40,7 +40,7 @@ pub fn dump_stack2() {
 pub fn py_backtrace() -> String {
     Python::with_gil(|py| {
         let ret = py
-            .import_bound("traceback")
+            .import("traceback")
             .unwrap()
             .call_method0("format_stack")
             .unwrap_or_else(|err| {

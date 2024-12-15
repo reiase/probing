@@ -60,7 +60,7 @@ impl Probe for PythonProbe {
 }
 
 #[derive(Default)]
-pub struct PythonProbeFactory{}
+pub struct PythonProbeFactory {}
 
 impl ProbeFactory for PythonProbeFactory {
     fn create(&self) -> Arc<dyn Probe> {

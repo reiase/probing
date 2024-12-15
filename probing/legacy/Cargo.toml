@@ -21,6 +21,7 @@ extension-module = ["pyo3/extension-module"]
 # probing-cli = { path = "probing/cli" }
 probing-proto = { path = "../proto" }
 probing-engine = { path = "../engine" }
+probing-python = { path = "../python" }
 
 anyhow = { workspace = true }
 log = { workspace = true }

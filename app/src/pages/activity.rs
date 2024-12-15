@@ -20,22 +20,24 @@ pub fn Activity() -> impl IntoView {
 
     let callstacks = url_read_resource::<Vec<CallStack>>(url.as_str());
 
-    let callstacks = move || view! {
-        <Suspense fallback=move || {
-            view! { <p>"Loading..."</p> }
-        }>
-            {move || Suspend::new(async move {
-                callstacks
-                    .await
-                    .unwrap_or(Default::default())
-                    .iter()
-                    .map(|callstack| {
-                        view! { <CallStackView callstack=callstack.clone() /> }
-                    })
-                    .collect::<Vec<_>>()
-            })}
+    let callstacks = move || {
+        view! {
+            <Suspense fallback=move || {
+                view! { <p>"Loading..."</p> }
+            }>
+                {move || Suspend::new(async move {
+                    callstacks
+                        .await
+                        .unwrap_or(Default::default())
+                        .iter()
+                        .map(|callstack| {
+                            view! { <CallStackView callstack=callstack.clone() /> }
+                        })
+                        .collect::<Vec<_>>()
+                })}
 
-        </Suspense>
+            </Suspense>
+        }
     };
 
     view! {

@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.7"
+version = "0.2.0"
 authors = ["reiase <reiase@gmail.com>"]
 edition = "2021"
 license = "GPL3"
@@ -50,10 +50,6 @@ keywords = ["debug", "performance", "python"]
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[features]
-default = ["extension-module"]
-extension-module = ["pyo3/extension-module"]
-
 [dependencies]
 probing-cli = { path = "probing/cli" }
 probing-proto = { path = "probing/proto" }
@@ -62,45 +58,29 @@ probing-legacy = { path = "probing/legacy" }
 probing-server = { path = "probing/server" }
 probing-python = { path = "probing/python" }
 
-anyhow = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
-procfs = { workspace = true }
 ron = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }
 
-backtrace = { version = "0.3.69", features = ["cpp_demangle", "std"] }
-ctor = "0.2.6"
+ctor = { version = "0.2.6", features=["used_linker"] }
 env_logger = { version = "0.11.3", default-features = false, features = [
     "humantime",
 ] }
-http-body-util = { version = "0.1" }
-hyper = { version = "1.5.1", features = ["server", "http1"] }
-hyperparameter = { version = "0.5.12", default-features = false }
-include_dir = "=0.7.4"
 nix = { version = "0.29.0", default-features = false, features = ["signal"] }
-nu-ansi-term = "0.50.0"
 pin-project-lite = "0.2"
-plt-rs = "0.2.0"
-pprof = { version = "0.14.0", features = ["cpp", "flamegraph"] }
-pyo3 = { version = "0.23.3", features = [
-    "abi3",
-    "abi3-py37",
-    "auto-initialize",
-] }
-qstring = "0.7.2"
-signal-hook-registry = "1.4.2"
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
-dns-lookup = "2.0.4"
-rustnix = "0.0.1"
 
 [build-dependencies]
 pyo3-build-config = "0.23.3"
 
 [dev-dependencies]
+anyhow = { workspace = true }
 arrow = { workspace = true, default-features = false, features = ["csv"] }
+pyo3 = { version = "0.23.3", features = [
+    "abi3",
+    "abi3-py37",
+    "auto-initialize",
+] }
+tokio = { workspace = true }
 
 [profile.release]
 opt-level = "z"   # Optimize for size.

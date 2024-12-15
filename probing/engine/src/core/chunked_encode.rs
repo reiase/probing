@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use arrow::array::{
-    Array, Float32Array, Float64Array, Int32Array, Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray,
+    Array, Float32Array, Float64Array, Int32Array, Int64Array, RecordBatch, StringArray,
+    TimestampMicrosecondArray,
 };
 use serde::{ser::SerializeStruct, Serialize};
 
@@ -27,7 +28,7 @@ pub struct ArrayChunk<'a> {
     pub chunk: &'a Arc<dyn Array>,
 }
 
-impl<'a> Serialize for DataFrameChunk<'a> {
+impl Serialize for DataFrameChunk<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -55,7 +56,7 @@ impl<'a> Serialize for DataFrameChunk<'a> {
     }
 }
 
-impl<'a> Serialize for ArrayChunk<'a> {
+impl Serialize for ArrayChunk<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -83,14 +84,18 @@ impl<'a> Serialize for ArrayChunk<'a> {
                 .map(|x| array.value(x).to_string())
                 .collect::<Vec<_>>();
             serializer.serialize_newtype_variant("Array", 0, "TextArray", &values)
-        } else if let Some(array) = self.chunk.as_any().downcast_ref::<TimestampMicrosecondArray>() {
+        } else if let Some(array) = self
+            .chunk
+            .as_any()
+            .downcast_ref::<TimestampMicrosecondArray>()
+        {
             serializer.serialize_newtype_variant(
                 "Array",
                 0,
                 "DateTimeArray",
                 &array.values().to_vec(),
             )
-        }else {
+        } else {
             Err(serde::ser::Error::custom("Unsupported array type"))
         }
     }

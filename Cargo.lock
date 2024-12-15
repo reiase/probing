@@ -138,7 +138,7 @@ checksum = "c042108f3ed77fd83760a5fd79b53be043192bb3b9dba91d8c574c0ada7850c8"
 
 [[package]]
 name = "app"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -2972,47 +2972,31 @@ dependencies = [
 
 [[package]]
 name = "probing"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
- "backtrace",
  "ctor",
- "dns-lookup",
  "env_logger",
- "http-body-util",
- "hyper",
- "hyperparameter",
- "include_dir",
  "log",
  "nix 0.29.0",
- "nu-ansi-term",
  "once_cell",
  "pin-project-lite",
- "plt-rs",
- "pprof",
  "probing-cli",
  "probing-engine",
  "probing-legacy",
  "probing-proto",
  "probing-python",
  "probing-server",
- "procfs",
  "pyo3",
  "pyo3-build-config",
- "qstring",
- "reqwest",
  "ron",
- "rustnix",
- "serde",
- "serde_json",
- "signal-hook-registry",
  "tokio",
 ]
 
 [[package]]
 name = "probing-cli"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3041,7 +3025,7 @@ dependencies = [
 
 [[package]]
 name = "probing-core"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -3050,7 +3034,7 @@ dependencies = [
 
 [[package]]
 name = "probing-engine"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3071,7 +3055,7 @@ dependencies = [
 
 [[package]]
 name = "probing-legacy"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3092,6 +3076,7 @@ dependencies = [
  "pprof",
  "probing-engine",
  "probing-proto",
+ "probing-python",
  "procfs",
  "pyo3",
  "pyo3-build-config",
@@ -3107,7 +3092,7 @@ dependencies = [
 
 [[package]]
 name = "probing-proto"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "clap 4.5.20",
@@ -3116,7 +3101,7 @@ dependencies = [
 
 [[package]]
 name = "probing-python"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3129,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "probing-server"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3143,6 +3128,7 @@ dependencies = [
  "pin-project-lite",
  "probing-core",
  "probing-engine",
+ "probing-legacy",
  "probing-proto",
  "qstring",
  "serde_json",

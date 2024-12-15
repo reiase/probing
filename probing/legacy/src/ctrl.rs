@@ -1,13 +1,14 @@
 use std::{fmt::Display, sync::Arc};
 
 use anyhow::Result;
+use probing_engine::plugins::cluster::ClusterPlugin;
 use probing_proto::cli::{BackTraceCommand, CtrlSignal};
 use probing_proto::protocol::query::{Format, Message, Reply};
-use probing_engine::plugins::cluster::ClusterPlugin;
 
 use crate::handlers::dump_stack;
-use crate::plugins::python::PythonPlugin;
 use crate::service::CALLSTACK;
+
+use probing_python::plugins::python::PythonPlugin;
 
 pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
     match cmd {

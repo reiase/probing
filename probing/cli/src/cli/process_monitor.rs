@@ -40,6 +40,7 @@ impl ProcessMonitor {
 
     pub fn monitor(&mut self) -> Result<()> {
         if !self.recursive {
+            thread::sleep(Duration::from_secs(1));
             self.inject(self.child.id() as i32)?;
 
             return self.child.wait().map_err(Error::msg).map(|_| ());

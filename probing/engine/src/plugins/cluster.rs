@@ -33,7 +33,11 @@ impl CustomTable for ClusterTable {
             Field::new("role_rank", DataType::Int32, true),
             Field::new("role_world_size", DataType::Int32, true),
             Field::new("status", DataType::Utf8, true),
-            Field::new("timestamp", DataType::Timestamp(TimeUnit::Microsecond, None), false),
+            Field::new(
+                "timestamp",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                false,
+            ),
         ]))
     }
 
@@ -52,7 +56,9 @@ impl CustomTable for ClusterTable {
         fields.push(extract_array(&nodes, |n| n.role_rank));
         fields.push(extract_array(&nodes, |n| n.role_world_size));
         fields.push(extract_array(&nodes, |n| n.status.clone()));
-        fields.push(extract_array(&nodes, |n| std::time::Duration::from_micros(n.timestamp)));
+        fields.push(extract_array(&nodes, |n| {
+            std::time::Duration::from_micros(n.timestamp)
+        }));
 
         if let Ok(batches) = RecordBatch::try_new(Self::schema(), fields) {
             vec![batches]

@@ -5,7 +5,7 @@ use thaw::*;
 #[component]
 pub fn Panel(
     #[prop(into)] title: Signal<String>,
-    #[prop(optional)] children: Option<Children>
+    #[prop(optional)] children: Option<Children>,
 ) -> impl IntoView {
     let theme = Theme::use_theme(Theme::light);
     let css_vars = Memo::new(move |_| {

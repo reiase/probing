@@ -13,5 +13,5 @@ pub extern "C" fn signal(sig: c_int, handler: *mut c_void) -> *mut c_void {
             handler(sig);
         });
     };
-    0 as *mut c_void
+    std::ptr::null_mut::<c_void>()
 }

@@ -13,7 +13,7 @@ static ASSET: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/repl/");
 
 #[cfg(debug_assertions)]
 fn get_repl_code() -> String {
-    std::fs::read_to_string("src/repl/debug_console.py").unwrap()
+    std::fs::read_to_string("probing/legacy/src/repl/debug_console.py").unwrap()
 }
 
 #[cfg(not(debug_assertions))]

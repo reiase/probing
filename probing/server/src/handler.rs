@@ -6,6 +6,8 @@ use hyper::{body::Bytes, Method, Request, Response};
 
 use log::debug;
 
+use probing_legacy::service::handle_request as legacy_handle_request;
+
 use crate::asset;
 
 fn parse_qs(qs: Option<&str>) -> HashMap<String, String> {
@@ -53,6 +55,6 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             };
             Ok(builder.body(body).unwrap())
         }
-        _ => Ok(Default::default()),
+        _ => legacy_handle_request(req).await,
     }
 }
