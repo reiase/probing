@@ -2,7 +2,6 @@ mod asset;
 mod handler;
 pub mod report;
 mod server;
-mod stream_handler;
 mod tokio_io;
 mod vars;
 

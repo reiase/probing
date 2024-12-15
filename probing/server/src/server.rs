@@ -2,11 +2,19 @@ use std::sync::Arc;
 use std::thread;
 
 use anyhow::Result;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
 use tokio::net::TcpListener;
 use tokio::net::UnixListener;
 use tokio::net::UnixStream;
 
-use super::stream_handler::StreamHandler;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+
+use crate::handler::handle_request;
+
+use super::tokio_io::TokioIo;
+use probing_core::Probe;
 use probing_core::ProbeFactory;
 
 trait Acceptor: Send + Sync + 'static {
@@ -27,7 +35,7 @@ impl Acceptor for UnixListener {
         if let Ok(addr) = self.local_addr() {
             addr.as_pathname()
                 .map(|addr| addr.to_string_lossy().to_string())
-                .unwrap_or("unix://".to_string())
+                .unwrap_or_else(|| "unix://".to_string())
         } else {
             "unix://".to_string()
         }
@@ -45,7 +53,7 @@ impl Acceptor for TcpListener {
     fn addr(&self) -> String {
         self.local_addr()
             .map(|addr| addr.to_string())
-            .unwrap_or("tcp://".to_string())
+            .unwrap_or_else(|_| "tcp://".to_string())
     }
 }
 
@@ -62,6 +70,16 @@ impl<A: Acceptor> Server<A> {
         }
     }
 
+    async fn handle_connection<IO>(stream: IO, probe: Arc<dyn Probe>) -> Result<()>
+    where
+        IO: AsyncRead + AsyncWrite + std::marker::Unpin,
+    {
+        http1::Builder::new()
+            .serve_connection(TokioIo::new(stream), service_fn(handle_request))
+            .await
+            .map_err(|err| err.into())
+    }
+
     async fn run(&mut self) -> Result<()> {
         log::info!("Server listening on {}", self.acceptor.addr());
         loop {
@@ -69,7 +87,7 @@ impl<A: Acceptor> Server<A> {
             log::debug!("New connection from {}", peer_addr);
 
             let probe = self.probe_factory.create();
-            tokio::spawn(async move { StreamHandler::new(stream, probe).run().await });
+            tokio::spawn(async move { Self::handle_connection(stream, probe).await });
         }
     }
 }
@@ -107,6 +125,19 @@ impl Server<TcpListener> {
             addr
         };
         let acceptor = Box::new(TcpListener::bind(reslved_addr).await?);
+        if let Ok(addr) = acceptor.local_addr() {
+            use nu_ansi_term::Color::{Green, Red};
+
+            eprintln!("{}", Red.bold().paint("probing server is available on:"));
+            eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+            {
+                let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
+                *probing_address = addr.to_string();
+            }
+            Some(addr.to_string())
+        } else {
+            None
+        };
         Ok(Server::new(acceptor, probe_factory))
     }
 }
