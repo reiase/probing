@@ -57,7 +57,7 @@ async fn local_server_worker(probe_factory: Arc<dyn ProbeFactory>) -> Result<()>
 }
 
 pub fn start(probe_factory: Arc<dyn ProbeFactory>) {
-    thread::spawn(|| {
+    thread::spawn(move || {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()

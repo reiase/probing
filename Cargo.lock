@@ -2993,7 +2993,10 @@ dependencies = [
  "pprof",
  "probing-cli",
  "probing-engine",
+ "probing-legacy",
  "probing-proto",
+ "probing-python",
+ "probing-server",
  "procfs",
  "pyo3",
  "pyo3-build-config",
@@ -3064,6 +3067,42 @@ dependencies = [
  "serde_json",
  "tokio",
  "use",
+]
+
+[[package]]
+name = "probing-legacy"
+version = "0.1.7"
+dependencies = [
+ "anyhow",
+ "arrow",
+ "backtrace",
+ "ctor",
+ "dns-lookup",
+ "env_logger",
+ "http-body-util",
+ "hyper",
+ "hyperparameter",
+ "include_dir",
+ "log",
+ "nix 0.29.0",
+ "nu-ansi-term",
+ "once_cell",
+ "pin-project-lite",
+ "plt-rs",
+ "pprof",
+ "probing-engine",
+ "probing-proto",
+ "procfs",
+ "pyo3",
+ "pyo3-build-config",
+ "qstring",
+ "reqwest",
+ "ron",
+ "rustnix",
+ "serde",
+ "serde_json",
+ "signal-hook-registry",
+ "tokio",
 ]
 
 [[package]]
