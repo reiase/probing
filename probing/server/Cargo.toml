@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 probing-core = { path = "../core" }
 probing-engine = { path = "../engine" }
+probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false}
@@ -22,3 +23,5 @@ pin-project-lite = "0.2"
 http-body-util = { version = "0.1" }
 dns-lookup = "2.0.4"
 nu-ansi-term = "0.50.0"
+qstring = "0.7.2"
+include_dir = "=0.7.4"

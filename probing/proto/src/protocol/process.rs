@@ -15,7 +15,12 @@ pub struct Process {
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum CallFrame {
-    CFrame(String),
+    CFrame{
+        ip: usize,
+        file: String,
+        func: String,
+        lineno: i64,
+    },
     PyFrame {
         file: String,
         func: String,

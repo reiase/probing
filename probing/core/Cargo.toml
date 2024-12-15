@@ -10,3 +10,4 @@ license.workspace = true
 probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
+backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }

@@ -13,3 +13,5 @@ pub trait Probe: Send + Sync{
 pub trait ProbeFactory: Send + Sync{
     fn create(&self) -> Arc<dyn Probe>;
 }
+
+pub mod ccprobe;

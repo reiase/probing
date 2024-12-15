@@ -3041,6 +3041,7 @@ name = "probing-core"
 version = "0.1.7"
 dependencies = [
  "anyhow",
+ "backtrace",
  "probing-proto",
 ]
 
@@ -3097,11 +3098,14 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyperparameter",
+ "include_dir",
  "log",
  "nu-ansi-term",
  "pin-project-lite",
  "probing-core",
  "probing-engine",
+ "probing-proto",
+ "qstring",
  "serde_json",
  "tokio",
 ]

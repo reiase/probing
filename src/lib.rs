@@ -3,7 +3,7 @@
 extern crate ctor;
 
 use anyhow::Result;
-use std::{env, ffi::c_int, str::FromStr as _};
+use std::{env, ffi::c_int};
 
 use ctrl::{ctrl_handler, ctrl_handler_string};
 use env_logger::Env;
@@ -12,7 +12,6 @@ use log::error;
 use nix::libc;
 use nix::libc::SIGUSR1;
 use nix::libc::SIGUSR2;
-use pyo3::prelude::*;
 use server::local_server;
 
 mod core;
@@ -27,7 +26,6 @@ pub mod plugins;
 
 use handlers::dump_stack2;
 use probing_proto::cli::CtrlSignal;
-use probing_proto::cli::Features;
 use repl::PythonRepl;
 use server::remote_server;
 use server::report::start_report_worker;
@@ -112,34 +110,4 @@ fn cleanup() {
         error!("Error cleanup unix socket for {}", std::process::id());
         error!("{}", e);
     }
-}
-
-#[pyfunction]
-#[pyo3(signature = (address=None, background=true, pprof=false, log_level=None))]
-fn init(address: Option<String>, background: bool, pprof: bool, log_level: Option<String>) {
-    if let Some(log_level) = log_level {
-        log::set_max_level(
-            log::LevelFilter::from_str(log_level.as_str()).unwrap_or(log::LevelFilter::Info),
-        );
-    }
-
-    let mut cmds = vec![];
-    if background {
-        cmds.push(CtrlSignal::Enable(Features::Remote { address }))
-    }
-    if pprof {
-        cmds.push(CtrlSignal::Enable(Features::Pprof))
-    }
-
-    debug!("Setup libprobing with commands: {cmds:?}");
-    for cmd in cmds {
-        ctrl_handler(cmd).unwrap();
-    }
-    // local_server::start::<PythonRepl>();
-}
-
-#[pymodule]
-fn probing(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(init, m)?)?;
-    Ok(())
 }
