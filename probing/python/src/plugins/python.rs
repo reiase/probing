@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -33,7 +34,7 @@ impl CustomSchema for PythonSchema {
     fn data(expr: &str) -> Vec<RecordBatch> {
         Python::with_gil(|py| {
             let parts: Vec<&str> = expr.split(".").collect();
-            let pkg = py.import_bound(parts[0]);
+            let pkg = py.import(parts[0]);
 
             if pkg.is_err() {
                 println!("import error: {:?}", pkg.err());
@@ -41,10 +42,14 @@ impl CustomSchema for PythonSchema {
             }
             let pkg = pkg.unwrap();
 
-            let locals = PyDict::new_bound(py);
+            let locals = PyDict::new(py);
             locals.set_item(parts[0], pkg).unwrap();
 
-            let ret = py.eval_bound(expr, None, Some(&locals));
+            let ret = (|| {
+                let expr = CString::new(expr)?;
+                py.eval(&expr, None, Some(&locals))
+            })();
+
             if ret.is_err() {
                 println!("eval error: {:?}", ret.err());
                 return vec![];
@@ -52,7 +57,7 @@ impl CustomSchema for PythonSchema {
 
             let ret = ret.unwrap();
             if ret.is_instance_of::<PyList>() {
-                println!("list: {}", ret.to_string());
+                println!("list: {ret}");
                 if let Ok(list) = ret.downcast::<PyList>() {
                     return vec![];
                 }
@@ -60,13 +65,13 @@ impl CustomSchema for PythonSchema {
             }
 
             if ret.is_instance_of::<PyDict>() {
-                println!("dict: {}", ret.to_string());
+                println!("dict: {ret}");
                 if let Ok(dict) = ret.downcast::<PyDict>() {
                     return vec![];
                 }
                 return vec![];
             }
-            println!("object: {}", ret.to_string());
+            println!("object: {ret}");
             Self::object_to_recordbatch(ret).unwrap()
         })
     }
@@ -127,7 +132,7 @@ impl PythonSchema {
         let mut names: Vec<String> = vec![];
         let mut datas: HashMap<String, Vec<Option<Bound<'_, PyAny>>>> = Default::default();
 
-        for (index, item) in list.iter()?.enumerate() {
+        for (index, item) in list.try_iter()?.enumerate() {
             let item = item?;
             let item = if let Ok(dict) = item.downcast::<PyDict>() {
                 Some(dict.clone())

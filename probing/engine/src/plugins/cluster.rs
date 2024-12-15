@@ -52,7 +52,7 @@ impl CustomTable for ClusterTable {
         fields.push(extract_array(&nodes, |n| n.role_rank));
         fields.push(extract_array(&nodes, |n| n.role_world_size));
         fields.push(extract_array(&nodes, |n| n.status.clone()));
-        fields.push(extract_array(&nodes, |n| std::time::Duration::from_micros(n.timestamp as u64)));
+        fields.push(extract_array(&nodes, |n| std::time::Duration::from_micros(n.timestamp)));
 
         if let Ok(batches) = RecordBatch::try_new(Self::schema(), fields) {
             vec![batches]

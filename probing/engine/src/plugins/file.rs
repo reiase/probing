@@ -23,7 +23,7 @@ impl CustomSchema for FileList {
     fn list() -> Vec<String> {
         let direntries = std::fs::read_dir(".").unwrap();
         direntries
-            .map(|entry| {
+            .filter_map(|entry| {
                 if let Ok(entry) = entry {
                     let filename = entry.file_name().into_string().unwrap();
                     if filename.ends_with(".csv") {
@@ -35,7 +35,6 @@ impl CustomSchema for FileList {
                     None
                 }
             })
-            .flatten()
             .collect::<Vec<_>>()
     }
 

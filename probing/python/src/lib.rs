@@ -37,7 +37,7 @@ json.dumps(stacks)
 );
 
 impl Probe for PythonProbe {
-    fn backtrace(depth: Option<i32>) -> Result<Vec<CallFrame>> {
+    fn backtrace(&self, depth: Option<i32>) -> Result<Vec<CallFrame>> {
         let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
             Ok(frames) => Ok(frames.to_string()),
             Err(err) => Err(anyhow::anyhow!(
@@ -49,7 +49,7 @@ impl Probe for PythonProbe {
             .with_context(|| "error deserializing dump stack result".to_string())
     }
 
-    fn eval<T: Into<String>>(code: T) -> Result<String> {
+    fn eval(&self, code: &str) -> Result<String> {
         let code: String = code.into();
         let mut repl = PythonRepl::default();
         Ok(repl.process(code.as_str()).unwrap_or_default())

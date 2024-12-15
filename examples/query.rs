@@ -11,7 +11,7 @@ use probing_engine::plugins::kmsg::KMsgPlugin;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let engine = Engine::new();
+    let engine = Engine::default();
 
     engine.enable("probe", Arc::new(FilesPlugin::default()))?;
     engine.enable("probe", Arc::new(FilePlugin::new("file")))?;
