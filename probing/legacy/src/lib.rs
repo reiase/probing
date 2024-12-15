@@ -1,7 +1,3 @@
-#[allow(unused_imports)]
-#[macro_use]
-extern crate ctor;
-
 use anyhow::Result;
 use std::{env, ffi::c_int};
 

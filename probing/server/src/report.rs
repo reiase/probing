@@ -26,7 +26,6 @@ pub fn get_hostname() -> Result<String> {
     Ok(hostname.to_str()?.to_string())
 }
 
-
 pub fn start_report_worker() {
     thread::spawn(|| {
         tokio::runtime::Builder::new_multi_thread()
@@ -39,6 +38,7 @@ pub fn start_report_worker() {
 
 async fn report_worker() {
     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+
     loop {
         interval.tick().await;
         if let (Ok(master_addr), Ok(probing_port)) =
@@ -77,11 +77,13 @@ async fn report_worker() {
                 timestamp: 0,
             };
 
-            if let Err(err) = reqwest::Client::new()
-                .put(&report_addr)
-                .body(serde_json::to_string(&node).unwrap())
-                .send()
-                .await
+            // if let Err(err) = reqwest::Client::new()
+            //     .put(&report_addr)
+            //     .body(serde_json::to_string(&node).unwrap())
+            //     .send()
+            //     .await
+            if let Err(err) =
+                request_remote(format!("{master_addr}:{probing_port}"), &report_addr, node).await
             {
                 eprintln!("failed to report node status to {master_addr}:{probing_port}, {err}");
             }
@@ -91,4 +93,30 @@ async fn report_worker() {
 
 fn get_i32_env(name: &str) -> Option<i32> {
     std::env::var(name).unwrap_or_default().parse().ok()
+}
+
+async fn request_remote(report_addr: String, url: &str, node: Node) -> Result<Vec<u8>> {
+    use bytes::Bytes;
+    use http_body_util::{BodyExt, Full};
+    use hyper::client::conn;
+    use hyper_util::rt::TokioIo;
+
+    let stream = tokio::net::TcpStream::connect(report_addr).await?;
+    let io = TokioIo::new(stream);
+
+    let (mut sender, connection) = conn::http1::handshake(io).await?;
+    tokio::spawn(async move {
+        connection.await.unwrap();
+    });
+
+    let node_json = serde_json::to_string(&node).unwrap();
+
+    let req = hyper::Request::builder()
+        .method("PUT")
+        .uri(url)
+        .body(Full::<Bytes>::from(node_json))?;
+
+    let res = sender.send_request(req).await?;
+
+    Ok(res.collect().await.map(|x| x.to_bytes().to_vec())?)
 }

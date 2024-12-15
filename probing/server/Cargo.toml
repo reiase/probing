@@ -8,23 +8,22 @@ license.workspace = true
 
 [dependencies]
 probing-core = { path = "../core" }
-probing-engine = { path = "../engine" }
 probing-proto = { path = "../proto" }
 probing-legacy = { path = "../legacy" }
 
 anyhow = { workspace = true }
-arrow = { workspace = true, default-features=false}
 log = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace=true }
 
 bytes = "1"
-hyper = { version = "1", features = ["server", "http1"] }
+hyper = { version = "1", features = ["server", "client", "http1"] }
 pin-project-lite = "0.2"
 http-body-util = { version = "0.1" }
+hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 dns-lookup = "2.0.4"
 nu-ansi-term = "0.50.0"
 qstring = "0.7.2"
 include_dir = "=0.7.4"
 nix = { version = "0.29.0", default-features = false, features = ["signal"] }
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
+# reqwest = { version = "0.12", default-features = false, features = ["json"] }

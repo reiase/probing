@@ -48,10 +48,9 @@ homepage = "https://github.com/reiase/probing"
 keywords = ["debug", "performance", "python"]
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
-probing-cli = { path = "probing/cli" }
 probing-proto = { path = "probing/proto" }
 probing-engine = { path = "probing/engine" }
 probing-legacy = { path = "probing/legacy" }
@@ -73,6 +72,8 @@ pin-project-lite = "0.2"
 pyo3-build-config = "0.23.3"
 
 [dev-dependencies]
+probing-cli = { path = "probing/cli" }
+
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features = false, features = ["csv"] }
 pyo3 = { version = "0.23.3", features = [

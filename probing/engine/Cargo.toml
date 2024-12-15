@@ -13,16 +13,12 @@ probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false, features = ["csv"]}
-log = { workspace = true }
-once_cell = { workspace = true }
 procfs = { workspace = true }
 serde = {workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
 
 async-trait = "0.1.83"
 datafusion = {version = "42.2.0", default-features = false, features = []}
 futures = "0.3.31"
 rmesg = "1.0.21"
 ron = "0.8.1"
-use = "0.0.1-pre.0"
