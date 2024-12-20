@@ -3044,6 +3044,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "probing-macro"
+version = "0.2.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "probing-proto"
 version = "0.2.0"
 dependencies = [
