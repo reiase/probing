@@ -125,19 +125,19 @@ impl Server<TcpListener> {
             addr
         };
         let acceptor = Box::new(TcpListener::bind(reslved_addr).await?);
-        if let Ok(addr) = acceptor.local_addr() {
-            use nu_ansi_term::Color::{Green, Red};
 
-            eprintln!("{}", Red.bold().paint("probing server is available on:"));
-            eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+        // Properly set the PROBING_ADDRESS and print the server address
+        if let Ok(addr) = acceptor.local_addr() {
             {
                 let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
                 *probing_address = addr.to_string();
             }
-            Some(addr.to_string())
-        } else {
-            None
-        };
+            use nu_ansi_term::Color::{Green, Red};
+
+            eprintln!("{}", Red.bold().paint("probing server is available on:"));
+            eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+        }
+
         Ok(Server::new(acceptor, probe_factory))
     }
 }

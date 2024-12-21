@@ -8,7 +8,6 @@ members = [
     "probing/python",
     "probing/server",
     "probing/legacy",
-    "probing/macros",
 ]
 
 [workspace.package]

@@ -10,22 +10,7 @@ use probing_legacy::service::handle_request as legacy_handle_request;
 
 use crate::asset;
 
-fn parse_qs(qs: Option<&str>) -> HashMap<String, String> {
-    if let Some(qs) = qs {
-        let qs = if qs.starts_with('?') {
-            qs.to_string()
-        } else {
-            format!("?{}", qs)
-        };
-        let qs: HashMap<String, String> = qstring::QString::from(qs.as_str()).into_iter().collect();
-        qs
-    } else {
-        Default::default()
-    }
-}
-
 pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>> {
-    let params = parse_qs(req.uri().query());
     debug!("requesting: {:?} {}", req.method(), req.uri().path());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/")
