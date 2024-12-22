@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use http_body_util::{BodyExt, Full};
@@ -6,13 +6,21 @@ use hyper::{body::Bytes, Method, Request, Response};
 
 use log::debug;
 
+use probing_core::{Probe, ProbeFactory};
 use probing_legacy::service::handle_request as legacy_handle_request;
 
 use crate::asset;
 
-pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>> {
-    debug!("requesting: {:?} {}", req.method(), req.uri().path());
-    match (req.method(), req.uri().path()) {
+pub async fn handle_request(
+    request: Request<hyper::body::Incoming>,
+    probe: Arc<dyn Probe>,
+) -> Result<Response<Full<Bytes>>> {
+    debug!(
+        "requesting: {:?} {}",
+        request.method(),
+        request.uri().path()
+    );
+    match (request.method(), request.uri().path()) {
         (&Method::GET, "/")
         | (&Method::GET, "/cluster")
         | (&Method::GET, "/overview")
@@ -24,10 +32,15 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             .unwrap()),
 
         (&Method::GET, "/probe") => {
-            let whole_body = req.collect().await?.to_bytes().to_vec();
+            let request = request.collect().await?.to_bytes().to_vec();
+            let response = probe.handle(request.as_slice());
 
-            todo!()
-        },
+            let body = match response {
+                Ok(response) => Full::new(Bytes::from(response)),
+                Err(e) => Full::new(Bytes::from(format!("Error: {}", e))),
+            };
+            Ok(Response::builder().body(body)?)
+        }
 
         (&Method::GET, filename) if asset::contains(filename) => {
             let body = Full::new(asset::get(filename));
@@ -44,8 +57,8 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             } else {
                 Response::builder()
             };
-            Ok(builder.body(body).unwrap())
+            Ok(builder.body(body)?)
         }
-        _ => legacy_handle_request(req).await,
+        _ => legacy_handle_request(request).await,
     }
 }

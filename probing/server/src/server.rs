@@ -75,7 +75,13 @@ impl<A: Acceptor> Server<A> {
         IO: AsyncRead + AsyncWrite + std::marker::Unpin,
     {
         http1::Builder::new()
-            .serve_connection(TokioIo::new(stream), service_fn(handle_request))
+            .serve_connection(
+                TokioIo::new(stream),
+                service_fn(|request| {
+                    let probe = probe.clone();
+                    async move { handle_request(request, probe).await }
+                }),
+            )
             .await
             .map_err(|err| err.into())
     }
