@@ -52,7 +52,7 @@ impl SchemaProvider for FileSystemSchema {
     fn table_names(&self) -> Vec<String> {
         let direntries = std::fs::read_dir(".").unwrap();
         direntries
-            .map(|entry| {
+            .filter_map(|entry| {
                 if let Ok(entry) = entry {
                     let filename = entry.file_name().into_string().unwrap();
                     if filename.ends_with(".csv") {
@@ -64,7 +64,6 @@ impl SchemaProvider for FileSystemSchema {
                     None
                 }
             })
-            .flatten()
             .collect::<Vec<_>>()
     }
     async fn table(&self, name: &str) -> Result<Option<Arc<dyn TableProvider>>> {

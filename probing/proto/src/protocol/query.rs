@@ -13,7 +13,7 @@ pub struct Options {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum Format{
+pub enum Format {
     JSON,
     RON,
     BITCODE,

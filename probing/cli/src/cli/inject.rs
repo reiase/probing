@@ -44,8 +44,8 @@ impl InjectCommand {
     }
 
     fn build_command_string(&self) -> Result<String> {
-        let cmds = vec![
-            self.pprof.then(|| Features::Pprof),
+        let cmds = [
+            self.pprof.then_some(Features::Pprof),
             self.crash.then(|| Features::CatchCrash {
                 address: self.listen.clone(),
             }),

@@ -7,9 +7,9 @@ use probing_proto::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {
-    Object,
-    Tensor,
-    Module,
+    // Object,
+    // Tensor,
+    // Module,
 }
 
 #[derive(Clone)]
@@ -18,8 +18,6 @@ pub struct VariableView {
     name: String,
     value: String,
 }
-
-
 
 #[component]
 pub fn VariablesList(#[prop(into)] variables: HashMap<String, Object>) -> impl IntoView {
@@ -32,7 +30,8 @@ pub fn VariablesList(#[prop(into)] variables: HashMap<String, Object>) -> impl I
                 Some(v) => v.clone(),
                 None => "None".to_string(),
             },
-        }).map(|v|{
+        })
+        .map(|v| {
             view! {
                 <TableRow>
                     <TableCell>
@@ -85,27 +84,30 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Object>) -> impl IntoView {
             dtype: obj.dtype.clone(),
             device: obj.device.clone(),
             value: obj.value.clone(),
-        }).map(|v| view! {
-            <TableRow>
-                <TableCell>
-                    <TableCellLayout truncate=true>{v.id}</TableCellLayout>
-                </TableCell>
-                <TableCell>
-                    <TableCellLayout truncate=true>{v.class}</TableCellLayout>
-                </TableCell>
-                <TableCell>
-                    <TableCellLayout>{v.shape}</TableCellLayout>
-                </TableCell>
-                <TableCell>
-                    <TableCellLayout>{v.dtype}</TableCellLayout>
-                </TableCell>
-                <TableCell>
-                    <TableCellLayout>{v.device}</TableCellLayout>
-                </TableCell>
-                <TableCell>
-                    <TableCellLayout>{v.value}</TableCellLayout>
-                </TableCell>
-            </TableRow>
+        })
+        .map(|v| {
+            view! {
+                <TableRow>
+                    <TableCell>
+                        <TableCellLayout truncate=true>{v.id}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout truncate=true>{v.class}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout>{v.shape}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout>{v.dtype}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout>{v.device}</TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout>{v.value}</TableCellLayout>
+                    </TableCell>
+                </TableRow>
+            }
         })
         .collect::<Vec<_>>();
 
@@ -127,7 +129,6 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Object>) -> impl IntoView {
         </Table>
     }
 }
-
 
 // #[component]
 // pub fn ModuleView(#[prop(into)] obj: Object) -> impl IntoView {

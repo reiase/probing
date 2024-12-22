@@ -282,13 +282,13 @@ impl<'a> Injection<'a> {
     /// Remove the injected shellcode and restore the tracee to its original
     /// state.
     pub(crate) fn remove(mut self) -> Result<()> {
-        self._remove()
+        self.remove_internal()
     }
 
     /// `remove` doesn't *need* to consume self, it only does so because the
     /// instance shouldn't be used after it's been removed. This private method
     /// implements the actual removal, and is also used by the `Drop` impl.
-    fn _remove(&mut self) -> Result<()> {
+    fn remove_internal(&mut self) -> Result<()> {
         if self.removed {
             log::trace!("Already removed injection, doing nothing");
             return Ok(());
@@ -307,12 +307,12 @@ impl<'a> Injection<'a> {
     }
 }
 
-impl<'a> Drop for Injection<'a> {
+impl Drop for Injection<'_> {
     fn drop(&mut self) {
         if !self.removed {
             log::warn!("Injection dropped without being removed, removing now");
         }
-        self._remove()
+        self.remove_internal()
             .wrap_err("removing injection from drop impl failed")
             .unwrap();
     }

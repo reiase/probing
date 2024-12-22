@@ -58,7 +58,10 @@ pub enum BackTraceCommand {
         #[cfg_attr(feature = "cli", arg(short, long))]
         tid: Option<u32>,
 
-        #[cfg_attr(feature = "cli", arg(short, long, hide = true, default_value = "false"))]
+        #[cfg_attr(
+            feature = "cli",
+            arg(short, long, hide = true, default_value = "false")
+        )]
         signal: bool,
     },
 

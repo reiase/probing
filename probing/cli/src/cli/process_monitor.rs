@@ -40,6 +40,7 @@ impl ProcessMonitor {
 
     pub fn monitor(&mut self) -> Result<()> {
         if !self.recursive {
+            thread::sleep(Duration::from_secs(1));
             self.inject(self.child.id() as i32)?;
 
             return self.child.wait().map_err(Error::msg).map(|_| ());
@@ -60,7 +61,7 @@ impl ProcessMonitor {
 fn get_descendant_pids(pid: i32) -> Result<Vec<i32>> {
     let mut descendants = Vec::new();
     let processes = procfs::process::all_processes()?;
-    for process in processes.map(|x| x.ok()).flatten() {
+    for process in processes.filter_map(|x| x.ok()) {
         if let Ok(stat) = process.stat() {
             if stat.ppid == pid {
                 let child_pid = process.pid();

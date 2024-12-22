@@ -27,7 +27,7 @@ pub fn Cluster() -> impl IntoView {
                                 .map(|node| {
                                     let node = node.clone();
                                     let datetime: DateTime<Utc> = (SystemTime::UNIX_EPOCH
-                                        + Duration::from_micros(node.timestamp as u64))
+                                        + Duration::from_micros(node.timestamp))
                                         .into();
                                     let timestamp = datetime.to_rfc3339();
                                     let url = format!("http://{}", node.addr);

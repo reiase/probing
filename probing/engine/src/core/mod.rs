@@ -1,6 +1,6 @@
+mod chunked_encode;
 mod engine;
 mod table_plugin;
-mod chunked_encode;
 
 pub use engine::Engine;
 pub use engine::Plugin;
