@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use http_body_util::Full;
+use http_body_util::{BodyExt, Full};
 use hyper::{body::Bytes, Method, Request, Response};
 
 use log::debug;
@@ -22,6 +22,12 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
             .header("Content-Type", "text/html")
             .body(Full::new(asset::get("/index.html")))
             .unwrap()),
+
+        (&Method::GET, "/probe") => {
+            let whole_body = req.collect().await?.to_bytes().to_vec();
+
+            todo!()
+        },
 
         (&Method::GET, filename) if asset::contains(filename) => {
             let body = Full::new(asset::get(filename));
