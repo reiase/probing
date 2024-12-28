@@ -10,6 +10,7 @@ license.workspace = true
 cli = ["dep:clap"]
 
 [dependencies]
+anyhow = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 clap = { version = "4.5.11", optional=true, default-features = false, features = [
@@ -18,3 +19,4 @@ clap = { version = "4.5.11", optional=true, default-features = false, features =
     "help",
     "usage",
 ] }
+minstant = { workspace = true }

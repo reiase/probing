@@ -1,5 +1,6 @@
 use std::time::{Duration, SystemTime};
 
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -63,5 +64,19 @@ impl Array {
             Array::Nil => None,
         }
         .unwrap_or(Value::Nil)
+    }
+
+    pub fn append(&mut self, value: impl Into<Value>) -> Result<()> {
+        let value = value.into();
+        match (self, value) {
+            (Array::Nil, _value) => {},
+            (Array::Int32Array(vec), Value::Int32(x)) => vec.push(x),
+            (Array::Int64Array(vec), Value::Int64(x)) => vec.push(x),
+            (Array::Float32Array(vec), Value::Float32(x)) => vec.push(x),
+            (Array::Float64Array(vec), Value::Float64(x)) => vec.push(x),
+            (Array::TextArray(vec), Value::Text(x)) => vec.push(x),
+            (Array::DateTimeArray(vec), Value::DataTime(x)) => vec.push(x),
+            _ => return Err(anyhow::anyhow!("Type mismatch")),}
+        Ok(())
     }
 }

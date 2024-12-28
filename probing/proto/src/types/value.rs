@@ -46,3 +46,15 @@ impl From<String> for Value {
         Value::Text(val.to_string())
     }
 }
+
+impl From<i32> for Value {
+    fn from(item: i32) -> Self {
+        Value::Int32(item)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(item: i64) -> Self {
+        Value::Int64(item)
+    }
+}
