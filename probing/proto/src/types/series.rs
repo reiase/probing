@@ -17,14 +17,14 @@ pub struct Slice {
 }
 
 pub struct Series {
-    pub chunk_size: u64,
+    pub chunk_size: usize,
     pub slices: Vec<Slice>,
 }
 
 impl Default for Series {
     fn default() -> Self {
         Series {
-            chunk_size: 256,
+            chunk_size: 10000,
             slices: Vec::new(),
         }
     }
@@ -37,17 +37,22 @@ impl Series {
     {
         let is_empty = self.slices.is_empty();
 
-        if is_empty || self.slices.last().unwrap().length >= self.chunk_size {
+        if is_empty || self.slices.last().unwrap().length as usize >= self.chunk_size {
             let value: Value = data.into();
+            fn new_array<X>(x: X, size: usize) -> Vec<X> {
+                let mut array = Vec::with_capacity(size);
+                array.push(x);
+                array
+            }
             let array = match value {
                 Value::Nil => todo!(),
-                Value::Int32(x) => Array::Int32Array(vec![x]),
-                Value::Int64(x) => Array::Int64Array(vec![x]),
-                Value::Float32(x) => Array::Float32Array(vec![x]),
-                Value::Float64(x) => Array::Float64Array(vec![x]),
-                Value::Text(x) => Array::TextArray(vec![x]),
-                Value::Url(x) => Array::TextArray(vec![x]),
-                Value::DataTime(x) => Array::DateTimeArray(vec![x]),
+                Value::Int32(x) => Array::Int32Array(new_array(x, self.chunk_size)),
+                Value::Int64(x) => Array::Int64Array(new_array(x, self.chunk_size)),
+                Value::Float32(x) => Array::Float32Array(new_array(x, self.chunk_size)),
+                Value::Float64(x) => Array::Float64Array(new_array(x, self.chunk_size)),
+                Value::Text(x) => Array::TextArray(new_array(x, self.chunk_size)),
+                Value::Url(x) => Array::TextArray(new_array(x, self.chunk_size)),
+                Value::DataTime(x) => Array::DateTimeArray(new_array(x, self.chunk_size)),
             };
             self.slices.push(Slice {
                 offset: if is_empty {

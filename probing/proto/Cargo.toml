@@ -20,3 +20,10 @@ clap = { version = "4.5.11", optional=true, default-features = false, features =
     "usage",
 ] }
 minstant = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true, features = ["html_reports"] }
+
+[[bench]]
+name = "bench_series"
+harness = false

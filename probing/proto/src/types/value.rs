@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::time::{Duration, SystemTime};
 
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -56,5 +57,30 @@ impl From<i32> for Value {
 impl From<i64> for Value {
     fn from(item: i64) -> Self {
         Value::Int64(item)
+    }
+}
+
+impl TryInto<i32> for Value {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<i32> {
+        match self {
+            Value::Int32(x) => Ok(x),
+            _ => anyhow::bail!("Value is not an i32"),
+            
+        }
+    }
+}
+
+impl TryInto<i64> for Value {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<i64> {
+        match self {
+            Value::Int32(x) => Ok(x as i64),
+            Value::Int64(x) => Ok(x),
+            _ => anyhow::bail!("Value is not an i64"),
+            
+        }
     }
 }
