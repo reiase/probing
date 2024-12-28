@@ -117,6 +117,12 @@ impl PythonSchema {
             columns.push(Arc::new(array));
             fields.push(Field::new("value", DataType::Utf8, true));
         } else {
+
+            if obj.hasattr("_asdict")? {
+                let dict = obj.call_method0("_asdict").unwrap();
+                return Self::object_to_recordbatch(dict);
+            }
+
             let array = StringArray::from(vec![obj.to_string()]);
             columns.push(Arc::new(array));
             fields.push(Field::new("value", DataType::Utf8, true));

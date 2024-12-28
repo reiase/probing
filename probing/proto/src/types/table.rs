@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::array::Array;
 use crate::types::value::Value;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
@@ -17,20 +16,5 @@ impl Table {
             .map(|r| r.into_iter().map(|x| x.into()).collect())
             .collect();
         Self { names, rows }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub struct DataFrame {
-    pub names: Vec<String>,
-    pub cols: Vec<Array>,
-}
-
-impl DataFrame {
-    pub fn new(names: Vec<String>, columns: Vec<Array>) -> Self {
-        DataFrame {
-            names,
-            cols: columns,
-        }
     }
 }

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 pub mod cli;
 pub mod protocol;
+pub mod types;
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Process {
@@ -56,6 +57,6 @@ pub mod prelude {
     pub use crate::protocol::cluster::Cluster;
     pub use crate::protocol::cluster::Node;
 
-    pub use crate::protocol::dataframe::DataFrame;
-    pub use crate::protocol::dataframe::Table;
+    pub use crate::types::Table;
+    pub use crate::types::DataFrame;
 }

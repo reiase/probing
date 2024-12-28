@@ -2998,6 +2998,7 @@ dependencies = [
  "probing-proto",
  "ron",
  "serde",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
