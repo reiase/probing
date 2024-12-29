@@ -24,7 +24,7 @@ fn page_append(n: u64) -> u64 {
                     int_array.push(i as i64);
                 }
             }
-            probing_proto::types::series::Page::Compressed{dtype, buffer} => todo!(),
+            probing_proto::types::series::Page::Compressed { dtype, buffer } => todo!(),
             probing_proto::types::series::Page::Ref => todo!(),
         }
     }
@@ -39,13 +39,28 @@ fn series_append(n: u64) -> u64 {
     series.slices.len() as u64
 }
 
+fn series_append_nocompress(n: u64) -> u64 {
+    let mut series = Series::builder()
+        .with_compression_threshold(10_000_000_000_000)
+        .build();
+    for i in 0..n {
+        series.append(i as i64).unwrap();
+    }
+    series.slices.len() as u64
+}
+
 fn series_iter(s: &Series, expected_sum: u64) -> u64 {
     let mut result = 0;
     for value in s.iter() {
         let value: i64 = value.try_into().unwrap();
         result += value as u64;
     }
-    assert!(result == expected_sum, "expected sum: {}, got: {}", expected_sum, result);
+    assert!(
+        result == expected_sum,
+        "expected sum: {}, got: {}",
+        expected_sum,
+        result
+    );
     result
 }
 
@@ -69,14 +84,19 @@ fn arrow_array_iter(array: &Int64Array) -> u64 {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-
     let expected_sum = (0..60000).sum::<u64>();
 
-    let mut series = Series::builder().with_chunk_size(256).build();
+    let mut series = Series::builder().build();
     for i in 0..60000 {
         series.append(i as i64).unwrap();
     }
 
+    let mut series_nocompress = Series::builder()
+        .with_compression_threshold(10_000_000_000_000)
+        .build();
+    for i in 0..60000 {
+        series_nocompress.append(i as i64).unwrap();
+    }
     // Create arrow array for benchmarking
     let mut builder = Int64Array::builder(60000);
     for i in 0..60000 {
@@ -84,10 +104,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
     let arrow_array = builder.finish();
 
-    c.bench_function("vec_append", |b| b.iter(|| vec_append(black_box(60000))));
-    c.bench_function("page_append", |b| b.iter(|| page_append(black_box(60000))));
+    // c.bench_function("vec_append", |b| b.iter(|| vec_append(black_box(60000))));
+    // c.bench_function("page_append", |b| b.iter(|| page_append(black_box(60000))));
     c.bench_function("series_append", |b| {
         b.iter(|| series_append(black_box(60000)))
+    });
+    c.bench_function("series_append_nocompress", |b| {
+        b.iter(|| series_append_nocompress(black_box(60000)))
     });
     c.bench_function("arrow_array_append", |b| {
         b.iter(|| arrow_array_append(black_box(60000)))
@@ -95,6 +118,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("series_iter", |b| {
         b.iter(|| series_iter(black_box(&series), expected_sum))
+    });
+
+    c.bench_function("series_nocompress", |b| {
+        b.iter(|| series_iter(black_box(&series_nocompress), expected_sum))
     });
     c.bench_function("arrow_array_iter", |b| {
         b.iter(|| arrow_array_iter(black_box(&arrow_array)))

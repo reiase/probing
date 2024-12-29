@@ -5,11 +5,11 @@ use anyhow::Result;
 use pco::standalone::simple_decompress;
 use pco::standalone::simpler_compress;
 
-use crate::types::array::Array;
-
 use super::value::DataType;
 use super::Value;
+use crate::types::array::Array;
 
+#[derive(Debug)]
 pub enum Page {
     Raw(Array),
     Compressed { dtype: DataType, buffer: Vec<u8> },
@@ -115,6 +115,7 @@ impl Page {
     }
 }
 
+#[derive(Debug)]
 pub struct Slice {
     pub offset: usize,
     pub length: usize,
@@ -151,6 +152,7 @@ impl Slice {
     }
 }
 
+#[derive(Debug)]
 pub struct SeriesConfig {
     pub dtype: DataType,
     pub chunk_size: usize,
@@ -193,16 +195,20 @@ impl SeriesConfig {
             dropped: 0,
             slices: Default::default(),
             current_slice: None,
+            commit_nbytes: 0,
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Series {
     config: SeriesConfig,
     pub offset: usize,
     pub dropped: usize,
     pub slices: BTreeMap<usize, Slice>,
     current_slice: Option<Slice>,
+
+    commit_nbytes: usize,
 }
 
 impl Default for Series {
@@ -213,6 +219,7 @@ impl Default for Series {
             dropped: 0,
             slices: Default::default(),
             current_slice: None,
+            commit_nbytes: 0,
         }
     }
 }
@@ -261,16 +268,11 @@ impl Series {
     }
 
     pub fn nbytes(&self) -> usize {
-        let mut total = 0;
-
-        // Add bytes from historical slices
-        for slice in self.slices.values() {
-            total += slice.data.nbytes();
-        }
+        let mut total = self.commit_nbytes;
 
         // Add bytes from current slice if exists
         if let Some(slice) = &self.current_slice {
-            total += slice.data.nbytes();
+            total += slice.nbytes();
         }
 
         total
@@ -310,10 +312,19 @@ impl Series {
 
 impl Series {
     fn commit_current_slice(&mut self) {
+        let nbytes = self.nbytes();
         let slice = std::mem::replace(&mut self.current_slice, None);
-        if let Some(mut slice) = slice {
-            slice.compress();
-            self.slices.insert(slice.offset, slice);
+        if nbytes > self.config.compression_threshold {
+            if let Some(mut slice) = slice {
+                slice.compress();
+                self.commit_nbytes += slice.nbytes();
+                self.slices.insert(slice.offset, slice);
+            }
+        } else {
+            if let Some(slice) = slice {
+                self.commit_nbytes += slice.nbytes();
+                self.slices.insert(slice.offset, slice);
+            }
         }
     }
 }
@@ -349,6 +360,40 @@ impl ArrayType for i64 {
 
     fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
         if let Array::Int64Array(arr) = array {
+            arr.push(data);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Type mismatch"))
+        }
+    }
+}
+
+impl ArrayType for f32 {
+    fn create_array(data: Self, size: usize) -> Array {
+        let mut array = Vec::with_capacity(size);
+        array.push(data);
+        Array::Float32Array(array)
+    }
+
+    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+        if let Array::Float32Array(arr) = array {
+            arr.push(data);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Type mismatch"))
+        }
+    }
+}
+
+impl ArrayType for f64 {
+    fn create_array(data: Self, size: usize) -> Array {
+        let mut array = Vec::with_capacity(size);
+        array.push(data);
+        Array::Float64Array(array)
+    }
+
+    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+        if let Array::Float64Array(arr) = array {
             arr.push(data);
             Ok(())
         } else {
@@ -480,21 +525,59 @@ mod test {
         }
 
         assert_eq!(512, series.iter().collect::<Vec<_>>().len());
-        assert_eq!(expected_sum, series.iter().map(|v| TryInto::<i64>::try_into(v).unwrap()).sum::<i64>());
-
-        // for (i, value) in series.iter().enumerate() {
-        //     assert_eq!(value, super::Value::Int64(i as i64));
-        // }
+        assert_eq!(
+            expected_sum,
+            series
+                .iter()
+                .map(|v| TryInto::<i64>::try_into(v).unwrap())
+                .sum::<i64>()
+        );
     }
 
     #[test]
     fn test_series_nbytes() {
-        let mut series = super::Series::builder().with_chunk_size(256).build();
+        let mut series = super::Series::builder()
+            .with_compression_threshold(8)
+            .with_chunk_size(256)
+            .build();
 
         for i in 0..512 {
             series.append(i as i64).unwrap();
         }
-
+        println!("512 i64 nbytes: {}", series.nbytes());
         assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i64>());
+
+        let mut series = super::Series::builder()
+            .with_compression_threshold(8)
+            .with_chunk_size(256)
+            .build();
+
+        for i in 0..512 {
+            series.append(i as i32).unwrap();
+        }
+        println!("512 i32 nbytes: {}", series.nbytes());
+        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i32>());
+
+        let mut series = super::Series::builder()
+            .with_compression_threshold(8)
+            .with_chunk_size(256)
+            .build();
+
+        for i in 0..512 {
+            series.append(i as f32).unwrap();
+        }
+        println!("512 f32 nbytes: {}", series.nbytes());
+        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f32>());
+
+        let mut series = super::Series::builder()
+            .with_compression_threshold(8)
+            .with_chunk_size(256)
+            .build();
+
+        for i in 0..512 {
+            series.append(i as f64).unwrap();
+        }
+        println!("512 f64 nbytes: {}", series.nbytes());
+        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f64>());
     }
 }
