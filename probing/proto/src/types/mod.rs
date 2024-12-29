@@ -1,6 +1,6 @@
 mod array;
 mod dataframe;
-mod series;
+pub mod series;
 mod table;
 mod value;
 

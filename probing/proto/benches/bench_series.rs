@@ -2,7 +2,31 @@ use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use probing_proto::types::Series;
+use probing_proto::types::{Array, Series};
+
+fn vec_append(n: u64) -> u64 {
+    let mut vec = Vec::new();
+    for i in 0..n {
+        vec.push(i);
+    }
+    vec.len() as u64
+}
+
+fn page_append(n: u64) -> u64 {
+    let mut page = probing_proto::types::series::Page::Raw(Array::Int64Array(Vec::with_capacity(10000)));
+    for i in 0..n {
+        match page {
+            probing_proto::types::series::Page::Raw(ref mut array) => {
+                if let Array::Int64Array(ref mut int_array) = array {
+                    int_array.push(i as i64);
+                }
+            },
+            probing_proto::types::series::Page::Compressed(vec) => todo!(),
+            probing_proto::types::series::Page::Ref => todo!(),
+        }
+    }
+    0
+}
 
 fn series_append(n: u64) -> u64 {
     let mut series = Series::default();
@@ -27,6 +51,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         series.append(i as i64).unwrap();
     }
 
+    c.bench_function("vec_append", |b| b.iter(|| vec_append(black_box(60000))));
+    c.bench_function("page_append", |b| b.iter(|| page_append(black_box(60000))));
     c.bench_function("series_append", |b| b.iter(|| series_append(black_box(60000))));
     c.bench_function("series_iter", |b| b.iter(|| series_iter(black_box(&series))));
 

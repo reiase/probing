@@ -19,6 +19,7 @@ pub struct Slice {
 pub struct Series {
     pub chunk_size: usize,
     pub slices: Vec<Slice>,
+    need_grow: bool,
 }
 
 impl Default for Series {
@@ -26,6 +27,7 @@ impl Default for Series {
         Series {
             chunk_size: 10000,
             slices: Vec::new(),
+            need_grow: true,
         }
     }
 }
@@ -33,29 +35,13 @@ impl Default for Series {
 impl Series {
     pub fn append<T>(&mut self, data: T) -> Result<()>
     where
-        T: Into<Value>,
+        T: ArrayType,
     {
-        let is_empty = self.slices.is_empty();
+        if self.need_grow {
+            let array = T::create_array(data, self.chunk_size);
 
-        if is_empty || self.slices.last().unwrap().length as usize >= self.chunk_size {
-            let value: Value = data.into();
-            fn new_array<X>(x: X, size: usize) -> Vec<X> {
-                let mut array = Vec::with_capacity(size);
-                array.push(x);
-                array
-            }
-            let array = match value {
-                Value::Nil => todo!(),
-                Value::Int32(x) => Array::Int32Array(new_array(x, self.chunk_size)),
-                Value::Int64(x) => Array::Int64Array(new_array(x, self.chunk_size)),
-                Value::Float32(x) => Array::Float32Array(new_array(x, self.chunk_size)),
-                Value::Float64(x) => Array::Float64Array(new_array(x, self.chunk_size)),
-                Value::Text(x) => Array::TextArray(new_array(x, self.chunk_size)),
-                Value::Url(x) => Array::TextArray(new_array(x, self.chunk_size)),
-                Value::DataTime(x) => Array::DateTimeArray(new_array(x, self.chunk_size)),
-            };
             self.slices.push(Slice {
-                offset: if is_empty {
+                offset: if self.slices.is_empty() {
                     0
                 } else {
                     self.slices.last().unwrap().offset + self.slices.last().unwrap().length
@@ -63,18 +49,21 @@ impl Series {
                 length: 1,
                 data: Page::Raw(array),
             });
+            self.need_grow = false;
         } else {
             let slice = self.slices.last_mut().unwrap();
 
             match slice.data {
                 Page::Raw(ref mut array) => {
-                    let value: Value = data.into();
-                    array.append(value)?;
+                    T::append_to_array(array, data)?;
                 }
                 Page::Compressed(_) => todo!(),
                 Page::Ref => todo!(),
             }
             slice.length += 1;
+            if slice.length == self.chunk_size as u64 {
+                self.need_grow = true;
+            }
         }
         Ok(())
     }
@@ -100,6 +89,45 @@ impl Series {
             offset += slice.length;
         }
         Value::Nil
+    }
+}
+
+pub trait ArrayType {
+    fn create_array(data: Self, size: usize) -> Array;
+    fn append_to_array(array: &mut Array, data: Self) -> Result<()>;
+}
+
+impl ArrayType for i32 {
+    fn create_array(data: Self, size: usize) -> Array {
+        let mut array = Vec::with_capacity(size);
+        array.push(data);
+        Array::Int32Array(array)
+    }
+
+    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+        if let Array::Int32Array(arr) = array {
+            arr.push(data);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Type mismatch"))
+        }
+    }
+}
+
+impl ArrayType for i64 {
+    fn create_array(data: Self, size: usize) -> Array {
+        let mut array = Vec::with_capacity(size);
+        array.push(data);
+        Array::Int64Array(array)
+    }
+
+    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+        if let Array::Int64Array(arr) = array {
+            arr.push(data);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Type mismatch"))
+        }
     }
 }
 
@@ -151,13 +179,14 @@ mod test {
     #[test]
     fn test_new_series() {
         let series = super::Series::default();
-        assert_eq!(series.chunk_size, 256);
+        assert_eq!(series.chunk_size, 10000);
         assert!(series.slices.is_empty());
     }
 
     #[test]
     fn test_series_append() {
         let mut series = super::Series::default();
+        series.chunk_size = 256;
         for i in 0..512 {
             series.append(i).unwrap();
         }
