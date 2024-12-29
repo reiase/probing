@@ -158,6 +158,7 @@ pub struct SeriesConfig {
     pub chunk_size: usize,
     pub compression_level: usize,
     pub compression_threshold: usize,
+    pub discard_threshold: usize,
 }
 
 impl Default for SeriesConfig {
@@ -167,6 +168,7 @@ impl Default for SeriesConfig {
             chunk_size: 10000,
             compression_level: 0,
             compression_threshold: 2_000_000,
+            discard_threshold: 20_000_000,
         }
     }
 }
@@ -186,6 +188,10 @@ impl SeriesConfig {
     }
     pub fn with_compression_threshold(mut self, compression_threshold: usize) -> Self {
         self.compression_threshold = compression_threshold;
+        self
+    }
+    pub fn with_discard_threshold(mut self, discard_threshold: usize) -> Self {
+        self.discard_threshold = discard_threshold;
         self
     }
     pub fn build(self) -> Series {
@@ -324,6 +330,13 @@ impl Series {
             if let Some(slice) = slice {
                 self.commit_nbytes += slice.nbytes();
                 self.slices.insert(slice.offset, slice);
+            }
+        }
+
+        while self.nbytes() > self.config.discard_threshold {
+            if let Some((offset, slice)) = self.slices.pop_first() {
+                self.dropped += slice.offset + slice.length;
+                self.commit_nbytes -= slice.nbytes();
             }
         }
     }
@@ -580,4 +593,36 @@ mod test {
         println!("512 f64 nbytes: {}", series.nbytes());
         assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f64>());
     }
+
+    #[test]
+    fn test_drop_history() {
+        let mut series = super::Series::builder()
+            .with_chunk_size(256)
+            .with_compression_threshold(128)
+            .with_discard_threshold(200)
+            .build();
+
+        for i in 0..1024 {
+            series.append(i as i64).unwrap();
+        }
+
+        // Initially should have 4 chunks of 256 elements each
+        assert_eq!(series.slices.len(), 4);
+
+        // Add more data to trigger dropping
+        for i in 1024..2048 {
+            series.append(i as i64).unwrap();
+        }
+
+        // Some older chunks should be dropped
+        assert!(series.slices.len() < 8);
+        assert!(series.dropped > 0);
+
+        // Verify that dropped elements cannot be accessed
+        assert!(series.get(0).is_none());
+        
+        // But newer elements can still be accessed
+        assert!(series.get(series.dropped + 1).is_some());
+    }
+
 }

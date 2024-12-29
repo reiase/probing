@@ -104,28 +104,37 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
     let arrow_array = builder.finish();
 
-    // c.bench_function("vec_append", |b| b.iter(|| vec_append(black_box(60000))));
-    // c.bench_function("page_append", |b| b.iter(|| page_append(black_box(60000))));
-    c.bench_function("series_append", |b| {
-        b.iter(|| series_append(black_box(60000)))
-    });
-    c.bench_function("series_append_nocompress", |b| {
-        b.iter(|| series_append_nocompress(black_box(60000)))
-    });
-    c.bench_function("arrow_array_append", |b| {
+    let mut g = c.benchmark_group("baslines");
+
+    g.bench_function("vec_append", |b| b.iter(|| vec_append(black_box(60000))));
+    g.bench_function("page_append", |b| b.iter(|| page_append(black_box(60000))));
+    g.bench_function("arrow_array_append", |b| {
         b.iter(|| arrow_array_append(black_box(60000)))
     });
 
-    c.bench_function("series_iter", |b| {
+    g.bench_function("arrow_array_iter", |b| {
+        b.iter(|| arrow_array_iter(black_box(&arrow_array)))
+    });
+
+    g.finish();
+
+    let mut g = c.benchmark_group("probing series");
+    g.bench_function("series_append", |b| {
+        b.iter(|| series_append(black_box(60000)))
+    });
+    g.bench_function("series_append_nocompress", |b| {
+        b.iter(|| series_append_nocompress(black_box(60000)))
+    });
+
+    g.bench_function("series_iter", |b| {
         b.iter(|| series_iter(black_box(&series), expected_sum))
     });
 
-    c.bench_function("series_nocompress", |b| {
+    g.bench_function("series_iter_nocompress", |b| {
         b.iter(|| series_iter(black_box(&series_nocompress), expected_sum))
     });
-    c.bench_function("arrow_array_iter", |b| {
-        b.iter(|| arrow_array_iter(black_box(&arrow_array)))
-    });
+
+    g.finish();
 }
 
 criterion_group!(benches, criterion_benchmark);
