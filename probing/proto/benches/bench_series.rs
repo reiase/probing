@@ -39,12 +39,13 @@ fn series_append(n: u64) -> u64 {
     series.slices.len() as u64
 }
 
-fn series_iter(s: &Series) -> u64 {
+fn series_iter(s: &Series, expected_sum: u64) -> u64 {
     let mut result = 0;
     for value in s.iter() {
         let value: i64 = value.try_into().unwrap();
         result += value as u64;
     }
+    assert!(result == expected_sum, "expected sum: {}, got: {}", expected_sum, result);
     result
 }
 
@@ -68,7 +69,10 @@ fn arrow_array_iter(array: &Int64Array) -> u64 {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut series = Series::default();
+
+    let expected_sum = (0..60000).sum::<u64>();
+
+    let mut series = Series::builder().with_chunk_size(256).build();
     for i in 0..60000 {
         series.append(i as i64).unwrap();
     }
@@ -90,7 +94,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("series_iter", |b| {
-        b.iter(|| series_iter(black_box(&series)))
+        b.iter(|| series_iter(black_box(&series), expected_sum))
     });
     c.bench_function("arrow_array_iter", |b| {
         b.iter(|| arrow_array_iter(black_box(&arrow_array)))
