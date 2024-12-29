@@ -30,6 +30,18 @@ impl Array {
         }
     }
 
+    pub fn nbytes(&self) -> usize {
+        match self {
+            Array::Int32Array(vec) => vec.len() * std::mem::size_of::<i32>(),
+            Array::Int64Array(vec) => vec.len() * std::mem::size_of::<i64>(),
+            Array::Float32Array(vec) => vec.len() * std::mem::size_of::<f32>(),
+            Array::Float64Array(vec) => vec.len() * std::mem::size_of::<f64>(),
+            Array::TextArray(vec) => vec.iter().map(|x| x.len()).sum(),
+            Array::DateTimeArray(vec) => vec.len() * std::mem::size_of::<u64>(),
+            Array::Nil => 0,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         match self {
             Array::Nil => true,

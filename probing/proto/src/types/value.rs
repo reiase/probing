@@ -5,6 +5,17 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+pub enum DataType {
+    Nil,
+    Int32,
+    Int64,
+    Float32,
+    Float64,
+    Text,
+    Url,
+    DataTime,
+}
+
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Value {
     Nil,
