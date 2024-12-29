@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::ops::Bound::Included;
+
 use anyhow::Result;
 
 use crate::types::array::Array;
@@ -11,14 +14,16 @@ pub enum Page {
 }
 
 pub struct Slice {
-    pub offset: u64,
-    pub length: u64,
+    pub offset: usize,
+    pub length: usize,
     pub data: Page,
 }
 
 pub struct Series {
     pub chunk_size: usize,
-    pub slices: Vec<Slice>,
+    pub offset: usize,
+    pub dropped: usize,
+    pub slices: BTreeMap<usize, Slice>,
     need_grow: bool,
 }
 
@@ -26,7 +31,9 @@ impl Default for Series {
     fn default() -> Self {
         Series {
             chunk_size: 10000,
-            slices: Vec::new(),
+            offset: 0,
+            dropped: 0,
+            slices: Default::default(),
             need_grow: true,
         }
     }
@@ -40,18 +47,20 @@ impl Series {
         if self.need_grow {
             let array = T::create_array(data, self.chunk_size);
 
-            self.slices.push(Slice {
-                offset: if self.slices.is_empty() {
-                    0
-                } else {
-                    self.slices.last().unwrap().offset + self.slices.last().unwrap().length
+            let offset = self.offset;
+
+            self.slices.insert(
+                offset,
+                Slice {
+                    offset: 0,
+                    length: 0,
+                    data: Page::Raw(array),
                 },
-                length: 1,
-                data: Page::Raw(array),
-            });
+            );
             self.need_grow = false;
         } else {
-            let slice = self.slices.last_mut().unwrap();
+            let mut entry = self.slices.last_entry().unwrap();
+            let slice = entry.get_mut();
 
             match slice.data {
                 Page::Raw(ref mut array) => {
@@ -61,24 +70,27 @@ impl Series {
                 Page::Ref => todo!(),
             }
             slice.length += 1;
-            if slice.length == self.chunk_size as u64 {
+            self.offset += 1;
+            if slice.length == self.chunk_size {
                 self.need_grow = true;
             }
         }
         Ok(())
     }
 
-    pub fn len(&self) -> u64 {
-        self.slices.iter().map(|s| s.length).sum()
+    pub fn len(&self) -> usize {
+        self.offset
     }
 
     pub fn is_empty(&self) -> bool {
-        self.slices.is_empty()
+        self.len() == 0
     }
 
-    pub fn get(&self, idx: u64) -> Value {
-        let mut offset = 0;
-        for slice in &self.slices {
+    pub fn get(&self, idx: usize) -> Value {
+        for (offset, slice) in self
+            .slices
+            .range((Included(&(idx - self.chunk_size)), Included(&idx)))
+        {
             if idx < offset + slice.length {
                 match &slice.data {
                     Page::Raw(array) => return array.get((idx - offset) as usize),
@@ -86,9 +98,12 @@ impl Series {
                     Page::Ref => todo!(),
                 }
             }
-            offset += slice.length;
         }
         Value::Nil
+    }
+
+    pub fn iter(&self) -> SeriesIterator {
+        SeriesIterator::new(self)
     }
 }
 
@@ -131,46 +146,44 @@ impl ArrayType for i64 {
     }
 }
 
+
 pub struct SeriesIterator<'a> {
-    series: &'a Series,
-    slice: u64,
-    idx: u64,
+    slice_iter: std::collections::btree_map::Iter<'a, usize, Slice>,
+    current_slice: Option<(&'a usize, &'a Slice)>,
+    elem_idx: usize,
+}
+
+impl<'a> SeriesIterator<'a> {
+    pub fn new(series: &'a Series) -> Self {
+        let mut slice_iter = series.slices.iter();
+        let current_slice = slice_iter.next();
+        SeriesIterator {
+            slice_iter,
+            current_slice,
+            elem_idx: 0,
+        }
+    }
 }
 
 impl<'a> Iterator for SeriesIterator<'a> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.slice >= self.series.slices.len() as u64 {
-            return None;
+        while let Some((_, slice)) = self.current_slice {
+            if self.elem_idx < slice.length {
+                let value = match &slice.data {
+                    Page::Raw(array) => array.get(self.elem_idx),
+                    Page::Compressed(_) => todo!(),
+                    Page::Ref => todo!(),
+                };
+                self.elem_idx += 1;
+                return Some(value);
+            } else {
+                self.current_slice = self.slice_iter.next();
+                self.elem_idx = 0;
+            }
         }
-
-        let slice = &self.series.slices[self.slice as usize];
-        if slice.offset + self.idx >= slice.length {
-            self.slice += 1;
-            return self.next();
-        }
-
-        let value = match &slice.data {
-            Page::Raw(array) => array.get((self.idx - slice.offset) as usize),
-            Page::Compressed(_) => todo!(),
-            Page::Ref => todo!(),
-        };
-        self.idx += 1;
-        Some(value)
-    }
-}
-
-impl<'a> IntoIterator for &'a Series {
-    type Item = Value;
-    type IntoIter = SeriesIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        SeriesIterator {
-            series: self,
-            slice: 0,
-            idx: 0,
-        }
+        None
     }
 }
 
@@ -192,11 +205,11 @@ mod test {
         }
         assert_eq!(series.slices.len(), 2);
 
-        assert_eq!(series.slices[0].length, 256);
-        assert_eq!(series.slices[0].offset, 0);
+        assert_eq!(series.slices.get(&0).unwrap().length, 256);
+        assert_eq!(series.slices.get(&0).unwrap().offset, 0);
 
-        assert_eq!(series.slices[1].length, 256);
-        assert_eq!(series.slices[1].offset, 256);
+        assert_eq!(series.slices.get(&256).unwrap().length, 256);
+        assert_eq!(series.slices.get(&256).unwrap().offset, 256);
     }
 
     #[test]
@@ -218,7 +231,7 @@ mod test {
             series.append(i as i64).unwrap();
         }
 
-        for (i, value) in series.into_iter().enumerate() {
+        for (i, value) in series.iter().enumerate() {
             assert_eq!(value, super::Value::Int64(i as i64));
         }
     }

@@ -38,7 +38,7 @@ fn series_append(n: u64) -> u64 {
 
 fn series_iter(s: &Series) -> u64 {
     let mut result = 0;
-    for value in s.into_iter() {
+    for value in s.iter() {
         let value: i64 = value.try_into().unwrap();
         result += value as u64;
     }
