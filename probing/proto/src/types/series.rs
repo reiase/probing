@@ -24,7 +24,7 @@ pub struct Series {
     pub offset: usize,
     pub dropped: usize,
     pub slices: BTreeMap<usize, Slice>,
-    need_grow: bool,
+    current_slice: Option<Box<Slice>>,
 }
 
 impl Default for Series {
@@ -34,7 +34,7 @@ impl Default for Series {
             offset: 0,
             dropped: 0,
             slices: Default::default(),
-            need_grow: true,
+            current_slice: None,
         }
     }
 }
@@ -44,37 +44,36 @@ impl Series {
     where
         T: ArrayType,
     {
-        if self.need_grow {
-            let array = T::create_array(data, self.chunk_size);
+        if self.offset == usize::MAX {
+            return Err(anyhow::anyhow!("Series capacity exceeded"));
+        }
 
+        if let Some(slice) = self.current_slice.as_mut() {
+            if let Page::Raw(ref mut array) = slice.data {
+                T::append_to_array(array, data)?;
+                slice.length += 1;
+                if slice.length == self.chunk_size {
+                    let boxed_slice = std::mem::replace(&mut self.current_slice, None);
+                    if let Some(slice) = boxed_slice {
+                        self.slices.insert(slice.offset, *slice);
+                    }
+                }
+            } else {
+                return Err(anyhow::anyhow!("Current page is not Raw"));
+            }
+        } else {
+            let array = T::create_array(data, self.chunk_size);
+            let page = Page::Raw(array);
             let offset = self.offset;
 
-            self.slices.insert(
+            self.current_slice = Some(Box::new(Slice {
                 offset,
-                Slice {
-                    offset: 0,
-                    length: 0,
-                    data: Page::Raw(array),
-                },
-            );
-            self.need_grow = false;
-        } else {
-            let mut entry = self.slices.last_entry().unwrap();
-            let slice = entry.get_mut();
-
-            match slice.data {
-                Page::Raw(ref mut array) => {
-                    T::append_to_array(array, data)?;
-                }
-                Page::Compressed(_) => todo!(),
-                Page::Ref => todo!(),
-            }
-            slice.length += 1;
-            self.offset += 1;
-            if slice.length == self.chunk_size {
-                self.need_grow = true;
-            }
+                length: 1,
+                data: page,
+            }));
         }
+
+        self.offset = self.offset.saturating_add(1);
         Ok(())
     }
 
@@ -86,20 +85,36 @@ impl Series {
         self.len() == 0
     }
 
-    pub fn get(&self, idx: usize) -> Value {
-        for (offset, slice) in self
-            .slices
-            .range((Included(&(idx - self.chunk_size)), Included(&idx)))
-        {
-            if idx < offset + slice.length {
+    pub fn get(&self, idx: usize) -> Option<Value> {
+        // Check if index is out of range
+        if idx >= self.offset || idx < self.dropped {
+            return None;
+        }
+
+        // Check current slice first
+        if let Some(slice) = self.current_slice.as_ref() {
+            if idx >= slice.offset && idx < slice.offset + slice.length {
                 match &slice.data {
-                    Page::Raw(array) => return array.get((idx - offset) as usize),
-                    Page::Compressed(_) => todo!(),
-                    Page::Ref => todo!(),
+                    Page::Raw(array) => return Some(array.get(idx - slice.offset)),
+                    Page::Compressed(_) => return None, // TODO: implement decompression
+                    Page::Ref => return None,           // TODO: implement reference resolution
                 }
             }
         }
-        Value::Nil
+
+        // Search in BTreeMap
+        let start = idx.saturating_sub(self.chunk_size);
+        for (offset, slice) in self.slices.range((Included(&start), Included(&idx))) {
+            if idx >= *offset && idx < offset + slice.length {
+                match &slice.data {
+                    Page::Raw(array) => return Some(array.get(idx - offset)),
+                    Page::Compressed(_) => return None, // TODO: implement decompression
+                    Page::Ref => return None,           // TODO: implement reference resolution
+                }
+            }
+        }
+
+        None
     }
 
     pub fn iter(&self) -> SeriesIterator {
@@ -146,20 +161,23 @@ impl ArrayType for i64 {
     }
 }
 
-
 pub struct SeriesIterator<'a> {
-    slice_iter: std::collections::btree_map::Iter<'a, usize, Slice>,
-    current_slice: Option<(&'a usize, &'a Slice)>,
+    series: &'a Series,
+    current_btree_iter: std::collections::btree_map::Range<'a, usize, Slice>,
+    current_btree_slice: Option<(&'a usize, &'a Slice)>,
+    current_slice: Option<&'a Box<Slice>>,
     elem_idx: usize,
 }
 
 impl<'a> SeriesIterator<'a> {
     pub fn new(series: &'a Series) -> Self {
-        let mut slice_iter = series.slices.iter();
-        let current_slice = slice_iter.next();
+        let start = series.dropped;
+        let end = series.offset;
         SeriesIterator {
-            slice_iter,
-            current_slice,
+            series,
+            current_btree_iter: series.slices.range((Included(&start), Included(&end))),
+            current_btree_slice: None,
+            current_slice: series.current_slice.as_ref(),
             elem_idx: 0,
         }
     }
@@ -169,21 +187,35 @@ impl<'a> Iterator for SeriesIterator<'a> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((_, slice)) = self.current_slice {
+        // Process BTreeMap slices first
+        while let Some((_, slice)) = self.current_btree_slice {
             if self.elem_idx < slice.length {
-                let value = match &slice.data {
-                    Page::Raw(array) => array.get(self.elem_idx),
-                    Page::Compressed(_) => todo!(),
-                    Page::Ref => todo!(),
-                };
-                self.elem_idx += 1;
-                return Some(value);
-            } else {
-                self.current_slice = self.slice_iter.next();
-                self.elem_idx = 0;
+                if let Page::Raw(ref array) = slice.data {
+                    let value = array.get(self.elem_idx);
+                    self.elem_idx += 1;
+                    return Some(value);
+                }
             }
+            self.current_btree_slice = self.current_btree_iter.next();
+            self.elem_idx = 0;
         }
+
+        // Then try current_slice
+        if let Some(slice) = self.current_slice {
+            if self.elem_idx < slice.length {
+                if let Page::Raw(ref array) = slice.data {
+                    let value = array.get(self.elem_idx);
+                    self.elem_idx += 1;
+                    return Some(value);
+                }
+            }
+            // Done with current_slice
+            self.current_slice = None;
+            self.elem_idx = 0;
+        }
+
         None
+
     }
 }
 
@@ -220,7 +252,7 @@ mod test {
         }
 
         for i in 0..512 {
-            assert_eq!(series.get(i), super::Value::Int64(i as i64));
+            assert_eq!(series.get(i).unwrap(), super::Value::Int64(i as i64));
         }
     }
 
@@ -230,6 +262,8 @@ mod test {
         for i in 0..512 {
             series.append(i as i64).unwrap();
         }
+
+        assert_eq!(512, series.iter().collect::<Vec<_>>().len());
 
         for (i, value) in series.iter().enumerate() {
             assert_eq!(value, super::Value::Int64(i as i64));
