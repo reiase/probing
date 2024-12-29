@@ -3208,6 +3208,7 @@ name = "probing-proto"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "arrow",
  "chrono",
  "clap 4.5.20",
  "criterion",

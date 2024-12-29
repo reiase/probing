@@ -24,7 +24,7 @@ pub struct Series {
     pub offset: usize,
     pub dropped: usize,
     pub slices: BTreeMap<usize, Slice>,
-    current_slice: Option<Box<Slice>>,
+    current_slice: Option<Slice>,
 }
 
 impl Default for Series {
@@ -53,9 +53,9 @@ impl Series {
                 T::append_to_array(array, data)?;
                 slice.length += 1;
                 if slice.length == self.chunk_size {
-                    let boxed_slice = std::mem::replace(&mut self.current_slice, None);
-                    if let Some(slice) = boxed_slice {
-                        self.slices.insert(slice.offset, *slice);
+                    let slice = std::mem::replace(&mut self.current_slice, None);
+                    if let Some(slice) = slice {
+                        self.slices.insert(slice.offset, slice);
                     }
                 }
             } else {
@@ -66,11 +66,11 @@ impl Series {
             let page = Page::Raw(array);
             let offset = self.offset;
 
-            self.current_slice = Some(Box::new(Slice {
+            self.current_slice = Some(Slice {
                 offset,
                 length: 1,
                 data: page,
-            }));
+            });
         }
 
         self.offset = self.offset.saturating_add(1);
@@ -165,7 +165,7 @@ pub struct SeriesIterator<'a> {
     series: &'a Series,
     current_btree_iter: std::collections::btree_map::Range<'a, usize, Slice>,
     current_btree_slice: Option<(&'a usize, &'a Slice)>,
-    current_slice: Option<&'a Box<Slice>>,
+    current_slice: Option<&'a Slice>,
     elem_idx: usize,
 }
 
@@ -215,7 +215,6 @@ impl<'a> Iterator for SeriesIterator<'a> {
         }
 
         None
-
     }
 }
 
