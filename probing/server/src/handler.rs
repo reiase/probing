@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use http_body_util::{BodyExt, Full};
@@ -6,7 +6,7 @@ use hyper::{body::Bytes, Method, Request, Response};
 
 use log::debug;
 
-use probing_core::{Probe, ProbeFactory};
+use probing_core::Probe;
 use probing_legacy::service::handle_request as legacy_handle_request;
 
 use crate::asset;

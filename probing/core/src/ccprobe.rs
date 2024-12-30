@@ -7,7 +7,7 @@ pub struct CCProbe {}
 impl Probe for CCProbe {
     fn backtrace(
         &self,
-        depth: Option<i32>,
+        _depth: Option<i32>,
     ) -> anyhow::Result<Vec<probing_proto::protocol::process::CallFrame>> {
         let mut frames = vec![];
         backtrace::trace(|frame| {
@@ -36,7 +36,7 @@ impl Probe for CCProbe {
         Ok(frames)
     }
 
-    fn eval(&self, code: &str) -> anyhow::Result<String> {
+    fn eval(&self, _code: &str) -> anyhow::Result<String> {
         todo!()
     }
 }

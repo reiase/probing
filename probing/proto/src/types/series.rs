@@ -334,7 +334,7 @@ impl Series {
         }
 
         while self.nbytes() > self.config.discard_threshold {
-            if let Some((offset, slice)) = self.slices.pop_first() {
+            if let Some((_offset, slice)) = self.slices.pop_first() {
                 self.dropped += slice.offset + slice.length;
                 self.commit_nbytes -= slice.nbytes();
             }
