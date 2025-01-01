@@ -4,12 +4,29 @@ use std::ops::Bound::Included;
 use anyhow::Result;
 use pco::standalone::simple_decompress;
 use pco::standalone::simpler_compress;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::value::DataType;
 use super::Value;
 use crate::types::array::Array;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
+pub enum SeriesError {
+    #[error("type mismatch")]
+    TypeMismatch { expected: DataType, got: DataType },
+
+    #[error("invalid data type for value")]
+    InvalidValueDateType,
+
+    #[error("raw page type expected")]
+    RawPageTypeExpected,
+
+    #[error("Series capacity exceeded")]
+    CapacityExceeded,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Page {
     Raw(Array),
     Compressed { dtype: DataType, buffer: Vec<u8> },
@@ -115,7 +132,7 @@ impl Page {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Slice {
     pub offset: usize,
     pub length: usize,
@@ -132,7 +149,7 @@ impl Slice {
     }
 
     pub fn get_with_index(&self, idx: usize) -> Option<Value> {
-        self.data.get_value(idx - self.offset)
+        self.get_value(idx - self.offset)
     }
 
     pub fn compress(&mut self) {
@@ -152,7 +169,7 @@ impl Slice {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct SeriesConfig {
     pub dtype: DataType,
     pub chunk_size: usize,
@@ -206,7 +223,7 @@ impl SeriesConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Series {
     config: SeriesConfig,
     pub offset: usize,
@@ -235,12 +252,12 @@ impl Series {
         SeriesConfig::default()
     }
 
-    pub fn append<T>(&mut self, data: T) -> Result<()>
+    pub fn append<T>(&mut self, data: T) -> Result<(), SeriesError>
     where
         T: ArrayType,
     {
         if self.offset == usize::MAX {
-            return Err(anyhow::anyhow!("Series capacity exceeded"));
+            return Err(SeriesError::CapacityExceeded);
         }
 
         if let Some(slice) = self.current_slice.as_mut() {
@@ -251,7 +268,7 @@ impl Series {
                     self.commit_current_slice();
                 }
             } else {
-                return Err(anyhow::anyhow!("Current page is not Raw"));
+                return Err(SeriesError::RawPageTypeExpected);
             }
         } else {
             let array = T::create_array(data, self.config.chunk_size);
@@ -267,6 +284,16 @@ impl Series {
 
         self.offset = self.offset.saturating_add(1);
         Ok(())
+    }
+
+    pub fn append_value(&mut self, data: Value) -> Result<(), SeriesError> {
+        match data {
+            Value::Int32(data) => self.append(data),
+            Value::Int64(data) => self.append(data),
+            Value::Float32(data) => self.append(data),
+            Value::Float64(data) => self.append(data),
+            _ => Err(SeriesError::InvalidValueDateType),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -296,7 +323,9 @@ impl Series {
 
         // Check current slice first
         if let Some(slice) = self.current_slice.as_ref() {
-            return slice.get_with_index(idx);
+            if idx >= slice.offset && idx < slice.offset + slice.length {
+                return slice.get_with_index(idx);
+            }
         }
 
         // Search in BTreeMap
@@ -344,7 +373,7 @@ impl Series {
 
 pub trait ArrayType {
     fn create_array(data: Self, size: usize) -> Array;
-    fn append_to_array(array: &mut Array, data: Self) -> Result<()>;
+    fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError>;
 }
 
 impl ArrayType for i32 {
@@ -354,12 +383,15 @@ impl ArrayType for i32 {
         Array::Int32Array(array)
     }
 
-    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+    fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError> {
         if let Array::Int32Array(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Type mismatch"))
+            Err(SeriesError::TypeMismatch {
+                expected: DataType::Int32,
+                got: DataType::Nil,
+            })
         }
     }
 }
@@ -371,12 +403,15 @@ impl ArrayType for i64 {
         Array::Int64Array(array)
     }
 
-    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+    fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError> {
         if let Array::Int64Array(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Type mismatch"))
+            Err(SeriesError::TypeMismatch {
+                expected: DataType::Int64,
+                got: DataType::Nil,
+            })
         }
     }
 }
@@ -388,12 +423,15 @@ impl ArrayType for f32 {
         Array::Float32Array(array)
     }
 
-    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+    fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError> {
         if let Array::Float32Array(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Type mismatch"))
+            Err(SeriesError::TypeMismatch {
+                expected: DataType::Float32,
+                got: DataType::Nil,
+            })
         }
     }
 }
@@ -405,12 +443,15 @@ impl ArrayType for f64 {
         Array::Float64Array(array)
     }
 
-    fn append_to_array(array: &mut Array, data: Self) -> Result<()> {
+    fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError> {
         if let Array::Float64Array(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Type mismatch"))
+            Err(SeriesError::TypeMismatch {
+                expected: DataType::Float64,
+                got: DataType::Nil,
+            })
         }
     }
 }
@@ -525,6 +566,22 @@ mod test {
     }
 
     #[test]
+    fn test_series_get_from_compressed() {
+        let mut series = super::Series::builder()
+            .with_compression_threshold(8)
+            .with_chunk_size(256)
+            .build();
+
+        for i in 0..512 {
+            series.append(i as i64).unwrap();
+        }
+
+        for i in 1..512 {
+            assert_eq!(series.get(i).unwrap(), super::Value::Int64(i as i64));
+        }
+    }
+
+    #[test]
     fn test_series_iter() {
         let mut series = super::Series::builder().with_chunk_size(256).build();
         let mut expected_sum = 0;
@@ -620,9 +677,45 @@ mod test {
 
         // Verify that dropped elements cannot be accessed
         assert!(series.get(0).is_none());
-        
+
         // But newer elements can still be accessed
         assert!(series.get(series.dropped + 1).is_some());
     }
 
+    #[test]
+    fn test_series_serialization() {
+        // Create a series and add some data
+        let mut original_series = super::Series::builder()
+            .with_chunk_size(256)
+            .with_compression_threshold(5)
+            .build();
+
+        for i in 0..500 {
+            original_series.append(i as i64).unwrap();
+        }
+
+        // Serialize to JSON
+        let serialized = serde_json::to_string(&original_series).unwrap();
+
+        // Deserialize back
+        let deserialized_series: super::Series = serde_json::from_str(&serialized).unwrap();
+
+        // Verify the series are equal
+        assert_eq!(original_series, deserialized_series);
+
+        // Verify data can still be accessed
+        for i in 0..500 {
+            assert_eq!(
+                deserialized_series.get(i).unwrap(),
+                super::Value::Int64(i as i64)
+            );
+        }
+
+        // Verify compressed slices are preserved
+        assert_eq!(
+            original_series.slices.len(),
+            deserialized_series.slices.len()
+        );
+        assert_eq!(original_series.nbytes(), deserialized_series.nbytes());
+    }
 }

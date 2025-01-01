@@ -14,6 +14,7 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 minstant = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 
 clap = { version = "4.5.11", optional=true, default-features = false, features = [
     "derive",
@@ -26,6 +27,7 @@ pco = "0.4.1"
 [dev-dependencies]
 arrow = { workspace = true }
 criterion = { workspace = true, features = ["html_reports"] }
+serde_json = { workspace = true }
 
 [[bench]]
 name = "bench_series"
