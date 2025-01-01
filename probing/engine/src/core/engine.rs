@@ -17,7 +17,7 @@ use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
 use futures;
 
 use super::chunked_encode::chunked_encode;
-use probing_proto::protocol::dataframe::Array;
+use probing_proto::types::Array;
 
 #[derive(PartialEq, Eq)]
 pub enum PluginType {

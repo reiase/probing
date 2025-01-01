@@ -111,8 +111,8 @@ mod test {
     use arrow::array::StringArray;
 
     use anyhow::Result;
-    use probing_proto::protocol::dataframe::Array;
-    use probing_proto::protocol::dataframe::DataFrame;
+    use probing_proto::types::Array;
+    use probing_proto::types::DataFrame;
 
     use super::DataFrameChunk;
 

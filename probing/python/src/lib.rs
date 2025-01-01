@@ -40,7 +40,7 @@ json.dumps(stacks)
 );
 
 impl Probe for PythonProbe {
-    fn backtrace(&self, depth: Option<i32>) -> Result<Vec<CallFrame>> {
+    fn backtrace(&self, _depth: Option<i32>) -> Result<Vec<CallFrame>> {
         let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
             Ok(frames) => Ok(frames.to_string()),
             Err(err) => Err(anyhow::anyhow!(
