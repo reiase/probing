@@ -8,10 +8,13 @@ license.workspace = true
 
 [dependencies]
 probing-proto = { path = "../proto" }
+probing-engine = { path = "../engine" }
 
+once_cell = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
 anyhow = { workspace = true }
 backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
+linux-taskstats = "0.7.0"
