@@ -72,6 +72,18 @@ impl From<i64> for Value {
     }
 }
 
+impl From<f32> for Value {
+    fn from(item: f32) -> Self {
+        Value::Float32(item)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(item: f64) -> Self {
+        Value::Float64(item)
+    }
+}
+
 impl TryInto<i32> for Value {
     type Error = anyhow::Error;
 

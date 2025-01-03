@@ -42,6 +42,10 @@ impl TimeSeries {
         Default::default()
     }
 
+    pub fn len(&self) -> usize {
+        self.timestamp.len()
+    }
+
     pub fn append(&mut self, timestamp: Value, values: Vec<Value>) -> Result<(), TimeSeriesError> {
         if self.cols.len() != values.len() {
             return Err(TimeSeriesError::ColumnCountMismatch {

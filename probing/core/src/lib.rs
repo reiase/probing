@@ -1,3 +1,5 @@
+mod plugins;
+
 use std::sync::Arc;
 
 use anyhow::Result;
