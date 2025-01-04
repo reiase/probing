@@ -18,7 +18,7 @@ license = "GPL3"
 
 [workspace.dependencies]
 anyhow = "1.0"
-arrow = { version = "53.2.0", default-features = false, features = [] }
+arrow = { version = "53.3.0", default-features = false, features = [] }
 chrono = "0.4"
 log = "0.4"
 minstant = "0.1"
@@ -37,6 +37,8 @@ tokio = { version = "1.41.1", default-features = false, features = [
     "rt-multi-thread",
 ] }
 criterion = { version = "0.5", features = ["html_reports"] }
+
+rspec = "1"
 
 [package]
 name = "probing"

@@ -66,11 +66,11 @@ impl Engine {
         EngineBuilder::new()
     }
 
-    pub async fn sql(self, query: &str) -> Result<DataFrame> {
+    pub async fn sql(&self, query: &str) -> Result<DataFrame> {
         self.context.sql(query).await
     }
 
-    pub fn query<T: Into<String>>(self, q: T) -> anyhow::Result<probing_proto::prelude::DataFrame> {
+    pub fn query<T: Into<String>>(&self, q: T) -> anyhow::Result<probing_proto::prelude::DataFrame> {
         let batch = futures::executor::block_on(async {
             let q: String = q.into();
             let batches = self.sql(q.as_str()).await?.collect().await?;

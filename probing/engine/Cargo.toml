@@ -18,7 +18,10 @@ serde = {workspace = true }
 serde_json = { workspace = true }
 
 async-trait = "0.1.83"
-datafusion = {version = "42.2.0", default-features = false, features = []}
+datafusion = {version = "44.0.0", default-features = false, features = []}
 futures = "0.3.31"
 rmesg = "1.0.21"
 ron = "0.8.1"
+
+[dev-dependencies]
+rspec = { workspace = true }

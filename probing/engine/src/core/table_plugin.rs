@@ -67,7 +67,7 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> Plugin for TableP
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct TableDataSource<T: CustomTable> {
     data: PhantomData<T>,
 }
@@ -173,7 +173,7 @@ impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> Plugin for Schem
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CustomSchemaDataSource<T: CustomSchema> {
     data: PhantomData<T>,
 }

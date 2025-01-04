@@ -13,7 +13,7 @@ use datafusion::prelude::SessionContext;
 
 use crate::core::{Plugin, PluginType};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FilesPlugin {}
 
 impl Plugin for FilesPlugin {
@@ -40,7 +40,7 @@ impl Plugin for FilesPlugin {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FileSystemSchema {}
 
 #[async_trait]
