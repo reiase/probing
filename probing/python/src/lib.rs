@@ -1,17 +1,22 @@
 pub mod plugins;
 pub mod repl;
 
-use anyhow::Context;
-use anyhow::Result;
-use probing_core::ProbeFactory;
-use repl::PythonRepl;
-
 use std::ffi::CStr;
 use std::sync::Arc;
 
-use probing_core::{CallFrame, Probe};
+use anyhow::Context;
+use anyhow::Result;
+
 use pyo3::ffi::c_str;
-use pyo3::Python;
+use pyo3::prelude::*;
+use pyo3::types::PyModule;
+use pyo3::types::PyModuleMethods;
+
+use probing_core::ProbeFactory;
+use probing_core::{CallFrame, Probe};
+
+use plugins::external_tables::ExternalTable;
+use repl::PythonRepl;
 
 #[derive(Default)]
 pub struct PythonProbe {}
@@ -66,4 +71,18 @@ impl ProbeFactory for PythonProbeFactory {
     fn create(&self) -> Arc<dyn Probe> {
         Arc::new(PythonProbe::default())
     }
+}
+
+pub fn create_probing_module() -> PyResult<()> {
+    Python::with_gil(|py| -> PyResult<()> {
+        let m = PyModule::new(py, "probing")?;
+        m.add_class::<ExternalTable>()?;
+
+        let sys = PyModule::import(py, "sys")?;
+        let modules = sys.getattr("modules")?;
+        modules.set_item("probing", m)?;
+
+        Ok(())
+    })?;
+    Ok(())
 }

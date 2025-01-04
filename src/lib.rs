@@ -14,6 +14,7 @@ use probing_legacy::get_hostname;
 use probing_legacy::register_signal_handler;
 use probing_legacy::sigusr1_handler;
 use probing_proto::cli::CtrlSignal;
+use probing_python::create_probing_module;
 use probing_python::PythonProbeFactory;
 use probing_server::report::start_report_worker;
 
@@ -68,6 +69,7 @@ fn setup() {
         probing_server::start_remote(Some(address), Arc::new(PythonProbeFactory::default()));
         start_report_worker();
     }
+    let _ = create_probing_module();
 }
 
 #[dtor]

@@ -13,7 +13,7 @@ use probing_proto::types::{TimeSeries, Value};
 pub static TASK_STATS: Lazy<Mutex<TimeSeries>> = Lazy::new(|| {
     Mutex::new(
         TimeSeries::builder()
-            .with_column(vec!["cpu_utime".to_string(), "cpu_stime".to_string()])
+            .with_columns(vec!["cpu_utime".to_string(), "cpu_stime".to_string()])
             .build(),
     )
 });

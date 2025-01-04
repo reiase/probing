@@ -58,7 +58,7 @@ impl CustomSchema for PythonSchema {
             let ret = ret.unwrap();
             if ret.is_instance_of::<PyList>() {
                 println!("list: {ret}");
-                if let Ok(list) = ret.downcast::<PyList>() {
+                if let Ok(_list) = ret.downcast::<PyList>() {
                     return vec![];
                 }
                 return vec![];
@@ -66,7 +66,7 @@ impl CustomSchema for PythonSchema {
 
             if ret.is_instance_of::<PyDict>() {
                 println!("dict: {ret}");
-                if let Ok(dict) = ret.downcast::<PyDict>() {
+                if let Ok(_dict) = ret.downcast::<PyDict>() {
                     return vec![];
                 }
                 return vec![];

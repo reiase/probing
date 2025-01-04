@@ -66,6 +66,15 @@ impl TimeSeries {
             cols: self.cols.iter().map(|s| s.iter()).collect(),
         }
     }
+
+    pub fn take(&self, limit: Option<usize>) -> Vec<(Value, Vec<Value>)> {
+        let iter = self.iter();
+        if let Some(limit) = limit {
+            iter.take(limit).collect::<Vec<_>>()
+        } else {
+            iter.collect::<Vec<_>>()
+        }
+    }
 }
 
 pub struct TimeSeriesConfig {
@@ -105,7 +114,7 @@ impl TimeSeriesConfig {
         self.series_config = self.series_config.with_discard_threshold(discard_threshold);
         self
     }
-    pub fn with_column(mut self, names: Vec<String>) -> Self {
+    pub fn with_columns(mut self, names: Vec<String>) -> Self {
         self.names = names;
         self
     }
@@ -152,7 +161,7 @@ mod test {
             .with_compression_level(1)
             .with_compression_threshold(10)
             .with_discard_threshold(10)
-            .with_column(vec!["a".to_string(), "b".to_string()])
+            .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
     }
 
@@ -164,7 +173,7 @@ mod test {
             .with_compression_level(1)
             .with_compression_threshold(10)
             .with_discard_threshold(10)
-            .with_column(vec!["a".to_string(), "b".to_string()])
+            .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
         let _ = ts.append(
             super::Value::Int64(1),
@@ -179,7 +188,7 @@ mod test {
             .with_compression_level(1)
             .with_compression_threshold(10)
             .with_discard_threshold(10)
-            .with_column(vec!["a".to_string(), "b".to_string()])
+            .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
 
         // Append some test data

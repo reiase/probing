@@ -9,8 +9,10 @@ license.workspace = true
 [dependencies]
 probing-core = { path = "../core" }
 probing-engine = { path = "../engine" }
+probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
+once_cell = { workspace = true }
 serde_json = { workspace = true }
 
 include_dir = "=0.7.4"

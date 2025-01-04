@@ -3401,8 +3401,10 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "include_dir",
+ "once_cell",
  "probing-core",
  "probing-engine",
+ "probing-proto",
  "pyo3",
  "pyo3-build-config",
  "serde_json",
