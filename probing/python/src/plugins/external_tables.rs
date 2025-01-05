@@ -172,7 +172,10 @@ mod specs {
 
     use super::*;
 
-    use probing_engine::{core::Engine, plugins::{envs::EnvPlugin, file::FilePlugin}};
+    use probing_engine::{
+        core::Engine,
+        plugins::{envs::EnvPlugin, file::FilePlugin},
+    };
     use pyo3::ffi::c_str;
     use rspec;
 
@@ -312,6 +315,28 @@ table3.append([5, 6])
                                 .unwrap()
                         });
                     assert_eq!(tables.len(), 2);
+                });
+
+                ctx.it("should support calculate in sql", |_| {
+                    let engine = Engine::builder()
+                    .with_information_schema(true)
+                    .with_default_catalog_and_schema("probe", "probe")
+                    .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+                    .build()
+                    .unwrap();
+                    let tables = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(4)
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(async {
+                        engine
+                            .query(
+                                "select sum(a), sum(b) from python.table3",
+                            )
+                            .unwrap()
+                    });
+                    println!("{:?}", tables);
                 });
             });
         }));
