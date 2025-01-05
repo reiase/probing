@@ -1,6 +1,7 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use super::Plugin;
+use arrow::datatypes::{DataType, Field, Schema};
 use async_trait::async_trait;
 use datafusion::arrow::array::RecordBatch;
 use datafusion::arrow::datatypes::SchemaRef;
@@ -102,6 +103,52 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> TableProvider
     }
 }
 
+#[derive(Default, Debug)]
+pub struct LazyTableSource<T: CustomSchema> {
+    pub name: String,
+    pub schema: Option<SchemaRef>,
+    pub data: PhantomData<T>,
+}
+
+#[async_trait]
+impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> TableProvider
+    for LazyTableSource<T>
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn schema(&self) -> SchemaRef {
+        if let Some(schema) = &self.schema {
+            return schema.clone();
+        }
+        SchemaRef::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]))
+    }
+
+    fn table_type(&self) -> TableType {
+        TableType::Base
+    }
+
+    async fn scan(
+        &self,
+        _state: &dyn Session,
+        projection: Option<&Vec<usize>>,
+        // filters and limit can be used here to inject some push-down operations if needed
+        _filters: &[Expr],
+        _limit: Option<usize>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let data = T::data(self.name.as_str());
+        if data.is_empty() {
+            return Err(DataFusionError::Execution(
+                "no data found for lazy table".to_string(),
+            ));
+        }
+        let schema = data[0].schema();
+        let exec = MemoryExec::try_new(&[data], schema, projection.cloned())?;
+        Ok(Arc::new(exec))
+    }
+}
+
 #[allow(unused)]
 #[async_trait]
 pub trait CustomSchema: Sync + Send {
@@ -110,15 +157,26 @@ pub trait CustomSchema: Sync + Send {
     fn data(expr: &str) -> Vec<RecordBatch> {
         vec![]
     }
-    async fn table(expr: String) -> Result<Option<Arc<dyn TableProvider>>> {
-        let data = Self::data(expr.as_str());
-        if !data.is_empty() {
-            let data = MemTable::try_new(data[0].schema(), vec![data]).ok();
-            let data = data.map(|x| Arc::new(x) as Arc<dyn TableProvider>);
-            Ok(data)
-        } else {
-            Ok(None)
-        }
+
+    fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>> where Self: Sized {
+        Arc::new(LazyTableSource::<Self> {
+            name: expr.to_string(),
+            schema: None,
+            data: Default::default(),
+        })
+    }
+
+    async fn table(expr: String) -> Result<Option<Arc<dyn TableProvider>>>
+    where
+        Self: Default + Debug + Send + Sync + Sized + 'static,
+    {
+        // let lazy = Arc::new(LazyTableSource::<Self> {
+        //     name: expr.clone(),
+        //     schema: None,
+        //     data: Default::default(),
+        // });
+        let lazy = Self::make_lazy(expr.as_str());
+        Ok(Some(lazy))
     }
 }
 

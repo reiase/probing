@@ -291,6 +291,28 @@ table3.append([5, 6])
                         .block_on(async { engine.query("select * from python.table3 ").unwrap() });
                     assert_eq!(tables.len(), 3);
                 });
+
+                ctx.it("should support calculate in sql", |_| {
+                    let engine = Engine::builder()
+                        .with_information_schema(true)
+                        .with_default_catalog_and_schema("probe", "probe")
+                        .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+                        .build()
+                        .unwrap();
+                    let tables = tokio::runtime::Builder::new_multi_thread()
+                        .worker_threads(4)
+                        .enable_all()
+                        .build()
+                        .unwrap()
+                        .block_on(async {
+                            engine
+                                .query(
+                                    "select a + b as c from python.table3 where a > 1",
+                                )
+                                .unwrap()
+                        });
+                    assert_eq!(tables.len(), 2);
+                });
             });
         }));
     }
