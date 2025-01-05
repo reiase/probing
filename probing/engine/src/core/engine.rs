@@ -74,6 +74,9 @@ impl Engine {
         let batch = futures::executor::block_on(async {
             let q: String = q.into();
             let batches = self.sql(q.as_str()).await?.collect().await?;
+            if batches.is_empty() {
+                return Err(anyhow::Error::msg("empty result"));
+            }
             anyhow::Ok(concat_batches(&batches[0].schema(), batches.iter())?)
         })?;
 
@@ -123,7 +126,7 @@ impl Engine {
             catalog
         } else {
             self.context
-                .register_catalog(category.clone(), Arc::new(MemoryCatalogProvider::new()));
+                .register_catalog(domain.as_ref(), Arc::new(MemoryCatalogProvider::new()));
             self.context.catalog(domain.as_ref()).unwrap()
         };
 
@@ -182,7 +185,8 @@ impl EngineBuilder {
     }
 
     // Add a plugin to the builder
-    pub fn with_plugin(mut self, namespace: String, plugin: Arc<dyn Plugin>) -> Self {
+    pub fn with_plugin<T: Into<String>>(mut self, namespace: T, plugin: Arc<dyn Plugin>) -> Self {
+        let namespace = namespace.into();
         self.plugins.push((namespace, plugin));
         self
     }

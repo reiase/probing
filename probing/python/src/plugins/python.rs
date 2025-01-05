@@ -28,10 +28,19 @@ impl CustomSchema for PythonSchema {
     }
 
     fn list() -> Vec<String> {
-        vec![]
+        let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+        binding.keys().cloned().collect()
     }
 
     fn data(expr: &str) -> Vec<RecordBatch> {
+        if Self::list().contains(&expr.to_string()) {
+            {
+                let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+                let table = binding.get(expr).unwrap();
+                let records = table.lock().unwrap().take(None);
+            }
+            return vec![];
+        }
         Python::with_gil(|py| {
             let parts: Vec<&str> = expr.split(".").collect();
             let pkg = py.import(parts[0]);
@@ -117,7 +126,6 @@ impl PythonSchema {
             columns.push(Arc::new(array));
             fields.push(Field::new("value", DataType::Utf8, true));
         } else {
-
             if obj.hasattr("_asdict")? {
                 let dict = obj.call_method0("_asdict").unwrap();
                 return Self::object_to_recordbatch(dict);
