@@ -3,19 +3,59 @@ import queue
 import random
 import threading
 import time
+from dataclasses import dataclass, field
+
+from typing import Any, List
 
 import torch
 import torch.mps
-from hyperparameter import auto_param
 
-from xinsight.types.events import (
-    BackwardEndEvent,
-    BackwardStartEvent,
-    Event,
-    ForwardEndEvent,
-    ForwardStartEvent,
-    TenserDef,
-)
+
+@dataclass
+class TensorDef:
+    shape: tuple = ()
+    dtype: Any = None
+
+    def __repr__(self):
+        return f"TensorDef({self.shape}, {self.dtype})"
+    
+@dataclass
+class Event:
+    name: str = None
+    module: str = None
+    inputs: List[TensorDef] = field(default_factory=list)
+    output: TensorDef = None
+    params: dict = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        return f'{self.name}("{self.module}", {self.inputs}, {self.params})=>{self.output}'
+    
+@dataclass
+class ForwardStartEvent(Event):
+    """
+    >>> ForwardStartEvent("module", [TensorDef((1, 2, 3), torch.float32)], params={'a': 1})
+    """
+    name: str = field(init=False, default="ForwardStartEvent")
+    
+@dataclass
+class ForwardEndEvent(Event):
+    name: str = "ForwardEndEvent"
+    
+@dataclass
+class BackwardStartEvent(Event):
+    name: str = "BackwardStartEvent"
+    
+@dataclass
+class BackwardEndEvent(Event):
+    name: str = "BackwardEndEvent"
+
+@dataclass
+class SpanStartEvent(Event):
+    name: str = "SpanStartEvent"
+
+@dataclass
+class SpanEndEvent(Event):
+    name: str = "SpanEndEvent"
 
 
 def _get_fullname(m):
@@ -140,7 +180,6 @@ class SpanEnd:
 class Tracer:
     tls = threading.local()
 
-    @auto_param("xinsight.tracer")
     def __init__(self, output="", enable_timing=True, sample_ratio=1.0) -> None:
         if not hasattr(Tracer.tls, "trace"):
             Tracer.tls.trace = self
