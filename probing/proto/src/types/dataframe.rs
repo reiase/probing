@@ -15,4 +15,11 @@ impl DataFrame {
             cols: columns,
         }
     }
+
+    pub fn len(&self) -> usize {
+        if self.cols.is_empty() {
+            return 0;
+        }
+        self.cols[0].len()
+    }
 }

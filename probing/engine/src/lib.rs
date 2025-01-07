@@ -2,7 +2,7 @@ use core::Engine;
 use std::sync::Arc;
 
 use anyhow::Result;
-use plugins::{envs::EnvPlugin, files::FilesPlugin, kmsg::KMsgPlugin};
+use plugins::{envs::EnvPlugin, file::FilePlugin, files::FilesPlugin, kmsg::KMsgPlugin};
 
 pub mod core;
 pub mod plugins;
@@ -10,6 +10,7 @@ pub mod plugins;
 fn init_engine(engine: &Engine) -> Result<()> {
     engine.enable("probe", Arc::new(EnvPlugin::new("envs", "process")))?;
     engine.enable("probe", Arc::new(KMsgPlugin::new("kmsg", "system")))?;
+    engine.enable("probe", Arc::new(FilePlugin::new("file")))?;
     engine.enable("probe", Arc::new(FilesPlugin::default()))?;
     Ok(())
 }

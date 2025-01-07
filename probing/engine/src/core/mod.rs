@@ -11,6 +11,8 @@ pub use table_plugin::CustomTable;
 pub use table_plugin::SchemaPlugin;
 pub use table_plugin::TablePlugin;
 
+pub use table_plugin::LazyTableSource;
+
 pub use datafusion::arrow::array::ArrayRef;
 pub use datafusion::arrow::array::Float64Array;
 pub use datafusion::arrow::array::Int64Array;
