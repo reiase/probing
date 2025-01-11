@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use datafusion::arrow::array::RecordBatch;
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::catalog::{CatalogProvider, SchemaProvider, Session, TableProvider};
-use datafusion::datasource::{MemTable, TableType};
+use datafusion::datasource::TableType;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::execution::SessionState;
 use datafusion::physical_plan::{memory::MemoryExec, ExecutionPlan};
@@ -158,7 +158,10 @@ pub trait CustomSchema: Sync + Send {
         vec![]
     }
 
-    fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>> where Self: Sized {
+    fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>>
+    where
+        Self: Sized,
+    {
         Arc::new(LazyTableSource::<Self> {
             name: expr.to_string(),
             schema: None,

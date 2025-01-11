@@ -2,12 +2,8 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use once_cell::sync::Lazy;
-use probing_engine::core::{
-    ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
-    SchemaPlugin, SchemaRef, StringArray,
-};
+use probing_engine::core::{CustomSchema, RecordBatch};
 
-use linux_taskstats;
 use probing_proto::types::{TimeSeries, Value};
 
 pub static TASK_STATS: Lazy<Mutex<TimeSeries>> = Lazy::new(|| {
@@ -19,14 +15,19 @@ pub static TASK_STATS: Lazy<Mutex<TimeSeries>> = Lazy::new(|| {
 });
 
 pub fn task_stats_worker(iters: i64) -> Result<()> {
-    let client = linux_taskstats::Client::open().map_err(|err| {
-        println!("failed to open taskstats client: {}", err);
-        err
-    }).ok();
-    let stats = client.unwrap().pid_stats(std::process::id()).map_err(|err| {
-        println!("failed to get pid stats: {}", err);
-        err
-    })?;
+    let client = linux_taskstats::Client::open()
+        .map_err(|err| {
+            println!("failed to open taskstats client: {}", err);
+            err
+        })
+        .ok();
+    let stats = client
+        .unwrap()
+        .pid_stats(std::process::id())
+        .map_err(|err| {
+            println!("failed to get pid stats: {}", err);
+            err
+        })?;
 
     let mut iters = iters;
     while iters > 0 {

@@ -230,7 +230,7 @@ def module_analysis(m, prefix=""):
         module_analysis(s, name)
 
 
-def auto_install_hooks(sample_ratio=1.0):
+def torch_profiling(sample_ratio=1.0):
     TRACER.sample_ratio = sample_ratio
 
     def try_install():
@@ -260,8 +260,9 @@ def auto_install_hooks(sample_ratio=1.0):
             time.sleep(sleep)
             sleep *= 2
 
-    thread = threading.Thread(target=worker, daemon=True)
-    thread.start()
+    if not hasattr(TRACER, "thread"):
+        TRACER.thread = threading.Thread(target=worker, daemon=True)
+        TRACER.thread.start()
 
 
 def install_hooks(m: torch.nn.Module = None):

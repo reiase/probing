@@ -154,7 +154,7 @@ impl ExternalTable {
             .iter()
             .map(|(t, vals)| {
                 Python::with_gil(|py| {
-                    let t = value_to_object(py, &t);
+                    let t = value_to_object(py, t);
                     let vals = vals
                         .iter()
                         .map(|v| value_to_object(py, v))

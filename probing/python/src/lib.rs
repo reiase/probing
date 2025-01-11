@@ -1,4 +1,5 @@
 pub mod plugins;
+pub mod pycode;
 pub mod repl;
 
 use std::ffi::CStr;
@@ -17,6 +18,8 @@ use probing_core::{CallFrame, Probe};
 
 use plugins::external_tables::ExternalTable;
 use repl::PythonRepl;
+
+use crate::pycode::get_code;
 
 #[derive(Default)]
 pub struct PythonProbe {}
@@ -61,6 +64,39 @@ impl Probe for PythonProbe {
         let code: String = code.into();
         let mut repl = PythonRepl::default();
         Ok(repl.process(code.as_str()).unwrap_or_default())
+    }
+
+    fn enable(&self, feture: &str) -> Result<()> {
+        match feture {
+            "profiling" => Ok(()),
+            name => {
+                let filename = if let Some(pos) = name.find('(') {
+                    &name[..pos]
+                } else {
+                    name
+                };
+
+                let filename = format!("{}.py", filename);
+                let code = get_code(filename.as_str());
+                if let Some(code) = code {
+                    Python::with_gil(|py| {
+                        let code = format!("{}\0", code);
+                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
+                        py.run(code, None, None).map_err(|err| {
+                            anyhow::anyhow!("error loading feature {}: {}", name, err)
+                        })?;
+
+                        let code = format!("{}\0", name);
+                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
+                        py.run(code, None, None).map_err(|err| {
+                            anyhow::anyhow!("error running feature {}: {}", name, err)
+                        })
+                    })
+                } else {
+                    Err(anyhow::anyhow!("unsupported feature {}", name))
+                }
+            }
+        }
     }
 }
 

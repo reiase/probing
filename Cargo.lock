@@ -3536,7 +3536,9 @@ dependencies = [
  "probing-proto",
  "pyo3",
  "pyo3-build-config",
+ "rspec",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
