@@ -6,13 +6,9 @@ pub enum Commands {
     #[command(visible_aliases = ["inj", "i"])]
     Inject(super::inject::InjectCommand),
 
-    /// Repl debugging shell
-    #[command()]
-    Repl(super::repl::ReplCommand),
-
     /// Enable features (`-h, --help` to see full feature list)
-    #[command(subcommand)]
-    Enable(Features),
+    #[command()]
+    Enable { feature: String },
 
     /// Disable features (see -h, --help above)
     #[command(subcommand)]

@@ -637,12 +637,6 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cfg_aliases"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
-
-[[package]]
-name = "cfg_aliases"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
@@ -758,18 +752,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap_complete"
-version = "4.5.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07a13ab5b8cb13dbe35e68b83f6c12f9293b2f601797b71bc9f23befdb329feb"
-dependencies = [
- "clap 4.5.20",
- "clap_lex 0.7.2",
- "is_executable",
- "shlex",
-]
-
-[[package]]
 name = "clap_derive"
 version = "4.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -795,15 +777,6 @@ name = "clap_lex"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
-
-[[package]]
-name = "clipboard-win"
-version = "5.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15efe7a882b08f34e38556b14f2fb3daa98769d06c7f0c1b076dfd0d983bc892"
-dependencies = [
- "error-code",
-]
 
 [[package]]
 name = "codee"
@@ -1739,12 +1712,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "error-code"
-version = "3.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5d9305ccc6942a704f4335694ecd3de2ea531b114ac2d51f5f843750787a92f"
-
-[[package]]
 name = "event-listener"
 version = "5.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2330,15 +2297,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "is_executable"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4a1b5bad6f9072935961dfbf1cced2f3d129963d091b6f69f007fe04e758ae2"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2870,25 +2828,13 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
-dependencies = [
- "bitflags 2.6.0",
- "cfg-if",
- "cfg_aliases 0.1.1",
- "libc",
-]
-
-[[package]]
-name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
 dependencies = [
  "bitflags 2.6.0",
  "cfg-if",
- "cfg_aliases 0.2.1",
+ "cfg_aliases",
  "libc",
 ]
 
@@ -3427,7 +3373,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap 4.5.20",
- "clap_complete",
+ "env_logger 0.11.5",
  "eyre",
  "http-body-util",
  "hyper",
@@ -3440,9 +3386,7 @@ dependencies = [
  "procfs",
  "ron",
  "rustix",
- "rustyline",
  "serde_json",
- "shlex",
  "tabled",
  "tokio",
 ]
@@ -3498,6 +3442,7 @@ dependencies = [
  "probing-engine",
  "probing-proto",
  "probing-python",
+ "probing-server",
  "procfs",
  "pyo3",
  "pyo3-build-config",
@@ -3517,8 +3462,10 @@ dependencies = [
  "chrono",
  "clap 4.5.20",
  "criterion",
+ "log",
  "minstant",
  "pco",
+ "ron",
  "serde",
  "serde_json",
  "thiserror 2.0.3",
@@ -3557,9 +3504,11 @@ dependencies = [
  "nu-ansi-term",
  "pin-project-lite",
  "probing-core",
- "probing-legacy",
+ "probing-engine",
  "probing-proto",
+ "probing-python",
  "qstring",
+ "ron",
  "serde_json",
  "tokio",
 ]
@@ -4087,25 +4036,6 @@ name = "rustversion"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e819f2bc632f285be6d7cd36e25940d45b2391dd6d9b939e79de557f7014248"
-
-[[package]]
-name = "rustyline"
-version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7803e8936da37efd9b6d4478277f4b2b9bb5cdb37a113e8d63222e58da647e63"
-dependencies = [
- "bitflags 2.6.0",
- "cfg-if",
- "clipboard-win",
- "libc",
- "log",
- "memchr",
- "nix 0.28.0",
- "unicode-segmentation",
- "unicode-width",
- "utf8parse",
- "windows-sys 0.52.0",
-]
 
 [[package]]
 name = "ryu"

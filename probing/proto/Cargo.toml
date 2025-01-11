@@ -12,7 +12,9 @@ cli = ["dep:clap"]
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
+log = { workspace = true }
 minstant = { workspace = true }
+ron = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 

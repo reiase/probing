@@ -9,12 +9,15 @@ license.workspace = true
 [dependencies]
 probing-core = { path = "../core" }
 probing-proto = { path = "../proto" }
-probing-legacy = { path = "../legacy" }
+probing-python = { path = "../python" }
+probing-engine = { path = "../engine" }
+# probing-legacy = { path = "../legacy" }
 
 anyhow = { workspace = true }
 log = { workspace = true }
+ron = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace=true }
+tokio = { workspace = true }
 
 bytes = "1"
 hyper = { version = "1", features = ["server", "client", "http1"] }

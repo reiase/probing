@@ -79,7 +79,12 @@ impl<A: Acceptor> Server<A> {
                 TokioIo::new(stream),
                 service_fn(|request| {
                     let probe = probe.clone();
-                    async move { handle_request(request, probe).await }
+                    async move {
+                        handle_request(request, probe).await.map_err(|err| {
+                            log::error!("error when handling probe request: {}", err);
+                            err
+                        })
+                    }
                 }),
             )
             .await

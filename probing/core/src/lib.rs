@@ -1,54 +1,10 @@
 mod plugins;
 
-use std::sync::Arc;
-
-use anyhow::Result;
-use serde::Deserialize;
-use serde::Serialize;
-
 pub use probing_proto::protocol::process::CallFrame;
 pub use probing_proto::protocol::process::Value;
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum ProbeCallProtocol {
-    CallBacktrace(Option<i32>),
-    ReturnBacktrace(Vec<CallFrame>),
-    CallEval(String),
-    ReturnEval(String),
-    CallEnable(String),
-    ReturnEnable(()),
-    Err(String),
-}
-
-pub trait Probe: Send + Sync {
-    fn backtrace(&self, depth: Option<i32>) -> Result<Vec<CallFrame>>;
-    fn eval(&self, code: &str) -> Result<String>;
-    fn enable(&self, feture: &str) -> Result<()>;
-
-    fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
-        let msg = ron::de::from_bytes::<ProbeCallProtocol>(msg)?;
-        let res = match msg {
-            ProbeCallProtocol::CallBacktrace(depth) => match self.backtrace(depth) {
-                Ok(res) => ProbeCallProtocol::ReturnBacktrace(res),
-                Err(err) => ProbeCallProtocol::Err(err.to_string()),
-            },
-            ProbeCallProtocol::CallEval(code) => match self.eval(&code) {
-                Ok(res) => ProbeCallProtocol::ReturnEval(res),
-                Err(err) => ProbeCallProtocol::Err(err.to_string()),
-            },
-            ProbeCallProtocol::CallEnable(feature) => match self.enable(&feature) {
-                Ok(res) => ProbeCallProtocol::ReturnEnable(res),
-                Err(err) => ProbeCallProtocol::Err(err.to_string()),
-            },
-            ProbeCallProtocol::Err(err) => ProbeCallProtocol::Err(err),
-            _ => unreachable!(),
-        };
-        Ok(ron::to_string(&res)?.as_bytes().to_vec())
-    }
-}
-
-pub trait ProbeFactory: Send + Sync {
-    fn create(&self) -> Arc<dyn Probe>;
-}
+pub use probing_proto::prelude::Probe;
+pub use probing_proto::prelude::ProbeCallProtocol;
+pub use probing_proto::prelude::ProbeFactory;
 
 pub mod ccprobe;
