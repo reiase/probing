@@ -3368,6 +3368,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "probing-cc"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "backtrace",
+ "linux-taskstats",
+ "once_cell",
+ "probing-engine",
+ "probing-proto",
+ "ron",
+ "serde",
+ "thiserror 2.0.3",
+]
+
+[[package]]
 name = "probing-cli"
 version = "0.2.0"
 dependencies = [
@@ -3389,21 +3404,6 @@ dependencies = [
  "serde_json",
  "tabled",
  "tokio",
-]
-
-[[package]]
-name = "probing-core"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "backtrace",
- "linux-taskstats",
- "once_cell",
- "probing-engine",
- "probing-proto",
- "ron",
- "serde",
- "thiserror 2.0.3",
 ]
 
 [[package]]

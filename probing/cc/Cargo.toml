@@ -1,6 +1,6 @@
 [package]
-name = "probing-core"
-description = "Core component for probing"
+name = "probing-cc"
+description = "C/C++ support for probing"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
