@@ -55,6 +55,6 @@ pub fn handle(feature: Features) -> Result<String> {
 }
 
 fn crash_handler(addr: Option<String>) {
-    let mut repl = PythonRepl::default();
+    let repl = PythonRepl::default();
     // start_debug_server(addr, &mut repl);
 }

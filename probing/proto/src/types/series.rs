@@ -49,9 +49,9 @@ impl Page {
                 match compressed {
                     Ok(mut compressed) => {
                         compressed.shrink_to_fit();
-                        return Some((DataType::Int32, compressed));
+                        Some((DataType::Int32, compressed))
                     }
-                    Err(_) => return None,
+                    Err(_) => None,
                 }
             }
             Array::Int64Array(data) => {
@@ -59,9 +59,9 @@ impl Page {
                 match compressed {
                     Ok(mut compressed) => {
                         compressed.shrink_to_fit();
-                        return Some((DataType::Int64, compressed));
+                        Some((DataType::Int64, compressed))
                     }
-                    Err(_) => return None,
+                    Err(_) => None,
                 }
             }
             Array::Float32Array(data) => {
@@ -69,9 +69,9 @@ impl Page {
                 match compressed {
                     Ok(mut compressed) => {
                         compressed.shrink_to_fit();
-                        return Some((DataType::Float32, compressed));
+                        Some((DataType::Float32, compressed))
                     }
-                    Err(_) => return None,
+                    Err(_) => None,
                 }
             }
             Array::Float64Array(data) => {
@@ -79,12 +79,12 @@ impl Page {
                 match compressed {
                     Ok(mut compressed) => {
                         compressed.shrink_to_fit();
-                        return Some((DataType::Float64, compressed));
+                        Some((DataType::Float64, compressed))
                     }
-                    Err(_) => return None,
+                    Err(_) => None,
                 }
             }
-            _ => return None,
+            _ => None,
         }
     }
 
@@ -94,27 +94,27 @@ impl Page {
                 if let Ok(data) = simple_decompress::<i32>(buffer.as_slice()) {
                     return Some(Page::Raw(Array::Int32Array(data)));
                 }
-                return None;
+                None
             }
             DataType::Int64 => {
                 if let Ok(data) = simple_decompress::<i64>(buffer.as_slice()) {
                     return Some(Page::Raw(Array::Int64Array(data)));
                 }
-                return None;
+                None
             }
             DataType::Float32 => {
                 if let Ok(data) = simple_decompress::<f32>(buffer.as_slice()) {
                     return Some(Page::Raw(Array::Float32Array(data)));
                 }
-                return None;
+                None
             }
             DataType::Float64 => {
                 if let Ok(data) = simple_decompress::<f64>(buffer.as_slice()) {
                     return Some(Page::Raw(Array::Float64Array(data)));
                 }
-                return None;
+                None
             }
-            _ => return None,
+            _ => None,
         }
     }
 
@@ -223,7 +223,7 @@ impl SeriesConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Series {
     config: SeriesConfig,
     pub offset: usize,
@@ -232,19 +232,6 @@ pub struct Series {
     current_slice: Option<Slice>,
 
     commit_nbytes: usize,
-}
-
-impl Default for Series {
-    fn default() -> Self {
-        Series {
-            config: Default::default(),
-            offset: 0,
-            dropped: 0,
-            slices: Default::default(),
-            current_slice: None,
-            commit_nbytes: 0,
-        }
-    }
 }
 
 impl Series {
@@ -355,11 +342,9 @@ impl Series {
                 self.commit_nbytes += slice.nbytes();
                 self.slices.insert(slice.offset, slice);
             }
-        } else {
-            if let Some(slice) = slice {
-                self.commit_nbytes += slice.nbytes();
-                self.slices.insert(slice.offset, slice);
-            }
+        } else if let Some(slice) = slice {
+            self.commit_nbytes += slice.nbytes();
+            self.slices.insert(slice.offset, slice);
         }
 
         while self.nbytes() > self.config.discard_threshold {
@@ -479,7 +464,7 @@ impl<'a> SeriesIterator<'a> {
     }
 }
 
-impl<'a> Iterator for SeriesIterator<'a> {
+impl Iterator for SeriesIterator<'_> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -586,7 +571,7 @@ mod test {
         let mut series = super::Series::builder().with_chunk_size(256).build();
         let mut expected_sum = 0;
         for i in 0..512 {
-            series.append(i as i64).unwrap();
+            series.append(i).unwrap();
             expected_sum += i;
         }
 
@@ -623,7 +608,7 @@ mod test {
             .build();
 
         for i in 0..512 {
-            series.append(i as i32).unwrap();
+            series.append(i).unwrap();
         }
         println!("512 i32 nbytes: {}", series.nbytes());
         assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i32>());

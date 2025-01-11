@@ -46,6 +46,11 @@ impl TimeSeries {
         self.timestamp.len()
     }
 
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn append(&mut self, timestamp: Value, values: Vec<Value>) -> Result<(), TimeSeriesError> {
         if self.cols.len() != values.len() {
             return Err(TimeSeriesError::ColumnCountMismatch {
@@ -54,8 +59,8 @@ impl TimeSeries {
             });
         }
         self.timestamp.append_value(timestamp)?;
-        for i in 0..self.cols.len() {
-            self.cols[i].append_value(values[i].clone())?;
+        for (i, item) in values.iter().enumerate().take(self.cols.len()) {
+            self.cols[i].append_value(item.clone())?;
         }
         Ok(())
     }
@@ -77,18 +82,10 @@ impl TimeSeries {
     }
 }
 
+#[derive(Default)]
 pub struct TimeSeriesConfig {
     series_config: SeriesConfig,
     names: Vec<String>,
-}
-
-impl Default for TimeSeriesConfig {
-    fn default() -> Self {
-        Self {
-            series_config: Default::default(),
-            names: Default::default(),
-        }
-    }
 }
 
 impl TimeSeriesConfig {
@@ -127,7 +124,7 @@ impl TimeSeriesConfig {
         TimeSeries {
             names: self.names,
             timestamp: self.series_config.clone().build(),
-            cols: cols,
+            cols,
         }
     }
 }

@@ -24,7 +24,10 @@ fn page_append(n: u64) -> u64 {
                     int_array.push(i as i64);
                 }
             }
-            probing_proto::types::series::Page::Compressed { dtype: _, buffer: _ } => todo!(),
+            probing_proto::types::series::Page::Compressed {
+                dtype: _,
+                buffer: _,
+            } => todo!(),
             probing_proto::types::series::Page::Ref => todo!(),
         }
     }
@@ -75,10 +78,8 @@ fn arrow_array_append(n: u64) -> u64 {
 
 fn arrow_array_iter(array: &Int64Array) -> u64 {
     let mut result = 0;
-    for value in array.iter() {
-        if let Some(v) = value {
-            result += v as u64;
-        }
+    for value in array.iter().flatten() {
+        result += value as u64;
     }
     result
 }

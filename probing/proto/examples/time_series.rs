@@ -1,9 +1,9 @@
 use probing_proto::types::Series;
 
 fn main() {
-    for dtype in vec!["i64", "i32", "f64", "f32"] {
-        for level in vec![0, 8, 12] {
-            for seq in vec!["zero", "linear", "sin(x)", "x+sin(x)", "exp(x)"] {
+    for dtype in ["i64", "i32", "f64", "f32"] {
+        for level in [0, 8, 12] {
+            for seq in ["zero", "linear", "sin(x)", "x+sin(x)", "exp(x)"] {
                 // test for int seq
                 let mut series = Series::builder()
                     .with_chunk_size(10000)

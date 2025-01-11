@@ -44,7 +44,7 @@ pub fn handle(bt: BackTraceCommand) -> Result<String> {
             signal,
         } => {
             if signal {
-                let mut repl = PythonRepl::default();
+                let repl = PythonRepl::default();
                 // start_debug_server(address, &mut repl);
             } else {
                 let tid = tid.unwrap_or(std::process::id());

@@ -91,7 +91,6 @@ impl TryInto<i32> for Value {
         match self {
             Value::Int32(x) => Ok(x),
             _ => anyhow::bail!("Value is not an i32"),
-            
         }
     }
 }
@@ -104,7 +103,6 @@ impl TryInto<i64> for Value {
             Value::Int32(x) => Ok(x as i64),
             Value::Int64(x) => Ok(x),
             _ => anyhow::bail!("Value is not an i64"),
-            
         }
     }
 }
