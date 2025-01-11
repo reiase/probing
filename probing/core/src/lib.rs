@@ -15,12 +15,15 @@ pub enum ProbeCallProtocol {
     ReturnBacktrace(Vec<CallFrame>),
     CallEval(String),
     ReturnEval(String),
+    CallEnable(String),
+    ReturnEnable(()),
     Err(String),
 }
 
 pub trait Probe: Send + Sync {
     fn backtrace(&self, depth: Option<i32>) -> Result<Vec<CallFrame>>;
     fn eval(&self, code: &str) -> Result<String>;
+    fn enable(&self, feture: &str) -> Result<()>;
 
     fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
         let msg = ron::de::from_bytes::<ProbeCallProtocol>(msg)?;
@@ -31,6 +34,10 @@ pub trait Probe: Send + Sync {
             },
             ProbeCallProtocol::CallEval(code) => match self.eval(&code) {
                 Ok(res) => ProbeCallProtocol::ReturnEval(res),
+                Err(err) => ProbeCallProtocol::Err(err.to_string()),
+            },
+            ProbeCallProtocol::CallEnable(feature) => match self.enable(&feature) {
+                Ok(res) => ProbeCallProtocol::ReturnEnable(res),
                 Err(err) => ProbeCallProtocol::Err(err.to_string()),
             },
             ProbeCallProtocol::Err(err) => ProbeCallProtocol::Err(err),

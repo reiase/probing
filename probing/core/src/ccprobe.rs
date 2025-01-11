@@ -39,4 +39,8 @@ impl Probe for CCProbe {
     fn eval(&self, _code: &str) -> anyhow::Result<String> {
         todo!()
     }
+
+    fn enable(&self, feture: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
 }

@@ -104,11 +104,7 @@ impl CustomSchema for PythonSchema {
             let ts = &table.lock().unwrap();
             let batches = Self::time_series_to_recordbatch(names, ts);
             if let Ok(batches) = batches {
-                if let Some(first) = batches.first() {
-                    Some(first.schema())
-                } else {
-                    None
-                }
+                batches.first().map(|first| first.schema())
             } else {
                 None
             }
@@ -118,7 +114,7 @@ impl CustomSchema for PythonSchema {
 
         Arc::new(LazyTableSource::<Self> {
             name: expr.to_string(),
-            schema: schema,
+            schema,
             data: Default::default(),
         })
     }
