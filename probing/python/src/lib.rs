@@ -13,8 +13,9 @@ use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
-use probing_core::ProbeFactory;
-use probing_core::{CallFrame, Probe};
+use probing_proto::protocol::probe::Probe;
+use probing_proto::protocol::probe::ProbeFactory;
+use probing_proto::protocol::process::CallFrame;
 
 use plugins::external_tables::ExternalTable;
 use repl::PythonRepl;

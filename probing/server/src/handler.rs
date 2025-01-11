@@ -6,8 +6,11 @@ use hyper::{body::Bytes, Method, Request, Response};
 
 use log::debug;
 
-use probing_core::Probe;
-use probing_legacy::service::handle_request as legacy_handle_request;
+use probing_proto::protocol::probe::Probe;
+use probing_proto::prelude::QueryDataFormat;
+use probing_proto::prelude::QueryMessage;
+use probing_proto::prelude::QueryReply;
+// use probing_legacy::service::handle_request as legacy_handle_request;
 
 use crate::asset;
 
@@ -31,7 +34,7 @@ pub async fn handle_request(
             .body(Full::new(asset::get("/index.html")))
             .unwrap()),
 
-        (&Method::GET, "/probe") => {
+        (&Method::POST, "/probe") => {
             let request = request.collect().await?.to_bytes().to_vec();
             let response = probe.handle(request.as_slice());
 
@@ -40,6 +43,24 @@ pub async fn handle_request(
                 Err(e) => Full::new(Bytes::from(format!("Error: {}", e))),
             };
             Ok(Response::builder().body(body)?)
+        }
+
+        (&Method::POST, "/query") => {
+            let request = request.collect().await?.to_bytes().to_vec();
+            let request = String::from_utf8(request)?;
+            let request = ron::from_str::<QueryMessage>(&request)?;
+
+            match handle_query(request) {
+                Ok(resp) => {
+                    let resp = Full::new(Bytes::from(resp));
+                    Ok(Response::builder().body(resp).unwrap())
+                }
+                Err(err) => {
+                    let resp = err.to_string();
+                    let resp = Full::new(Bytes::from(resp));
+                    Ok(Response::builder().status(500).body(resp).unwrap())
+                }
+            }
         }
 
         (&Method::GET, filename) if asset::contains(filename) => {
@@ -59,6 +80,27 @@ pub async fn handle_request(
             };
             Ok(builder.body(body)?)
         }
-        _ => legacy_handle_request(request).await,
+        _ => todo!("unsupported request: {:?}", request),
+        // _ => legacy_handle_request(request).await,
+    }
+}
+
+pub fn handle_query(query: QueryMessage) -> Result<Vec<u8>> {
+    use probing_engine::plugins::cluster::ClusterPlugin;
+    use probing_python::plugins::python::PythonPlugin;
+
+    let engine = probing_engine::create_engine();
+    engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+    engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+    if let QueryMessage::Query(query) = query {
+        let resp = engine.execute(&query.expr, "ron")?;
+        Ok(ron::to_string(&QueryMessage::Reply(QueryReply {
+            data: resp,
+            format: QueryDataFormat::RON,
+        }))?
+        .as_bytes()
+        .to_vec())
+    } else {
+        Err(anyhow::anyhow!("Invalid query message"))
     }
 }

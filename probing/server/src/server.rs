@@ -14,8 +14,8 @@ use hyper::service::service_fn;
 use crate::handler::handle_request;
 
 use super::tokio_io::TokioIo;
-use probing_core::Probe;
-use probing_core::ProbeFactory;
+use probing_proto::protocol::probe::Probe;
+use probing_proto::protocol::probe::ProbeFactory;
 
 trait Acceptor: Send + Sync + 'static {
     type Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static;
