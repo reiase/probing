@@ -43,4 +43,8 @@ impl Probe for CCProbe {
     fn enable(&self, feture: &str) -> anyhow::Result<()> {
         Ok(())
     }
+    
+    fn disable(&self, feture: &str) -> anyhow::Result<()> {
+        todo!()
+    }
 }

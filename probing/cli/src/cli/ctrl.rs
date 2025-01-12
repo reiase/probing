@@ -3,7 +3,7 @@ use anyhow::Result;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use nix::{sys::signal, unistd::Pid};
-use probing_proto::prelude::ProbeCallProtocol;
+use probing_proto::prelude::ProbeCall;
 use probing_proto::protocol::query::Query;
 
 use crate::inject::{Injector, Process};
@@ -12,7 +12,7 @@ use probing_proto::cli::CtrlSignal;
 
 use probing_proto::prelude::*;
 
-pub fn probe(ctrl: CtrlChannel, cmd: ProbeCallProtocol) -> Result<()> {
+pub fn probe(ctrl: CtrlChannel, cmd: ProbeCall) -> Result<()> {
     let reply = ctrl.probe(cmd)?;
     println!("{reply}");
     Ok(())
@@ -95,13 +95,13 @@ impl CtrlChannel {
         }
     }
 
-    pub fn probe(&self, cmd: ProbeCallProtocol) -> Result<ProbeCallProtocol> {
+    pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
         let cmd = ron::to_string(&cmd)?;
         log::debug!("request: {cmd}");
         match self {
             CtrlChannel::Ptrace { pid } => {
                 send_ctrl_via_ptrace(cmd, *pid)?;
-                Ok(ProbeCallProtocol::Nil)
+                Ok(ProbeCall::Nil)
             }
             ctrl => {
                 let reply = tokio::runtime::Builder::new_current_thread()
@@ -112,7 +112,7 @@ impl CtrlChannel {
 
                 let reply = String::from_utf8(reply)?;
                 log::debug!("reply: {reply}");
-                let reply = ron::from_str::<ProbeCallProtocol>(reply.as_str())?;
+                let reply = ron::from_str::<ProbeCall>(reply.as_str())?;
 
                 Ok(reply)
             }

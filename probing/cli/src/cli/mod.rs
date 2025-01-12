@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_proto::prelude::ProbeCallProtocol;
+use probing_proto::prelude::ProbeCall;
 use process_monitor::ProcessMonitor;
 
 pub mod commands;
@@ -50,7 +50,7 @@ impl Cli {
             Commands::Inject(cmd) => cmd.run(ctrl),
 
             Commands::Enable { feature } => {
-                ctrl::probe(ctrl, ProbeCallProtocol::CallEnable(feature.clone()))
+                ctrl::probe(ctrl, ProbeCall::CallEnable(feature.clone()))
             }
             Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
             Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),

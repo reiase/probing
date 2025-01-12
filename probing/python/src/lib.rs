@@ -99,6 +99,10 @@ impl Probe for PythonProbe {
             }
         }
     }
+
+    fn disable(&self, feture: &str) -> anyhow::Result<()> {
+        todo!()
+    }
 }
 
 #[derive(Default)]

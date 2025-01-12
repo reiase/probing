@@ -7,57 +7,87 @@ use serde::Serialize;
 
 use crate::protocol::process::CallFrame;
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum ProbeCallProtocol {
+#[derive(actix::Message)]
+#[rtype(result = "ProbeCall")]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
+pub enum ProbeCall {
+    CallEnable(String),
+    ReturnEnable(()),
+
+    CallDisale(String),
+    ReturnDisable(()),
+
     CallBacktrace(Option<i32>),
     ReturnBacktrace(Vec<CallFrame>),
     CallEval(String),
     ReturnEval(String),
-    CallEnable(String),
-    ReturnEnable(()),
+
     Nil,
     Err(String),
 }
 
-impl Display for ProbeCallProtocol {
+impl Display for ProbeCall {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ProbeCallProtocol::CallBacktrace(depth) => write!(f, "CallBacktrace({:?})", depth),
-            ProbeCallProtocol::ReturnBacktrace(frames) => {
+            ProbeCall::CallEnable(feature) => write!(f, "CallEnable({:?})", feature),
+            ProbeCall::ReturnEnable(res) => write!(f, "ReturnEnable({:?})", res),
+
+            ProbeCall::CallDisale(feature) => write!(f, "CallDisale({:?})", feature),
+            ProbeCall::ReturnDisable(()) => write!(f, "ReturnDisable(()"),
+
+            ProbeCall::CallBacktrace(depth) => write!(f, "CallBacktrace({:?})", depth),
+            ProbeCall::ReturnBacktrace(frames) => {
                 write!(f, "ReturnBacktrace({:?})", frames)
             }
-            ProbeCallProtocol::CallEval(code) => write!(f, "CallEval({:?})", code),
-            ProbeCallProtocol::ReturnEval(res) => write!(f, "ReturnEval({:?})", res),
-            ProbeCallProtocol::CallEnable(feature) => write!(f, "CallEnable({:?})", feature),
-            ProbeCallProtocol::ReturnEnable(res) => write!(f, "ReturnEnable({:?})", res),
-            ProbeCallProtocol::Nil => write!(f, "Nil"),
-            ProbeCallProtocol::Err(err) => write!(f, "Err({:?})", err),
+            ProbeCall::CallEval(code) => write!(f, "CallEval({:?})", code),
+            ProbeCall::ReturnEval(res) => write!(f, "ReturnEval({:?})", res),
+
+            ProbeCall::Nil => write!(f, "Nil"),
+            ProbeCall::Err(err) => write!(f, "Err({:?})", err),
+        }
+    }
+}
+
+impl<A, M> actix::dev::MessageResponse<A, M> for ProbeCall
+where
+    A: actix::Actor,
+    M: actix::Message<Result = ProbeCall>,
+{
+    fn handle(self, ctx: &mut A::Context, tx: Option<actix::dev::OneshotSender<M::Result>>) {
+        if let Some(tx) = tx {
+            let _ = tx.send(self);
         }
     }
 }
 
 pub trait Probe: Send + Sync {
+    fn enable(&self, feture: &str) -> Result<()>;
+    fn disable(&self, feture: &str) -> Result<()>;
+
     fn backtrace(&self, depth: Option<i32>) -> Result<Vec<CallFrame>>;
     fn eval(&self, code: &str) -> Result<String>;
-    fn enable(&self, feture: &str) -> Result<()>;
 
     fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
-        let msg = ron::de::from_bytes::<ProbeCallProtocol>(msg)?;
+        let msg = ron::de::from_bytes::<ProbeCall>(msg)?;
         log::debug!("probe request: {}", msg);
         let res = match msg {
-            ProbeCallProtocol::CallBacktrace(depth) => match self.backtrace(depth) {
-                Ok(res) => ProbeCallProtocol::ReturnBacktrace(res),
-                Err(err) => ProbeCallProtocol::Err(err.to_string()),
+            ProbeCall::CallEnable(feature) => match self.enable(&feature) {
+                Ok(res) => ProbeCall::ReturnEnable(res),
+                Err(err) => ProbeCall::Err(err.to_string()),
             },
-            ProbeCallProtocol::CallEval(code) => match self.eval(&code) {
-                Ok(res) => ProbeCallProtocol::ReturnEval(res),
-                Err(err) => ProbeCallProtocol::Err(err.to_string()),
+            ProbeCall::CallDisale(feature) => match self.disable(&feature) {
+                Ok(res) => ProbeCall::ReturnDisable(res),
+                Err(err) => ProbeCall::Err(err.to_string()),
             },
-            ProbeCallProtocol::CallEnable(feature) => match self.enable(&feature) {
-                Ok(res) => ProbeCallProtocol::ReturnEnable(res),
-                Err(err) => ProbeCallProtocol::Err(err.to_string()),
+            ProbeCall::CallBacktrace(depth) => match self.backtrace(depth) {
+                Ok(res) => ProbeCall::ReturnBacktrace(res),
+                Err(err) => ProbeCall::Err(err.to_string()),
             },
-            ProbeCallProtocol::Err(err) => ProbeCallProtocol::Err(err),
+            ProbeCall::CallEval(code) => match self.eval(&code) {
+                Ok(res) => ProbeCall::ReturnEval(res),
+                Err(err) => ProbeCall::Err(err.to_string()),
+            },
+            ProbeCall::Err(err) => ProbeCall::Err(err),
             _ => unreachable!(),
         };
         log::debug!("probe reply: {}", res);

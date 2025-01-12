@@ -10,7 +10,6 @@ use probing_proto::protocol::probe::Probe;
 use probing_proto::prelude::QueryDataFormat;
 use probing_proto::prelude::QueryMessage;
 use probing_proto::prelude::QueryReply;
-// use probing_legacy::service::handle_request as legacy_handle_request;
 
 use crate::asset;
 

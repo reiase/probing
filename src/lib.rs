@@ -43,7 +43,8 @@ fn setup() {
             ctrl_handler(cmd).unwrap();
         }
     }
-    probing_server::start_local(Arc::new(PythonProbeFactory::default()));
+    // probing_server::start_local(Arc::new(PythonProbeFactory::default()));
+    probing_server::server2::start_local();
 
     if let Ok(port) = std::env::var(ENV_PROBING_PORT) {
         let local_rank = std::env::var("LOCAL_RANK")
@@ -66,7 +67,8 @@ fn setup() {
             std::process::id(),
             address
         );
-        probing_server::start_remote(Some(address), Arc::new(PythonProbeFactory::default()));
+        // probing_server::start_remote(Some(address), Arc::new(PythonProbeFactory::default()));
+        probing_server::server2::start_remote(Some(address));
         start_report_worker();
     }
     let _ = create_probing_module();

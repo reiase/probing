@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::{error, info};
 use anyhow::Result;
 use nix::libc::{SIGABRT, SIGBUS, SIGFPE, SIGSEGV};
 use probing_proto::cli::Features;
@@ -37,7 +38,9 @@ pub fn handle(feature: Features) -> Result<String> {
             Ok(Default::default())
         }
         Features::Remote { address } => {
-            probing_server::start_remote(address, Arc::new(PythonProbeFactory::default()));
+            probing_server::server2::start_remote(address);
+            // probing_server::start_remote(address, Arc::new(PythonProbeFactory::default()));
+
             // remote_server::start::<PythonRepl>(address);
             Ok(Default::default())
         }
