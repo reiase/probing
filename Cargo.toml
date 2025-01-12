@@ -63,7 +63,6 @@ probing-server = { path = "probing/server" }
 probing-python = { path = "probing/python" }
 
 log = { workspace = true }
-once_cell = { workspace = true }
 ron = { workspace = true }
 
 ctor = { version = "0.2.6", features=["used_linker"] }
@@ -71,10 +70,6 @@ env_logger = { version = "0.11.3", default-features = false, features = [
     "humantime",
 ] }
 nix = { version = "0.29.0", default-features = false, features = ["signal"] }
-pin-project-lite = "0.2"
-
-[build-dependencies]
-pyo3-build-config = "0.23.3"
 
 [dev-dependencies]
 probing-cli = { path = "probing/cli" }

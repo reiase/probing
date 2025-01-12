@@ -4,10 +4,10 @@ use anyhow::Result;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Bytes, Method, Request, Response};
 
-mod asset;
+// mod asset;
 // mod process;
 mod profiler;
-mod python;
+// mod python;
 
 use log::debug;
 use probing_proto::cli::CtrlSignal;
@@ -146,11 +146,11 @@ pub async fn handle_request(req: Request<hyper::body::Incoming>) -> Result<Respo
         //     Ok(builder.body(body).unwrap())
         // }
 
-        (&Method::GET, path) => {
-            let resp = python::handle(path, req.uri().query().map(|x| x.to_string()));
-            let resp = Full::new(Bytes::from(resp));
-            Ok(Response::builder().body(resp).unwrap())
-        }
+        // (&Method::GET, path) => {
+        //     let resp = python::handle(path, req.uri().query().map(|x| x.to_string()));
+        //     let resp = Full::new(Bytes::from(resp));
+        //     Ok(Response::builder().body(resp).unwrap())
+        // }
         _ => Ok(Default::default()),
     }
 }

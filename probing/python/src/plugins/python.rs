@@ -223,9 +223,6 @@ impl PythonSchema {
             columns.push(col);
         }
 
-        let length: Vec<_> = columns.iter().map(|x| x.len()).collect();
-        println!("====== {:?}", length);
-
         Ok(vec![RecordBatch::try_new(
             SchemaRef::new(Schema::new(fields)),
             columns,

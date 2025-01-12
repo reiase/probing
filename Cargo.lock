@@ -3880,8 +3880,6 @@ dependencies = [
  "env_logger 0.11.5",
  "log",
  "nix 0.29.0",
- "once_cell",
- "pin-project-lite",
  "probing-cli",
  "probing-engine",
  "probing-legacy",
@@ -3889,7 +3887,6 @@ dependencies = [
  "probing-python",
  "probing-server",
  "pyo3",
- "pyo3-build-config",
  "ron",
  "tokio",
 ]
