@@ -30,7 +30,9 @@ def module_cache(func):
             cache[mid] = value
         elif mid not in cache:
             cache[mid] = func(m)
-        return cache[mid]
+            return cache[mid]
+        else:
+            return cache[mid]
 
     return wrapper
 
@@ -50,9 +52,15 @@ def _is_container(m):
     return isinstance(m, torch.nn.Module) and len(list(m.children())) > 0
 
 
-@module_cache
-def module_name(m):
-    return _get_module_fullname(m)
+def module_name(m, name=None):
+    global NAME_CACHE
+    mid = id(m)
+    if mid in NAME_CACHE:
+        return NAME_CACHE[mid]
+    elif name is not None:
+        NAME_CACHE[mid] = name
+        return name
+    return "unknown_module"
 
 
 def try_catch(maxtry=3):
@@ -75,6 +83,7 @@ def try_catch(maxtry=3):
     return decorator
 
 
+NAME_CACHE = {}
 HOOK_CACHE = {}
 EVENT_COUNT = 0
 SKIP_COUNT = 0
@@ -226,6 +235,7 @@ def module_analysis(m, prefix=""):
         return
     for n, s in m.named_children():
         name = f"{prefix}.{n}" if prefix != "" else n
+        # print(name)
         module_name(s, name)
         module_analysis(s, name)
 
@@ -249,6 +259,7 @@ def auto_install_hooks(sample_ratio=1.0):
         for obj in objs:
             walk(obj)
         toplevel = [obj for obj in objs if id(obj) not in children]
+        print(f"toplevel: {len(toplevel)}")
         for m in toplevel:
             if id(m) not in HOOK_CACHE:
                 install_hooks(m)
@@ -265,6 +276,7 @@ def auto_install_hooks(sample_ratio=1.0):
 
 
 def install_hooks(m: torch.nn.Module = None):
+    # print(f"install_hooks: {m}")
     if m is None:
         torch.nn.modules.module.register_module_forward_pre_hook(
             Tracer.pre_forward_hook

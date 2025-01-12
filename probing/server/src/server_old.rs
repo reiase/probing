@@ -14,8 +14,8 @@ use hyper::service::service_fn;
 use crate::handler::handle_request;
 
 use super::tokio_io::TokioIo;
-use probing_core::Probe;
-use probing_core::ProbeFactory;
+use probing_proto::protocol::probe::Probe;
+use probing_proto::protocol::probe::ProbeFactory;
 
 trait Acceptor: Send + Sync + 'static {
     type Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static;
@@ -79,7 +79,12 @@ impl<A: Acceptor> Server<A> {
                 TokioIo::new(stream),
                 service_fn(|request| {
                     let probe = probe.clone();
-                    async move { handle_request(request, probe).await }
+                    async move {
+                        handle_request(request, probe).await.map_err(|err| {
+                            log::error!("error when handling probe request: {}", err);
+                            err
+                        })
+                    }
                 }),
             )
             .await

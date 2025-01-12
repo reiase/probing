@@ -2,21 +2,20 @@
 extern crate ctor;
 
 use std::env;
-use std::sync::Arc;
 
 use env_logger::Env;
 use log::debug;
 use log::error;
 use nix::libc::SIGUSR1;
+use nix::libc::SIGUSR2;
 
 use probing_legacy::ctrl::ctrl_handler;
 use probing_legacy::get_hostname;
 use probing_legacy::register_signal_handler;
 use probing_legacy::sigusr1_handler;
 use probing_proto::cli::CtrlSignal;
+use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
-use probing_python::PythonProbeFactory;
-use probing_server::report::start_report_worker;
 
 const ENV_PROBING_LOG: &str = "PROBING_LOG";
 const ENV_PROBING_ARGS: &str = "PROBING_ARGS";
@@ -36,14 +35,14 @@ fn setup() {
     debug!("Setup libprobing with commands: {cmds:?}");
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
-    // register_signal_handler(SIGUSR2, dump_stack2);
+    register_signal_handler(SIGUSR2, backtrace_signal_handler);
 
     if let Ok(cmds) = cmds {
         for cmd in cmds {
             ctrl_handler(cmd).unwrap();
         }
     }
-    probing_server::start_local(Arc::new(PythonProbeFactory::default()));
+    probing_server::start_local();
 
     if let Ok(port) = std::env::var(ENV_PROBING_PORT) {
         let local_rank = std::env::var("LOCAL_RANK")
@@ -66,8 +65,8 @@ fn setup() {
             std::process::id(),
             address
         );
-        probing_server::start_remote(Some(address), Arc::new(PythonProbeFactory::default()));
-        start_report_worker();
+        probing_server::start_remote(Some(address));
+        probing_server::start_report_worker();
     }
     let _ = create_probing_module();
 }

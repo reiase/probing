@@ -114,8 +114,10 @@ impl ExternalTable {
                 })
                 .collect()
         });
-        let _ = self.0.lock().unwrap().append(t.into(), values);
-        Ok(())
+        match self.0.lock().unwrap().append(t.into(), values) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(e.to_string())),
+        }
     }
 
     fn append_ts(&mut self, t: i64, values: Vec<PyObject>) -> PyResult<()> {

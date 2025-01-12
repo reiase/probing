@@ -1,13 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
+use probing_proto::prelude::ProbeCall;
 use process_monitor::ProcessMonitor;
-use repl::ReplCommand;
 
 pub mod commands;
 pub mod ctrl;
 pub mod inject;
 pub mod process_monitor;
-pub mod repl;
 
 use crate::cli::ctrl::CtrlChannel;
 use commands::Commands;
@@ -44,15 +43,15 @@ impl Cli {
     fn execute_command(&self, ctrl: CtrlChannel) -> Result<()> {
         if self.command.is_none() {
             inject::InjectCommand::default().run(ctrl.clone())?;
-            ReplCommand::new().run(ctrl)?;
             return Ok(());
         }
         let command = self.command.as_ref().unwrap();
         match command {
             Commands::Inject(cmd) => cmd.run(ctrl),
-            Commands::Repl(cmd) => cmd.run(ctrl),
 
-            Commands::Enable(feature) => ctrl::handle(ctrl, Signal::Enable(feature.clone())),
+            Commands::Enable { feature } => {
+                ctrl::probe(ctrl, ProbeCall::CallEnable(feature.clone()))
+            }
             Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
             Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),
             Commands::Backtrace(cmd) => ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),

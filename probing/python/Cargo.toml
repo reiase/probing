@@ -7,11 +7,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-probing-core = { path = "../core" }
 probing-engine = { path = "../engine" }
 probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
+log = { workspace = true }
 once_cell = { workspace = true }
 serde_json = { workspace = true }
 
@@ -21,6 +21,7 @@ pyo3 = { version = "0.23.2", features = [
     "abi3-py37",
     "auto-initialize",
 ] }
+nix = { version = "0.29.0", default-features = false, features = ["signal"] }
 
 [dev-dependencies]
 rspec = "1"

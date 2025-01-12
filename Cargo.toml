@@ -2,11 +2,11 @@
 members = [
     "app",
     "probing/cli",
-    "probing/core",
     "probing/proto",
     "probing/engine",
-    "probing/python",
     "probing/server",
+    "probing/cc",
+    "probing/python",
     "probing/legacy",
 ]
 

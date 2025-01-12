@@ -4,13 +4,14 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use probing_engine::core::LazyTableSource;
+use log::error;
 use probing_engine::core::{
     ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
     SchemaPlugin, SchemaRef, StringArray,
 };
-use probing_proto::types::TimeSeries;
+use probing_engine::core::{Float32Array, Int32Array, LazyTableSource};
 use probing_proto::types::Value;
+use probing_proto::types::{self, TimeSeries};
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyDict;
 use pyo3::types::PyDictMethods;
@@ -47,6 +48,7 @@ impl CustomSchema for PythonSchema {
                 if let Ok(batches) = batches {
                     return batches;
                 } else {
+                    error!("error convert time series to table: {:?}", batches.err());
                     return vec![];
                 }
             }
@@ -101,13 +103,30 @@ impl CustomSchema for PythonSchema {
         let schema = if binding.contains_key(expr) {
             let table = binding.get(expr).unwrap();
             let names = table.lock().unwrap().names.clone();
-            let ts = &table.lock().unwrap();
-            let batches = Self::time_series_to_recordbatch(names, ts);
-            if let Ok(batches) = batches {
-                batches.first().map(|first| first.schema())
-            } else {
-                None
+            let dtypes = table
+                .lock()
+                .unwrap()
+                .cols
+                .iter()
+                .map(|x| x.dtype())
+                .collect::<Vec<_>>();
+            let mut fields = vec![Field::new("timestamp", DataType::Int64, true)];
+
+            for (name, dtype) in names.iter().zip(dtypes.iter()) {
+                fields.push(Field::new(
+                    name,
+                    match dtype {
+                        types::DataType::Int64 => DataType::Int64,
+                        types::DataType::Float64 => DataType::Float64,
+                        types::DataType::Int32 => DataType::Int32,
+                        types::DataType::Float32 => DataType::Float32,
+                        _ => DataType::Utf8,
+                    },
+                    false,
+                ));
             }
+
+            Some(SchemaRef::new(Schema::new(fields)))
         } else {
             None
         };
@@ -125,87 +144,88 @@ impl PythonSchema {
         names: Vec<String>,
         ts: &TimeSeries,
     ) -> Result<Vec<RecordBatch>> {
-        let names = names.clone();
-        let mut datas: Vec<Vec<Value>> = Default::default();
-        let mut timestamp = vec![];
-        for _ in names.iter() {
-            datas.push(vec![]);
-        }
-
-        for (t, point) in ts.iter() {
-            timestamp.push(t);
-            for (index, value) in point.iter().enumerate() {
-                datas[index].push(value.clone());
-            }
-        }
-
         let mut fields: Vec<Field> = vec![];
         let mut columns: Vec<ArrayRef> = vec![];
 
         fields.push(Field::new("timestamp", DataType::Int64, true));
-        columns.push(Arc::new(Int64Array::from(
-            timestamp
-                .iter()
-                .map(|x| if let Value::Int64(x) = x { *x } else { 0 })
-                .collect::<Vec<_>>(),
-        )));
-
-        for (field_index, data) in datas.iter().enumerate() {
-            if data.is_empty() {
-                return Err(anyhow::anyhow!("data is empty"));
-            }
-            let field_name = &names[field_index];
-            let data_type = match data[0] {
-                Value::Int64(_) => DataType::Int64,
-                Value::Float64(_) => DataType::Float64,
-                Value::Int32(_) => DataType::Int32,
-                Value::Float32(_) => DataType::Float32,
-                Value::Text(_) => DataType::Utf8,
+        names.iter().zip(ts.cols.iter()).for_each(|(name, col)| {
+            let data_type = match col.dtype() {
+                types::DataType::Int64 => DataType::Int64,
+                types::DataType::Float64 => DataType::Float64,
+                types::DataType::Int32 => DataType::Int32,
+                types::DataType::Float32 => DataType::Float32,
                 _ => DataType::Utf8,
             };
-            match data_type {
-                DataType::Int64 => {
-                    fields.push(Field::new(field_name, DataType::Int64, false));
-                    let array = Int64Array::from(
-                        data.iter()
-                            .map(|x| if let Value::Int64(x) = x { *x } else { 0 })
-                            .collect::<Vec<_>>(),
-                    );
-                    columns.push(Arc::new(array) as ArrayRef);
-                }
-                DataType::Float64 => {
-                    fields.push(Field::new(field_name, DataType::Float64, false));
-                    let array = Float64Array::from(
-                        data.iter()
-                            .map(|x| if let Value::Float64(x) = x { *x } else { 0.0 })
-                            .collect::<Vec<_>>(),
-                    );
-                    columns.push(Arc::new(array) as ArrayRef);
-                }
-                DataType::Utf8 => {
-                    fields.push(Field::new(field_name, DataType::Utf8, false));
-                    let array = StringArray::from(
-                        data.iter()
-                            .map(|x| {
-                                if let Value::Text(x) = x {
-                                    x.clone()
-                                } else {
-                                    "".to_string()
-                                }
-                            })
-                            .collect::<Vec<_>>(),
-                    );
-                    columns.push(Arc::new(array) as ArrayRef);
-                }
-                _ => {
-                    fields.push(Field::new(field_name, DataType::Utf8, false));
+            fields.push(Field::new(name, data_type, false));
+        });
 
-                    let array =
-                        StringArray::from(data.iter().map(|x| x.to_string()).collect::<Vec<_>>());
-                    columns.push(Arc::new(array) as ArrayRef);
-                }
-            }
+        let length = ts.len();
+
+        let timeseries = ts
+            .timestamp
+            .iter().take(length)
+            .map(|x| match x {
+                Value::Int64(x) => x,
+                _ => 0,
+            })
+            .collect::<Vec<_>>();
+        columns.push(Arc::new(Int64Array::from(timeseries)));
+
+        for col in ts.cols.iter() {
+            let col = match col.dtype() {
+                types::DataType::Int64 => Arc::new(Int64Array::from(
+                    col.iter().take(length)
+                        .map(|x| match x {
+                            Value::Int64(x) => x,
+                            _ => 0,
+                        })
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                types::DataType::Float64 => Arc::new(Float64Array::from(
+                    col.iter().take(length)
+                        .map(|x| match x {
+                            Value::Float64(x) => x,
+                            _ => 0.0,
+                        })
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                types::DataType::Int32 => Arc::new(Int32Array::from(
+                    col.iter().take(length)
+                        .map(|x| match x {
+                            Value::Int32(x) => x,
+                            _ => 0,
+                        })
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                types::DataType::Float32 => Arc::new(Float32Array::from(
+                    col.iter().take(length)
+                        .map(|x| match x {
+                            Value::Float32(x) => x,
+                            _ => 0.0,
+                        })
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                types::DataType::Text => Arc::new(StringArray::from(
+                    col.iter().take(length)
+                        .map(|x| match x {
+                            Value::Text(x) => x,
+                            _ => x.to_string(),
+                        })
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                _ => Arc::new(StringArray::from(
+                    col.iter().take(length)
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+            };
+
+            columns.push(col);
         }
+
+        let length: Vec<_> = columns.iter().map(|x| x.len()).collect();
+        println!("====== {:?}", length);
+
         Ok(vec![RecordBatch::try_new(
             SchemaRef::new(Schema::new(fields)),
             columns,

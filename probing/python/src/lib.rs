@@ -4,17 +4,20 @@ pub mod repl;
 
 use std::ffi::CStr;
 use std::sync::Arc;
+use std::sync::Mutex;
 
-use anyhow::Context;
 use anyhow::Result;
 
+use log::error;
+use nix::unistd::Pid;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
-use probing_core::ProbeFactory;
-use probing_core::{CallFrame, Probe};
+use probing_proto::protocol::probe::Probe;
+use probing_proto::protocol::probe::ProbeFactory;
+use probing_proto::protocol::process::CallFrame;
 
 use plugins::external_tables::ExternalTable;
 use repl::PythonRepl;
@@ -47,17 +50,50 @@ json.dumps(stacks)
 "#
 );
 
+pub static CALLSTACKS: Mutex<Option<Vec<CallFrame>>> = Mutex::new(None);
+
+pub fn backtrace_signal_handler() {
+    let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
+        Ok(frames) => Ok(frames.to_string()),
+        Err(err) => Err(anyhow::anyhow!(
+            "error extract call stacks {}",
+            err.to_string()
+        )),
+    });
+    if let Ok(frames) = frames {
+        let frames = serde_json::from_str::<Vec<CallFrame>>(frames.as_str());
+        if let Ok(frames) = frames {
+            let mut callstacks = CALLSTACKS.lock().unwrap();
+            *callstacks = Some(frames);
+        } else {
+            error!("error deserializing dump stack result");
+        }
+    } else {
+        error!("error running dump stack code");
+    }
+}
+
 impl Probe for PythonProbe {
-    fn backtrace(&self, _depth: Option<i32>) -> Result<Vec<CallFrame>> {
-        let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
-            Ok(frames) => Ok(frames.to_string()),
-            Err(err) => Err(anyhow::anyhow!(
-                "error extract call stacks {}",
-                err.to_string()
-            )),
-        })?;
-        serde_json::from_str::<Vec<CallFrame>>(frames.as_str())
-            .with_context(|| "error deserializing dump stack result".to_string())
+    fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
+        // let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
+        //     Ok(frames) => Ok(frames.to_string()),
+        //     Err(err) => Err(anyhow::anyhow!(
+        //         "error extract call stacks {}",
+        //         err.to_string()
+        //     )),
+        // })?;
+        // serde_json::from_str::<Vec<CallFrame>>(frames.as_str())
+        //     .with_context(|| "error deserializing dump stack result".to_string())
+        {
+            CALLSTACKS.lock().unwrap().take();
+        }
+        let tid = tid.unwrap_or(std::process::id() as i32);
+        nix::sys::signal::kill(Pid::from_raw(tid), nix::sys::signal::SIGUSR2)?;
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        match CALLSTACKS.lock().unwrap().take() {
+            Some(frames) => Ok(frames),
+            None => Err(anyhow::anyhow!("no call stack")),
+        }
     }
 
     fn eval(&self, code: &str) -> Result<String> {
@@ -67,6 +103,7 @@ impl Probe for PythonProbe {
     }
 
     fn enable(&self, feture: &str) -> Result<()> {
+        create_probing_module()?;
         match feture {
             "profiling" => Ok(()),
             name => {
@@ -98,6 +135,10 @@ impl Probe for PythonProbe {
             }
         }
     }
+
+    fn disable(&self, feture: &str) -> anyhow::Result<()> {
+        todo!()
+    }
 }
 
 #[derive(Default)]
@@ -111,11 +152,16 @@ impl ProbeFactory for PythonProbeFactory {
 
 pub fn create_probing_module() -> PyResult<()> {
     Python::with_gil(|py| -> PyResult<()> {
+        let sys = PyModule::import(py, "sys")?;
+        let modules = sys.getattr("modules")?;
+
+        if modules.contains("probing")? {
+            return Ok(());
+        }
+
         let m = PyModule::new(py, "probing")?;
         m.add_class::<ExternalTable>()?;
 
-        let sys = PyModule::import(py, "sys")?;
-        let modules = sys.getattr("modules")?;
         modules.set_item("probing", m)?;
 
         Ok(())

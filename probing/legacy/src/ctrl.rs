@@ -5,8 +5,8 @@ use probing_engine::plugins::cluster::ClusterPlugin;
 use probing_proto::cli::{BackTraceCommand, CtrlSignal};
 use probing_proto::protocol::query::{Format, Message, Reply};
 
-use crate::handlers::dump_stack;
-use crate::service::CALLSTACK;
+// use crate::handlers::dump_stack;
+// use crate::service::CALLSTACK;
 
 use probing_python::plugins::python::PythonPlugin;
 
@@ -14,13 +14,13 @@ pub fn ctrl_handler(cmd: CtrlSignal) -> Result<()> {
     match cmd {
         CtrlSignal::Nil => {}
         CtrlSignal::Dump => {
-            let ret = dump_stack()?;
-            CALLSTACK
-                .lock()
-                .map(|mut cs| {
-                    cs.replace(ret);
-                })
-                .unwrap();
+            // let ret = dump_stack()?;
+            // CALLSTACK
+            //     .lock()
+            //     .map(|mut cs| {
+            //         cs.replace(ret);
+            //     })
+            //     .unwrap();
         }
         cmd => {
             handle_ctrl(cmd)?;
@@ -48,7 +48,7 @@ pub fn ctrl_handler_string(cmdstr: String) {
     }
 }
 
-mod backtrace;
+// mod backtrace;
 mod disable;
 mod enable;
 mod eval;
@@ -95,7 +95,7 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
         CtrlSignal::Enable(feature) => enable::handle(feature).map(|x| x.into_bytes()),
         CtrlSignal::Disable(feature) => disable::handle(feature).map(|x| x.into_bytes()),
         CtrlSignal::Show(topic) => show::handle(topic).map(|x| x.into_bytes()),
-        CtrlSignal::Backtrace(bt) => backtrace::handle(bt).map(|x| x.into_bytes()),
+        CtrlSignal::Backtrace(bt) => {todo!()},//backtrace::handle(bt).map(|x| x.into_bytes()),
         CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x| x.into_bytes()),
         CtrlSignal::Eval { code } => eval::handle(code).map(|x| x.into_bytes()),
         // CtrlSignal::Query { query } => {

@@ -3,11 +3,20 @@ use anyhow::Result;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 use nix::{sys::signal, unistd::Pid};
+use probing_proto::prelude::ProbeCall;
 use probing_proto::protocol::query::Query;
 
 use crate::inject::{Injector, Process};
 use crate::table::render_dataframe;
 use probing_proto::cli::CtrlSignal;
+
+use probing_proto::prelude::*;
+
+pub fn probe(ctrl: CtrlChannel, cmd: ProbeCall) -> Result<()> {
+    let reply = ctrl.probe(cmd)?;
+    println!("{reply}");
+    Ok(())
+}
 
 pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
     let cmd = ron::to_string(&sig)?;
@@ -22,24 +31,8 @@ pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
 }
 
 pub fn query(ctrl: CtrlChannel, query: Query) -> Result<()> {
-    use probing_proto::prelude::*;
-
-    let msg = QueryMessage::Query(query);
-    let cmd = ron::to_string(&msg)?;
-    match ctrl.execute(cmd) {
-        Ok(ret) => {
-            let message: QueryMessage = ron::from_str(String::from_utf8(ret)?.as_str())?;
-            if let QueryMessage::Reply(reply) = message {
-                let df: DataFrame = match reply.format {
-                    QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
-                    QueryDataFormat::RON => ron::from_str(String::from_utf8(reply.data)?.as_str())?,
-                    _ => todo!(),
-                };
-                render_dataframe(&df);
-            };
-        }
-        Err(err) => println!("{err}"),
-    }
+    let reply = ctrl.query(QueryMessage::Query(query))?;
+    render_dataframe(&reply);
     Ok(())
 }
 
@@ -99,6 +92,61 @@ impl CtrlChannel {
 
                 Ok(ret)
             }
+        }
+    }
+
+    pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
+        let cmd = ron::to_string(&cmd)?;
+        log::debug!("request: {cmd}");
+        match self {
+            CtrlChannel::Ptrace { pid } => {
+                send_ctrl_via_ptrace(cmd, *pid)?;
+                Ok(ProbeCall::Nil)
+            }
+            ctrl => {
+                let reply = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(request(ctrl.clone(), "/probe", cmd.into()))?;
+
+                let reply = String::from_utf8(reply)?;
+                log::debug!("reply: {reply}");
+                let reply = ron::from_str::<ProbeCall>(reply.as_str())?;
+
+                Ok(reply)
+            }
+        }
+    }
+
+    pub fn query(&self, req: QueryMessage) -> Result<DataFrame> {
+        let req = ron::to_string(&req)?;
+        log::debug!("request: {req}");
+        match self {
+            ctrl => {
+                let reply = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(request(ctrl.clone(), "/query", req.into()))?;
+
+                let reply = String::from_utf8(reply)?;
+                log::debug!("reply: {reply}");
+                let reply = ron::from_str::<QueryMessage>(reply.as_str())?;
+
+                if let QueryMessage::Reply(reply) = reply {
+                    let df: DataFrame = match reply.format {
+                        QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
+                        QueryDataFormat::RON => {
+                            ron::from_str(String::from_utf8(reply.data)?.as_str())?
+                        }
+                        _ => todo!(),
+                    };
+                    return Ok(df);
+                }
+                Err(anyhow::anyhow!("unexpected reply: {:?}", reply))
+            }
+            _ => todo!(),
         }
     }
 
