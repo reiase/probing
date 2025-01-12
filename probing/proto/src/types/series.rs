@@ -181,7 +181,7 @@ pub struct SeriesConfig {
 impl Default for SeriesConfig {
     fn default() -> Self {
         SeriesConfig {
-            dtype: DataType::Int64,
+            dtype: DataType::Nil,
             chunk_size: 10000,
             compression_level: 0,
             compression_threshold: 2_000_000,
@@ -258,6 +258,8 @@ impl Series {
                 return Err(SeriesError::RawPageTypeExpected);
             }
         } else {
+            self.config.dtype = T::dtype();
+            
             let array = T::create_array(data, self.config.chunk_size);
             let page = Page::Raw(array);
             let offset = self.offset;
@@ -279,8 +281,13 @@ impl Series {
             Value::Int64(data) => self.append(data),
             Value::Float32(data) => self.append(data),
             Value::Float64(data) => self.append(data),
+            Value::Text(data) => self.append(data),
             _ => Err(SeriesError::InvalidValueDateType),
         }
+    }
+
+    pub fn dtype(&self) -> DataType {
+        self.config.dtype.clone()
     }
 
     pub fn len(&self) -> usize {
@@ -357,11 +364,15 @@ impl Series {
 }
 
 pub trait ArrayType {
+    fn dtype() -> DataType;
     fn create_array(data: Self, size: usize) -> Array;
     fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError>;
 }
 
 impl ArrayType for i32 {
+    fn dtype() -> DataType {
+        DataType::Int32
+    }
     fn create_array(data: Self, size: usize) -> Array {
         let mut array = Vec::with_capacity(size);
         array.push(data);
@@ -382,6 +393,9 @@ impl ArrayType for i32 {
 }
 
 impl ArrayType for i64 {
+    fn dtype() -> DataType {
+        DataType::Int64
+    }
     fn create_array(data: Self, size: usize) -> Array {
         let mut array = Vec::with_capacity(size);
         array.push(data);
@@ -402,6 +416,9 @@ impl ArrayType for i64 {
 }
 
 impl ArrayType for f32 {
+    fn dtype() -> DataType {
+        DataType::Float32
+    }
     fn create_array(data: Self, size: usize) -> Array {
         let mut array = Vec::with_capacity(size);
         array.push(data);
@@ -422,6 +439,9 @@ impl ArrayType for f32 {
 }
 
 impl ArrayType for f64 {
+    fn dtype() -> DataType {
+        DataType::Float64
+    }
     fn create_array(data: Self, size: usize) -> Array {
         let mut array = Vec::with_capacity(size);
         array.push(data);
@@ -430,6 +450,30 @@ impl ArrayType for f64 {
 
     fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError> {
         if let Array::Float64Array(arr) = array {
+            arr.push(data);
+            Ok(())
+        } else {
+            Err(SeriesError::TypeMismatch {
+                expected: DataType::Float64,
+                got: DataType::Nil,
+            })
+        }
+    }
+}
+
+impl ArrayType for String {
+    fn dtype() -> DataType {
+        DataType::Text
+    }
+
+    fn create_array(data: Self, size: usize) -> Array {
+        let mut array = Vec::with_capacity(size);
+        array.push(data);
+        Array::TextArray(array)
+    }
+
+    fn append_to_array(array: &mut Array, data: Self) -> Result<(), SeriesError> {
+        if let Array::TextArray(arr) = array {
             arr.push(data);
             Ok(())
         } else {

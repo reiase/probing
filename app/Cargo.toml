@@ -37,6 +37,7 @@ version = "0.7.0"
 
 [dependencies.probing-proto]
 path = "../probing/proto"
+default-features = false
 features = []
 
 [features]

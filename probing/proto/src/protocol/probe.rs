@@ -7,8 +7,8 @@ use serde::Serialize;
 
 use crate::protocol::process::CallFrame;
 
-#[cfg_attr(feature = "cli", derive(actix::Message))]
-#[cfg_attr(feature = "cli", rtype(result = "ProbeCall"))]
+#[cfg_attr(feature = "actor", derive(actix::Message))]
+#[cfg_attr(feature = "actor", rtype(result = "ProbeCall"))]
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum ProbeCall {
     CallEnable(String),
@@ -48,7 +48,7 @@ impl Display for ProbeCall {
     }
 }
 
-#[cfg(feature="cli")]
+#[cfg(feature="actor")]
 impl<A, M> actix::dev::MessageResponse<A, M> for ProbeCall
 where
     A: actix::Actor,

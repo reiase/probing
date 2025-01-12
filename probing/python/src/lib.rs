@@ -103,6 +103,7 @@ impl Probe for PythonProbe {
     }
 
     fn enable(&self, feture: &str) -> Result<()> {
+        create_probing_module()?;
         match feture {
             "profiling" => Ok(()),
             name => {
@@ -151,11 +152,16 @@ impl ProbeFactory for PythonProbeFactory {
 
 pub fn create_probing_module() -> PyResult<()> {
     Python::with_gil(|py| -> PyResult<()> {
+        let sys = PyModule::import(py, "sys")?;
+        let modules = sys.getattr("modules")?;
+
+        if modules.contains("probing")? {
+            return Ok(());
+        }
+
         let m = PyModule::new(py, "probing")?;
         m.add_class::<ExternalTable>()?;
 
-        let sys = PyModule::import(py, "sys")?;
-        let modules = sys.getattr("modules")?;
         modules.set_item("probing", m)?;
 
         Ok(())

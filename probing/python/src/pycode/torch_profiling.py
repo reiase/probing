@@ -30,7 +30,9 @@ def module_cache(func):
             cache[mid] = value
         elif mid not in cache:
             cache[mid] = func(m)
-        return cache[mid]
+            return cache[mid]
+        else:
+            return cache[mid]
 
     return wrapper
 
@@ -50,9 +52,15 @@ def _is_container(m):
     return isinstance(m, torch.nn.Module) and len(list(m.children())) > 0
 
 
-@module_cache
-def module_name(m):
-    return _get_module_fullname(m)
+def module_name(m, name=None):
+    global NAME_CACHE
+    mid = id(m)
+    if mid in NAME_CACHE:
+        return NAME_CACHE[mid]
+    elif name is not None:
+        NAME_CACHE[mid] = name
+        return name
+    return "unknown_module"
 
 
 def try_catch(maxtry=3):
@@ -75,6 +83,7 @@ def try_catch(maxtry=3):
     return decorator
 
 
+NAME_CACHE = {}
 HOOK_CACHE = {}
 EVENT_COUNT = 0
 SKIP_COUNT = 0
@@ -260,9 +269,8 @@ def torch_profiling(sample_ratio=1.0):
             time.sleep(sleep)
             sleep *= 2
 
-    if not hasattr(TRACER, "thread"):
-        TRACER.thread = threading.Thread(target=worker, daemon=True)
-        TRACER.thread.start()
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
 
 
 def install_hooks(m: torch.nn.Module = None):
