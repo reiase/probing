@@ -103,7 +103,3 @@ pub fn page_service_config(cfg: &mut web::ServiceConfig) {
         .service(web::resource("/inspect").route(web::get().to(index)))
         .service(web::resource("/index.html").route(web::get().to(index)));
 }
-
-pub fn api_service_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(probe).service(query);
-}

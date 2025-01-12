@@ -7,12 +7,14 @@ use env_logger::Env;
 use log::debug;
 use log::error;
 use nix::libc::SIGUSR1;
+use nix::libc::SIGUSR2;
 
 use probing_legacy::ctrl::ctrl_handler;
 use probing_legacy::get_hostname;
 use probing_legacy::register_signal_handler;
 use probing_legacy::sigusr1_handler;
 use probing_proto::cli::CtrlSignal;
+use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
 
 const ENV_PROBING_LOG: &str = "PROBING_LOG";
@@ -33,7 +35,7 @@ fn setup() {
     debug!("Setup libprobing with commands: {cmds:?}");
 
     register_signal_handler(SIGUSR1, sigusr1_handler);
-    // register_signal_handler(SIGUSR2, dump_stack2);
+    register_signal_handler(SIGUSR2, backtrace_signal_handler);
 
     if let Ok(cmds) = cmds {
         for cmd in cmds {

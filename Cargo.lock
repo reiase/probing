@@ -114,6 +114,7 @@ version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24eda4e2a6e042aa4e55ac438a2ae052d3b5da0ecf83d7411e1a368946925208"
 dependencies = [
+ "actix-macros",
  "futures-core",
  "tokio",
 ]
@@ -144,6 +145,25 @@ dependencies = [
  "futures-core",
  "paste",
  "pin-project-lite",
+]
+
+[[package]]
+name = "actix-tls"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac453898d866cdbecdbc2334fe1738c747b4eba14a677261f2b768ba05329389"
+dependencies = [
+ "actix-rt",
+ "actix-service",
+ "actix-utils",
+ "futures-core",
+ "http 0.2.12",
+ "http 1.1.0",
+ "impl-more",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -705,6 +725,39 @@ name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
+
+[[package]]
+name = "awc"
+version = "3.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79049b2461279b886e46f1107efc347ebecc7b88d74d023dda010551a124967b"
+dependencies = [
+ "actix-codec",
+ "actix-http",
+ "actix-rt",
+ "actix-service",
+ "actix-tls",
+ "actix-utils",
+ "base64 0.22.1",
+ "bytes",
+ "cfg-if",
+ "cookie",
+ "derive_more",
+ "futures-core",
+ "futures-util",
+ "h2",
+ "http 0.2.12",
+ "itoa",
+ "log",
+ "mime",
+ "percent-encoding",
+ "pin-project-lite",
+ "rand",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+]
 
 [[package]]
 name = "backtrace"
@@ -3323,15 +3376,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu-ansi-term"
-version = "0.50.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4a28e057d01f97e61255210fcff094d74ed0466038633e95017f5beb68e4399"
-dependencies = [
- "windows-sys 0.52.0",
-]
-
-[[package]]
 name = "num"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3961,6 +4005,8 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "include_dir",
+ "log",
+ "nix 0.29.0",
  "once_cell",
  "probing-engine",
  "probing-proto",
@@ -3976,25 +4022,23 @@ name = "probing-server"
 version = "0.2.0"
 dependencies = [
  "actix",
+ "actix-rt",
  "actix-web",
  "anyhow",
+ "awc",
  "bytes",
  "dns-lookup",
- "http-body-util",
- "hyper",
- "hyper-util",
  "include_dir",
  "log",
  "mime",
  "nix 0.29.0",
- "nu-ansi-term",
  "once_cell",
- "pin-project-lite",
  "probing-engine",
  "probing-proto",
  "probing-python",
- "qstring",
+ "procfs",
  "ron",
+ "serde",
  "serde_json",
  "tokio",
 ]

@@ -1,6 +1,7 @@
 use std::thread;
 
 use anyhow::Result;
+use log::debug;
 use nix::libc;
 
 use probing_proto::prelude::Node;
@@ -28,11 +29,13 @@ pub fn get_hostname() -> Result<String> {
 
 pub fn start_report_worker() {
     thread::spawn(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(report_worker());
+        actix_rt::System::with_tokio_rt(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+        })
+        .block_on(report_worker());
     });
 }
 
@@ -77,15 +80,16 @@ async fn report_worker() {
                 timestamp: 0,
             };
 
-            // if let Err(err) = reqwest::Client::new()
-            //     .put(&report_addr)
-            //     .body(serde_json::to_string(&node).unwrap())
-            //     .send()
-            //     .await
-            if let Err(err) =
-                request_remote(format!("{master_addr}:{probing_port}"), &report_addr, node).await
-            {
-                eprintln!("failed to report node status to {master_addr}:{probing_port}, {err}");
+            debug!("reporting node status to {report_addr}: {:?}", node);
+            match request_remote(&report_addr, node).await {
+                Ok(reply) => {
+                    debug!("node status reported to {report_addr}: {:?}", reply);
+                }
+                Err(err) => {
+                    eprintln!(
+                        "failed to report node status to {master_addr}:{probing_port}, {err}"
+                    );
+                }
             }
         }
     }
@@ -95,28 +99,22 @@ fn get_i32_env(name: &str) -> Option<i32> {
     std::env::var(name).unwrap_or_default().parse().ok()
 }
 
-async fn request_remote(report_addr: String, url: &str, node: Node) -> Result<Vec<u8>> {
-    use bytes::Bytes;
-    use http_body_util::{BodyExt, Full};
-    use hyper::client::conn;
-    use hyper_util::rt::TokioIo;
+async fn request_remote(url: &str, node: Node) -> Result<Vec<u8>> {
+    use awc::Client;
 
-    let stream = tokio::net::TcpStream::connect(report_addr).await?;
-    let io = TokioIo::new(stream);
-
-    let (mut sender, connection) = conn::http1::handshake(io).await?;
-    tokio::spawn(async move {
-        connection.await.unwrap();
-    });
-
-    let node_json = serde_json::to_string(&node).unwrap();
-
-    let req = hyper::Request::builder()
-        .method("PUT")
-        .uri(url)
-        .body(Full::<Bytes>::from(node_json))?;
-
-    let res = sender.send_request(req).await?;
-
-    Ok(res.collect().await.map(|x| x.to_bytes().to_vec())?)
+    let client = Client::default();
+    let mut reply = match client.put(url).send_json(&node).await {
+        Ok(reply) => reply,
+        Err(err) => {
+            return Err(anyhow::anyhow!(
+                "failed to report node status to {url}, {err}"
+            ));
+        }
+    };
+    match reply.body().await.map(|x| x.to_vec()) {
+        Ok(body) => Ok(body),
+        Err(err) => Err(anyhow::anyhow!(
+            "failed to report node status to {url}, {err}"
+        )),
+    }
 }

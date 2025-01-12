@@ -1,4 +1,5 @@
 mod actors;
+mod apis;
 mod services;
 
 use std::thread;
@@ -8,7 +9,8 @@ use actix_web::{web, App, HttpServer};
 use log::error;
 use log::info;
 
-use services::{api_service_config, page_service_config, static_files};
+use apis::api_service_config;
+use services::{page_service_config, static_files};
 
 pub async fn local_server() -> std::io::Result<()> {
     let socket_path = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
@@ -18,7 +20,7 @@ pub async fn local_server() -> std::io::Result<()> {
         App::new()
             .service(services::probe)
             .service(services::query)
-            .service(web::scope("/api").configure(api_service_config))
+            .service(web::scope("/apis").configure(api_service_config))
             .configure(page_service_config)
             .route("/{filename:.*}", web::get().to(static_files))
     })
@@ -49,7 +51,7 @@ pub async fn remote_server(addr: Option<String>) -> std::io::Result<()> {
         App::new()
             .service(services::probe)
             .service(services::query)
-            .service(web::scope("/api").configure(api_service_config))
+            .service(web::scope("/apis").configure(api_service_config))
             .configure(page_service_config)
             .route("/{filename:.*}", web::get().to(static_files))
     })
