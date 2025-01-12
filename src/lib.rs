@@ -39,7 +39,10 @@ fn setup() {
 
     if let Ok(cmds) = cmds {
         for cmd in cmds {
-            ctrl_handler(cmd).unwrap();
+            match ctrl_handler(cmd) {
+                Ok(_) => (),
+                Err(e) => error!("Failed to handle command: {e}"),
+            };
         }
     }
     probing_server::start_local();

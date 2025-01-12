@@ -18,7 +18,7 @@ pub fn contains(path: &str) -> bool {
 pub fn get(path: &str) -> Bytes {
     if let Ok(assets_root) = env::var("PROBING_ASSETS_ROOT") {
         let path = format!("{}/{}", assets_root, path.trim_start_matches('/'));
-        let content = std::fs::read(path).unwrap();
+        let content = std::fs::read(path).unwrap_or_default();
         Bytes::from(content)
     } else {
         ASSET

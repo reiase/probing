@@ -13,13 +13,13 @@ static ASSET: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/repl/");
 
 #[cfg(debug_assertions)]
 fn get_repl_code() -> String {
-    std::fs::read_to_string("src/repl/debug_console.py").unwrap()
+    std::fs::read_to_string("src/repl/debug_console.py").unwrap_or_default()
 }
 
 #[cfg(not(debug_assertions))]
 fn get_repl_code() -> String {
-    let code = ASSET.get_file("debug_console.py").unwrap();
-    code.contents_utf8().unwrap().to_string()
+    let code = ASSET.get_file("debug_console.py").unwrap_or_default();    
+    code.contents_utf8().unwrap_or_default().to_string()
 }
 
 pub struct NativePythonConsole {
