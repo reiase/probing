@@ -38,7 +38,7 @@ pub fn handle(feature: Features) -> Result<String> {
             Ok(Default::default())
         }
         Features::Remote { address } => {
-            probing_server::server2::start_remote(address);
+            probing_server::start_remote(address);
             // probing_server::start_remote(address, Arc::new(PythonProbeFactory::default()));
 
             // remote_server::start::<PythonRepl>(address);

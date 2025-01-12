@@ -1,3 +1,5 @@
+use log::debug;
+
 use actix::prelude::*;
 use probing_proto::prelude::{Probe, ProbeCall};
 
@@ -19,6 +21,7 @@ impl Handler<ProbeCall> for ProbeActor {
     type Result = ProbeCall;
 
     fn handle(&mut self, msg: ProbeCall, _ctx: &mut Context<Self>) -> Self::Result {
+        debug!("ProbeActor received message: {:?}", msg);
         match msg {
             ProbeCall::CallEnable(feature) => match self.probe.enable(&feature) {
                 Ok(res) => ProbeCall::ReturnEnable(res),

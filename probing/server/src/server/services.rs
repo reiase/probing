@@ -1,19 +1,40 @@
+use std::sync::Arc;
+
 use actix::Actor;
 use actix::Addr;
 use actix_web::http::header;
 use actix_web::HttpRequest;
 use actix_web::{post, web, HttpResponse, Responder};
 use once_cell::sync::Lazy;
+
 use probing_proto::prelude::*;
 use probing_python::PythonProbe;
 
 use crate::asset;
-use crate::handler::handle_query;
-
-use super::actors::ProbeActor;
+use crate::server::actors::ProbeActor;
 
 pub static PROBE: Lazy<Addr<ProbeActor>> =
     Lazy::new(|| ProbeActor::new(Box::new(PythonProbe::default())).start());
+
+fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
+    use probing_engine::plugins::cluster::ClusterPlugin;
+    use probing_python::plugins::python::PythonPlugin;
+
+    let engine = probing_engine::create_engine();
+    engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+    engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+    if let QueryMessage::Query(request) = request {
+        let resp = engine.execute(&request.expr, "ron")?;
+        Ok(ron::to_string(&QueryMessage::Reply(QueryReply {
+            data: resp,
+            format: QueryDataFormat::RON,
+        }))?
+        .as_bytes()
+        .to_vec())
+    } else {
+        Err(anyhow::anyhow!("Invalid query message"))
+    }
+}
 
 #[post("/probe")]
 async fn probe(req: String) -> impl Responder {
