@@ -142,15 +142,15 @@ class Span:
     duration: float = field(repr=True, default=None)
 
     def __init__(
-        self, m, kind="forward", inputs=None, output=None, params=None
+        self, m, kind="forward", inputs=None, output=None, params=None, mname=None
     ) -> None:
         self.id = id(m)
-        self.module = module_name(m)
+        self.module = module_name(m) if mname is None else mname
         self.kind = kind
         self.inputs = inputs
         self.output = output
         self.params = params
-        self.is_container = _is_container(m)
+        self.is_container = _is_container(m) if mname is None else False
 
     @staticmethod
     def forward(m, inputs, output=None, params=None):
@@ -201,7 +201,7 @@ class Tracer:
     def end_span(self, m):
         global EVENT_COUNT
         global TOTAL_COUNT
-        
+
         if self.spans:
             span = self.spans.pop().end(self.device_manager)
             if span is not None:
@@ -228,6 +228,16 @@ class Tracer:
     def post_hook(m, i, o):
         TRACER.end_span(m)
 
+    @staticmethod
+    def pre_step_hook(*args, **kwargs):
+        span = Span(None, mname="optim")
+        span.kind = "optim"
+        TRACER.begin_span(span)
+
+    @staticmethod
+    def post_step_hook(*args, **kwargs):
+        TRACER.end_span(None)
+
 
 TRACER = Tracer()
 
@@ -242,7 +252,15 @@ def module_analysis(m, prefix=""):
 
 
 def torch_profiling(sample_ratio=1.0):
+    global HOOK_CACHE
     TRACER.sample_ratio = sample_ratio
+
+    if sample_ratio == 0.0:
+        for m, hooks in HOOK_CACHE.items():
+            for h in hooks:
+                h.remove()
+        HOOK_CACHE.clear()
+        return
 
     def try_install():
         import gc
@@ -264,6 +282,13 @@ def torch_profiling(sample_ratio=1.0):
             if id(m) not in HOOK_CACHE:
                 install_hooks(m)
 
+        opts = [
+            obj for obj in gc.get_objects() if isinstance(obj, torch.optim.Optimizer)
+        ]
+        for opt in opts:
+            if opt not in HOOK_CACHE:
+                install_hooks(opt=opt)
+
     def worker():
         sleep = 1
         while True:
@@ -275,16 +300,9 @@ def torch_profiling(sample_ratio=1.0):
     thread.start()
 
 
-def install_hooks(m: torch.nn.Module = None):
-    if m is None:
-        torch.nn.modules.module.register_module_forward_pre_hook(
-            Tracer.pre_forward_hook
-        )
-        torch.nn.modules.module.register_module_forward_hook(Tracer.post_hook)
-        # TODO: global bw hooks is not supported
-        # torch.nn.modules.module.register_module_full_backward_pre_hook(Tracer.pre_backward_hook)
-        # torch.nn.modules.module.register_module_full_backward_hook(Tracer.post_backward_hook)
-    else:
+def install_hooks(m: torch.nn.Module = None, opt: torch.optim.Optimizer = None):
+    global HOOK_CACHE
+    if m is not None:
         if id(m) in HOOK_CACHE:
             return
         module_analysis(m)
@@ -299,3 +317,8 @@ def install_hooks(m: torch.nn.Module = None):
             HOOK_CACHE[id(m)] = (h1, h2)
         for s in m.children():
             install_hooks(s)
+
+    if opt is not None:
+        h1 = opt.register_step_pre_hook(Tracer.pre_step_hook)
+        h2 = opt.register_step_post_hook(Tracer.post_step_hook)
+        HOOK_CACHE[opt] = (h1, h2)
