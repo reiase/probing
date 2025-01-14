@@ -5,6 +5,7 @@ use inferno;
 
 use crate::plugins::python::PythonPlugin;
 
+#[derive(Clone)]
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct Frame {
     stage: String,
@@ -47,9 +48,21 @@ pub fn query_profiling() -> Result<Vec<String>> {
         };
 
         frames
-            .entry(frame)
+            .entry(frame.clone())
             .and_modify(|x| *x += duration)
             .or_insert(duration);
+
+        let mut parts = frame.module.split(".").collect::<Vec<_>>();
+        if parts.len() > 1 {
+            parts.pop();
+            let parent = Frame {
+                stage: frame.stage.clone(),
+                module: parts.join("."),
+            };
+            frames
+                .entry(parent)
+                .and_modify(|x| *x -= duration);
+        }
     }
 
     Ok(frames
@@ -65,9 +78,10 @@ pub fn query_profiling() -> Result<Vec<String>> {
                 line.push(';');
             }
 
+            let duration = if *duration < 0. { 0. } else { *duration };
+
             line.push_str(&format!(" {}", (duration * 1000.) as isize));
 
-            println!("==== {}", line);
             line
         })
         .collect())
@@ -85,7 +99,7 @@ pub fn flamegraph() -> String {
 
         let mut opt = inferno::flamegraph::Options::default();
         opt.deterministic = true;
-        opt.factor = 0.001;
+        // opt.factor = 0.001;
         match inferno::flamegraph::from_lines(&mut opt, lines, &mut graph) {
             Ok(_) => return String::from_utf8(graph).unwrap(),
             Err(e) => println!("Error: {}", e),

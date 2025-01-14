@@ -60,7 +60,7 @@ def module_name(m, name=None):
     elif name is not None:
         NAME_CACHE[mid] = name
         return name
-    return "unknown_module"
+    return None
 
 
 def try_catch(maxtry=3):
@@ -192,7 +192,7 @@ class Tracer:
         self.sample_ratio = sample_ratio
 
     def begin_span(self, span):
-        if self.sample_ratio > 0 and (random.uniform(0, 1) < self.sample_ratio):
+        if span.module is not None and self.sample_ratio > 0 and (random.uniform(0, 1) < self.sample_ratio):
             span.begin(self.device_manager)
         self.spans.append(span)
         return span
