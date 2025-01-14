@@ -86,7 +86,7 @@ def try_catch(maxtry=3):
 NAME_CACHE = {}
 HOOK_CACHE = {}
 EVENT_COUNT = 0
-SKIP_COUNT = 0
+TOTAL_COUNT = 0
 
 
 class SpanPoller:
@@ -192,20 +192,22 @@ class Tracer:
         self.sample_ratio = sample_ratio
 
     def begin_span(self, span):
-        if span.module is not None and self.sample_ratio > 0 and (random.uniform(0, 1) < self.sample_ratio):
+        if self.spans or span.module is None:
+            return
+        if self.sample_ratio > 0 and (random.uniform(0, 1) < self.sample_ratio):
             span.begin(self.device_manager)
-        self.spans.append(span)
-        return span
+            self.spans.append(span)
 
     def end_span(self, m):
         global EVENT_COUNT
-        global SKIP_COUNT
-        span = self.spans.pop().end(self.device_manager)
-        if span is not None:
-            EVENT_COUNT += 1
-            Tracer.POLLER.add(span)
-        else:
-            SKIP_COUNT += 1
+        global TOTAL_COUNT
+        
+        if self.spans:
+            span = self.spans.pop().end(self.device_manager)
+            if span is not None:
+                EVENT_COUNT += 1
+                Tracer.POLLER.add(span)
+            TOTAL_COUNT += 1
 
     @staticmethod
     @try_catch(3)
