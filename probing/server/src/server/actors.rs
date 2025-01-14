@@ -27,7 +27,7 @@ impl Handler<ProbeCall> for ProbeActor {
                 Ok(res) => ProbeCall::ReturnEnable(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
             },
-            ProbeCall::CallDisale(feature) => match self.probe.disable(&feature) {
+            ProbeCall::CallDisable(feature) => match self.probe.disable(&feature) {
                 Ok(res) => ProbeCall::ReturnDisable(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
             },
@@ -39,6 +39,12 @@ impl Handler<ProbeCall> for ProbeActor {
                 Ok(res) => ProbeCall::ReturnEval(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
             },
+
+            ProbeCall::CallFlamegraph => match self.probe.flamegraph() {
+                Ok(res) => ProbeCall::ReturnFlamegraph(res),
+                Err(err) => ProbeCall::Err(err.to_string()),
+            },
+
             ProbeCall::Err(err) => ProbeCall::Err(err),
             _ => unreachable!(),
         }
@@ -71,7 +77,7 @@ mod specs {
 
         fn backtrace(
             &self,
-            depth: Option<i32>,
+            _tid: Option<i32>,
         ) -> anyhow::Result<Vec<probing_proto::protocol::process::CallFrame>> {
             Err(anyhow::anyhow!("not implemented"))
         }

@@ -1,7 +1,9 @@
-use actix_web::{get, put, web, HttpResponse, Responder};
+use actix_web::{get, http, put, web, HttpResponse, Responder};
 use anyhow::Result;
 
 use probing_proto::{prelude::*, Process};
+
+use crate::server::services::PROBE;
 
 pub fn overview() -> Result<Process> {
     let current = procfs::process::Process::myself()?;
@@ -46,6 +48,20 @@ async fn api_get_overview() -> impl Responder {
     match overview() {
         Ok(info) => HttpResponse::Ok().json(info),
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+
+#[get("/flamegraph")]
+async fn api_get_flamegraph() -> impl Responder {
+    let probe = PROBE.clone();
+    let retval = probe.send(ProbeCall::CallFlamegraph).await;
+    match retval {
+        Ok(ProbeCall::ReturnFlamegraph(flamegraph)) => HttpResponse::Ok()
+            .insert_header(http::header::ContentType(mime::IMAGE_SVG))
+            .body(flamegraph),
+        Ok(ProbeCall::Err(err)) => HttpResponse::InternalServerError().body(err),
+        _ => HttpResponse::InternalServerError()
+            .body(format!("unexpected response from probe: {:?}", retval)),
     }
 }
 
@@ -109,5 +125,6 @@ pub fn api_service_config(cfg: &mut web::ServiceConfig) {
     cfg.service(put_nodes)
         .service(get_nodes)
         .service(api_get_overview)
-        .service(api_get_callstack);
+        .service(api_get_callstack)
+        .service(api_get_flamegraph);
 }

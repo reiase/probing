@@ -342,7 +342,7 @@ impl Series {
 impl Series {
     fn commit_current_slice(&mut self) {
         let nbytes = self.nbytes();
-        let slice = std::mem::replace(&mut self.current_slice, None);
+        let slice = self.current_slice.take();
         if nbytes > self.config.compression_threshold {
             if let Some(mut slice) = slice {
                 slice.compress();

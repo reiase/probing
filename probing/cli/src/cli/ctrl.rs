@@ -122,31 +122,27 @@ impl CtrlChannel {
     pub fn query(&self, req: QueryMessage) -> Result<DataFrame> {
         let req = ron::to_string(&req)?;
         log::debug!("request: {req}");
-        match self {
-            ctrl => {
-                let reply = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(request(ctrl.clone(), "/query", req.into()))?;
+        let ctrl = self;
+        {
+            let reply = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(request(ctrl.clone(), "/query", req.into()))?;
 
-                let reply = String::from_utf8(reply)?;
-                log::debug!("reply: {reply}");
-                let reply = ron::from_str::<QueryMessage>(reply.as_str())?;
+            let reply = String::from_utf8(reply)?;
+            log::debug!("reply: {reply}");
+            let reply = ron::from_str::<QueryMessage>(reply.as_str())?;
 
-                if let QueryMessage::Reply(reply) = reply {
-                    let df: DataFrame = match reply.format {
-                        QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
-                        QueryDataFormat::RON => {
-                            ron::from_str(String::from_utf8(reply.data)?.as_str())?
-                        }
-                        _ => todo!(),
-                    };
-                    return Ok(df);
-                }
-                Err(anyhow::anyhow!("unexpected reply: {:?}", reply))
+            if let QueryMessage::Reply(reply) = reply {
+                let df: DataFrame = match reply.format {
+                    QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
+                    QueryDataFormat::RON => ron::from_str(String::from_utf8(reply.data)?.as_str())?,
+                    _ => todo!(),
+                };
+                return Ok(df);
             }
-            _ => todo!(),
+            Err(anyhow::anyhow!("unexpected reply: {:?}", reply))
         }
     }
 

@@ -1,6 +1,7 @@
 pub mod plugins;
 pub mod pycode;
 pub mod repl;
+pub mod flamegraph;
 
 use std::ffi::CStr;
 use std::sync::Arc;
@@ -102,6 +103,10 @@ impl Probe for PythonProbe {
         Ok(repl.process(code.as_str()).unwrap_or_default())
     }
 
+    fn flamegraph(&self) -> Result<String> {
+        Ok(flamegraph::flamegraph())
+    }
+
     fn enable(&self, feture: &str) -> Result<()> {
         create_probing_module()?;
         match feture {
@@ -136,7 +141,7 @@ impl Probe for PythonProbe {
         }
     }
 
-    fn disable(&self, feture: &str) -> anyhow::Result<()> {
+    fn disable(&self, _feture: &str) -> anyhow::Result<()> {
         todo!()
     }
 }

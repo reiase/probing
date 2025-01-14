@@ -1,10 +1,10 @@
-use std::sync::Arc;
+// use std::sync::Arc;
 
-use log::{error, info};
+// use log::{error, info};
 use anyhow::Result;
 use nix::libc::{SIGABRT, SIGBUS, SIGFPE, SIGSEGV};
 use probing_proto::cli::Features;
-use probing_python::PythonProbeFactory;
+// use probing_python::PythonProbeFactory;
 
 use crate::{
     handlers::pprof_handler,

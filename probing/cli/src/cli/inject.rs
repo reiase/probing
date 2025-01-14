@@ -34,8 +34,11 @@ impl InjectCommand {
     }
 
     fn wait_for_library(&self, pid: i32, lib_name: &str) -> Result<()> {
-        for _ in 0..5 {
-            if self.check_library(pid, lib_name)? {
+        for _ in 0..15 {
+            if self.check_library(pid, lib_name).map_err(|err| {
+                eprintln!("Failed to check library: {}", err);
+                false
+            }).unwrap_or(false) {
                 return Ok(());
             }
             std::thread::sleep(std::time::Duration::from_secs(1));

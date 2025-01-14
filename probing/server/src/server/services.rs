@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::thread;
 
 use actix::Actor;
 use actix::Addr;
@@ -20,11 +21,25 @@ fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
-    let engine = probing_engine::create_engine();
-    engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
-    engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+    // let engine = probing_engine::create_engine();
+    // engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+    // engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
     if let QueryMessage::Query(request) = request {
-        let resp = engine.execute(&request.expr, "ron")?;
+
+        let resp = thread::spawn(move || {
+            let engine = probing_engine::create_engine();
+            engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+            engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(4)
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(async { engine.execute(&request.expr, "ron") })
+        }).join().map_err(|_| anyhow::anyhow!("error joining thread"))??;
+
+        // let resp = engine.execute(&request.expr, "ron")?;
         Ok(ron::to_string(&QueryMessage::Reply(QueryReply {
             data: resp,
             format: QueryDataFormat::RON,

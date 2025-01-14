@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::array::Array;
 
+use super::Value;
+
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct DataFrame {
     pub names: Vec<String>,
@@ -26,5 +28,34 @@ impl DataFrame {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn iter(&self) -> DataFrameIterator {
+        DataFrameIterator {
+            df: self,
+            current: 0,
+        }
+    }
+}
+
+pub struct DataFrameIterator<'a> {
+    df: &'a DataFrame,
+    current: usize,
+}
+
+impl<'a> Iterator for DataFrameIterator<'a> {
+    type Item = Vec<Value>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current >= self.df.len() {
+            None
+        } else {
+            let mut row = vec![];
+            for i in 0..self.df.cols.len() {
+                row.push(self.df.cols[i].get(self.current));
+            }
+            self.current += 1;
+            Some(row)
+        }
     }
 }

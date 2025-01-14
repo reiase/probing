@@ -14,13 +14,17 @@ pub enum ProbeCall {
     CallEnable(String),
     ReturnEnable(()),
 
-    CallDisale(String),
+    CallDisable(String),
     ReturnDisable(()),
 
     CallBacktrace(Option<i32>),
     ReturnBacktrace(Vec<CallFrame>),
+
     CallEval(String),
     ReturnEval(String),
+
+    CallFlamegraph,
+    ReturnFlamegraph(String),
 
     Nil,
     Err(String),
@@ -32,7 +36,7 @@ impl Display for ProbeCall {
             ProbeCall::CallEnable(feature) => write!(f, "CallEnable({:?})", feature),
             ProbeCall::ReturnEnable(res) => write!(f, "ReturnEnable({:?})", res),
 
-            ProbeCall::CallDisale(feature) => write!(f, "CallDisale({:?})", feature),
+            ProbeCall::CallDisable(feature) => write!(f, "CallDisable({:?})", feature),
             ProbeCall::ReturnDisable(()) => write!(f, "ReturnDisable(()"),
 
             ProbeCall::CallBacktrace(depth) => write!(f, "CallBacktrace({:?})", depth),
@@ -42,19 +46,22 @@ impl Display for ProbeCall {
             ProbeCall::CallEval(code) => write!(f, "CallEval({:?})", code),
             ProbeCall::ReturnEval(res) => write!(f, "ReturnEval({:?})", res),
 
+            ProbeCall::CallFlamegraph => write!(f, "CallFlamegraph"),
+            ProbeCall::ReturnFlamegraph(res) => write!(f, "ReturnFlamegraph({:?})", res),
+
             ProbeCall::Nil => write!(f, "Nil"),
             ProbeCall::Err(err) => write!(f, "Err({:?})", err),
         }
     }
 }
 
-#[cfg(feature="actor")]
+#[cfg(feature = "actor")]
 impl<A, M> actix::dev::MessageResponse<A, M> for ProbeCall
 where
     A: actix::Actor,
     M: actix::Message<Result = ProbeCall>,
 {
-    fn handle(self, ctx: &mut A::Context, tx: Option<actix::dev::OneshotSender<M::Result>>) {
+    fn handle(self, _ctx: &mut A::Context, tx: Option<actix::dev::OneshotSender<M::Result>>) {
         if let Some(tx) = tx {
             let _ = tx.send(self);
         }
@@ -68,6 +75,10 @@ pub trait Probe: Send + Sync {
     fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
     fn eval(&self, code: &str) -> Result<String>;
 
+    fn flamegraph(&self) -> Result<String> {
+        Err(anyhow::anyhow!("not implemented"))
+    }
+
     fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
         let msg = ron::de::from_bytes::<ProbeCall>(msg)?;
         log::debug!("probe request: {}", msg);
@@ -76,7 +87,7 @@ pub trait Probe: Send + Sync {
                 Ok(res) => ProbeCall::ReturnEnable(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
             },
-            ProbeCall::CallDisale(feature) => match self.disable(&feature) {
+            ProbeCall::CallDisable(feature) => match self.disable(&feature) {
                 Ok(res) => ProbeCall::ReturnDisable(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
             },
@@ -86,6 +97,10 @@ pub trait Probe: Send + Sync {
             },
             ProbeCall::CallEval(code) => match self.eval(&code) {
                 Ok(res) => ProbeCall::ReturnEval(res),
+                Err(err) => ProbeCall::Err(err.to_string()),
+            },
+            ProbeCall::CallFlamegraph => match self.flamegraph() {
+                Ok(res) => ProbeCall::ReturnFlamegraph(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
             },
             ProbeCall::Err(err) => ProbeCall::Err(err),

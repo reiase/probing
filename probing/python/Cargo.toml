@@ -14,6 +14,7 @@ anyhow = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
 
 include_dir = "=0.7.4"
 pyo3 = { version = "0.23.2", features = [
@@ -22,6 +23,7 @@ pyo3 = { version = "0.23.2", features = [
     "auto-initialize",
 ] }
 nix = { version = "0.29.0", default-features = false, features = ["signal"] }
+inferno = "0.12.1"
 
 [dev-dependencies]
 rspec = "1"
