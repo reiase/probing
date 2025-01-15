@@ -5,7 +5,7 @@ use leptos_router::path;
 use thaw::*;
 
 use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
-
+use crate::pages::profiler::Profiler;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -49,7 +49,7 @@ fn TheRouter() -> impl IntoView {
                 <Route path=path!("/activity") view=Activity />
                 <Route path=path!("/activity/:tid") view=Activity />
                 // <Route path="/debug" view=|| view! { <DebugView/> }/>
-                // <Route path="/profiler" view=|| view! { <Profiler/> }/>
+                <Route path=path!("/profiler") view=|| view! { <Profiler/> }/>
                 <Route path=path!("/inspect") view=|| view! { <Python /> } />
             // <Route path="/files" view=|| view! { <Files/> }/>
             </Routes>

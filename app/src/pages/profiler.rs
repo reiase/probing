@@ -1,45 +1,36 @@
-use gloo_net::http::Request;
-use leptonic::components::prelude::*;
-use leptos::*;
-use leptos_router::use_query_map;
+use leptos::prelude::*;
+use leptos_meta::Style;
+
+use thaw::*;
+
+use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
 
 #[component]
 pub fn Profiler() -> impl IntoView {
-    let params = use_query_map();
-    let mid = params.get().get("mid").cloned();
-
-    if let Some(mid) = mid {
-        let profile = create_resource(
-            move || mid.clone(),
-            move |mid| async move {
-                let resp = Request::get(format!("/apis/profile?mid={}", mid).as_str())
-                    .send()
-                    .await
-                    .map_err(|err| {
-                        logging::log!("error getting callstack: {}", err);
-                    })
-                    .unwrap()
-                    .text()
-                    .await
-                    .map_err(|err| {
-                        logging::log!("error decoding callstack: {}", err);
-                    })
-                    .ok();
-                resp.unwrap_or_default()
-            },
-        );
-        view! {
-            <Box style="display: flex; flex-direction: column; align-items: center; min-width: 100%">
-                <H2>"Profiler"</H2>
-                <pre>{profile.get().unwrap_or_default()}</pre>
-            </Box>
-        }
-    } else {
-        view! {
-            <Box style="display: flex; flex-direction: column; align-items: center; min-width: 100%">
-                <H2>"Profiler"</H2>
-                <object data="/flamegraph.svg" style="width: 100%; border: none;"></object>
-            </Box>
-        }
+    view! {
+        <Style>
+            "
+            .doc-content {
+                margin: 0 auto;
+                width: 100%;
+                display: grid;
+            }
+            @media screen and (max-width: 1200px) {
+                .doc-content {
+                    width: 100%;
+                }
+            }
+            "
+        </Style>
+        <HeaderBar />
+        <Layout
+            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
+            class="doc-content"
+        >
+            <Space align=SpaceAlign::Center vertical=true class="doc-content">
+                <h3>"Torch Profiler"</h3>
+                <object data="/apis/flamegraph" style="width: 100%; border: none;"></object>
+            </Space>
+        </Layout>
     }
 }

@@ -78,6 +78,12 @@ pub fn HeaderBar() -> impl IntoView {
                 </Button>
                 <Button
                     appearance=ButtonAppearance::Transparent
+                    on_click=move |_| navigate_signal.get()("/profiler", Default::default())
+                >
+                    "Profiler"
+                </Button>
+                <Button
+                    appearance=ButtonAppearance::Transparent
                     on_click=move |_| navigate_signal.get()("/inspect", Default::default())
                 >
                     "Inspect"

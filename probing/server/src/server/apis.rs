@@ -126,5 +126,6 @@ pub fn api_service_config(cfg: &mut web::ServiceConfig) {
         .service(get_nodes)
         .service(api_get_overview)
         .service(api_get_callstack)
+        .service(api_get_files)
         .service(api_get_flamegraph);
 }
