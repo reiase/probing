@@ -5,7 +5,7 @@ use probing_proto::cli::ShowCommand;
 
 use crate::core::pltffi;
 use crate::core::trace;
-use crate::repl::PythonRepl;
+// use crate::repl::PythonRepl;
 
 pub fn pyhandle(path: &str, query: Option<String>) -> Result<String> {
     let request = format!(

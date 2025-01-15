@@ -10,7 +10,6 @@ license.workspace = true
 probing-proto = { path = "../proto" }
 probing-python = { path = "../python" }
 probing-engine = { path = "../engine" }
-# probing-legacy = { path = "../legacy" }
 
 anyhow = { workspace = true }
 log = { workspace = true }

@@ -49,10 +49,10 @@ pub fn ctrl_handler_string(cmdstr: String) {
 }
 
 // mod backtrace;
-mod disable;
-mod enable;
-mod eval;
-mod show;
+// mod disable;
+// mod enable;
+// mod eval;
+// mod show;
 mod trace;
 
 #[derive(Default)]
@@ -92,12 +92,13 @@ pub fn handle_ctrl(ctrl: CtrlSignal) -> Result<Vec<u8>> {
             python: true,
             tid: None,
         })),
-        CtrlSignal::Enable(feature) => enable::handle(feature).map(|x| x.into_bytes()),
-        CtrlSignal::Disable(feature) => disable::handle(feature).map(|x| x.into_bytes()),
-        CtrlSignal::Show(topic) => show::handle(topic).map(|x| x.into_bytes()),
+        // CtrlSignal::Enable(feature) => enable::handle(feature).map(|x| x.into_bytes()),
+        // CtrlSignal::Disable(feature) => disable::handle(feature).map(|x| x.into_bytes()),
+        // CtrlSignal::Show(topic) => show::handle(topic).map(|x| x.into_bytes()),
         CtrlSignal::Backtrace(bt) => {todo!()},//backtrace::handle(bt).map(|x| x.into_bytes()),
         CtrlSignal::Trace(cmd) => trace::handle(cmd).map(|x| x.into_bytes()),
-        CtrlSignal::Eval { code } => eval::handle(code).map(|x| x.into_bytes()),
+        // CtrlSignal::Eval { code } => eval::handle(code).map(|x| x.into_bytes()),
+        _ => todo!()
         // CtrlSignal::Query { query } => {
         //     let engine = probing_engine::create_engine();
         //     engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;

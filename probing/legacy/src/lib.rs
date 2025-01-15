@@ -14,9 +14,9 @@ mod core;
 pub mod ctrl;
 mod handlers;
 mod hooks;
-mod repl;
+// mod repl;
 // pub mod server;
-pub mod service;
+// pub mod service;
 
 // use handlers::dump_stack2;
 // use probing_proto::cli::CtrlSignal;
