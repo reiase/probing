@@ -80,7 +80,7 @@ async fn api_get_callstack(req: web::Query<Info>) -> impl Responder {
         Ok(reply) => reply,
         Err(err) => ProbeCall::Err(err.to_string()),
     };
-    let reply = match ron::to_string(&reply) {
+    let reply = match serde_json::to_string(&reply) {
         Ok(reply) => reply,
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
     };

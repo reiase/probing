@@ -3,7 +3,8 @@ use leptos_meta::Style;
 use leptos_router::hooks::use_params_map;
 use thaw::*;
 
-use probing_proto::CallStack;
+use probing_proto::protocol::probe::ProbeCall;
+use probing_proto::protocol::process::CallFrame;
 
 use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
 
@@ -11,6 +12,7 @@ use super::common::*;
 
 #[component]
 pub fn Activity() -> impl IntoView {
+    log::info!("Activity Page");
     let params = use_params_map();
     let url = if let Some(tid) = params.get().get("tid") {
         format!("/apis/callstack?tid={}", tid)
@@ -18,7 +20,7 @@ pub fn Activity() -> impl IntoView {
         "/apis/callstack".to_string()
     };
 
-    let callstacks = url_read_resource::<Vec<CallStack>>(url.as_str());
+    let reply = url_read_resource::<ProbeCall>(url.as_str());
 
     let callstacks = move || {
         view! {
@@ -26,9 +28,12 @@ pub fn Activity() -> impl IntoView {
                 view! { <p>"Loading..."</p> }
             }>
                 {move || Suspend::new(async move {
+                    let callstacks = match reply.await {
+                        Ok(ProbeCall::ReturnBacktrace(callstacks)) => callstacks,
+                        other => Default::default(),
+                    };
+                    log::info!("callstacks: {:?}", callstacks);
                     callstacks
-                        .await
-                        .unwrap_or(Default::default())
                         .iter()
                         .map(|callstack| {
                             view! { <CallStackView callstack=callstack.clone() /> }
@@ -69,39 +74,43 @@ pub fn Activity() -> impl IntoView {
 }
 
 #[component]
-fn CallStackView(#[prop(into)] callstack: CallStack) -> impl IntoView {
-    if let Some(cstack) = callstack.cstack {
-        view! {
-            <AccordionItem value="C/C++">
-                <AccordionHeader slot>"C/C++ Call Stack"</AccordionHeader>
-                <pre>{cstack}</pre>
-            </AccordionItem>
+fn CallStackView(#[prop(into)] callstack: CallFrame) -> impl IntoView {
+    match callstack {
+        CallFrame::CFrame { .. } => {
+            view! {
+                <AccordionItem value="C/C++">
+                    <AccordionHeader slot>"C/C++ Call Stack"</AccordionHeader>
+                    <pre>{"..."}</pre>
+                </AccordionItem>
+            }
         }
-    } else {
-        let file = callstack.file.clone();
-        let func = callstack.func.clone();
-        let lineno = callstack.lineno;
-        let locals = callstack.locals.clone();
-        let url = format!("/apis/files?path={}", file.clone());
-        // let route_url = format!("/files?path={}", file);
-        let key = format!("{func} @ {file}: {lineno}");
-        view! {
-            <AccordionItem value=key.clone()>
-                <AccordionHeader slot>{key.clone()}</AccordionHeader>
-                <b>"local:"</b>
-                <span style="padding: 5px">
-                    {func} "@" <a href=url target="_blank">
-                        {file}
-                    </a> {":"} {lineno}
-                // <Button on_click=move |_| {
-                // let navigate = leptos_router::use_navigate();
-                // navigate(route_url.as_str(), Default::default());
-                // }>
-                // <Icon icon=icondata::BiFileRegular/>
-                // </Button>
-                </span>
-                <VariablesList variables=locals />
-            </AccordionItem>
+        CallFrame::PyFrame {
+            file,
+            func,
+            lineno,
+            locals,
+        } => {
+            let url = format!("/apis/files?path={}", file.clone());
+            // let route_url = format!("/files?path={}", file);
+            let key = format!("{func} @ {file}: {lineno}");
+            view! {
+                <AccordionItem value=key.clone()>
+                    <AccordionHeader slot>{key.clone()}</AccordionHeader>
+                    <b>"local:"</b>
+                    <span style="padding: 5px">
+                        {func} "@" <a href=url target="_blank">
+                            {file}
+                        </a> {":"} {lineno}
+                    // <Button on_click=move |_| {
+                    // let navigate = leptos_router::use_navigate();
+                    // navigate(route_url.as_str(), Default::default());
+                    // }>
+                    // <Icon icon=icondata::BiFileRegular/>
+                    // </Button>
+                    </span>
+                    <ValueList variables=locals />
+                </AccordionItem>
+            }
         }
     }
 }

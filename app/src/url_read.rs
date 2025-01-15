@@ -22,8 +22,8 @@ pub async fn url_read<T: DeserializeOwned>(url: &str) -> Result<T, AppError> {
     {
         Ok(val) => match val {
             Ok(t) => Ok(t),
-            Err(_) => Err(AppError::HttpError(
-                "Bad Resonse: Unable to Decode".to_string(),
+            Err(err) => Err(AppError::HttpError(
+                format!("Bad Response: {}", err).to_string(),
             )),
         },
         Err(e) => Err(e),

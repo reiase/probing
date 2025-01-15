@@ -13,8 +13,14 @@ use apis::api_service_config;
 use services::{page_service_config, static_files};
 
 pub async fn local_server() -> std::io::Result<()> {
-    let socket_path = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
-    let socket_path = format!("{}/{}", socket_path, std::process::id());
+    let prefix_path = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
+
+    let path = std::path::Path::new(&prefix_path);
+    if !path.exists() {
+        std::fs::create_dir_all(path)?;
+    }
+
+    let socket_path = format!("{}/{}", prefix_path, std::process::id());
 
     HttpServer::new(|| {
         App::new()

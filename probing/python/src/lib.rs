@@ -1,7 +1,7 @@
+pub mod flamegraph;
 pub mod plugins;
 pub mod pycode;
 pub mod repl;
-pub mod flamegraph;
 
 use std::ffi::CStr;
 use std::sync::Arc;
@@ -13,6 +13,7 @@ use log::error;
 use nix::unistd::Pid;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
@@ -30,44 +31,84 @@ pub struct PythonProbe {}
 
 const DUMP_STACK: &CStr = c_str!(
     r#"
+def _get_obj_type(obj):
+    try:
+        m = type(obj).__module__
+        n = type(obj).__name__
+        return f"{m}.{n}"
+    except Exception:
+        return str(type(obj))
+
+
+def _get_obj_repr(obj, value=False):
+    typ = _get_obj_type(obj)
+    ret = {
+        "id": id(obj),
+        "class": _get_obj_type(obj),
+    }
+    if typ == "torch.Tensor":
+        ret["shape"] = str(obj.shape)
+        ret["dtype"] = str(obj.dtype)
+        ret["device"] = str(obj.device)
+    if value:
+        ret["value"] = str(obj)[:150]
+    return ret
+
 stacks = []
 
 import sys
 
-curr = sys._getframe(2)
+curr = sys._getframe(1)
 while curr is not None:
-    stack = {
+    stack = {"PyFrame": {
         "file": curr.f_code.co_filename,
         "func": curr.f_code.co_name,
         "lineno": curr.f_lineno,
         "locals": {
             k: _get_obj_repr(v, value=True) for k, v in curr.f_locals.items()
         },
-    }
+    }}
     stacks.append(stack)
     curr = curr.f_back
 import json
-json.dumps(stacks)
+retval = json.dumps(stacks)
 "#
 );
 
 pub static CALLSTACKS: Mutex<Option<Vec<CallFrame>>> = Mutex::new(None);
 
 pub fn backtrace_signal_handler() {
-    let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
-        Ok(frames) => Ok(frames.to_string()),
-        Err(err) => Err(anyhow::anyhow!(
-            "error extract call stacks {}",
-            err.to_string()
-        )),
+    let frames = Python::with_gil(|py| {
+        let global = PyDict::new(py);
+        if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
+            error!("error extract call stacks {}", err.to_string());
+            return None;
+        }
+        match global.get_item("retval") {
+            Ok(frames) => {
+                if let Some(frames) = frames {
+                    frames.extract::<String>().ok()
+                } else {
+                    error!("error extract call stacks");
+                    None
+                }
+            }
+            Err(err) => {
+                error!("error extract call stacks {}", err.to_string());
+                None
+            }
+        }
     });
-    if let Ok(frames) = frames {
-        let frames = serde_json::from_str::<Vec<CallFrame>>(frames.as_str());
-        if let Ok(frames) = frames {
-            let mut callstacks = CALLSTACKS.lock().unwrap();
-            *callstacks = Some(frames);
-        } else {
-            error!("error deserializing dump stack result");
+
+    if let Some(frames) = frames {
+        match serde_json::from_str::<Vec<CallFrame>>(frames.as_str()) {
+            Ok(frames) => {
+                let mut callstacks = CALLSTACKS.lock().unwrap();
+                *callstacks = Some(frames);
+            }
+            Err(err) => {
+                error!("error deserializing dump stack result: {}", err.to_string());
+            }
         }
     } else {
         error!("error running dump stack code");
@@ -76,15 +117,6 @@ pub fn backtrace_signal_handler() {
 
 impl Probe for PythonProbe {
     fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
-        // let frames = Python::with_gil(|py| match py.eval(DUMP_STACK, None, None) {
-        //     Ok(frames) => Ok(frames.to_string()),
-        //     Err(err) => Err(anyhow::anyhow!(
-        //         "error extract call stacks {}",
-        //         err.to_string()
-        //     )),
-        // })?;
-        // serde_json::from_str::<Vec<CallFrame>>(frames.as_str())
-        //     .with_context(|| "error deserializing dump stack result".to_string())
         {
             CALLSTACKS.lock().unwrap().take();
         }
