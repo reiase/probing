@@ -18,8 +18,14 @@ fn get_repl_code() -> String {
 
 #[cfg(not(debug_assertions))]
 fn get_repl_code() -> String {
-    let code = ASSET.get_file("debug_console.py").unwrap_or_default();    
-    code.contents_utf8().unwrap_or_default().to_string()
+    let code = ASSET.get_file("debug_console.py");
+    match code {
+        Some(code) => code.contents_utf8().unwrap_or_default().to_string(),
+        None => {
+            eprintln!("error loading console code");
+            String::new()
+        }        
+    }    
 }
 
 pub struct NativePythonConsole {

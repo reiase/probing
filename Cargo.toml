@@ -84,10 +84,10 @@ pyo3 = { version = "0.23.3", features = [
 tokio = { workspace = true }
 
 [profile.release]
-opt-level = 3   # Optimize for size.
+opt-level = "z"   # Optimize for size.
 panic = "unwind"
 strip = true      # Automatically strip symbols from the binary.
-lto = "fat"
+lto = "thin"
 codegen-units = 1
 
 [profile.bench]

@@ -2593,7 +2593,6 @@ dependencies = [
  "http 1.1.0",
  "http-body",
  "httparse",
- "httpdate",
  "itoa",
  "pin-project-lite",
  "smallvec",
@@ -3980,9 +3979,6 @@ dependencies = [
  "anyhow",
  "arrow",
  "backtrace",
- "http-body-util",
- "hyper",
- "include_dir",
  "log",
  "nix 0.29.0",
  "once_cell",
@@ -3995,7 +3991,6 @@ dependencies = [
  "procfs",
  "pyo3",
  "pyo3-build-config",
- "qstring",
  "ron",
  "rustnix",
  "serde_json",
@@ -4236,15 +4231,6 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn 2.0.90",
-]
-
-[[package]]
-name = "qstring"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d464fae65fff2680baf48019211ce37aaec0c78e9264c84a3e484717f965104e"
-dependencies = [
- "percent-encoding",
 ]
 
 [[package]]

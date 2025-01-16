@@ -100,7 +100,7 @@ impl Process {
             .into_iter()
             .find(|m| m.perms.contains(process::MMPermissions::EXECUTE))
             .map(|m| m.address.0)
-            .ok_or(eyre!(
+            .ok_or_else(|| eyre!(
                 "could not find an executable region in the target process"
             ))
     }
@@ -124,7 +124,7 @@ impl Process {
                 }
             })
             .map(|m| m.address.0)
-            .ok_or(eyre!("could not find libc in the target process"))
+            .ok_or_else(||eyre!("could not find libc in the target process"))
     }
     /// Get the address of the libc library in the process.
     pub(crate) fn libdl_address(&self) -> Result<u64> {
@@ -145,7 +145,7 @@ impl Process {
                 }
             })
             .map(|m| m.address.0)
-            .ok_or(eyre!("could not find libc in the target process"))
+            .ok_or_else(|| eyre!("could not find libc in the target process"))
     }
     /// Get the TIDs of each of the threads in the process.
     pub(crate) fn thread_ids(&self) -> Result<Vec<i32>> {

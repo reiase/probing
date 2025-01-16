@@ -3,7 +3,7 @@ use leptos_meta::Style;
 
 use thaw::*;
 
-use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
+use crate::components::header_bar::HeaderBar;
 
 #[component]
 pub fn Profiler() -> impl IntoView {

@@ -43,7 +43,7 @@ pub struct DataFrameIterator<'a> {
     current: usize,
 }
 
-impl<'a> Iterator for DataFrameIterator<'a> {
+impl Iterator for DataFrameIterator<'_> {
     type Item = Vec<Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
