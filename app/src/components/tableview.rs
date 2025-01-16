@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use leptos_meta::Style;
 use thaw::*;
 
 use probing_proto::prelude::Table;
@@ -12,7 +13,7 @@ pub fn TableView(tbl: Table) -> impl IntoView {
                     each=move || tbl.names.clone().into_iter()
                     key=|name| name.clone()
                     children=move |name| {
-                        view! { <TableHeaderCell>{name}</TableHeaderCell> }
+                        view! { <TableHeaderCell resizable=true>{name}</TableHeaderCell> }
                     }
                 />
             </TableRow>
@@ -34,5 +35,14 @@ pub fn TableView(tbl: Table) -> impl IntoView {
             }
         })
         .collect::<Vec<_>>();
-    view! { <Table>{head} <TableBody>{rows}</TableBody></Table> }
+    view! {
+        <Style>
+            "
+            .tbl-content {
+                table-layout: auto;
+            }
+            "
+        </Style>
+        <Table class="tbl-content">{head} <TableBody>{rows}</TableBody></Table>
+    }
 }

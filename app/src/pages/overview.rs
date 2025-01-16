@@ -5,6 +5,8 @@ use thaw::*;
 use probing_proto::prelude::*;
 use probing_proto::Process;
 
+use crate::components::card_view::ProcessCard;
+use crate::components::card_view::ThreadsCard;
 use crate::components::header_bar::HeaderBar;
 use crate::components::panel::Panel;
 use crate::components::tableview::TableView;
@@ -20,16 +22,7 @@ pub fn Overview() -> impl IntoView {
         }>
             {move || Suspend::new(async move {
                 let process = resp.await.unwrap_or_default();
-                let tbl = Table::new(
-                    vec!["name", "value"],
-                    vec![
-                        vec!["Process ID(pid)".to_string(), process.pid.to_string()],
-                        vec!["Executable Path(exe)".to_string(), process.exe.to_string()],
-                        vec!["Command Line(cmd)".to_string(), process.cmd.to_string()],
-                        vec!["Current Working Dirctory(cwd)".to_string(), process.cwd.to_string()],
-                    ],
-                );
-                view! { <TableView tbl /> }
+                view! { <ProcessCard process=process /> }
             })}
         </Suspense>
     };
@@ -39,26 +32,9 @@ pub fn Overview() -> impl IntoView {
             view! { <p>"Loading..."</p> }
         }>
             {move || Suspend::new(async move {
-                resp.await
-                    .map(|process| {
-                        let threads = process
-                            .threads
-                            .iter()
-                            .map(|t| {
-                                let tid = *t;
-                                let url = format!("/activity/{}", tid);
-                                view! { <Link href=url>{tid}</Link> }
-                            })
-                            .collect::<Vec<_>>();
-                        view! { <Flex>{threads}</Flex> }
-                    })
-                    .unwrap_or(
-                        view! {
-                            <Flex>
-                                <span>{"no threads found"}</span>
-                            </Flex>
-                        },
-                    )
+                let process = resp.await.unwrap_or_default();
+                let threads = process.threads;
+                view! { <ThreadsCard threads /> }
             })}
 
         </Suspense>
@@ -92,14 +68,13 @@ pub fn Overview() -> impl IntoView {
         <Style>
             "
             .doc-content {
-                    margin: 0 auto;
-                    width: 100%;
-                    display: grid;
-            }
-            @media screen and (max-width: 1200px) {
-                .doc-content {
-                    width: 100%;
-                }
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                gap: 16px;
+                max-width: 100%;
+                box-sizing: border-box;
+                padding: 0 24px;
             }
             "
         </Style>
@@ -108,11 +83,9 @@ pub fn Overview() -> impl IntoView {
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
         >
-            // <Flex align=FlexAlign::Center vertical=true class="doc-content">
             <Panel title="Process Information">{process_info}</Panel>
             <Panel title="Threads Information">{thread_info}</Panel>
             <Panel title="Environment Variables">{environments}</Panel>
-        // </Flex>
         </Layout>
     }
 }

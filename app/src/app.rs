@@ -49,7 +49,7 @@ fn TheRouter() -> impl IntoView {
                 <Route path=path!("/activity") view=Activity />
                 <Route path=path!("/activity/:tid") view=Activity />
                 // <Route path="/debug" view=|| view! { <DebugView/> }/>
-                <Route path=path!("/profiler") view=|| view! { <Profiler/> }/>
+                <Route path=path!("/profiler") view=|| view! { <Profiler /> } />
                 <Route path=path!("/inspect") view=|| view! { <Python /> } />
             // <Route path="/files" view=|| view! { <Files/> }/>
             </Routes>
