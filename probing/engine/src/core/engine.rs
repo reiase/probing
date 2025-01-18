@@ -47,6 +47,7 @@ pub trait Plugin {
 pub struct Engine {
     context: SessionContext,
     plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
+    runtime: tokio::runtime::Runtime,
 }
 
 impl Default for Engine {
@@ -57,6 +58,11 @@ impl Default for Engine {
         Engine {
             context: SessionContext::new_with_config(config),
             plugins: Default::default(),
+            runtime: tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(4)
+                .enable_all()
+                .build()
+                .unwrap(),
         }
     }
 }
@@ -70,18 +76,16 @@ impl Engine {
         self.context.sql(query).await
     }
 
-    pub fn query<T: Into<String>>(
+    pub async fn async_query<T: Into<String>>(
         &self,
         q: T,
     ) -> anyhow::Result<probing_proto::prelude::DataFrame> {
-        let batch = futures::executor::block_on(async {
-            let q: String = q.into();
-            let batches = self.sql(q.as_str()).await?.collect().await?;
-            if batches.is_empty() {
-                return Err(anyhow::Error::msg("empty result"));
-            }
-            anyhow::Ok(concat_batches(&batches[0].schema(), batches.iter())?)
-        })?;
+        let q: String = q.into();
+        let batches = self.sql(q.as_str()).await?.collect().await?;
+        if batches.is_empty() {
+            return Err(anyhow::Error::msg("empty result"));
+        }
+        let batch = concat_batches(&batches[0].schema(), batches.iter())?;
 
         let names = batch
             .schema()
@@ -112,6 +116,13 @@ impl Engine {
             })
             .collect::<Vec<_>>();
         Ok(probing_proto::prelude::DataFrame::new(names, columns))
+    }
+
+    pub fn query<T: Into<String>>(
+        &self,
+        q: T,
+    ) -> anyhow::Result<probing_proto::prelude::DataFrame> {
+        futures::executor::block_on(async { self.async_query(q).await })
     }
 
     pub fn execute<E: Into<String>>(self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>> {
@@ -200,6 +211,11 @@ impl EngineBuilder {
         let engine = Engine {
             context,
             plugins: Default::default(),
+            runtime: tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(4)
+                .enable_all()
+                .build()
+                .unwrap(),
         };
         for (namespace, plugin) in self.plugins {
             engine.enable(namespace.as_str(), plugin)?;
