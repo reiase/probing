@@ -7,7 +7,6 @@ members = [
     "probing/server",
     "probing/cc",
     "probing/python",
-    "probing/legacy",
 ]
 
 [workspace.package]
@@ -58,18 +57,19 @@ crate-type = ["cdylib"]
 [dependencies]
 probing-proto = { path = "probing/proto" }
 probing-engine = { path = "probing/engine" }
-probing-legacy = { path = "probing/legacy" }
 probing-server = { path = "probing/server" }
 probing-python = { path = "probing/python" }
 
+anyhow = { workspace = true }
 log = { workspace = true }
 ron = { workspace = true }
 
 ctor = { version = "0.2.6", features=["used_linker"] }
-env_logger = { version = "0.11.3", default-features = false, features = [
+env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
 ] }
 nix = { version = "0.29.0", default-features = false, features = ["signal"] }
+signal-hook-registry = "1.4.2"
 
 [dev-dependencies]
 probing-cli = { path = "probing/cli" }

@@ -2,11 +2,9 @@ use anyhow::Result;
 
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
-use nix::{sys::signal, unistd::Pid};
 use probing_proto::prelude::ProbeCall;
 use probing_proto::protocol::query::Query;
 
-use crate::inject::{Injector, Process};
 use crate::table::render_dataframe;
 use probing_proto::cli::CtrlSignal;
 
@@ -79,10 +77,6 @@ impl From<CtrlChannel> for String {
 impl CtrlChannel {
     pub fn execute(&self, cmd: String) -> Result<Vec<u8>> {
         match self {
-            CtrlChannel::Ptrace { pid } => {
-                send_ctrl_via_ptrace(cmd, *pid)?;
-                Ok(Default::default())
-            }
             ctrl => {
                 let ret = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -92,6 +86,7 @@ impl CtrlChannel {
 
                 Ok(ret)
             }
+            _ => todo!(),
         }
     }
 
@@ -99,10 +94,10 @@ impl CtrlChannel {
         let cmd = ron::to_string(&cmd)?;
         log::debug!("request: {cmd}");
         match self {
-            CtrlChannel::Ptrace { pid } => {
-                send_ctrl_via_ptrace(cmd, *pid)?;
-                Ok(ProbeCall::Nil)
-            }
+            // CtrlChannel::Ptrace { pid } => {
+            //     send_ctrl_via_ptrace(cmd, *pid)?;
+            //     Ok(ProbeCall::Nil)
+            // }
             ctrl => {
                 let reply = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -116,6 +111,7 @@ impl CtrlChannel {
 
                 Ok(reply)
             }
+            _ => todo!()
         }
     }
 
@@ -148,10 +144,10 @@ impl CtrlChannel {
 
     pub fn signal(&self, cmd: String) -> Result<()> {
         match self {
-            CtrlChannel::Ptrace { pid } => {
-                send_ctrl_via_ptrace(cmd, *pid)?;
-                Ok(())
-            }
+            // CtrlChannel::Ptrace { pid } => {
+            //     send_ctrl_via_ptrace(cmd, *pid)?;
+            //     Ok(())
+            // }
             ctrl => {
                 let cmd = if cmd.starts_with('[') {
                     cmd
@@ -166,6 +162,7 @@ impl CtrlChannel {
 
                 Ok(())
             }
+            _ => todo!()
         }
     }
 }
@@ -225,13 +222,13 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
     Ok(res.collect().await.map(|x| x.to_bytes().to_vec())?)
 }
 
-fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
-    eprintln!("sending ctrl commands via ptrace...");
-    let process = Process::get(pid as u32).unwrap();
-    Injector::attach(process)
-        .unwrap()
-        .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
-        .map_err(|e| anyhow::anyhow!(e))?;
-    signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
-    Ok(())
-}
+// fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
+//     eprintln!("sending ctrl commands via ptrace...");
+//     let process = Process::get(pid as u32).unwrap();
+//     Injector::attach(process)
+//         .unwrap()
+//         .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
+//         .map_err(|e| anyhow::anyhow!(e))?;
+//     signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
+//     Ok(())
+// }

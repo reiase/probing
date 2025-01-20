@@ -1,19 +1,12 @@
 #[macro_use]
 extern crate ctor;
 
-use std::env;
-
+use anyhow::Result;
 use env_logger::Env;
-use log::debug;
 use log::error;
-use nix::libc::SIGUSR1;
+use nix::libc;
 use nix::libc::SIGUSR2;
 
-use probing_legacy::ctrl::ctrl_handler;
-use probing_legacy::get_hostname;
-use probing_legacy::register_signal_handler;
-use probing_legacy::sigusr1_handler;
-use probing_proto::cli::CtrlSignal;
 use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
 
@@ -23,28 +16,40 @@ const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
 const DEFAULT_PORT: u16 = 9700;
 
+pub fn register_signal_handler<F>(sig: std::ffi::c_int, handler: F)
+where
+    F: Fn() + Sync + Send + 'static,
+{
+    unsafe { signal_hook_registry::register_unchecked(sig, move |_: &_| handler()).unwrap() };
+}
+
+pub fn get_hostname() -> Result<String> {
+    let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
+    let size = libc::c_long::max(limit, 256) as usize;
+
+    // Reserve additional space for terminating nul byte.
+    let mut buffer = vec![0u8; size + 1];
+
+    #[allow(trivial_casts)]
+    let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
+
+    if result != 0 {
+        return Err(anyhow::anyhow!("gethostname failed"));
+    }
+
+    let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
+
+    Ok(hostname.to_str()?.to_string())
+}
+
 #[ctor]
 fn setup() {
     let pid = std::process::id();
     eprintln!("Initializing libprobing for process {pid} ...",);
     env_logger::init_from_env(Env::new().filter(ENV_PROBING_LOG));
 
-    let argstr = env::var(ENV_PROBING_ARGS).unwrap_or("[]".to_string());
-    debug!("Setup libprobing with PROBING_ARGS: {argstr}");
-    let cmds = ron::from_str::<Vec<CtrlSignal>>(argstr.as_str());
-    debug!("Setup libprobing with commands: {cmds:?}");
-
-    register_signal_handler(SIGUSR1, sigusr1_handler);
     register_signal_handler(SIGUSR2, backtrace_signal_handler);
 
-    if let Ok(cmds) = cmds {
-        for cmd in cmds {
-            match ctrl_handler(cmd) {
-                Ok(_) => (),
-                Err(e) => error!("Failed to handle command: {e}"),
-            };
-        }
-    }
     probing_server::start_local();
 
     if let Ok(port) = std::env::var(ENV_PROBING_PORT) {
