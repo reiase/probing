@@ -2,11 +2,9 @@ mod actors;
 mod apis;
 mod services;
 
-use std::thread;
-
 use actix_web::{web, App, HttpServer};
+use anyhow::Result;
 use log::error;
-use log::info;
 use once_cell::sync::Lazy;
 
 use apis::api_service_config;
@@ -24,7 +22,7 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
         .unwrap()
 });
 
-pub async fn local_server() -> std::io::Result<()> {
+pub async fn local_server() -> Result<()> {
     let prefix_path = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
 
     let path = std::path::Path::new(&prefix_path);
@@ -34,7 +32,7 @@ pub async fn local_server() -> std::io::Result<()> {
 
     let socket_path = format!("{}/{}", prefix_path, std::process::id());
 
-    HttpServer::new(|| {
+    let server = match HttpServer::new(|| {
         App::new()
             .service(services::probe)
             .service(services::query)
@@ -42,26 +40,28 @@ pub async fn local_server() -> std::io::Result<()> {
             .configure(page_service_config)
             .route("/{filename:.*}", web::get().to(static_files))
     })
-    .bind_uds(socket_path)?
     .workers(2)
-    .run()
-    .await
+    .bind_uds(socket_path.clone())
+    {
+        Ok(server) => server,
+        Err(err) => {
+            error!("Failed to bind server to {}: {}", socket_path, err);
+            return Err(err.into());
+        }
+    };
+    server.run().await?;
+    Ok(())
 }
 
 pub fn start_local() {
-    thread::spawn(move || {
-        SERVER_RUNTIME.block_on(async move {
-            match local_server().await {
-                Ok(_) => info!("Local server started successfully."),
-                Err(err) => error!("Failed to start local server: {}", err),
-            }
-        });
+    SERVER_RUNTIME.spawn(async move {
+        let _ = local_server().await;
     });
 }
 
-pub async fn remote_server(addr: Option<String>) -> std::io::Result<()> {
+pub async fn remote_server(addr: Option<String>) -> Result<()> {
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
-    HttpServer::new(|| {
+    let server = match HttpServer::new(|| {
         App::new()
             .service(services::probe)
             .service(services::query)
@@ -69,19 +69,22 @@ pub async fn remote_server(addr: Option<String>) -> std::io::Result<()> {
             .configure(page_service_config)
             .route("/{filename:.*}", web::get().to(static_files))
     })
-    .bind(addr)?
     .workers(2)
-    .run()
-    .await
+    .bind(addr.clone())
+    {
+        Ok(server) => server,
+        Err(err) => {
+            error!("Failed to bind server to {}: {}", addr.clone(), err);
+            return Err(err.into());
+        }
+    };
+
+    server.run().await?;
+    Ok(())
 }
 
 pub fn start_remote(addr: Option<String>) {
-    thread::spawn(move || {
-        SERVER_RUNTIME.block_on(async move {
-            match remote_server(addr).await {
-                Ok(_) => info!("Remote server started successfully."),
-                Err(err) => error!("Failed to start remote server: {}", err),
-            }
-        });
+    SERVER_RUNTIME.spawn(async move {
+        let _ = remote_server(addr).await;
     });
 }

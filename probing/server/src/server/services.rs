@@ -25,7 +25,6 @@ fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
     // engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
     // engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
     if let QueryMessage::Query(request) = request {
-
         let resp = thread::spawn(move || {
             let engine = probing_engine::create_engine();
             engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
@@ -37,7 +36,9 @@ fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
                 .build()
                 .unwrap()
                 .block_on(async { engine.execute(&request.expr, "ron") })
-        }).join().map_err(|_| anyhow::anyhow!("error joining thread"))??;
+        })
+        .join()
+        .map_err(|_| anyhow::anyhow!("error joining thread"))??;
 
         // let resp = engine.execute(&request.expr, "ron")?;
         Ok(ron::to_string(&QueryMessage::Reply(QueryReply {
