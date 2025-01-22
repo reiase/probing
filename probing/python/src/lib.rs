@@ -216,7 +216,8 @@ pub fn create_probing_module() -> PyResult<()> {
     Ok(())
 }
 
-pub static PROBING_OPTIONS: Lazy<Mutex<ProbingOptions>> = Lazy::new(|| Mutex::new(ProbingOptions::default()));
+pub static PROBING_OPTIONS: Lazy<Mutex<ProbingOptions>> =
+    Lazy::new(|| Mutex::new(ProbingOptions::default()));
 
 #[derive(Debug, Clone)]
 pub struct ProbingOptions {

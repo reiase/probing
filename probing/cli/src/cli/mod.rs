@@ -10,7 +10,6 @@ pub mod process_monitor;
 
 use crate::cli::ctrl::CtrlChannel;
 use commands::Commands;
-use probing_proto::cli::CtrlSignal as Signal;
 use probing_proto::protocol::query::Query;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
@@ -49,10 +48,10 @@ impl Cli {
         match command {
             Commands::Inject(cmd) => cmd.run(ctrl),
 
-            Commands::Enable { feature } => {
-                ctrl::probe(ctrl, ProbeCall::CallEnable(feature.clone()))
-            }
-            Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
+            // Commands::Enable { feature } => {
+            //     ctrl::probe(ctrl, ProbeCall::CallEnable(feature.clone()))
+            // }
+            // Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
             // Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),
 
             Commands::Config { setting } => {
@@ -77,9 +76,13 @@ impl Cli {
                 }
             },
 
-            Commands::Backtrace(cmd) => ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
+            Commands::Backtrace{tid} => {
+                ctrl::probe(ctrl, ProbeCall::CallBacktrace(tid.clone()))
+            },//ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
             // Commands::Trace(cmd) => ctrl::handle(ctrl, Signal::Trace(cmd.clone())),
-            Commands::Eval { code } => ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
+            Commands::Eval { code } => {
+                ctrl::probe(ctrl, ProbeCall::CallEval(code.clone()))
+            },//ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
 
             Commands::Query { query } => ctrl::query(
                 ctrl,

@@ -6,25 +6,12 @@ use probing_proto::prelude::ProbeCall;
 use probing_proto::protocol::query::Query;
 
 use crate::table::render_dataframe;
-use probing_proto::cli::CtrlSignal;
 
 use probing_proto::prelude::*;
 
 pub fn probe(ctrl: CtrlChannel, cmd: ProbeCall) -> Result<()> {
     let reply = ctrl.probe(cmd)?;
     println!("{reply}");
-    Ok(())
-}
-
-pub fn handle(ctrl: CtrlChannel, sig: CtrlSignal) -> Result<()> {
-    let cmd = ron::to_string(&sig)?;
-    match ctrl.execute(cmd) {
-        Ok(ret) => {
-            let ret = String::from_utf8(ret)?;
-            println!("{ret}");
-        }
-        Err(err) => println!("{err}"),
-    }
     Ok(())
 }
 
@@ -75,21 +62,6 @@ impl From<CtrlChannel> for String {
 }
 
 impl CtrlChannel {
-    pub fn execute(&self, cmd: String) -> Result<Vec<u8>> {
-        match self {
-            ctrl => {
-                let ret = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(request(ctrl.clone(), "/ctrl", cmd.into()))?;
-
-                Ok(ret)
-            }
-            _ => todo!(),
-        }
-    }
-
     pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
         let cmd = ron::to_string(&cmd)?;
         log::debug!("request: {cmd}");
