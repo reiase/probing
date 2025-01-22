@@ -35,7 +35,22 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(async { engine.execute(&request.expr, "ron") })
+                .block_on(async {
+                    let q = request.expr.clone();
+                    if q.starts_with("set") && q.contains(";") {
+                        for q in q.split(";") {
+                            match engine.sql(q).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    log::error!("Error executing query: {}", e);
+                                }
+                            };
+                        }
+                        Ok(vec![])
+                    } else {
+                        engine.execute(&request.expr, "ron")
+                    }
+                })
         })
         .join()
         .map_err(|_| anyhow::anyhow!("error joining thread"))??;
