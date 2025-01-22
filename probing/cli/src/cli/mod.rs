@@ -53,9 +53,32 @@ impl Cli {
                 ctrl::probe(ctrl, ProbeCall::CallEnable(feature.clone()))
             }
             Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
-            Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),
+            // Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),
+
+            Commands::Config { setting } => {
+                match *setting {
+                    Some(ref setting) => {
+                        let setting = if !setting.starts_with("set ") & !setting.starts_with("SET ") {
+                            format!("set {}", setting)
+                        } else {
+                            setting.clone()
+                        };
+                        ctrl::query(ctrl, Query {
+                            expr: setting,
+                            opts: None,
+                        })
+                    },
+                    None => {
+                        ctrl::query(ctrl, Query {
+                            expr: "select * from information_schema.df_settings where name like 'probe.%';".to_string(),
+                            opts: None,
+                        })
+                    },
+                }
+            },
+
             Commands::Backtrace(cmd) => ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
-            Commands::Trace(cmd) => ctrl::handle(ctrl, Signal::Trace(cmd.clone())),
+            // Commands::Trace(cmd) => ctrl::handle(ctrl, Signal::Trace(cmd.clone())),
             Commands::Eval { code } => ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
 
             Commands::Query { query } => ctrl::query(

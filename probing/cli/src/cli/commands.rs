@@ -14,17 +14,23 @@ pub enum Commands {
     #[command(subcommand)]
     Disable(Features),
 
-    /// Display informations from the target process (see -h, --help above)
-    #[command(subcommand)]
-    Show(ShowCommand),
+    /// Display or modify the configuration
+    #[command()]
+    Config {
+        setting: Option<String>,
+    },
+
+    // /// Display informations from the target process (see -h, --help above)
+    // #[command(subcommand)]
+    // Show(ShowCommand),
 
     /// Show the backtrace of the target process or thread
     #[command(subcommand, visible_aliases = ["bt"])]
     Backtrace(BackTraceCommand),
 
-    /// Trace function call and variable changes
-    #[command(subcommand)]
-    Trace(TraceCommand),
+    // /// Trace function call and variable changes
+    // #[command(subcommand)]
+    // Trace(TraceCommand),
 
     /// Evaluate code in the target process
     #[command()]

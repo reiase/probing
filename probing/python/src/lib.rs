@@ -12,6 +12,7 @@ use anyhow::Result;
 
 use log::error;
 use nix::unistd::Pid;
+use once_cell::sync::Lazy;
 use pprof::PPROF_HOLDER;
 use probing_engine::core::ConfigEntry;
 use probing_engine::core::ConfigExtension;
@@ -215,6 +216,8 @@ pub fn create_probing_module() -> PyResult<()> {
     Ok(())
 }
 
+pub static PROBING_OPTIONS: Lazy<Mutex<ProbingOptions>> = Lazy::new(|| Mutex::new(ProbingOptions::default()));
+
 #[derive(Debug, Clone)]
 pub struct ProbingOptions {
     pprof_sample_freq: i32,
@@ -249,15 +252,16 @@ impl ExtensionOptions for ProbingOptions {
 
     fn set(&mut self, key: &str, value: &str) -> Result<(), DataFusionError> {
         log::debug!("probing update setting: {} = {}", key, value);
+        let mut global_setting = PROBING_OPTIONS.lock().unwrap();
         match key {
             "pprof_sample_freq" | "pprof.sample_freq" | "pprof.sample.freq" => {
                 let sample_freq: i32 = value.parse().unwrap_or(100);
-                self.pprof_sample_freq = sample_freq;
+                global_setting.pprof_sample_freq = sample_freq;
                 PPROF_HOLDER.setup(sample_freq);
             }
             "torch_sample_ratio" | "torch.sample_ratio" | "torch.sample.ratio" => {
                 let sample_ratio: f64 = value.parse().unwrap_or(0.0);
-                self.torch_sample_ratio = sample_ratio;
+                global_setting.torch_sample_ratio = sample_ratio;
                 let filename = format!("{}.py", "torch_profiling");
                 let code = get_code(filename.as_str());
                 match if let Some(code) = code {
@@ -268,7 +272,7 @@ impl ExtensionOptions for ProbingOptions {
                             anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
                         })?;
 
-                        let code = format!("torch_profiling({})\0", self.torch_sample_ratio);
+                        let code = format!("torch_profiling({})\0", sample_ratio);
                         let code = CStr::from_bytes_with_nul(code.as_bytes())?;
                         py.run(code, None, None).map_err(|err| {
                             anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
@@ -289,17 +293,20 @@ impl ExtensionOptions for ProbingOptions {
     }
 
     fn entries(&self) -> Vec<ConfigEntry> {
-        vec![
+        let global_setting = PROBING_OPTIONS.lock().unwrap();
+        let ret = vec![
             ConfigEntry {
                 key: "probe.pprof.sample_freq".to_string(),
-                value: Some(format!("{}", self.pprof_sample_freq)),
+                value: Some(format!("{}", global_setting.pprof_sample_freq)),
                 description: "pprof sample frequency",
             },
             ConfigEntry {
                 key: "probe.torch.sample_ratio".to_string(),
-                value: Some(format!("{}", self.torch_sample_ratio)),
+                value: Some(format!("{}", global_setting.torch_sample_ratio)),
                 description: "torch profiling sample ratio",
             },
-        ]
+        ];
+        println!("{:?}", ret);
+        ret
     }
 }
