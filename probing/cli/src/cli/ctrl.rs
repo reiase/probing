@@ -193,14 +193,3 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
 
     Ok(res.collect().await.map(|x| x.to_bytes().to_vec())?)
 }
-
-// fn send_ctrl_via_ptrace(argstr: String, pid: i32) -> Result<()> {
-//     eprintln!("sending ctrl commands via ptrace...");
-//     let process = Process::get(pid as u32).unwrap();
-//     Injector::attach(process)
-//         .unwrap()
-//         .setenv(Some("PROBING_ARGS"), Some(argstr.as_str()))
-//         .map_err(|e| anyhow::anyhow!(e))?;
-//     signal::kill(Pid::from_raw(pid), signal::Signal::SIGUSR1)?;
-//     Ok(())
-// }

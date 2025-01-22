@@ -40,11 +40,11 @@ impl Probe for CCProbe {
         todo!()
     }
 
-    fn enable(&self, feture: &str) -> anyhow::Result<()> {
+    fn enable(&self, _feture: &str) -> anyhow::Result<()> {
         Ok(())
     }
 
-    fn disable(&self, feture: &str) -> anyhow::Result<()> {
+    fn disable(&self, _feture: &str) -> anyhow::Result<()> {
         todo!()
     }
 }

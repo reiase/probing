@@ -30,7 +30,7 @@ pub fn Activity() -> impl IntoView {
                 {move || Suspend::new(async move {
                     let callstacks = match reply.await {
                         Ok(ProbeCall::ReturnBacktrace(callstacks)) => callstacks,
-                        other => Default::default(),
+                        _other => Default::default(),
                     };
                     log::info!("callstacks: {:?}", callstacks);
                     callstacks

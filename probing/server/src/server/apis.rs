@@ -72,7 +72,7 @@ async fn api_get_flamegraph_pprof() -> impl Responder {
         Ok(graph) => HttpResponse::Ok()
             .insert_header(http::header::ContentType(mime::IMAGE_SVG))
             .body(graph),
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
 

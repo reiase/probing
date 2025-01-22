@@ -11,7 +11,6 @@ use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
 
 const ENV_PROBING_LOG: &str = "PROBING_LOG";
-const ENV_PROBING_ARGS: &str = "PROBING_ARGS";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
 const DEFAULT_PORT: u16 = 9700;
