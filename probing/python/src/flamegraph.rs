@@ -5,8 +5,7 @@ use inferno;
 
 use crate::plugins::python::PythonPlugin;
 
-#[derive(Clone)]
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Frame {
     stage: String,
     module: String,
@@ -14,8 +13,9 @@ struct Frame {
 
 pub fn query_profiling() -> Result<Vec<String>> {
     let data = thread::spawn(|| {
-        let engine = probing_engine::create_engine();
-        engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
+        let engine = probing_engine::create_engine()
+            .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+            .build()?;
 
         let query = r#"
         select module_name, stage, avg(duration) 
@@ -59,9 +59,7 @@ pub fn query_profiling() -> Result<Vec<String>> {
                 stage: frame.stage.clone(),
                 module: parts.join("."),
             };
-            frames
-                .entry(parent)
-                .and_modify(|x| *x -= duration);
+            frames.entry(parent).and_modify(|x| *x -= duration);
         }
     }
 

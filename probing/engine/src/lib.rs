@@ -1,4 +1,5 @@
 use core::Engine;
+use core::EngineBuilder;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -15,11 +16,12 @@ fn init_engine(engine: &Engine) -> Result<()> {
     Ok(())
 }
 
-pub fn create_engine() -> Engine {
-    let engine = Engine::default();
-
-    if let Err(e) = init_engine(&engine) {
-        println!("{e}");
-    }
-    engine
+pub fn create_engine() -> EngineBuilder {
+    Engine::builder()
+        .with_default_catalog_and_schema("probe", "probe")
+        .with_information_schema(true)
+        .with_plugin("probe", Arc::new(EnvPlugin::new("envs", "process")))
+        .with_plugin("probe", Arc::new(KMsgPlugin::new("kmsg", "system")))
+        .with_plugin("probe", Arc::new(FilePlugin::new("file")))
+        .with_plugin("probe", Arc::new(FilesPlugin::default()))
 }

@@ -122,7 +122,11 @@ impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> TableProvider
         if let Some(schema) = &self.schema {
             return schema.clone();
         }
-        SchemaRef::new(Schema::new(vec![Field::new("unknown_fields", DataType::Int64, false)]))
+        SchemaRef::new(Schema::new(vec![Field::new(
+            "unknown_fields",
+            DataType::Int64,
+            false,
+        )]))
     }
 
     fn table_type(&self) -> TableType {

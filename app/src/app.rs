@@ -4,8 +4,8 @@ use leptos_router::components::{Route, Router, Routes};
 use leptos_router::path;
 use thaw::*;
 
-use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
 use crate::pages::profiler::Profiler;
+use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();

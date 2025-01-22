@@ -8,10 +8,15 @@ use probing_engine::plugins::envs::EnvPlugin;
 use probing_engine::plugins::file::FilePlugin;
 use probing_engine::plugins::files::FilesPlugin;
 use probing_engine::plugins::kmsg::KMsgPlugin;
+use probing_python::ProbingOptions;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let engine = Engine::default();
+    let engine = Engine::builder()
+        .with_information_schema(true)
+        .with_extension_options(ProbingOptions::default())
+        .build()
+        .unwrap();
 
     engine.enable("probe", Arc::new(FilesPlugin::default()))?;
     engine.enable("probe", Arc::new(FilePlugin::new("file")))?;

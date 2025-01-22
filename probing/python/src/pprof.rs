@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use once_cell::sync::Lazy;
 use pprof::ProfilerGuard;
 use pprof::ProfilerGuardBuilder;
@@ -15,6 +17,7 @@ impl PprofHolder {
     }
 
     pub fn setup(&self, freq: i32) {
+        log::debug!("setup pprof with sample freq: {}", freq);
         let _ = self.0.lock().map(|mut holder| {
             match ProfilerGuardBuilder::default().frequency(freq).build() {
                 Ok(ph) => holder.replace(ph),
@@ -36,19 +39,18 @@ impl PprofHolder {
     //     })
     // }
 
-    pub fn flamegraph(&self) -> Option<String> {
-        self.0.lock().ok().and_then(|pp| match pp.as_ref() {
-            Some(pp) => {
-                if let Ok(report) = pp.report().build() {
-                    let mut graph: Vec<u8> = vec![];
-                    report.flamegraph(&mut graph).unwrap();
-                    String::from_utf8(graph).ok()
-                } else {
-                    None
-                }
-            }
-            None => None,
-        })
+    pub fn flamegraph(&self) -> Result<String> {
+        let holder = self.0.lock().unwrap();
+
+        if let Some(pp) = holder.as_ref() {
+            let report = pp.report().build()?;
+            let mut graph: Vec<u8> = vec![];
+            report.flamegraph(&mut graph).unwrap();
+            let graph = String::from_utf8(graph)?;
+            Ok(graph)
+        } else {
+            Err(anyhow::anyhow!("no pprof"))
+        }
     }
 }
 

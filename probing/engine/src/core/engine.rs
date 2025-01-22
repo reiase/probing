@@ -11,6 +11,7 @@ use arrow::array::TimestampMicrosecondArray;
 use arrow::compute::concat_batches;
 use datafusion::catalog::{CatalogProvider, SchemaProvider};
 use datafusion::catalog_common::{MemoryCatalogProvider, MemorySchemaProvider};
+use datafusion::config::ConfigExtension;
 use datafusion::error::Result;
 use datafusion::execution::SessionState;
 use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
@@ -47,7 +48,6 @@ pub trait Plugin {
 pub struct Engine {
     context: SessionContext,
     plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
-    runtime: tokio::runtime::Runtime,
 }
 
 impl Default for Engine {
@@ -58,11 +58,6 @@ impl Default for Engine {
         Engine {
             context: SessionContext::new_with_config(config),
             plugins: Default::default(),
-            runtime: tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(4)
-                .enable_all()
-                .build()
-                .unwrap(),
         }
     }
 }
@@ -70,6 +65,15 @@ impl Default for Engine {
 impl Engine {
     pub fn builder() -> EngineBuilder {
         EngineBuilder::new()
+    }
+
+    pub fn register_extension_options<T: ConfigExtension>(&self, extension: T) {
+        self.context
+            .state()
+            .config_mut()
+            .options_mut()
+            .extensions
+            .insert(extension);
     }
 
     pub async fn sql(&self, query: &str) -> Result<DataFrame> {
@@ -128,6 +132,9 @@ impl Engine {
     pub fn execute<E: Into<String>>(self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>> {
         futures::executor::block_on(async {
             let batches = self.sql(query).await?.collect().await?;
+            if batches.is_empty() {
+                return Err(anyhow::Error::msg("empty result"));
+            }
             let merged = concat_batches(&batches[0].schema(), batches.iter())?;
             chunked_encode(&merged, encoder)
         })
@@ -205,17 +212,17 @@ impl EngineBuilder {
         self
     }
 
+    pub fn with_extension_options<T: ConfigExtension>(mut self, extension: T) -> Self {
+        self.config.options_mut().extensions.insert(extension);
+        self
+    }
+
     // Build the Engine with the specified configurations
     pub fn build(self) -> Result<Engine> {
         let context = SessionContext::new_with_config(self.config);
         let engine = Engine {
             context,
             plugins: Default::default(),
-            runtime: tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(4)
-                .enable_all()
-                .build()
-                .unwrap(),
         };
         for (namespace, plugin) in self.plugins {
             engine.enable(namespace.as_str(), plugin)?;

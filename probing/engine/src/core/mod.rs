@@ -3,10 +3,10 @@ mod engine;
 mod table_plugin;
 
 pub use engine::Engine;
+pub use engine::EngineBuilder;
 pub use engine::Plugin;
 pub use engine::PluginType;
 
-use once_cell::sync::Lazy;
 pub use table_plugin::CustomSchema;
 pub use table_plugin::CustomTable;
 pub use table_plugin::SchemaPlugin;
@@ -26,14 +26,19 @@ pub use datafusion::arrow::datatypes::Field;
 pub use datafusion::arrow::datatypes::Schema;
 pub use datafusion::arrow::datatypes::SchemaRef;
 pub use datafusion::arrow::util::pretty;
+pub use datafusion::common::error::DataFusionError;
+pub use datafusion::config::CatalogOptions;
+pub use datafusion::config::ConfigEntry;
+pub use datafusion::config::ConfigExtension;
+pub use datafusion::config::ExtensionOptions;
 
-pub static ENGINE_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
-    tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(4)
-        .enable_all()
-        .build()
-        .unwrap()
-});
+// pub static ENGINE_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+//     tokio::runtime::Builder::new_multi_thread()
+//         .worker_threads(4)
+//         .enable_all()
+//         .build()
+//         .unwrap()
+// });
 
 #[cfg(test)]
 mod specs {

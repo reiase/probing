@@ -2,6 +2,7 @@ use actix_web::{get, http, put, web, HttpResponse, Responder};
 use anyhow::Result;
 
 use probing_proto::{prelude::*, Process};
+use probing_python::pprof::PPROF_HOLDER;
 
 use crate::server::services::PROBE;
 
@@ -51,8 +52,8 @@ async fn api_get_overview() -> impl Responder {
     }
 }
 
-#[get("/flamegraph")]
-async fn api_get_flamegraph() -> impl Responder {
+#[get("/flamegraph/torch")]
+async fn api_get_flamegraph_torch() -> impl Responder {
     let probe = PROBE.clone();
     let retval = probe.send(ProbeCall::CallFlamegraph).await;
     match retval {
@@ -62,6 +63,16 @@ async fn api_get_flamegraph() -> impl Responder {
         Ok(ProbeCall::Err(err)) => HttpResponse::InternalServerError().body(err),
         _ => HttpResponse::InternalServerError()
             .body(format!("unexpected response from probe: {:?}", retval)),
+    }
+}
+
+#[get("/flamegraph/pprof")]
+async fn api_get_flamegraph_pprof() -> impl Responder {
+    match PPROF_HOLDER.flamegraph() {
+        Ok(graph) => HttpResponse::Ok()
+            .insert_header(http::header::ContentType(mime::IMAGE_SVG))
+            .body(graph),
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
 
@@ -127,5 +138,6 @@ pub fn api_service_config(cfg: &mut web::ServiceConfig) {
         .service(api_get_overview)
         .service(api_get_callstack)
         .service(api_get_files)
-        .service(api_get_flamegraph);
+        .service(api_get_flamegraph_torch)
+        .service(api_get_flamegraph_pprof);
 }

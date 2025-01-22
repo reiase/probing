@@ -9,6 +9,7 @@ use actix_web::{post, web, HttpResponse, Responder};
 use once_cell::sync::Lazy;
 
 use probing_proto::prelude::*;
+use probing_python::ProbingOptions;
 use probing_python::PythonProbe;
 
 use crate::asset;
@@ -21,14 +22,13 @@ fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
-    // let engine = probing_engine::create_engine();
-    // engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
-    // engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
     if let QueryMessage::Query(request) = request {
         let resp = thread::spawn(move || {
-            let engine = probing_engine::create_engine();
-            engine.enable("probe", Arc::new(PythonPlugin::new("python")))?;
-            engine.enable("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))?;
+            let engine = probing_engine::create_engine()
+                .with_extension_options(ProbingOptions::default())
+                .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+                .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
+                .build()?;
 
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(4)

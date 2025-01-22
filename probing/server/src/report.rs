@@ -7,6 +7,7 @@ use nix::libc;
 use probing_proto::prelude::Node;
 
 use super::vars::PROBING_ADDRESS;
+use crate::server::SERVER_RUNTIME;
 
 pub fn get_hostname() -> Result<String> {
     let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
@@ -29,13 +30,7 @@ pub fn get_hostname() -> Result<String> {
 
 pub fn start_report_worker() {
     thread::spawn(|| {
-        actix_rt::System::with_tokio_rt(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-        })
-        .block_on(report_worker());
+        SERVER_RUNTIME.block_on(report_worker());
     });
 }
 

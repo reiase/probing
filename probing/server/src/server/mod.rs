@@ -18,6 +18,13 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(worker_threads)
+        .thread_name("server runtime")
+        .on_thread_start(|| {
+            log::debug!(
+                "start server runtime thread: {:?}",
+                std::thread::current().id()
+            );
+        })
         .build()
         .unwrap()
 });

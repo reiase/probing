@@ -259,7 +259,7 @@ impl Series {
             }
         } else {
             self.config.dtype = T::dtype();
-            
+
             let array = T::create_array(data, self.config.chunk_size);
             let page = Page::Raw(array);
             let offset = self.offset;

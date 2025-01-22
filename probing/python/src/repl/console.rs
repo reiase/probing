@@ -24,8 +24,8 @@ fn get_repl_code() -> String {
         None => {
             eprintln!("error loading console code");
             String::new()
-        }        
-    }    
+        }
+    }
 }
 
 pub struct NativePythonConsole {

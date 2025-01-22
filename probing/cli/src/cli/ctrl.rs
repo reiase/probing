@@ -111,7 +111,7 @@ impl CtrlChannel {
 
                 Ok(reply)
             }
-            _ => todo!()
+            _ => todo!(),
         }
     }
 
@@ -162,7 +162,7 @@ impl CtrlChannel {
 
                 Ok(())
             }
-            _ => todo!()
+            _ => todo!(),
         }
     }
 }

@@ -163,7 +163,8 @@ impl PythonSchema {
 
         let timeseries = ts
             .timestamp
-            .iter().take(length)
+            .iter()
+            .take(length)
             .map(|x| match x {
                 Value::Int64(x) => x,
                 _ => 0,
@@ -174,7 +175,8 @@ impl PythonSchema {
         for col in ts.cols.iter() {
             let col = match col.dtype() {
                 types::DataType::Int64 => Arc::new(Int64Array::from(
-                    col.iter().take(length)
+                    col.iter()
+                        .take(length)
                         .map(|x| match x {
                             Value::Int64(x) => x,
                             _ => 0,
@@ -182,7 +184,8 @@ impl PythonSchema {
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
                 types::DataType::Float64 => Arc::new(Float64Array::from(
-                    col.iter().take(length)
+                    col.iter()
+                        .take(length)
                         .map(|x| match x {
                             Value::Float64(x) => x,
                             _ => 0.0,
@@ -190,7 +193,8 @@ impl PythonSchema {
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
                 types::DataType::Int32 => Arc::new(Int32Array::from(
-                    col.iter().take(length)
+                    col.iter()
+                        .take(length)
                         .map(|x| match x {
                             Value::Int32(x) => x,
                             _ => 0,
@@ -198,7 +202,8 @@ impl PythonSchema {
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
                 types::DataType::Float32 => Arc::new(Float32Array::from(
-                    col.iter().take(length)
+                    col.iter()
+                        .take(length)
                         .map(|x| match x {
                             Value::Float32(x) => x,
                             _ => 0.0,
@@ -206,7 +211,8 @@ impl PythonSchema {
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
                 types::DataType::Text => Arc::new(StringArray::from(
-                    col.iter().take(length)
+                    col.iter()
+                        .take(length)
                         .map(|x| match x {
                             Value::Text(x) => x,
                             _ => x.to_string(),
@@ -214,7 +220,8 @@ impl PythonSchema {
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
                 _ => Arc::new(StringArray::from(
-                    col.iter().take(length)
+                    col.iter()
+                        .take(length)
                         .map(|x| x.to_string())
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,

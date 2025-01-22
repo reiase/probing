@@ -1,5 +1,6 @@
 pub mod flamegraph;
 pub mod plugins;
+pub mod pprof;
 pub mod pycode;
 pub mod repl;
 
@@ -11,6 +12,11 @@ use anyhow::Result;
 
 use log::error;
 use nix::unistd::Pid;
+use pprof::PPROF_HOLDER;
+use probing_engine::core::ConfigEntry;
+use probing_engine::core::ConfigExtension;
+use probing_engine::core::DataFusionError;
+use probing_engine::core::ExtensionOptions;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -142,7 +148,10 @@ impl Probe for PythonProbe {
     fn enable(&self, feture: &str) -> Result<()> {
         create_probing_module()?;
         match feture {
-            "profiling" => Ok(()),
+            "profiling" => {
+                PPROF_HOLDER.setup(100);
+                Ok(())
+            }
             name => {
                 let filename = if let Some(pos) = name.find('(') {
                     &name[..pos]
@@ -204,4 +213,93 @@ pub fn create_probing_module() -> PyResult<()> {
         Ok(())
     })?;
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct ProbingOptions {
+    pprof_sample_freq: i32,
+    torch_sample_ratio: f64,
+}
+
+impl Default for ProbingOptions {
+    fn default() -> Self {
+        ProbingOptions {
+            pprof_sample_freq: 0,
+            torch_sample_ratio: 0.0,
+        }
+    }
+}
+
+impl ConfigExtension for ProbingOptions {
+    const PREFIX: &'static str = "probe";
+}
+
+impl ExtensionOptions for ProbingOptions {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn cloned(&self) -> Box<dyn ExtensionOptions> {
+        Box::new(self.clone())
+    }
+
+    fn set(&mut self, key: &str, value: &str) -> Result<(), DataFusionError> {
+        log::debug!("probing update setting: {} = {}", key, value);
+        match key {
+            "pprof_sample_freq" | "pprof.sample_freq" | "pprof.sample.freq" => {
+                let sample_freq: i32 = value.parse().unwrap_or(100);
+                self.pprof_sample_freq = sample_freq;
+                PPROF_HOLDER.setup(sample_freq);
+            }
+            "torch_sample_ratio" | "torch.sample_ratio" | "torch.sample.ratio" => {
+                let sample_ratio: f64 = value.parse().unwrap_or(0.0);
+                self.torch_sample_ratio = sample_ratio;
+                let filename = format!("{}.py", "torch_profiling");
+                let code = get_code(filename.as_str());
+                match if let Some(code) = code {
+                    Python::with_gil(|py| {
+                        let code = format!("{}\0", code);
+                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
+                        py.run(code, None, None).map_err(|err| {
+                            anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
+                        })?;
+
+                        let code = format!("torch_profiling({})\0", self.torch_sample_ratio);
+                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
+                        py.run(code, None, None).map_err(|err| {
+                            anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
+                        })
+                    })
+                } else {
+                    Err(anyhow::anyhow!("unsupported setting {}={}", key, value))
+                } {
+                    Ok(_) => {}
+                    Err(err) => {
+                        log::error!("{}", err);
+                    }
+                }
+            }
+            _ => println!("unknown setting {}={}", key, value),
+        }
+        Ok(())
+    }
+
+    fn entries(&self) -> Vec<ConfigEntry> {
+        vec![
+            ConfigEntry {
+                key: "probe.pprof.sample_freq".to_string(),
+                value: Some(format!("{}", self.pprof_sample_freq)),
+                description: "pprof sample frequency",
+            },
+            ConfigEntry {
+                key: "probe.torch.sample_ratio".to_string(),
+                value: Some(format!("{}", self.torch_sample_ratio)),
+                description: "torch profiling sample ratio",
+            },
+        ]
+    }
 }
