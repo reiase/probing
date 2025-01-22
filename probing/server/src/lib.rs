@@ -6,6 +6,7 @@ mod vars;
 pub use self::report::start_report_worker;
 pub use self::server::start_local;
 pub use self::server::start_remote;
+pub use self::server::sync_env_settings;
 
 pub fn cleanup() -> anyhow::Result<()> {
     let prefix = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());

@@ -235,7 +235,7 @@ impl Default for ProbingOptions {
 }
 
 impl ConfigExtension for ProbingOptions {
-    const PREFIX: &'static str = "probe";
+    const PREFIX: &'static str = "probing";
 }
 
 impl ExtensionOptions for ProbingOptions {
@@ -297,12 +297,12 @@ impl ExtensionOptions for ProbingOptions {
         let global_setting = PROBING_OPTIONS.lock().unwrap();
         let ret = vec![
             ConfigEntry {
-                key: "probe.pprof.sample_freq".to_string(),
+                key: "probing.pprof.sample_freq".to_string(),
                 value: Some(format!("{}", global_setting.pprof_sample_freq)),
                 description: "pprof sample frequency",
             },
             ConfigEntry {
-                key: "probe.torch.sample_ratio".to_string(),
+                key: "probing.torch.sample_ratio".to_string(),
                 value: Some(format!("{}", global_setting.torch_sample_ratio)),
                 description: "torch profiling sample ratio",
             },

@@ -18,7 +18,7 @@ use crate::server::actors::ProbeActor;
 pub static PROBE: Lazy<Addr<ProbeActor>> =
     Lazy::new(|| ProbeActor::new(Box::new(PythonProbe::default())).start());
 
-fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
+pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 

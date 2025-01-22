@@ -9,6 +9,7 @@ use nix::libc::SIGUSR2;
 
 use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
+use probing_server::sync_env_settings;
 
 const ENV_PROBING_LOG: &str = "PROBING_LOG";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
@@ -76,6 +77,7 @@ fn setup() {
         probing_server::start_report_worker();
     }
     let _ = create_probing_module();
+    sync_env_settings();
 }
 
 #[dtor]
