@@ -10,7 +10,7 @@ use log::error;
 use once_cell::sync::Lazy;
 
 use apis::api_service_config;
-use probing_proto::prelude::{ProbeCall, QueryMessage, QueryRequest};
+use probing_proto::prelude::{QueryMessage, QueryRequest};
 use services::{handle_query, page_service_config, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
@@ -104,8 +104,7 @@ pub fn sync_env_settings() {
         std::env::vars().for_each(|(k, v)| {
             if k.starts_with("PROBING_") {
                 let setting = format!("{}={}", k, v);
-                println!("{setting}");
-    
+
                 let k = k.replace("_", ".");
                 let setting = format!("set {}={}", k, v);
                 match handle_query(QueryMessage::Query(QueryRequest {
