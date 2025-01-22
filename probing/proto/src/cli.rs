@@ -2,35 +2,35 @@
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "cli", derive(Parser))]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum CtrlSignal {
-    #[cfg_attr(feature = "cli", command(hide = true))]
-    Nil,
-    #[cfg_attr(feature = "cli", command(hide = true))]
-    Dump,
+// #[cfg_attr(feature = "cli", derive(Parser))]
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum CtrlSignal {
+//     #[cfg_attr(feature = "cli", command(hide = true))]
+//     Nil,
+//     #[cfg_attr(feature = "cli", command(hide = true))]
+//     Dump,
 
-    #[cfg_attr(feature = "cli", command(subcommand))]
-    Enable(Features),
+//     #[cfg_attr(feature = "cli", command(subcommand))]
+//     Enable(Features),
 
-    #[cfg_attr(feature = "cli", command(subcommand))]
-    Disable(Features),
+//     #[cfg_attr(feature = "cli", command(subcommand))]
+//     Disable(Features),
 
-    #[cfg_attr(feature = "cli", command(subcommand))]
-    Show(ShowCommand),
+//     #[cfg_attr(feature = "cli", command(subcommand))]
+//     Show(ShowCommand),
 
-    #[cfg_attr(feature = "cli", command(subcommand, visible_aliases = ["bt"]))]
-    Backtrace(BackTraceCommand),
+//     #[cfg_attr(feature = "cli", command(subcommand, visible_aliases = ["bt"]))]
+//     Backtrace(BackTraceCommand),
 
-    #[cfg_attr(feature = "cli", command(subcommand))]
-    Trace(TraceCommand),
+//     #[cfg_attr(feature = "cli", command(subcommand))]
+//     Trace(TraceCommand),
 
-    #[cfg_attr(feature = "cli", command())]
-    Eval {
-        #[cfg_attr(feature = "cli", arg())]
-        code: String,
-    },
-}
+//     #[cfg_attr(feature = "cli", command())]
+//     Eval {
+//         #[cfg_attr(feature = "cli", arg())]
+//         code: String,
+//     },
+// }
 
 #[cfg_attr(feature = "cli", derive(Subcommand))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -74,61 +74,61 @@ pub enum BackTraceCommand {
     },
 }
 
-#[cfg_attr(feature = "cli", derive(Subcommand))]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ShowCommand {
-    /// show memory usages
-    #[cfg_attr(feature = "cli", command())]
-    Memory,
+// #[cfg_attr(feature = "cli", derive(Subcommand))]
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum ShowCommand {
+//     /// show memory usages
+//     #[cfg_attr(feature = "cli", command())]
+//     Memory,
 
-    /// show threads
-    #[cfg_attr(feature = "cli", command())]
-    Threads,
+//     /// show threads
+//     #[cfg_attr(feature = "cli", command())]
+//     Threads,
 
-    /// show python objects
-    #[cfg_attr(feature = "cli", command())]
-    Objects,
+//     /// show python objects
+//     #[cfg_attr(feature = "cli", command())]
+//     Objects,
 
-    /// show torch tensors
-    #[cfg_attr(feature = "cli", command())]
-    Tensors,
+//     /// show torch tensors
+//     #[cfg_attr(feature = "cli", command())]
+//     Tensors,
 
-    /// show torch modules
-    #[cfg_attr(feature = "cli", command())]
-    Modules,
+//     /// show torch modules
+//     #[cfg_attr(feature = "cli", command())]
+//     Modules,
 
-    /// show traceable functions
-    #[cfg_attr(feature = "cli", command())]
-    Traceable { filter: Option<String> },
+//     /// show traceable functions
+//     #[cfg_attr(feature = "cli", command())]
+//     Traceable { filter: Option<String> },
 
-    /// show hookable C functions
-    #[cfg_attr(feature = "cli", command())]
-    PLT,
+//     /// show hookable C functions
+//     #[cfg_attr(feature = "cli", command())]
+//     PLT,
 
-    /// read information from ffi function [()->char*] call, e.g. `get_current_dir_name()`
-    #[cfg_attr(feature = "cli", command())]
-    FFI { name: String },
-}
+//     /// read information from ffi function [()->char*] call, e.g. `get_current_dir_name()`
+//     #[cfg_attr(feature = "cli", command())]
+//     FFI { name: String },
+// }
 
-#[cfg_attr(feature = "cli", derive(Subcommand))]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Features {
-    /// pprof-like performance data visualization
-    #[cfg_attr(feature = "cli", command())]
-    Pprof,
+// #[cfg_attr(feature = "cli", derive(Subcommand))]
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum Features {
+//     /// pprof-like performance data visualization
+//     #[cfg_attr(feature = "cli", command())]
+//     Pprof,
 
-    /// debug python with DAP (debug adapter protocol)
-    #[cfg_attr(feature = "cli", command())]
-    Dap { address: Option<String> },
+//     /// debug python with DAP (debug adapter protocol)
+//     #[cfg_attr(feature = "cli", command())]
+//     Dap { address: Option<String> },
 
-    /// remote control the target process
-    #[cfg_attr(feature = "cli", command())]
-    Remote { address: Option<String> },
+//     /// remote control the target process
+//     #[cfg_attr(feature = "cli", command())]
+//     Remote { address: Option<String> },
 
-    /// catch process crash and start a server for remote debugging
-    #[cfg_attr(feature = "cli", command())]
-    CatchCrash { address: Option<String> },
-}
+//     /// catch process crash and start a server for remote debugging
+//     #[cfg_attr(feature = "cli", command())]
+//     CatchCrash { address: Option<String> },
+// }
 
 #[cfg_attr(feature = "cli", derive(Subcommand))]
 #[derive(Serialize, Deserialize, Debug, Clone)]

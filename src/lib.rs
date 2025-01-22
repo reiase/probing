@@ -20,7 +20,10 @@ pub fn register_signal_handler<F>(sig: std::ffi::c_int, handler: F)
 where
     F: Fn() + Sync + Send + 'static,
 {
-    unsafe { signal_hook_registry::register_unchecked(sig, move |_: &_| handler()).unwrap() };
+    unsafe { match signal_hook_registry::register_unchecked(sig, move |_: &_| handler()){
+        Ok(_) => {}
+        Err(e) => error!("Failed to register signal handler: {}", e),
+    } };
 }
 
 pub fn get_hostname() -> Result<String> {

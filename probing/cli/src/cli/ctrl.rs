@@ -9,27 +9,27 @@ use crate::table::render_dataframe;
 
 use probing_proto::prelude::*;
 
-pub fn probe(ctrl: CtrlChannel, cmd: ProbeCall) -> Result<()> {
+pub fn probe(ctrl: TargetEndpoint, cmd: ProbeCall) -> Result<()> {
     let reply = ctrl.probe(cmd)?;
     println!("{reply}");
     Ok(())
 }
 
-pub fn query(ctrl: CtrlChannel, query: Query) -> Result<()> {
+pub fn query(ctrl: TargetEndpoint, query: Query) -> Result<()> {
     let reply = ctrl.query(QueryMessage::Query(query))?;
     render_dataframe(&reply);
     Ok(())
 }
 
 #[derive(Clone)]
-pub enum CtrlChannel {
+pub enum TargetEndpoint {
     Ptrace { pid: i32 },
     Local { pid: i32 },
     Remote { addr: String },
     Launch { cmd: String },
 }
 
-impl TryFrom<&str> for CtrlChannel {
+impl TryFrom<&str> for TargetEndpoint {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self> {
@@ -43,7 +43,7 @@ impl TryFrom<&str> for CtrlChannel {
     }
 }
 
-impl TryFrom<String> for CtrlChannel {
+impl TryFrom<String> for TargetEndpoint {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -51,17 +51,17 @@ impl TryFrom<String> for CtrlChannel {
     }
 }
 
-impl From<CtrlChannel> for String {
-    fn from(val: CtrlChannel) -> Self {
+impl From<TargetEndpoint> for String {
+    fn from(val: TargetEndpoint) -> Self {
         match val {
-            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => format! {"{pid}"},
-            CtrlChannel::Remote { addr } => addr,
-            CtrlChannel::Launch { cmd } => cmd,
+            TargetEndpoint::Ptrace { pid } | TargetEndpoint::Local { pid } => format! {"{pid}"},
+            TargetEndpoint::Remote { addr } => addr,
+            TargetEndpoint::Launch { cmd } => cmd,
         }
     }
 }
 
-impl CtrlChannel {
+impl TargetEndpoint {
     pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
         let cmd = ron::to_string(&cmd)?;
         log::debug!("request: {cmd}");
@@ -114,38 +114,38 @@ impl CtrlChannel {
         }
     }
 
-    pub fn signal(&self, cmd: String) -> Result<()> {
-        match self {
-            // CtrlChannel::Ptrace { pid } => {
-            //     send_ctrl_via_ptrace(cmd, *pid)?;
-            //     Ok(())
-            // }
-            ctrl => {
-                let cmd = if cmd.starts_with('[') {
-                    cmd
-                } else {
-                    format!("[{}]", cmd)
-                };
-                tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(request(ctrl.clone(), "/ctrl", cmd.into()))?;
+    // pub fn signal(&self, cmd: String) -> Result<()> {
+    //     match self {
+    //         // CtrlChannel::Ptrace { pid } => {
+    //         //     send_ctrl_via_ptrace(cmd, *pid)?;
+    //         //     Ok(())
+    //         // }
+    //         ctrl => {
+    //             let cmd = if cmd.starts_with('[') {
+    //                 cmd
+    //             } else {
+    //                 format!("[{}]", cmd)
+    //             };
+    //             tokio::runtime::Builder::new_current_thread()
+    //                 .enable_all()
+    //                 .build()
+    //                 .unwrap()
+    //                 .block_on(request(ctrl.clone(), "/ctrl", cmd.into()))?;
 
-                Ok(())
-            }
-            _ => todo!(),
-        }
-    }
+    //             Ok(())
+    //         }
+    //         _ => todo!(),
+    //     }
+    // }
 }
 
-pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Result<Vec<u8>> {
+pub async fn request(ctrl: TargetEndpoint, url: &str, body: Option<String>) -> Result<Vec<u8>> {
     use hyper::body::Bytes;
     use hyper::client::conn;
     use hyper::Request;
 
     let mut sender = match ctrl {
-        CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
+        TargetEndpoint::Ptrace { pid } | TargetEndpoint::Local { pid } => {
             eprintln!("sending ctrl commands via unix socket...");
             let prefix = "/tmp/probing".to_string();
             let path = format!("{}/{}", prefix, pid);
@@ -162,7 +162,7 @@ pub async fn request(ctrl: CtrlChannel, url: &str, body: Option<String>) -> Resu
             });
             sender
         }
-        CtrlChannel::Remote { addr } => {
+        TargetEndpoint::Remote { addr } => {
             eprintln!("sending ctrl commands via tcp socket...");
             let stream = tokio::net::TcpStream::connect(addr).await?;
             let io = TokioIo::new(stream);

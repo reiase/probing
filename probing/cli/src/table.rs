@@ -52,8 +52,8 @@ impl Table {
         );
 
         table.with((
-            Width::wrap(termwidth).priority(PriorityMax),
-            Width::increase(termwidth).priority(PriorityMin),
+            Width::wrap(termwidth).priority(PriorityMax::default()),
+            Width::increase(termwidth).priority(PriorityMin::default()),
         ));
         Some(table.to_string())
     }

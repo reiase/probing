@@ -103,8 +103,6 @@ pub fn sync_env_settings() {
     thread::spawn(|| {
         std::env::vars().for_each(|(k, v)| {
             if k.starts_with("PROBING_") {
-                let setting = format!("{}={}", k, v);
-
                 let k = k.replace("_", ".");
                 let setting = format!("set {}={}", k, v);
                 match handle_query(QueryMessage::Query(QueryRequest {

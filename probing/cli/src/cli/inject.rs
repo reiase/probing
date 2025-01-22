@@ -1,24 +1,18 @@
 use anyhow::{anyhow, Error, Result};
 use clap::Args;
 
-use crate::cli::ctrl::CtrlChannel;
+use probing_proto::protocol::query::Query;
+
+use crate::cli::ctrl::TargetEndpoint;
 use crate::inject::{Injector, Process};
-use probing_proto::cli::{CtrlSignal, Features};
+
+use super::ctrl;
 
 /// Inject into the target process
 #[derive(Args, Default, Debug)]
 pub struct InjectCommand {
-    /// enable profiling
-    #[arg(short = 'P', long)]
-    pprof: bool,
-
-    /// enable handling target process crash
-    #[arg(short = 'c', long)]
-    crash: bool,
-
-    /// listen for remote connection (e.g., 127.0.0.1:8080)
-    #[arg(short = 'l', long, name = "address")]
-    listen: Option<String>,
+    #[arg(short='D', long="define", num_args=1..)]
+    settings: Vec<String>,
 }
 
 impl InjectCommand {
@@ -50,46 +44,50 @@ impl InjectCommand {
         Err(anyhow!("Library {} not found in target process", lib_name))
     }
 
-    fn build_command_string(&self) -> Result<String> {
-        let cmds = [
-            self.pprof.then_some(Features::Pprof),
-            self.crash.then(|| Features::CatchCrash {
-                address: self.listen.clone(),
-            }),
-            self.listen.as_ref().map(|address| Features::Remote {
-                address: Some(address.clone()),
-            }),
-        ]
-        .iter()
-        .flatten()
-        .map(|x| CtrlSignal::Enable(x.clone()))
-        .collect::<Vec<_>>();
-
-        if cmds.is_empty() {
-            return Err(anyhow!("No commands to inject"));
-        }
-        Ok(ron::to_string(&cmds)?)
+    fn build_settings(&self) -> Vec<String> {
+        self.settings
+            .iter()
+            .map(|setting| {
+                if setting.starts_with("probing.") {
+                    setting.replace(".", "_")
+                } else {
+                    setting.clone()
+                }
+            })
+            .collect()
     }
 
     fn inject(&self, pid: i32) -> Result<()> {
         let soname = std::fs::read_link("/proc/self/exe")?.with_file_name("libprobing.so");
-        let cmd = self.build_command_string().ok();
+        let settings = self.build_settings();
 
         println!("Injecting {} into {}", soname.display(), pid);
         Injector::attach(Process::get(pid as u32).map_err(Error::msg)?)
             .map_err(Error::msg)?
-            .inject(&soname, cmd.as_deref())
+            .inject(&soname, settings)
             .map_err(|e| anyhow!("Failed to inject probing: {}", e))
     }
 
-    pub fn run(&self, ctrl: CtrlChannel) -> Result<()> {
+    pub fn run(&self, ctrl: TargetEndpoint) -> Result<()> {
         match ctrl {
-            CtrlChannel::Ptrace { pid } | CtrlChannel::Local { pid } => {
+            TargetEndpoint::Ptrace { pid } | TargetEndpoint::Local { pid } => {
                 if !self.check_library(pid, "libprobing.so")? {
                     self.wait_for_library(pid, "python")?;
                     self.inject(pid)
                 } else {
-                    ctrl.signal(self.build_command_string()?)
+                    let settings = self.build_settings();
+                    let query: Vec<String> = settings
+                        .iter()
+                        .map(|setting| format!("set {setting}"))
+                        .collect();
+                    let query = query.join(";");
+                    ctrl::query(
+                        ctrl,
+                        Query {
+                            expr: query,
+                            opts: None,
+                        },
+                    )
                 }
             }
             _ => Ok(()),

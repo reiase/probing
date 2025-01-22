@@ -144,7 +144,7 @@ impl Injector {
     }
 
     /// Inject the given library into the traced process.
-    pub fn inject(&mut self, library: &std::path::Path, args: Option<&str>) -> Result<()> {
+    pub fn inject(&mut self, library: &std::path::Path, settings: Vec<String>) -> Result<()> {
         let Some(tracee) = self.tracer.wait()? else {
             return Err(eyre!(
                 "the target exited quietly as soon as we started tracing it"
@@ -154,9 +154,16 @@ impl Injector {
         let mut injection = Injection::inject(&self.proc, &mut self.tracer, tracee)
             .wrap_err("failed to inject shellcode")?;
 
-        injection
-            .setenv(Some("PROBING_ARGS"), args)
-            .wrap_err("failed to prepare env string")?;
+        for setting in settings {
+            if let Some((name, value)) = setting.split_once('=') {
+                let name = name.to_uppercase();
+                let value = value.to_string();
+
+                injection
+                .setenv(Some(&name), Some(&value))
+                .wrap_err("failed to prepare env string")?;
+            }
+        }
 
         injection
             .execute(library)
