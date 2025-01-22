@@ -47,13 +47,6 @@ impl Cli {
         let command = self.command.as_ref().unwrap();
         match command {
             Commands::Inject(cmd) => cmd.run(ctrl),
-
-            // Commands::Enable { feature } => {
-            //     ctrl::probe(ctrl, ProbeCall::CallEnable(feature.clone()))
-            // }
-            // Commands::Disable(feature) => ctrl::handle(ctrl, Signal::Disable(feature.clone())),
-            // Commands::Show(topic) => ctrl::handle(ctrl, Signal::Show(topic.clone())),
-
             Commands::Config { setting } => {
                 match *setting {
                     Some(ref setting) => {
@@ -69,13 +62,12 @@ impl Cli {
                     },
                     None => {
                         ctrl::query(ctrl, Query {
-                            expr: "select * from information_schema.df_settings where name like 'probe.%';".to_string(),
+                            expr: "select * from information_schema.df_settings where name like 'probing.%';".to_string(),
                             opts: None,
                         })
                     },
                 }
             },
-
             Commands::Backtrace{tid} => {
                 ctrl::probe(ctrl, ProbeCall::CallBacktrace(*tid))
             },//ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
@@ -83,7 +75,6 @@ impl Cli {
             Commands::Eval { code } => {
                 ctrl::probe(ctrl, ProbeCall::CallEval(code.clone()))
             },//ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
-
             Commands::Query { query } => ctrl::query(
                 ctrl,
                 Query {
