@@ -8,7 +8,7 @@ pub mod ctrl;
 pub mod inject;
 pub mod process_monitor;
 
-use crate::cli::ctrl::TargetEndpoint;
+use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
 use probing_proto::protocol::query::Query;
 
@@ -34,12 +34,12 @@ pub struct Cli {
 impl Cli {
     pub fn run(&self) -> Result<()> {
         let target = self.target.clone().unwrap_or("0".to_string());
-        let ctrl: TargetEndpoint = target.as_str().try_into()?;
+        let ctrl: ProbeEndpoint = target.as_str().try_into()?;
 
         self.execute_command(ctrl)
     }
 
-    fn execute_command(&self, ctrl: TargetEndpoint) -> Result<()> {
+    fn execute_command(&self, ctrl: ProbeEndpoint) -> Result<()> {
         if self.command.is_none() {
             inject::InjectCommand::default().run(ctrl.clone())?;
             return Ok(());

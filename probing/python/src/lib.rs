@@ -223,6 +223,7 @@ pub static PROBING_OPTIONS: Lazy<Mutex<ProbingOptions>> =
 pub struct ProbingOptions {
     pprof_sample_freq: i32,
     torch_sample_ratio: f64,
+    task_stats_interval: i64,
 }
 
 impl Default for ProbingOptions {
@@ -230,6 +231,7 @@ impl Default for ProbingOptions {
         ProbingOptions {
             pprof_sample_freq: 0,
             torch_sample_ratio: 0.0,
+            task_stats_interval: 0,
         }
     }
 }
@@ -288,6 +290,10 @@ impl ExtensionOptions for ProbingOptions {
                     }
                 }
             }
+            "task_stats_interval" | "task_stats.interval" | "task.stats.interval" => {
+                let interval: i64 = value.parse().unwrap_or(0);
+                global_setting.task_stats_interval = interval;
+            }
             _ => println!("unknown setting {}={}", key, value),
         }
         Ok(())
@@ -305,6 +311,11 @@ impl ExtensionOptions for ProbingOptions {
                 key: "probing.torch.sample_ratio".to_string(),
                 value: Some(format!("{}", global_setting.torch_sample_ratio)),
                 description: "torch profiling sample ratio",
+            },
+            ConfigEntry {
+                key: "probing.task_stats.interval".to_string(),
+                value: Some(format!("{}", global_setting.task_stats_interval)),
+                description: "task stats sampling interval",
             },
         ];
         println!("{:?}", ret);

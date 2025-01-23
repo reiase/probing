@@ -19,7 +19,9 @@ impl Default for NativePythonConsole {
                     log::error!("Failed to load debug console code");
                     String::new()
                 });
-                let _ = py.run_bound(code.as_str(), Some(&global), Some(&global));
+                let code = format!("{}\0", code);
+                let code = std::ffi::CStr::from_bytes_with_nul(code.as_bytes()).unwrap_or_default();
+                let _ = py.run(code, Some(&global), Some(&global));
                 let ret: Bound<'_, PyAny> = global
                     .get_item("debug_console")
                     .map_err(|err| {

@@ -13,6 +13,7 @@ pub enum Commands {
     #[command(visible_aliases = ["bt"])]
     Backtrace { tid: Option<i32> },
 
+    /// Evaluate Python code in the target process
     #[command()]
     Eval {
         #[arg()]
@@ -26,6 +27,7 @@ pub enum Commands {
         query: String,
     },
 
+    /// Launch new Python process
     #[command()]
     Launch {
         #[arg(short, long)]

@@ -10,6 +10,7 @@ license.workspace = true
 probing-proto = { path = "../proto" }
 probing-engine = { path = "../engine" }
 
+log = { workspace = true }
 once_cell = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }

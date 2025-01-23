@@ -9,27 +9,27 @@ use crate::table::render_dataframe;
 
 use probing_proto::prelude::*;
 
-pub fn probe(ctrl: TargetEndpoint, cmd: ProbeCall) -> Result<()> {
+pub fn probe(ctrl: ProbeEndpoint, cmd: ProbeCall) -> Result<()> {
     let reply = ctrl.probe(cmd)?;
     println!("{reply}");
     Ok(())
 }
 
-pub fn query(ctrl: TargetEndpoint, query: Query) -> Result<()> {
+pub fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
     let reply = ctrl.query(QueryMessage::Query(query))?;
     render_dataframe(&reply);
     Ok(())
 }
 
 #[derive(Clone)]
-pub enum TargetEndpoint {
+pub enum ProbeEndpoint {
     Ptrace { pid: i32 },
     Local { pid: i32 },
     Remote { addr: String },
     Launch { cmd: String },
 }
 
-impl TryFrom<&str> for TargetEndpoint {
+impl TryFrom<&str> for ProbeEndpoint {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self> {
@@ -43,7 +43,7 @@ impl TryFrom<&str> for TargetEndpoint {
     }
 }
 
-impl TryFrom<String> for TargetEndpoint {
+impl TryFrom<String> for ProbeEndpoint {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -51,101 +51,64 @@ impl TryFrom<String> for TargetEndpoint {
     }
 }
 
-impl From<TargetEndpoint> for String {
-    fn from(val: TargetEndpoint) -> Self {
+impl From<ProbeEndpoint> for String {
+    fn from(val: ProbeEndpoint) -> Self {
         match val {
-            TargetEndpoint::Ptrace { pid } | TargetEndpoint::Local { pid } => format! {"{pid}"},
-            TargetEndpoint::Remote { addr } => addr,
-            TargetEndpoint::Launch { cmd } => cmd,
+            ProbeEndpoint::Ptrace { pid } | ProbeEndpoint::Local { pid } => format! {"{pid}"},
+            ProbeEndpoint::Remote { addr } => addr,
+            ProbeEndpoint::Launch { cmd } => cmd,
         }
     }
 }
 
-impl TargetEndpoint {
-    pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
-        let cmd = ron::to_string(&cmd)?;
-        log::debug!("request: {cmd}");
-        match self {
-            // CtrlChannel::Ptrace { pid } => {
-            //     send_ctrl_via_ptrace(cmd, *pid)?;
-            //     Ok(ProbeCall::Nil)
-            // }
-            ctrl => {
-                let reply = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(request(ctrl.clone(), "/probe", cmd.into()))?;
-
-                let reply = String::from_utf8(reply)?;
-                log::debug!("reply: {reply}");
-                let reply = ron::from_str::<ProbeCall>(reply.as_str())?;
-
-                Ok(reply)
-            }
-            _ => todo!(),
-        }
+impl ProbeEndpoint {
+    fn run_in_runtime<F, T>(&self, fut: F) -> T
+    where
+        F: std::future::Future<Output = T>,
+    {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(fut)
     }
 
-    pub fn query(&self, req: QueryMessage) -> Result<DataFrame> {
-        let req = ron::to_string(&req)?;
-        log::debug!("request: {req}");
-        let ctrl = self;
-        {
-            let reply = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(request(ctrl.clone(), "/query", req.into()))?;
+    fn send_request(&self, url: &str, body: &str) -> Result<String> {
+        let bytes = self.run_in_runtime(request(self.clone(), url, Some(body.to_string())))?;
+        Ok(String::from_utf8(bytes)?)
+    }
 
-            let reply = String::from_utf8(reply)?;
-            log::debug!("reply: {reply}");
-            let reply = ron::from_str::<QueryMessage>(reply.as_str())?;
+    pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
+        let cmd_str = ron::to_string(&cmd)?;
+        let reply = self.send_request("/probe", &cmd_str)?;
+        Ok(ron::from_str::<ProbeCall>(&reply)?)
+    }
 
-            if let QueryMessage::Reply(reply) = reply {
-                let df: DataFrame = match reply.format {
-                    QueryDataFormat::JSON => serde_json::from_slice(&reply.data)?,
-                    QueryDataFormat::RON => ron::from_str(String::from_utf8(reply.data)?.as_str())?,
-                    _ => todo!(),
-                };
-                return Ok(df);
-            }
+    pub fn query(&self, q: QueryMessage) -> Result<DataFrame> {
+        let q_str = ron::to_string(&q)?;
+        let reply = self.send_request("/query", &q_str)?;
+        let reply = ron::from_str::<QueryMessage>(&reply)?;
+
+        if let QueryMessage::Reply(r) = reply {
+            let df = match r.format {
+                QueryDataFormat::JSON => serde_json::from_slice(&r.data)?,
+                QueryDataFormat::RON => ron::from_str(&String::from_utf8(r.data)?)?,
+                _ => todo!(),
+            };
+            Ok(df)
+        } else {
             Err(anyhow::anyhow!("unexpected reply: {:?}", reply))
         }
     }
-
-    // pub fn signal(&self, cmd: String) -> Result<()> {
-    //     match self {
-    //         // CtrlChannel::Ptrace { pid } => {
-    //         //     send_ctrl_via_ptrace(cmd, *pid)?;
-    //         //     Ok(())
-    //         // }
-    //         ctrl => {
-    //             let cmd = if cmd.starts_with('[') {
-    //                 cmd
-    //             } else {
-    //                 format!("[{}]", cmd)
-    //             };
-    //             tokio::runtime::Builder::new_current_thread()
-    //                 .enable_all()
-    //                 .build()
-    //                 .unwrap()
-    //                 .block_on(request(ctrl.clone(), "/ctrl", cmd.into()))?;
-
-    //             Ok(())
-    //         }
-    //         _ => todo!(),
-    //     }
-    // }
 }
 
-pub async fn request(ctrl: TargetEndpoint, url: &str, body: Option<String>) -> Result<Vec<u8>> {
+pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Result<Vec<u8>> {
     use hyper::body::Bytes;
     use hyper::client::conn;
     use hyper::Request;
 
     let mut sender = match ctrl {
-        TargetEndpoint::Ptrace { pid } | TargetEndpoint::Local { pid } => {
+        ProbeEndpoint::Ptrace { pid } | ProbeEndpoint::Local { pid } => {
             eprintln!("sending ctrl commands via unix socket...");
             let prefix = "/tmp/probing".to_string();
             let path = format!("{}/{}", prefix, pid);
@@ -162,7 +125,7 @@ pub async fn request(ctrl: TargetEndpoint, url: &str, body: Option<String>) -> R
             });
             sender
         }
-        TargetEndpoint::Remote { addr } => {
+        ProbeEndpoint::Remote { addr } => {
             eprintln!("sending ctrl commands via tcp socket...");
             let stream = tokio::net::TcpStream::connect(addr).await?;
             let io = TokioIo::new(stream);

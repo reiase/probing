@@ -177,33 +177,33 @@ impl Injector {
         Ok(())
     }
 
-    /// Put the env string into the traced process.
-    ///
-    /// # Panics
-    ///
-    /// This function may panic if it fails to inject shellcode into the target process.
-    pub fn setenv(&mut self, name: Option<&str>, value: Option<&str>) -> Result<()> {
-        let Some(tracee) = self.tracer.wait()? else {
-            return Err(eyre!(
-                "the target exited quietly as soon as we started tracing it"
-            ));
-        };
-        log::trace!("Attached to process with ID {}", tracee.pid);
-        let mut injection = Injection::inject(&self.proc, &mut self.tracer, tracee)
-            .wrap_err("failed to inject shellcode")?;
+    // /// Put the env string into the traced process.
+    // ///
+    // /// # Panics
+    // ///
+    // /// This function may panic if it fails to inject shellcode into the target process.
+    // pub fn setenv(&mut self, name: Option<&str>, value: Option<&str>) -> Result<()> {
+    //     let Some(tracee) = self.tracer.wait()? else {
+    //         return Err(eyre!(
+    //             "the target exited quietly as soon as we started tracing it"
+    //         ));
+    //     };
+    //     log::trace!("Attached to process with ID {}", tracee.pid);
+    //     let mut injection = Injection::inject(&self.proc, &mut self.tracer, tracee)
+    //         .wrap_err("failed to inject shellcode")?;
 
-        injection
-            .setenv(name, value)
-            .wrap_err("failed to prepare env string")?;
-        log::info!(
-            "Successfully put env string `{}`=`{}` into process with PID {}",
-            name.map_or("", |s| s),
-            value.map_or("", |s| s),
-            self.proc
-        );
-        injection.remove().unwrap();
-        Ok(())
-    }
+    //     injection
+    //         .setenv(name, value)
+    //         .wrap_err("failed to prepare env string")?;
+    //     log::info!(
+    //         "Successfully put env string `{}`=`{}` into process with PID {}",
+    //         name.map_or("", |s| s),
+    //         value.map_or("", |s| s),
+    //         self.proc
+    //     );
+    //     injection.remove().unwrap();
+    //     Ok(())
+    // }
 }
 
 impl Drop for Injector {

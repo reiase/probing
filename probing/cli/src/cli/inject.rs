@@ -3,7 +3,7 @@ use clap::Args;
 
 use probing_proto::protocol::query::Query;
 
-use crate::cli::ctrl::TargetEndpoint;
+use crate::cli::ctrl::ProbeEndpoint;
 use crate::inject::{Injector, Process};
 
 use super::ctrl;
@@ -68,9 +68,9 @@ impl InjectCommand {
             .map_err(|e| anyhow!("Failed to inject probing: {}", e))
     }
 
-    pub fn run(&self, ctrl: TargetEndpoint) -> Result<()> {
+    pub fn run(&self, ctrl: ProbeEndpoint) -> Result<()> {
         match ctrl {
-            TargetEndpoint::Ptrace { pid } | TargetEndpoint::Local { pid } => {
+            ProbeEndpoint::Ptrace { pid } | ProbeEndpoint::Local { pid } => {
                 if !self.check_library(pid, "libprobing.so")? {
                     self.wait_for_library(pid, "python")?;
                     self.inject(pid)

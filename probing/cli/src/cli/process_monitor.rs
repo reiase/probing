@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::thread;
 use std::time::Duration;
 
-use super::ctrl::TargetEndpoint;
+use super::ctrl::ProbeEndpoint;
 use super::inject;
 
 #[derive(Debug)]
@@ -32,7 +32,7 @@ impl ProcessMonitor {
             return Ok(());
         }
 
-        let ctrl: TargetEndpoint = pid.to_string().as_str().try_into()?;
+        let ctrl: ProbeEndpoint = pid.to_string().as_str().try_into()?;
         inject::InjectCommand::default().run(ctrl)?;
         self.injected.insert(pid);
         Ok(())
