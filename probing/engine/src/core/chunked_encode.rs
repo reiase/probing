@@ -126,8 +126,8 @@ mod test {
         let df = DataFrame {
             names: vec!["a".to_string(), "b".to_string()],
             cols: vec![
-                Seq::Int32Seq(vec![1, 2]),
-                Seq::TextSeq(vec!["a".to_string(), "b".to_string()]),
+                Seq::SeqI32(vec![1, 2]),
+                Seq::SeqText(vec!["a".to_string(), "b".to_string()]),
             ],
             size: 2,
         };
@@ -150,8 +150,8 @@ mod test {
         let df = DataFrame {
             names: vec!["a".to_string(), "b".to_string()],
             cols: vec![
-                Seq::Int32Seq(vec![1, 2]),
-                Seq::TextSeq(vec!["a".to_string(), "b".to_string()]),
+                Seq::SeqI32(vec![1, 2]),
+                Seq::SeqText(vec!["a".to_string(), "b".to_string()]),
             ],
             size: 2,
         };

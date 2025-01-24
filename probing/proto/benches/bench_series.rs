@@ -15,12 +15,11 @@ fn vec_append(n: u64) -> u64 {
 }
 
 fn page_append(n: u64) -> u64 {
-    let mut page =
-        probing_proto::types::series::Page::Raw(Seq::Int64Seq(Vec::with_capacity(10000)));
+    let mut page = probing_proto::types::series::Page::Raw(Seq::SeqI64(Vec::with_capacity(10000)));
     for i in 0..n {
         match page {
             probing_proto::types::series::Page::Raw(ref mut array) => {
-                if let Seq::Int64Seq(ref mut int_array) = array {
+                if let Seq::SeqI64(ref mut int_array) = array {
                     int_array.push(i as i64);
                 }
             }

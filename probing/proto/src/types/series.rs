@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use super::basic::EleType;
 use super::Ele;
-use crate::types::seq::Seq;
+use crate::types::Seq;
 
 #[derive(Debug, Error)]
 pub enum SeriesError {
@@ -44,7 +44,7 @@ impl Page {
 
     pub fn compress_buffer(&self, array: &Seq) -> Option<(EleType, Vec<u8>)> {
         match array {
-            Seq::Int32Seq(data) => {
+            Seq::SeqI32(data) => {
                 let compressed = simpler_compress(data.as_slice(), 0);
                 match compressed {
                     Ok(mut compressed) => {
@@ -54,7 +54,7 @@ impl Page {
                     Err(_) => None,
                 }
             }
-            Seq::Int64Seq(data) => {
+            Seq::SeqI64(data) => {
                 let compressed = simpler_compress(data.as_slice(), 0);
                 match compressed {
                     Ok(mut compressed) => {
@@ -64,7 +64,7 @@ impl Page {
                     Err(_) => None,
                 }
             }
-            Seq::Float32Seq(data) => {
+            Seq::SeqF32(data) => {
                 let compressed = simpler_compress(data.as_slice(), 0);
                 match compressed {
                     Ok(mut compressed) => {
@@ -74,7 +74,7 @@ impl Page {
                     Err(_) => None,
                 }
             }
-            Seq::Float64Seq(data) => {
+            Seq::SeqF64(data) => {
                 let compressed = simpler_compress(data.as_slice(), 0);
                 match compressed {
                     Ok(mut compressed) => {
@@ -92,25 +92,25 @@ impl Page {
         match dtype {
             EleType::I32 => {
                 if let Ok(data) = simple_decompress::<i32>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::Int32Seq(data)));
+                    return Some(Page::Raw(Seq::SeqI32(data)));
                 }
                 None
             }
             EleType::I64 => {
                 if let Ok(data) = simple_decompress::<i64>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::Int64Seq(data)));
+                    return Some(Page::Raw(Seq::SeqI64(data)));
                 }
                 None
             }
             EleType::F32 => {
                 if let Ok(data) = simple_decompress::<f32>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::Float32Seq(data)));
+                    return Some(Page::Raw(Seq::SeqF32(data)));
                 }
                 None
             }
             EleType::F64 => {
                 if let Ok(data) = simple_decompress::<f64>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::Float64Seq(data)));
+                    return Some(Page::Raw(Seq::SeqF64(data)));
                 }
                 None
             }
@@ -376,11 +376,11 @@ impl ArrayType for i32 {
     fn create_array(data: Self, size: usize) -> Seq {
         let mut array = Vec::with_capacity(size);
         array.push(data);
-        Seq::Int32Seq(array)
+        Seq::SeqI32(array)
     }
 
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
-        if let Seq::Int32Seq(arr) = array {
+        if let Seq::SeqI32(arr) = array {
             arr.push(data);
             Ok(())
         } else {
@@ -399,11 +399,11 @@ impl ArrayType for i64 {
     fn create_array(data: Self, size: usize) -> Seq {
         let mut array = Vec::with_capacity(size);
         array.push(data);
-        Seq::Int64Seq(array)
+        Seq::SeqI64(array)
     }
 
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
-        if let Seq::Int64Seq(arr) = array {
+        if let Seq::SeqI64(arr) = array {
             arr.push(data);
             Ok(())
         } else {
@@ -422,11 +422,11 @@ impl ArrayType for f32 {
     fn create_array(data: Self, size: usize) -> Seq {
         let mut array = Vec::with_capacity(size);
         array.push(data);
-        Seq::Float32Seq(array)
+        Seq::SeqF32(array)
     }
 
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
-        if let Seq::Float32Seq(arr) = array {
+        if let Seq::SeqF32(arr) = array {
             arr.push(data);
             Ok(())
         } else {
@@ -445,11 +445,11 @@ impl ArrayType for f64 {
     fn create_array(data: Self, size: usize) -> Seq {
         let mut array = Vec::with_capacity(size);
         array.push(data);
-        Seq::Float64Seq(array)
+        Seq::SeqF64(array)
     }
 
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
-        if let Seq::Float64Seq(arr) = array {
+        if let Seq::SeqF64(arr) = array {
             arr.push(data);
             Ok(())
         } else {
@@ -469,11 +469,11 @@ impl ArrayType for String {
     fn create_array(data: Self, size: usize) -> Seq {
         let mut array = Vec::with_capacity(size);
         array.push(data);
-        Seq::TextSeq(array)
+        Seq::SeqText(array)
     }
 
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
-        if let Seq::TextSeq(arr) = array {
+        if let Seq::SeqText(arr) = array {
             arr.push(data);
             Ok(())
         } else {

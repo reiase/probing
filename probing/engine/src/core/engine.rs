@@ -106,18 +106,18 @@ impl Engine {
             .iter()
             .map(|col| {
                 if let Some(array) = col.as_any().downcast_ref::<Int32Array>() {
-                    Seq::Int32Seq(array.values().to_vec())
+                    Seq::SeqI32(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<Int64Array>() {
-                    Seq::Int64Seq(array.values().to_vec())
+                    Seq::SeqI64(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<Float32Array>() {
-                    Seq::Float32Seq(array.values().to_vec())
+                    Seq::SeqF32(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<Float64Array>() {
-                    Seq::Float64Seq(array.values().to_vec())
+                    Seq::SeqF64(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<StringArray>() {
-                    Seq::TextSeq((0..col.len()).map(|x| array.value(x).to_string()).collect())
+                    Seq::SeqText((0..col.len()).map(|x| array.value(x).to_string()).collect())
                 } else if let Some(array) = col.as_any().downcast_ref::<TimestampMicrosecondArray>()
                 {
-                    Seq::Int64Seq(array.values().to_vec())
+                    Seq::SeqI64(array.values().to_vec())
                 } else {
                     Seq::Nil
                 }
