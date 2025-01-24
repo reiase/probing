@@ -23,7 +23,7 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
-    if let QueryMessage::Query(request) = request {
+    if let QueryMessage::Query { expr, opts: _ } = request {
         let resp = thread::spawn(move || {
             let engine = probing_engine::create_engine()
                 .with_extension_options(ProbingOptions::default())
@@ -38,7 +38,7 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
                 .build()
                 .unwrap()
                 .block_on(async {
-                    let q = request.expr.clone();
+                    let q = expr.clone();
                     if q.starts_with("set") && q.contains(";") {
                         for q in q.split(";") {
                             match engine.sql(q).await {
@@ -50,7 +50,7 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
                         }
                         Ok(vec![])
                     } else {
-                        engine.execute(&request.expr, "ron")
+                        engine.execute(&expr, "ron")
                     }
                 })
         })
@@ -58,10 +58,10 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
         .map_err(|_| anyhow::anyhow!("error joining thread"))??;
 
         // let resp = engine.execute(&request.expr, "ron")?;
-        Ok(ron::to_string(&QueryMessage::Reply(QueryReply {
+        Ok(ron::to_string(&QueryMessage::Reply {
             data: resp,
             format: QueryDataFormat::RON,
-        }))?
+        })?
         .as_bytes()
         .to_vec())
     } else {

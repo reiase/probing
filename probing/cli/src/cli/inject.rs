@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Error, Result};
 use clap::Args;
-
-use probing_proto::protocol::query::Query;
+use probing_proto::prelude::QueryMessage;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use crate::inject::{Injector, Process};
@@ -83,7 +82,7 @@ impl InjectCommand {
                     let query = query.join(";");
                     ctrl::query(
                         ctrl,
-                        Query {
+                        QueryMessage::Query {
                             expr: query,
                             opts: None,
                         },

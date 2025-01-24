@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_proto::prelude::ProbeCall;
+use probing_proto::prelude::{ProbeCall, QueryMessage};
 use process_monitor::ProcessMonitor;
 
 pub mod commands;
@@ -10,7 +10,6 @@ pub mod process_monitor;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
-use probing_proto::protocol::query::Query;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]
@@ -55,13 +54,13 @@ impl Cli {
                         } else {
                             setting.clone()
                         };
-                        ctrl::query(ctrl, Query {
+                        ctrl::query(ctrl, QueryMessage::Query {
                             expr: setting,
                             opts: None,
                         })
                     },
                     None => {
-                        ctrl::query(ctrl, Query {
+                        ctrl::query(ctrl, QueryMessage::Query {
                             expr: "select * from information_schema.df_settings where name like 'probing.%';".to_string(),
                             opts: None,
                         })
@@ -77,7 +76,7 @@ impl Cli {
             },//ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
             Commands::Query { query } => ctrl::query(
                 ctrl,
-                Query {
+                QueryMessage::Query {
                     expr: query.clone(),
                     opts: None,
                 },

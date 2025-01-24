@@ -1,12 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct Query {
-    pub expr: String,
-    pub opts: Option<Options>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Options {
     pub limit: Option<usize>,
     pub format: Format,
@@ -22,13 +16,18 @@ pub enum Format {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct Reply {
-    pub data: Vec<u8>,
-    pub format: Format,
-}
-
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum Message {
-    Query(Query),
-    Reply(Reply),
+    #[default]
+    Nil,
+    Query {
+        expr: String,
+        opts: Option<Options>,
+    },
+    Reply {
+        data: Vec<u8>,
+        format: Format,
+    },
+    Error {
+        message: String,
+    },
 }

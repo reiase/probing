@@ -2,12 +2,11 @@ use anyhow::Result;
 
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
+
 use probing_proto::prelude::ProbeCall;
-use probing_proto::protocol::query::Query;
+use probing_proto::prelude::*;
 
 use crate::table::render_dataframe;
-
-use probing_proto::prelude::*;
 
 pub fn probe(ctrl: ProbeEndpoint, cmd: ProbeCall) -> Result<()> {
     let reply = ctrl.probe(cmd)?;
@@ -15,8 +14,8 @@ pub fn probe(ctrl: ProbeEndpoint, cmd: ProbeCall) -> Result<()> {
     Ok(())
 }
 
-pub fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
-    let reply = ctrl.query(QueryMessage::Query(query))?;
+pub fn query(ctrl: ProbeEndpoint, query: QueryMessage) -> Result<()> {
+    let reply = ctrl.query(query)?;
     render_dataframe(&reply);
     Ok(())
 }
@@ -89,10 +88,10 @@ impl ProbeEndpoint {
         let reply = self.send_request("/query", &q_str)?;
         let reply = ron::from_str::<QueryMessage>(&reply)?;
 
-        if let QueryMessage::Reply(r) = reply {
-            let df = match r.format {
-                QueryDataFormat::JSON => serde_json::from_slice(&r.data)?,
-                QueryDataFormat::RON => ron::from_str(&String::from_utf8(r.data)?)?,
+        if let QueryMessage::Reply { data, format } = reply {
+            let df = match format {
+                QueryDataFormat::JSON => serde_json::from_slice(&data)?,
+                QueryDataFormat::RON => ron::from_str(&String::from_utf8(data)?)?,
                 _ => todo!(),
             };
             Ok(df)
