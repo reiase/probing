@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use thaw::*;
 
 use probing_proto::types::DataFrame;
-use probing_proto::types::Value;
+use probing_proto::types::Ele;
 
 #[component]
 pub fn DataFrameView(df: DataFrame) -> impl IntoView {
@@ -26,18 +26,18 @@ pub fn DataFrameView(df: DataFrame) -> impl IntoView {
                 .cols
                 .iter()
                 .map(move |col| match col.get(i) {
-                    Value::Nil => view! { <TableCell>{"nil".to_string()}</TableCell> },
-                    Value::Int32(x) => view! { <TableCell>{x.to_string()}</TableCell> },
-                    Value::Int64(x) => view! { <TableCell>{x.to_string()}</TableCell> },
-                    Value::Float32(x) => view! { <TableCell>{x.to_string()}</TableCell> },
-                    Value::Float64(x) => view! { <TableCell>{x.to_string()}</TableCell> },
-                    Value::Text(x) => view! { <TableCell>{x.to_string()}</TableCell> },
-                    Value::Url(x) => view! {
+                    Ele::Nil => view! { <TableCell>{"nil".to_string()}</TableCell> },
+                    Ele::I32(x) => view! { <TableCell>{x.to_string()}</TableCell> },
+                    Ele::I64(x) => view! { <TableCell>{x.to_string()}</TableCell> },
+                    Ele::F32(x) => view! { <TableCell>{x.to_string()}</TableCell> },
+                    Ele::F64(x) => view! { <TableCell>{x.to_string()}</TableCell> },
+                    Ele::Text(x) => view! { <TableCell>{x.to_string()}</TableCell> },
+                    Ele::Url(x) => view! {
                         <TableCell>
                             <Link href=x.to_string()>{x.to_string()}</Link>
                         </TableCell>
                     },
-                    Value::DataTime(x) => view! { <TableCell>{x.to_string()}</TableCell> },
+                    Ele::DataTime(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                 })
                 .collect::<Vec<_>>();
             view! { <TableRow>{row}</TableRow> }

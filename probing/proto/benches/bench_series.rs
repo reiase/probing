@@ -4,7 +4,7 @@ use arrow::array::Int64Array;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use probing_proto::types::{Array, Series};
+use probing_proto::types::{Seq, Series};
 
 fn vec_append(n: u64) -> u64 {
     let mut vec = Vec::new();
@@ -16,11 +16,11 @@ fn vec_append(n: u64) -> u64 {
 
 fn page_append(n: u64) -> u64 {
     let mut page =
-        probing_proto::types::series::Page::Raw(Array::Int64Array(Vec::with_capacity(10000)));
+        probing_proto::types::series::Page::Raw(Seq::Int64Seq(Vec::with_capacity(10000)));
     for i in 0..n {
         match page {
             probing_proto::types::series::Page::Raw(ref mut array) => {
-                if let Array::Int64Array(ref mut int_array) = array {
+                if let Seq::Int64Seq(ref mut int_array) = array {
                     int_array.push(i as i64);
                 }
             }

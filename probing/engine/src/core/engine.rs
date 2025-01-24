@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use anyhow::Context;
 use arrow::array::Float32Array;
 use arrow::array::Float64Array;
 use arrow::array::Int32Array;
@@ -18,7 +19,7 @@ use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
 use futures;
 
 use super::chunked_encode::chunked_encode;
-use probing_proto::types::Array;
+use probing_proto::types::Seq;
 
 #[derive(PartialEq, Eq)]
 pub enum PluginType {
@@ -76,16 +77,19 @@ impl Engine {
             .insert(extension);
     }
 
-    pub async fn sql(&self, query: &str) -> Result<DataFrame> {
-        self.context.sql(query).await
+    pub async fn sql(&self, query: &str) -> anyhow::Result<DataFrame> {
+        self.context
+            .sql(query)
+            .await
+            .with_context(|| "execute sql in query engine")
     }
 
     pub async fn async_query<T: Into<String>>(
         &self,
-        q: T,
+        query: T,
     ) -> anyhow::Result<probing_proto::prelude::DataFrame> {
-        let q: String = q.into();
-        let batches = self.sql(q.as_str()).await?.collect().await?;
+        let query: String = query.into();
+        let batches = self.sql(query.as_str()).await?.collect().await?;
         if batches.is_empty() {
             return Ok(probing_proto::prelude::DataFrame::default());
         }
@@ -102,20 +106,20 @@ impl Engine {
             .iter()
             .map(|col| {
                 if let Some(array) = col.as_any().downcast_ref::<Int32Array>() {
-                    Array::Int32Array(array.values().to_vec())
+                    Seq::Int32Seq(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<Int64Array>() {
-                    Array::Int64Array(array.values().to_vec())
+                    Seq::Int64Seq(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<Float32Array>() {
-                    Array::Float32Array(array.values().to_vec())
+                    Seq::Float32Seq(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<Float64Array>() {
-                    Array::Float64Array(array.values().to_vec())
+                    Seq::Float64Seq(array.values().to_vec())
                 } else if let Some(array) = col.as_any().downcast_ref::<StringArray>() {
-                    Array::TextArray((0..col.len()).map(|x| array.value(x).to_string()).collect())
+                    Seq::TextSeq((0..col.len()).map(|x| array.value(x).to_string()).collect())
                 } else if let Some(array) = col.as_any().downcast_ref::<TimestampMicrosecondArray>()
                 {
-                    Array::Int64Array(array.values().to_vec())
+                    Seq::Int64Seq(array.values().to_vec())
                 } else {
-                    Array::Nil
+                    Seq::Nil
                 }
             })
             .collect::<Vec<_>>();

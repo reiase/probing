@@ -42,8 +42,8 @@ pub fn query_profiling() -> Result<Vec<String>> {
             module: line[0].to_string(),
         };
         let duration = match line[2] {
-            probing_proto::types::Value::Float32(x) => x as f64,
-            probing_proto::types::Value::Float64(x) => x,
+            probing_proto::types::Ele::F32(x) => x as f64,
+            probing_proto::types::Ele::F64(x) => x,
             _ => 0 as f64,
         };
 

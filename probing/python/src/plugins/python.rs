@@ -10,7 +10,7 @@ use probing_engine::core::{
     SchemaPlugin, SchemaRef, StringArray,
 };
 use probing_engine::core::{Float32Array, Int32Array, LazyTableSource};
-use probing_proto::types::Value;
+use probing_proto::types::Ele;
 use probing_proto::types::{self, TimeSeries};
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyDict;
@@ -116,10 +116,10 @@ impl CustomSchema for PythonSchema {
                 fields.push(Field::new(
                     name,
                     match dtype {
-                        types::DataType::Int64 => DataType::Int64,
-                        types::DataType::Float64 => DataType::Float64,
-                        types::DataType::Int32 => DataType::Int32,
-                        types::DataType::Float32 => DataType::Float32,
+                        types::EleType::I64 => DataType::Int64,
+                        types::EleType::F64 => DataType::Float64,
+                        types::EleType::I32 => DataType::Int32,
+                        types::EleType::F32 => DataType::Float32,
                         _ => DataType::Utf8,
                     },
                     false,
@@ -150,10 +150,10 @@ impl PythonSchema {
         fields.push(Field::new("timestamp", DataType::Int64, true));
         names.iter().zip(ts.cols.iter()).for_each(|(name, col)| {
             let data_type = match col.dtype() {
-                types::DataType::Int64 => DataType::Int64,
-                types::DataType::Float64 => DataType::Float64,
-                types::DataType::Int32 => DataType::Int32,
-                types::DataType::Float32 => DataType::Float32,
+                types::EleType::I64 => DataType::Int64,
+                types::EleType::F64 => DataType::Float64,
+                types::EleType::I32 => DataType::Int32,
+                types::EleType::F32 => DataType::Float32,
                 _ => DataType::Utf8,
             };
             fields.push(Field::new(name, data_type, false));
@@ -166,7 +166,7 @@ impl PythonSchema {
             .iter()
             .take(length)
             .map(|x| match x {
-                Value::Int64(x) => x,
+                Ele::I64(x) => x,
                 _ => 0,
             })
             .collect::<Vec<_>>();
@@ -174,47 +174,47 @@ impl PythonSchema {
 
         for col in ts.cols.iter() {
             let col = match col.dtype() {
-                types::DataType::Int64 => Arc::new(Int64Array::from(
+                types::EleType::I64 => Arc::new(Int64Array::from(
                     col.iter()
                         .take(length)
                         .map(|x| match x {
-                            Value::Int64(x) => x,
+                            Ele::I64(x) => x,
                             _ => 0,
                         })
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
-                types::DataType::Float64 => Arc::new(Float64Array::from(
+                types::EleType::F64 => Arc::new(Float64Array::from(
                     col.iter()
                         .take(length)
                         .map(|x| match x {
-                            Value::Float64(x) => x,
+                            Ele::F64(x) => x,
                             _ => 0.0,
                         })
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
-                types::DataType::Int32 => Arc::new(Int32Array::from(
+                types::EleType::I32 => Arc::new(Int32Array::from(
                     col.iter()
                         .take(length)
                         .map(|x| match x {
-                            Value::Int32(x) => x,
+                            Ele::I32(x) => x,
                             _ => 0,
                         })
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
-                types::DataType::Float32 => Arc::new(Float32Array::from(
+                types::EleType::F32 => Arc::new(Float32Array::from(
                     col.iter()
                         .take(length)
                         .map(|x| match x {
-                            Value::Float32(x) => x,
+                            Ele::F32(x) => x,
                             _ => 0.0,
                         })
                         .collect::<Vec<_>>(),
                 )) as ArrayRef,
-                types::DataType::Text => Arc::new(StringArray::from(
+                types::EleType::Text => Arc::new(StringArray::from(
                     col.iter()
                         .take(length)
                         .map(|x| match x {
-                            Value::Text(x) => x,
+                            Ele::Text(x) => x,
                             _ => x.to_string(),
                         })
                         .collect::<Vec<_>>(),

@@ -13,7 +13,7 @@ use tabled::settings::{
 };
 
 use probing_proto::types::DataFrame;
-use probing_proto::types::Value;
+use probing_proto::types::Ele;
 
 pub struct Table {
     data: VecRecords<Text<String>>,
@@ -72,14 +72,14 @@ pub fn render_dataframe(df: &DataFrame) {
     for (col, col_data) in df.cols.iter().enumerate() {
         for row in 0..col_data.len() {
             let value = match col_data.get(row) {
-                Value::Nil => "nil".to_string(),
-                Value::Int32(x) => x.to_string(),
-                Value::Int64(x) => x.to_string(),
-                Value::Float32(x) => x.to_string(),
-                Value::Float64(x) => x.to_string(),
-                Value::Text(x) => x.to_string(),
-                Value::Url(x) => x.to_string(),
-                Value::DataTime(x) => x.to_string(),
+                Ele::Nil => "nil".to_string(),
+                Ele::I32(x) => x.to_string(),
+                Ele::I64(x) => x.to_string(),
+                Ele::F32(x) => x.to_string(),
+                Ele::F64(x) => x.to_string(),
+                Ele::Text(x) => x.to_string(),
+                Ele::Url(x) => x.to_string(),
+                Ele::DataTime(x) => x.to_string(),
             };
             table.put((row + 1, col), value);
         }

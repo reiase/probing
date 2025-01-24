@@ -111,8 +111,8 @@ mod test {
     use arrow::array::StringArray;
 
     use anyhow::Result;
-    use probing_proto::types::Array;
     use probing_proto::types::DataFrame;
+    use probing_proto::types::Seq;
 
     use super::DataFrameChunk;
 
@@ -126,8 +126,8 @@ mod test {
         let df = DataFrame {
             names: vec!["a".to_string(), "b".to_string()],
             cols: vec![
-                Array::Int32Array(vec![1, 2]),
-                Array::TextArray(vec!["a".to_string(), "b".to_string()]),
+                Seq::Int32Seq(vec![1, 2]),
+                Seq::TextSeq(vec!["a".to_string(), "b".to_string()]),
             ],
             size: 2,
         };
@@ -150,8 +150,8 @@ mod test {
         let df = DataFrame {
             names: vec!["a".to_string(), "b".to_string()],
             cols: vec![
-                Array::Int32Array(vec![1, 2]),
-                Array::TextArray(vec!["a".to_string(), "b".to_string()]),
+                Seq::Int32Seq(vec![1, 2]),
+                Seq::TextSeq(vec!["a".to_string(), "b".to_string()]),
             ],
             size: 2,
         };

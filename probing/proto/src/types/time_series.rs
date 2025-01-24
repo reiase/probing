@@ -4,14 +4,14 @@ use thiserror::Error;
 
 use super::series::SeriesError;
 use super::series::SeriesIterator;
-use super::{series::SeriesConfig, value::DataType, Series, Value};
+use super::{basic::EleType, series::SeriesConfig, Ele, Series};
 
 #[derive(Debug, Error)]
 pub enum TimeSeriesError {
     #[error("column count mismatch")]
     ColumnCountMismatch { expected: usize, got: usize },
     #[error("column type mismatch")]
-    ColumnTypeMismatch { expected: DataType, got: DataType },
+    ColumnTypeMismatch { expected: EleType, got: EleType },
     #[error("invalid timestamp type")]
     InvalidTimestampType,
     #[error("unkown error")]
@@ -51,7 +51,7 @@ impl TimeSeries {
         self.len() == 0
     }
 
-    pub fn append(&mut self, timestamp: Value, values: Vec<Value>) -> Result<(), TimeSeriesError> {
+    pub fn append(&mut self, timestamp: Ele, values: Vec<Ele>) -> Result<(), TimeSeriesError> {
         if self.cols.len() != values.len() {
             return Err(TimeSeriesError::ColumnCountMismatch {
                 expected: self.cols.len(),
@@ -72,7 +72,7 @@ impl TimeSeries {
         }
     }
 
-    pub fn take(&self, limit: Option<usize>) -> Vec<(Value, Vec<Value>)> {
+    pub fn take(&self, limit: Option<usize>) -> Vec<(Ele, Vec<Ele>)> {
         let iter = self.iter();
         if let Some(limit) = limit {
             iter.take(limit).collect::<Vec<_>>()
@@ -89,7 +89,7 @@ pub struct TimeSeriesConfig {
 }
 
 impl TimeSeriesConfig {
-    pub fn with_dtype(mut self, dtype: DataType) -> Self {
+    pub fn with_dtype(mut self, dtype: EleType) -> Self {
         self.series_config = self.series_config.with_dtype(dtype);
         self
     }
@@ -135,7 +135,7 @@ pub struct TimeSeriesIter<'a> {
 }
 
 impl Iterator for TimeSeriesIter<'_> {
-    type Item = (Value, Vec<Value>);
+    type Item = (Ele, Vec<Ele>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let timestamp = self.timestamp.next()?;
@@ -153,7 +153,7 @@ mod test {
     #[test]
     fn test_timeseries_create() {
         let _ = super::TimeSeries::builder()
-            .with_dtype(super::DataType::Int64)
+            .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
             .with_compression_threshold(10)
@@ -165,7 +165,7 @@ mod test {
     #[test]
     fn test_timeseries_append() {
         let mut ts = super::TimeSeries::builder()
-            .with_dtype(super::DataType::Int64)
+            .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
             .with_compression_threshold(10)
@@ -173,14 +173,14 @@ mod test {
             .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
         let _ = ts.append(
-            super::Value::Int64(1),
-            vec![super::Value::Int64(1), super::Value::Int64(2)],
+            super::Ele::I64(1),
+            vec![super::Ele::I64(1), super::Ele::I64(2)],
         );
     }
     #[test]
     fn test_timeseries_iter() {
         let mut ts = super::TimeSeries::builder()
-            .with_dtype(super::DataType::Int64)
+            .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
             .with_compression_threshold(10)
@@ -190,13 +190,13 @@ mod test {
 
         // Append some test data
         ts.append(
-            super::Value::Int64(1),
-            vec![super::Value::Int64(10), super::Value::Int64(20)],
+            super::Ele::I64(1),
+            vec![super::Ele::I64(10), super::Ele::I64(20)],
         )
         .unwrap();
         ts.append(
-            super::Value::Int64(2),
-            vec![super::Value::Int64(30), super::Value::Int64(40)],
+            super::Ele::I64(2),
+            vec![super::Ele::I64(30), super::Ele::I64(40)],
         )
         .unwrap();
 
@@ -204,12 +204,12 @@ mod test {
         let mut iter = ts.iter();
 
         let (t1, v1) = iter.next().unwrap();
-        assert_eq!(t1, super::Value::Int64(1));
-        assert_eq!(v1, vec![super::Value::Int64(10), super::Value::Int64(20)]);
+        assert_eq!(t1, super::Ele::I64(1));
+        assert_eq!(v1, vec![super::Ele::I64(10), super::Ele::I64(20)]);
 
         let (t2, v2) = iter.next().unwrap();
-        assert_eq!(t2, super::Value::Int64(2));
-        assert_eq!(v2, vec![super::Value::Int64(30), super::Value::Int64(40)]);
+        assert_eq!(t2, super::Ele::I64(2));
+        assert_eq!(v2, vec![super::Ele::I64(30), super::Ele::I64(40)]);
 
         assert!(iter.next().is_none());
     }

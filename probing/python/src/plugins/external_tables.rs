@@ -2,20 +2,20 @@ use std::sync::Arc;
 use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
-use probing_proto::types::{TimeSeries, Value};
+use probing_proto::types::{Ele, TimeSeries};
 use pyo3::types::PyType;
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
 
-fn value_to_object(py: Python, v: &Value) -> PyObject {
+fn value_to_object(py: Python, v: &Ele) -> PyObject {
     let ret = match v {
-        Value::Nil => Option::<i32>::None.into_bound_py_any(py),
-        Value::Int64(v) => v.into_bound_py_any(py),
-        Value::Int32(v) => v.into_bound_py_any(py),
-        Value::Float64(v) => v.into_bound_py_any(py),
-        Value::Float32(v) => v.into_bound_py_any(py),
-        Value::Text(v) => v.into_bound_py_any(py),
-        Value::Url(_) => todo!(),
-        Value::DataTime(_) => todo!(),
+        Ele::Nil => Option::<i32>::None.into_bound_py_any(py),
+        Ele::I64(v) => v.into_bound_py_any(py),
+        Ele::I32(v) => v.into_bound_py_any(py),
+        Ele::F64(v) => v.into_bound_py_any(py),
+        Ele::F32(v) => v.into_bound_py_any(py),
+        Ele::Text(v) => v.into_bound_py_any(py),
+        Ele::Url(_) => todo!(),
+        Ele::DataTime(_) => todo!(),
     };
     ret.map(|x| x.unbind()).unwrap_or(py.None())
 }
@@ -98,18 +98,18 @@ impl ExternalTable {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_micros() as i64;
-        let values: Vec<Value> = Python::with_gil(|py| {
+        let values: Vec<Ele> = Python::with_gil(|py| {
             values
                 .into_iter()
                 .map(|v| {
                     if let Ok(v) = v.extract::<i64>(py) {
-                        Value::Int64(v)
+                        Ele::I64(v)
                     } else if let Ok(v) = v.extract::<f64>(py) {
-                        Value::Float64(v)
+                        Ele::F64(v)
                     } else if let Ok(v) = v.extract::<String>(py) {
-                        Value::Text(v)
+                        Ele::Text(v)
                     } else {
-                        Value::Nil
+                        Ele::Nil
                     }
                 })
                 .collect()
@@ -126,18 +126,18 @@ impl ExternalTable {
                 "column count mismatch",
             ));
         }
-        let values: Vec<Value> = Python::with_gil(|py| {
+        let values: Vec<Ele> = Python::with_gil(|py| {
             values
                 .into_iter()
                 .map(|v| {
                     if let Ok(v) = v.extract::<i64>(py) {
-                        Value::Int64(v)
+                        Ele::I64(v)
                     } else if let Ok(v) = v.extract::<f64>(py) {
-                        Value::Float64(v)
+                        Ele::F64(v)
                     } else if let Ok(v) = v.extract::<String>(py) {
-                        Value::Text(v)
+                        Ele::Text(v)
                     } else {
-                        Value::Nil
+                        Ele::Nil
                     }
                 })
                 .collect()

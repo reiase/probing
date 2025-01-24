@@ -1,18 +1,18 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::array::Array;
+use crate::types::seq::Seq;
 
-use super::Value;
+use super::Ele;
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct DataFrame {
     pub names: Vec<String>,
-    pub cols: Vec<Array>,
+    pub cols: Vec<Seq>,
     pub size: u64,
 }
 
 impl DataFrame {
-    pub fn new(names: Vec<String>, columns: Vec<Array>) -> Self {
+    pub fn new(names: Vec<String>, columns: Vec<Seq>) -> Self {
         DataFrame {
             names,
             cols: columns,
@@ -46,7 +46,7 @@ pub struct DataFrameIterator<'a> {
 }
 
 impl Iterator for DataFrameIterator<'_> {
-    type Item = Vec<Value>;
+    type Item = Vec<Ele>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current >= self.df.len() {

@@ -6,40 +6,40 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub enum DataType {
+pub enum EleType {
     Nil,
-    Int32,
-    Int64,
-    Float32,
-    Float64,
+    I32,
+    I64,
+    F32,
+    F64,
     Text,
     Url,
     DataTime,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub enum Value {
+pub enum Ele {
     Nil,
-    Int32(i32),
-    Int64(i64),
-    Float32(f32),
-    Float64(f64),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
     Text(String),
     Url(String),
     DataTime(u64),
 }
 
-impl Display for Value {
+impl Display for Ele {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Nil => f.write_str("nil"),
-            Value::Int32(x) => f.write_fmt(format_args!("{x}")),
-            Value::Int64(x) => f.write_fmt(format_args!("{x}")),
-            Value::Float32(x) => f.write_fmt(format_args!("{x}")),
-            Value::Float64(x) => f.write_fmt(format_args!("{x}")),
-            Value::Text(x) => f.write_fmt(format_args!("{x}")),
-            Value::Url(x) => f.write_fmt(format_args!("{x}")),
-            Value::DataTime(x) => {
+            Ele::Nil => f.write_str("nil"),
+            Ele::I32(x) => f.write_fmt(format_args!("{x}")),
+            Ele::I64(x) => f.write_fmt(format_args!("{x}")),
+            Ele::F32(x) => f.write_fmt(format_args!("{x}")),
+            Ele::F64(x) => f.write_fmt(format_args!("{x}")),
+            Ele::Text(x) => f.write_fmt(format_args!("{x}")),
+            Ele::Url(x) => f.write_fmt(format_args!("{x}")),
+            Ele::DataTime(x) => {
                 let datetime: DateTime<Utc> =
                     (SystemTime::UNIX_EPOCH + Duration::from_micros(*x)).into();
                 f.write_fmt(format_args!("{}", datetime.to_rfc3339()))
@@ -48,60 +48,60 @@ impl Display for Value {
     }
 }
 
-impl From<&str> for Value {
+impl From<&str> for Ele {
     fn from(val: &str) -> Self {
-        Value::Text(val.to_string())
+        Ele::Text(val.to_string())
     }
 }
 
-impl From<String> for Value {
+impl From<String> for Ele {
     fn from(val: String) -> Self {
-        Value::Text(val.to_string())
+        Ele::Text(val.to_string())
     }
 }
 
-impl From<i32> for Value {
+impl From<i32> for Ele {
     fn from(item: i32) -> Self {
-        Value::Int32(item)
+        Ele::I32(item)
     }
 }
 
-impl From<i64> for Value {
+impl From<i64> for Ele {
     fn from(item: i64) -> Self {
-        Value::Int64(item)
+        Ele::I64(item)
     }
 }
 
-impl From<f32> for Value {
+impl From<f32> for Ele {
     fn from(item: f32) -> Self {
-        Value::Float32(item)
+        Ele::F32(item)
     }
 }
 
-impl From<f64> for Value {
+impl From<f64> for Ele {
     fn from(item: f64) -> Self {
-        Value::Float64(item)
+        Ele::F64(item)
     }
 }
 
-impl TryInto<i32> for Value {
+impl TryInto<i32> for Ele {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<i32> {
         match self {
-            Value::Int32(x) => Ok(x),
+            Ele::I32(x) => Ok(x),
             _ => anyhow::bail!("Value is not an i32"),
         }
     }
 }
 
-impl TryInto<i64> for Value {
+impl TryInto<i64> for Ele {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<i64> {
         match self {
-            Value::Int32(x) => Ok(x as i64),
-            Value::Int64(x) => Ok(x),
+            Ele::I32(x) => Ok(x as i64),
+            Ele::I64(x) => Ok(x),
             _ => anyhow::bail!("Value is not an i64"),
         }
     }
