@@ -1,3 +1,4 @@
+pub mod catch_crash;
 pub mod flamegraph;
 pub mod plugins;
 pub mod pprof;
@@ -11,6 +12,8 @@ use std::time::Duration;
 
 use anyhow::Result;
 
+use catch_crash::enable_crash_handler;
+use catch_crash::CRASH_HANDLER;
 use log::error;
 use nix::unistd::Pid;
 use once_cell::sync::Lazy;
@@ -225,6 +228,7 @@ pub struct ProbingOptions {
     pprof_sample_freq: i32,
     torch_sample_ratio: f64,
     task_stats_interval: i64,
+    crash_handler: Option<String>,
 }
 
 impl Default for ProbingOptions {
@@ -233,6 +237,7 @@ impl Default for ProbingOptions {
             pprof_sample_freq: 0,
             torch_sample_ratio: 0.0,
             task_stats_interval: 0,
+            crash_handler: None,
         }
     }
 }
@@ -304,6 +309,18 @@ impl ExtensionOptions for ProbingOptions {
                     }
                 };
             }
+            "python.crash_handler" | "python.crash.handler" => {
+                CRASH_HANDLER.lock().unwrap().replace(value.to_string());
+                global_setting.crash_handler = Some(value.to_string());
+                match enable_crash_handler() {
+                    Ok(_) => {
+                        log::debug!("Enabled crash handler: {}", value);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to enable crash handler: {}", e);
+                    }
+                }
+            }
             _ => println!("unknown setting {}={}", key, value),
         }
         Ok(())
@@ -326,6 +343,11 @@ impl ExtensionOptions for ProbingOptions {
                 key: "probing.task_stats.interval".to_string(),
                 value: Some(format!("{}", global_setting.task_stats_interval)),
                 description: "task stats sampling interval",
+            },
+            ConfigEntry {
+                key: "probing.python.crash_handler".to_string(),
+                value: Some(format!("{:?}", global_setting.crash_handler)),
+                description: "python crash handler",
             },
         ];
         println!("{:?}", ret);
