@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::series::SeriesError;
+use super::error::ProtoError;
 use super::series::SeriesIterator;
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
 
@@ -18,10 +18,10 @@ pub enum TimeSeriesError {
     UnknownError(String),
 }
 
-impl From<SeriesError> for TimeSeriesError {
-    fn from(err: SeriesError) -> Self {
+impl From<ProtoError> for TimeSeriesError {
+    fn from(err: ProtoError) -> Self {
         match err {
-            SeriesError::TypeMismatch { expected, got } => {
+            ProtoError::TypeMismatch { expected, got } => {
                 TimeSeriesError::ColumnTypeMismatch { expected, got }
             }
             _ => TimeSeriesError::UnknownError(err.to_string()),

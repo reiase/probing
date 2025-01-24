@@ -1,7 +1,6 @@
 mod basic;
 mod dataframe;
 mod error;
-// mod seq;
 pub mod series;
 mod table;
 mod time_series;

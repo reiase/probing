@@ -5,26 +5,11 @@ use anyhow::Result;
 use pco::standalone::simple_decompress;
 use pco::standalone::simpler_compress;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use super::basic::EleType;
 use super::Ele;
+use crate::types::ProtoError;
 use crate::types::Seq;
-
-#[derive(Debug, Error)]
-pub enum SeriesError {
-    #[error("type mismatch")]
-    TypeMismatch { expected: EleType, got: EleType },
-
-    #[error("invalid data type for value")]
-    InvalidValueDateType,
-
-    #[error("raw page type expected")]
-    RawPageTypeExpected,
-
-    #[error("Series capacity exceeded")]
-    CapacityExceeded,
-}
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Page {
@@ -239,12 +224,12 @@ impl Series {
         SeriesConfig::default()
     }
 
-    pub fn append<T>(&mut self, data: T) -> Result<(), SeriesError>
+    pub fn append<T>(&mut self, data: T) -> Result<(), ProtoError>
     where
         T: ArrayType,
     {
         if self.offset == usize::MAX {
-            return Err(SeriesError::CapacityExceeded);
+            return Err(ProtoError::CapacityExceeded);
         }
 
         if let Some(slice) = self.current_slice.as_mut() {
@@ -255,7 +240,7 @@ impl Series {
                     self.commit_current_slice();
                 }
             } else {
-                return Err(SeriesError::RawPageTypeExpected);
+                return Err(ProtoError::RawPageTypeExpected);
             }
         } else {
             self.config.dtype = T::dtype();
@@ -275,14 +260,14 @@ impl Series {
         Ok(())
     }
 
-    pub fn append_value(&mut self, data: Ele) -> Result<(), SeriesError> {
+    pub fn append_value(&mut self, data: Ele) -> Result<(), ProtoError> {
         match data {
             Ele::I32(data) => self.append(data),
             Ele::I64(data) => self.append(data),
             Ele::F32(data) => self.append(data),
             Ele::F64(data) => self.append(data),
             Ele::Text(data) => self.append(data),
-            _ => Err(SeriesError::InvalidValueDateType),
+            _ => Err(ProtoError::InvalidValueDateType),
         }
     }
 
@@ -366,7 +351,7 @@ impl Series {
 pub trait ArrayType {
     fn dtype() -> EleType;
     fn create_array(data: Self, size: usize) -> Seq;
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError>;
+    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError>;
 }
 
 impl ArrayType for i32 {
@@ -379,12 +364,12 @@ impl ArrayType for i32 {
         Seq::SeqI32(array)
     }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
+    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
         if let Seq::SeqI32(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(SeriesError::TypeMismatch {
+            Err(ProtoError::TypeMismatch {
                 expected: EleType::I32,
                 got: EleType::Nil,
             })
@@ -402,12 +387,12 @@ impl ArrayType for i64 {
         Seq::SeqI64(array)
     }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
+    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
         if let Seq::SeqI64(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(SeriesError::TypeMismatch {
+            Err(ProtoError::TypeMismatch {
                 expected: EleType::I64,
                 got: EleType::Nil,
             })
@@ -425,12 +410,12 @@ impl ArrayType for f32 {
         Seq::SeqF32(array)
     }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
+    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
         if let Seq::SeqF32(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(SeriesError::TypeMismatch {
+            Err(ProtoError::TypeMismatch {
                 expected: EleType::F32,
                 got: EleType::Nil,
             })
@@ -448,12 +433,12 @@ impl ArrayType for f64 {
         Seq::SeqF64(array)
     }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
+    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
         if let Seq::SeqF64(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(SeriesError::TypeMismatch {
+            Err(ProtoError::TypeMismatch {
                 expected: EleType::F64,
                 got: EleType::Nil,
             })
@@ -472,12 +457,12 @@ impl ArrayType for String {
         Seq::SeqText(array)
     }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), SeriesError> {
+    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
         if let Seq::SeqText(arr) = array {
             arr.push(data);
             Ok(())
         } else {
-            Err(SeriesError::TypeMismatch {
+            Err(ProtoError::TypeMismatch {
                 expected: EleType::F64,
                 got: EleType::Nil,
             })
