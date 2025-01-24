@@ -3951,7 +3951,6 @@ dependencies = [
  "anyhow",
  "arrow",
  "chrono",
- "clap 4.5.20",
  "criterion",
  "log",
  "minstant",

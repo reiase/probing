@@ -1,35 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-pub mod cli;
 pub mod protocol;
 pub mod types;
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct Process {
-    pub pid: i32,
-    pub exe: String,
-    pub env: String,
-    pub cmd: String,
-    pub cwd: String,
-    pub main_thread: u64,
-    pub threads: Vec<u64>,
-}
-
-#[derive(Clone)]
-pub struct KeyValuePair {
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct CallStack {
-    pub cstack: Option<String>,
-    pub file: String,
-    pub func: String,
-    pub lineno: i64,
-    pub locals: HashMap<String, Object>,
-}
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Object {
@@ -54,6 +26,8 @@ pub mod prelude {
 
     pub use crate::protocol::cluster::Cluster;
     pub use crate::protocol::cluster::Node;
+
+    pub use crate::protocol::process::Process;
 
     pub use crate::types::DataFrame;
     pub use crate::types::Table;

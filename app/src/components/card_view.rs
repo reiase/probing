@@ -1,5 +1,6 @@
 use leptos::prelude::*;
-use probing_proto::{types::Table, Process};
+use probing_proto::prelude::Process;
+use probing_proto::types::Table;
 use thaw::*;
 
 use crate::components::tableview::TableView;

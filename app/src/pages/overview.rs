@@ -3,7 +3,6 @@ use leptos_meta::Style;
 use thaw::*;
 
 use probing_proto::prelude::*;
-use probing_proto::Process;
 
 use crate::components::card_view::ProcessCard;
 use crate::components::card_view::ThreadsCard;

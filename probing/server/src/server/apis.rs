@@ -1,7 +1,7 @@
 use actix_web::{get, http, put, web, HttpResponse, Responder};
 use anyhow::Result;
 
-use probing_proto::{prelude::*, Process};
+use probing_proto::prelude::*;
 use probing_python::pprof::PPROF_HOLDER;
 
 use crate::server::services::PROBE;

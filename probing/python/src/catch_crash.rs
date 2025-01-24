@@ -55,7 +55,10 @@ fn call_custom_handler(
 
 #[pyfunction]
 pub fn crash_handler(typ: Py<PyAny>, value: Py<PyAny>, traceback: Py<PyAny>) {
-    log::debug!("call crash handler: {:?}", CRASH_HANDLER.lock().unwrap().clone());
+    log::debug!(
+        "call crash handler: {:?}",
+        CRASH_HANDLER.lock().unwrap().clone()
+    );
     if let Some(handler) = CRASH_HANDLER.lock().unwrap().as_ref() {
         let ret = match handler.as_str() {
             "default" => call_default_handler(typ, value, traceback),
