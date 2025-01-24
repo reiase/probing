@@ -8,6 +8,7 @@ use actix_web::HttpRequest;
 use actix_web::{post, web, HttpResponse, Responder};
 use once_cell::sync::Lazy;
 
+use probing_cc::TaskStatsPlugin;
 use probing_proto::prelude::*;
 use probing_python::ProbingOptions;
 use probing_python::PythonProbe;
@@ -28,6 +29,7 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
                 .with_extension_options(ProbingOptions::default())
                 .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
                 .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
+                .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
                 .build()?;
 
             tokio::runtime::Builder::new_multi_thread()

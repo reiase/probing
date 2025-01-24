@@ -160,8 +160,8 @@ impl Injector {
                 let value = value.to_string();
 
                 injection
-                .setenv(Some(&name), Some(&value))
-                .wrap_err("failed to prepare env string")?;
+                    .setenv(Some(&name), Some(&value))
+                    .wrap_err("failed to prepare env string")?;
             }
         }
 

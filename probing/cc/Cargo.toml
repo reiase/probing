@@ -12,6 +12,7 @@ probing-engine = { path = "../engine" }
 
 log = { workspace = true }
 once_cell = { workspace = true }
+procfs = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

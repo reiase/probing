@@ -7,6 +7,7 @@ pub mod repl;
 use std::ffi::CStr;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use anyhow::Result;
 
@@ -293,6 +294,15 @@ impl ExtensionOptions for ProbingOptions {
             "task_stats_interval" | "task_stats.interval" | "task.stats.interval" => {
                 let interval: i64 = value.parse().unwrap_or(0);
                 global_setting.task_stats_interval = interval;
+                match probing_cc::TaskStatsWorker::instance().start(probing_cc::WorkerConfig {
+                    interval: Duration::from_millis(interval as u64),
+                    iterations: None,
+                }) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("Failed to start task stats worker: {}", e);
+                    }
+                };
             }
             _ => println!("unknown setting {}={}", key, value),
         }

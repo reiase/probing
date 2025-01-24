@@ -6,7 +6,7 @@ static CODE: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/pycode/");
 
 pub(crate) fn get_code(path: &str) -> Option<String> {
     let clean_path = path.trim_start_matches('/');
-    
+
     if let Ok(code_root) = std::env::var("PROBING_CODE_ROOT") {
         let fs_path = Path::new(&code_root).join(clean_path);
         match std::fs::read_to_string(&fs_path) {
@@ -17,11 +17,14 @@ pub(crate) fn get_code(path: &str) -> Option<String> {
             }
         }
     } else {
-        CODE.get_file(clean_path)
-            .map(|f| f.contents_utf8().unwrap_or_else(|| {
-                error!("Embedded file {} is not valid UTF-8", clean_path);
-                ""
-            }).to_string())
+        CODE.get_file(clean_path).map(|f| {
+            f.contents_utf8()
+                .unwrap_or_else(|| {
+                    error!("Embedded file {} is not valid UTF-8", clean_path);
+                    ""
+                })
+                .to_string()
+        })
     }
 }
 

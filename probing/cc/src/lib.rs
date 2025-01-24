@@ -8,3 +8,7 @@ pub use probing_proto::prelude::ProbeCall;
 pub use probing_proto::prelude::ProbeFactory;
 
 pub mod ccprobe;
+
+pub use plugins::TaskStatsPlugin;
+pub use plugins::TaskStatsWorker;
+pub use plugins::WorkerConfig;
