@@ -4,10 +4,11 @@ use crate::types::array::Array;
 
 use super::Value;
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct DataFrame {
     pub names: Vec<String>,
     pub cols: Vec<Array>,
+    pub size: u64,
 }
 
 impl DataFrame {
@@ -15,6 +16,7 @@ impl DataFrame {
         DataFrame {
             names,
             cols: columns,
+            size: 0,
         }
     }
 

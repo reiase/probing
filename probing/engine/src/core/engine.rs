@@ -87,7 +87,7 @@ impl Engine {
         let q: String = q.into();
         let batches = self.sql(q.as_str()).await?.collect().await?;
         if batches.is_empty() {
-            return Err(anyhow::Error::msg("empty result"));
+            return Ok(probing_proto::prelude::DataFrame::default());
         }
         let batch = concat_batches(&batches[0].schema(), batches.iter())?;
 

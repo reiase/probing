@@ -6,6 +6,7 @@ use actix::Addr;
 use actix_web::http::header;
 use actix_web::HttpRequest;
 use actix_web::{post, web, HttpResponse, Responder};
+use anyhow::Result;
 use once_cell::sync::Lazy;
 
 use probing_cc::TaskStatsPlugin;
@@ -19,7 +20,7 @@ use crate::server::actors::ProbeActor;
 pub static PROBE: Lazy<Addr<ProbeActor>> =
     Lazy::new(|| ProbeActor::new(Box::new(PythonProbe::default())).start());
 
-pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
+pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
@@ -57,13 +58,10 @@ pub fn handle_query(request: QueryMessage) -> anyhow::Result<Vec<u8>> {
         .join()
         .map_err(|_| anyhow::anyhow!("error joining thread"))??;
 
-        // let resp = engine.execute(&request.expr, "ron")?;
-        Ok(ron::to_string(&QueryMessage::Reply {
+        Ok(QueryMessage::Reply {
             data: resp,
             format: QueryDataFormat::RON,
-        })?
-        .as_bytes()
-        .to_vec())
+        })
     } else {
         Err(anyhow::anyhow!("Invalid query message"))
     }
@@ -97,12 +95,18 @@ async fn query(req: String) -> impl Responder {
         Ok(request) => request,
         Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
     };
-    let reply = handle_query(request);
-    let reply = match reply {
+
+    let reply = match handle_query(request) {
         Ok(reply) => reply,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => QueryMessage::Error {
+            message: err.to_string(),
+        },
     };
-    HttpResponse::Ok().body(reply)
+
+    match ron::to_string(&reply) {
+        Ok(reply) => HttpResponse::Ok().body(reply),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
 }
 
 async fn index() -> impl Responder {

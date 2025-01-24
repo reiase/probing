@@ -129,6 +129,7 @@ mod test {
                 Array::Int32Array(vec![1, 2]),
                 Array::TextArray(vec!["a".to_string(), "b".to_string()]),
             ],
+            size: 2,
         };
         let df_str = ron::to_string(&df)?;
 
@@ -152,6 +153,7 @@ mod test {
                 Array::Int32Array(vec![1, 2]),
                 Array::TextArray(vec!["a".to_string(), "b".to_string()]),
             ],
+            size: 2,
         };
         let df_str = ron::to_string(&df)?;
 
