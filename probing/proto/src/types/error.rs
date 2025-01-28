@@ -21,4 +21,7 @@ pub enum ProtoError {
 
     #[error("Series capacity exceeded")]
     CapacityExceeded,
+
+    #[error("error compress data")]
+    CompressError(String),
 }

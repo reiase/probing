@@ -1,4 +1,5 @@
 mod basic;
+mod compress;
 mod dataframe;
 mod error;
 pub mod series;

@@ -26,6 +26,7 @@ fn page_append(n: u64) -> u64 {
             probing_proto::types::series::Page::Compressed {
                 dtype: _,
                 buffer: _,
+                codebook: _,
             } => todo!(),
             probing_proto::types::series::Page::Ref => todo!(),
         }

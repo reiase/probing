@@ -2,19 +2,25 @@ use std::collections::BTreeMap;
 use std::ops::Bound::Included;
 
 use anyhow::Result;
-use pco::standalone::simple_decompress;
-use pco::standalone::simpler_compress;
 use serde::{Deserialize, Serialize};
 
-use super::basic::EleType;
-use super::Ele;
+use crate::types::compress::CodeBook;
+use crate::types::Ele;
+use crate::types::EleType;
 use crate::types::ProtoError;
 use crate::types::Seq;
+
+use super::compress::Compressable;
+use super::compress::Decompressable;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Page {
     Raw(Seq),
-    Compressed { dtype: EleType, buffer: Vec<u8> },
+    Compressed {
+        dtype: EleType,
+        buffer: Vec<u8>,
+        codebook: CodeBook,
+    },
     Ref,
 }
 
@@ -27,87 +33,20 @@ impl Page {
         }
     }
 
-    pub fn compress_buffer(&self, array: &Seq) -> Option<(EleType, Vec<u8>)> {
-        match array {
-            Seq::SeqI32(data) => {
-                let compressed = simpler_compress(data.as_slice(), 0);
-                match compressed {
-                    Ok(mut compressed) => {
-                        compressed.shrink_to_fit();
-                        Some((EleType::I32, compressed))
-                    }
-                    Err(_) => None,
-                }
-            }
-            Seq::SeqI64(data) => {
-                let compressed = simpler_compress(data.as_slice(), 0);
-                match compressed {
-                    Ok(mut compressed) => {
-                        compressed.shrink_to_fit();
-                        Some((EleType::I64, compressed))
-                    }
-                    Err(_) => None,
-                }
-            }
-            Seq::SeqF32(data) => {
-                let compressed = simpler_compress(data.as_slice(), 0);
-                match compressed {
-                    Ok(mut compressed) => {
-                        compressed.shrink_to_fit();
-                        Some((EleType::F32, compressed))
-                    }
-                    Err(_) => None,
-                }
-            }
-            Seq::SeqF64(data) => {
-                let compressed = simpler_compress(data.as_slice(), 0);
-                match compressed {
-                    Ok(mut compressed) => {
-                        compressed.shrink_to_fit();
-                        Some((EleType::F64, compressed))
-                    }
-                    Err(_) => None,
-                }
-            }
-            _ => None,
-        }
-    }
-
-    pub fn decompress_buffer(&self, dtype: EleType, buffer: &Vec<u8>) -> Option<Page> {
-        match dtype {
-            EleType::I32 => {
-                if let Ok(data) = simple_decompress::<i32>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::SeqI32(data)));
-                }
-                None
-            }
-            EleType::I64 => {
-                if let Ok(data) = simple_decompress::<i64>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::SeqI64(data)));
-                }
-                None
-            }
-            EleType::F32 => {
-                if let Ok(data) = simple_decompress::<f32>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::SeqF32(data)));
-                }
-                None
-            }
-            EleType::F64 => {
-                if let Ok(data) = simple_decompress::<f64>(buffer.as_slice()) {
-                    return Some(Page::Raw(Seq::SeqF64(data)));
-                }
-                None
-            }
-            _ => None,
-        }
+    pub fn decompress_buffer(&self, dtype: EleType, buffer: &[u8], cb: &CodeBook) -> Option<Page> {
+        let seq = Seq::decompress(dtype, buffer, cb);
+        seq.map(Page::Raw).ok()
     }
 
     pub fn get_value(&self, page_offset: usize) -> Option<Ele> {
         match self {
             Page::Raw(array) => Some(array.get(page_offset)),
-            Page::Compressed { dtype, buffer } => {
-                if let Some(page) = self.decompress_buffer(dtype.clone(), buffer) {
+            Page::Compressed {
+                dtype,
+                buffer,
+                codebook,
+            } => {
+                if let Some(page) = self.decompress_buffer(dtype.clone(), buffer, codebook) {
                     return page.get_value(page_offset);
                 }
                 None
@@ -139,15 +78,25 @@ impl Slice {
 
     pub fn compress(&mut self) {
         if let Page::Raw(array) = &self.data {
-            if let Some((dtype, buffer)) = self.data.compress_buffer(array) {
-                self.data = Page::Compressed { dtype, buffer };
+            if let Ok((dtype, buffer, codebook)) = array.compress() {
+                self.data = Page::Compressed {
+                    dtype,
+                    buffer,
+                    codebook,
+                };
             }
         }
     }
 
     pub fn decompress(&mut self) {
-        if let Page::Compressed { dtype, buffer } = &self.data {
-            if let Some(decompressed) = self.data.decompress_buffer(dtype.clone(), buffer) {
+        if let Page::Compressed {
+            dtype,
+            buffer,
+            codebook,
+        } = &self.data
+        {
+            if let Some(decompressed) = self.data.decompress_buffer(dtype.clone(), buffer, codebook)
+            {
                 self.data = decompressed;
             }
         }
@@ -501,8 +450,17 @@ impl Iterator for SeriesIterator<'_> {
         while let Some((_, slice)) = self.current_btree_slice {
             if self.elem_idx < slice.length {
                 if self.elem_idx == 0 {
-                    if let Page::Compressed { dtype, buffer } = &slice.data {
-                        if let Some(page) = slice.data.decompress_buffer(dtype.clone(), buffer) {
+                    if let Page::Compressed {
+                        dtype,
+                        buffer,
+                        codebook,
+                    } = &slice.data
+                    {
+                        if let Some(page) =
+                            slice
+                                .data
+                                .decompress_buffer(dtype.clone(), buffer, codebook)
+                        {
                             self.cache = if let Page::Raw(array) = page {
                                 array
                             } else {
