@@ -23,7 +23,7 @@ rustix = { workspace = true }
 
 actix = "0.13"
 actix-rt = "2"
-actix-web = "4"
+actix-web = { version = "4", default-features = false, features = ["macros"]}
 mime = "0.3"
 bytes = "1"
 dns-lookup = "2.0.4"

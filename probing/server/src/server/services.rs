@@ -68,7 +68,7 @@ pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
 }
 
 #[post("/probe")]
-async fn probe(req: String) -> impl Responder {
+pub async fn probe(req: String) -> impl Responder {
     let probe = PROBE.clone();
     let request = ron::from_str::<ProbeCall>(&req);
     let request = match request {
@@ -89,7 +89,7 @@ async fn probe(req: String) -> impl Responder {
 }
 
 #[post("/query")]
-async fn query(req: String) -> impl Responder {
+pub async fn query(req: String) -> impl Responder {
     let request = ron::from_str::<QueryMessage>(&req);
     let request = match request {
         Ok(request) => request,
