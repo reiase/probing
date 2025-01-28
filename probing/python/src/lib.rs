@@ -15,7 +15,6 @@ use anyhow::Result;
 use catch_crash::enable_crash_handler;
 use catch_crash::CRASH_HANDLER;
 use log::error;
-use nix::unistd::Pid;
 use once_cell::sync::Lazy;
 use pprof::PPROF_HOLDER;
 use probing_engine::core::ConfigEntry;
@@ -132,7 +131,11 @@ impl Probe for PythonProbe {
             CALLSTACKS.lock().unwrap().take();
         }
         let tid = tid.unwrap_or(std::process::id() as i32);
-        nix::sys::signal::kill(Pid::from_raw(tid), nix::sys::signal::SIGUSR2)?;
+        rustix::process::kill_process(
+            rustix::process::Pid::from_raw(tid)
+                .ok_or(anyhow::anyhow!("error get thread/process"))?,
+            rustix::process::Signal::Usr2,
+        )?;
         std::thread::sleep(std::time::Duration::from_secs(1));
         match CALLSTACKS.lock().unwrap().take() {
             Some(frames) => Ok(frames),

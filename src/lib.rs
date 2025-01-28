@@ -4,8 +4,6 @@ extern crate ctor;
 use anyhow::Result;
 use env_logger::Env;
 use log::error;
-use nix::libc;
-use nix::libc::SIGUSR2;
 
 use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
@@ -29,22 +27,25 @@ where
 }
 
 pub fn get_hostname() -> Result<String> {
-    let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
-    let size = libc::c_long::max(limit, 256) as usize;
-
-    // Reserve additional space for terminating nul byte.
-    let mut buffer = vec![0u8; size + 1];
-
-    #[allow(trivial_casts)]
-    let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
-
-    if result != 0 {
-        return Err(anyhow::anyhow!("gethostname failed"));
-    }
-
-    let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
-
+    let uname = rustix::system::uname();
+    let hostname = uname.nodename();
     Ok(hostname.to_str()?.to_string())
+    // let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
+    // let size = libc::c_long::max(limit, 256) as usize;
+
+    // // Reserve additional space for terminating nul byte.
+    // let mut buffer = vec![0u8; size + 1];
+
+    // #[allow(trivial_casts)]
+    // let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
+
+    // if result != 0 {
+    //     return Err(anyhow::anyhow!("gethostname failed"));
+    // }
+
+    // let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
+
+    // Ok(hostname.to_str()?.to_string())
 }
 
 #[ctor]
@@ -53,7 +54,10 @@ fn setup() {
     eprintln!("Initializing libprobing for process {pid} ...",);
     env_logger::init_from_env(Env::new().filter(ENV_PROBING_LOG));
 
-    register_signal_handler(SIGUSR2, backtrace_signal_handler);
+    register_signal_handler(
+        rustix::process::Signal::Usr2 as i32,
+        backtrace_signal_handler,
+    );
 
     probing_server::start_local();
 

@@ -63,13 +63,14 @@ probing-python = { path = "probing/python" }
 anyhow = { workspace = true }
 log = { workspace = true }
 ron = { workspace = true }
-
 ctor = { version = "0.2.9", features = [] }
+rustix = { workspace = true }
+
 env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
     "auto-color",
 ] }
-nix = { version = "0.29.0", default-features = false, features = ["signal"] }
+# nix = { version = "0.29.0", default-features = false, features = ["signal"] }
 signal-hook-registry = "1.4.2"
 
 [dev-dependencies]
@@ -90,7 +91,3 @@ panic = "unwind"
 strip = true      # Automatically strip symbols from the binary.
 lto = "thin"
 codegen-units = 1
-
-[profile.bench]
-opt-level = 3 # Optimize for size.
-debug = true

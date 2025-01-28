@@ -12,8 +12,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 console_error_panic_hook = "0.1.7"
-thaw = { version="=0.4.1", features=["csr"]}
-thiserror = "1.0.56"
+thaw = { version="=0.4.2", features=["csr"]}
+thiserror = "2"
 icondata = { version = "0.4.0", default-features = false, features = [
     "ant-design-icons",
 ] }
@@ -47,11 +47,3 @@ debug = []
 opt-level = "z"
 debug = false
 strip = true
-
-[profile.release.package]
-
-[profile.dev]
-opt-level = 0
-
-[profile.dev.package."*"]
-opt-level = 3

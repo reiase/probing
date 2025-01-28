@@ -40,7 +40,6 @@ pyo3 = { version = "0.23.3", features = [
     "auto-initialize",
 ] }
 signal-hook-registry = "1.4.2"
-rustnix = "0.0.1"
 
 [build-dependencies]
 pyo3-build-config = "0.23.3"

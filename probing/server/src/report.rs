@@ -1,8 +1,5 @@
-use std::thread;
-
 use anyhow::Result;
 use log::debug;
-use nix::libc;
 
 use probing_proto::prelude::Node;
 
@@ -10,28 +7,29 @@ use super::vars::PROBING_ADDRESS;
 use crate::server::SERVER_RUNTIME;
 
 pub fn get_hostname() -> Result<String> {
-    let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
-    let size = libc::c_long::max(limit, 256) as usize;
-
-    // Reserve additional space for terminating nul byte.
-    let mut buffer = vec![0u8; size + 1];
-
-    #[allow(trivial_casts)]
-    let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
-
-    if result != 0 {
-        return Err(anyhow::anyhow!("gethostname failed"));
-    }
-
-    let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
-
+    let uname = rustix::system::uname();
+    let hostname = uname.nodename();
     Ok(hostname.to_str()?.to_string())
+    // let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
+    // let size = libc::c_long::max(limit, 256) as usize;
+
+    // // Reserve additional space for terminating nul byte.
+    // let mut buffer = vec![0u8; size + 1];
+
+    // #[allow(trivial_casts)]
+    // let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
+
+    // if result != 0 {
+    //     return Err(anyhow::anyhow!("gethostname failed"));
+    // }
+
+    // let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
+
+    // Ok(hostname.to_str()?.to_string())
 }
 
 pub fn start_report_worker() {
-    thread::spawn(|| {
-        SERVER_RUNTIME.block_on(report_worker());
-    });
+    SERVER_RUNTIME.spawn(report_worker());
 }
 
 async fn report_worker() {
@@ -95,21 +93,9 @@ fn get_i32_env(name: &str) -> Option<i32> {
 }
 
 async fn request_remote(url: &str, node: Node) -> Result<Vec<u8>> {
-    use awc::Client;
-
-    let client = Client::default();
-    let mut reply = match client.put(url).send_json(&node).await {
-        Ok(reply) => reply,
-        Err(err) => {
-            return Err(anyhow::anyhow!(
-                "failed to report node status to {url}, {err}"
-            ));
-        }
-    };
-    match reply.body().await.map(|x| x.to_vec()) {
-        Ok(body) => Ok(body),
-        Err(err) => Err(anyhow::anyhow!(
-            "failed to report node status to {url}, {err}"
-        )),
-    }
+    let reply = ureq::put(url)
+        .send_json(node)?
+        .body_mut()
+        .read_to_string()?;
+    Ok(reply.into_bytes())
 }
