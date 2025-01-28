@@ -4,14 +4,13 @@ use std::ops::Bound::Included;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::types::compress::CodeBook;
-use crate::types::Ele;
-use crate::types::EleType;
-use crate::types::ProtoError;
-use crate::types::Seq;
-
-use super::compress::Compressable;
-use super::compress::Decompressable;
+use super::CodeBook;
+use super::Compressable;
+use super::Decompressable;
+use super::Ele;
+use super::EleType;
+use super::ProtoError;
+use super::Seq;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Page {

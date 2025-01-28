@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::Seq;
-
 use super::Ele;
+use super::Seq;
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct DataFrame {

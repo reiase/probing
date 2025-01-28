@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
-use pco::{
-    data_types::Number,
-    standalone::{simple_decompress, simpler_compress},
-};
+use pco::data_types::Number;
+use pco::standalone::{simple_decompress, simpler_compress};
 
 use super::{EleType, ProtoError, Seq};
 

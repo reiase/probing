@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::basic::Ele;
+use super::Ele;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Table {
