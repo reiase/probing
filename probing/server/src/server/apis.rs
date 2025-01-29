@@ -1,6 +1,12 @@
-use actix_web::{get, http, put, web, HttpResponse, Responder};
+use std::collections::HashMap;
+
 use anyhow::Result;
 
+use axum::{
+    http::StatusCode,
+    response::{AppendHeaders, IntoResponse, Response},
+    Router,
+};
 use probing_proto::prelude::*;
 use probing_python::pprof::PPROF_HOLDER;
 
@@ -44,100 +50,114 @@ pub fn overview() -> Result<Process> {
     Ok(info)
 }
 
-#[get("/overview")]
-async fn api_get_overview() -> impl Responder {
-    match overview() {
-        Ok(info) => HttpResponse::Ok().json(info),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
+async fn api_get_overview() -> Result<String, ApiError> {
+    Ok(serde_json::to_string(&overview()?)?)
 }
 
-#[get("/flamegraph/torch")]
-async fn api_get_flamegraph_torch() -> impl Responder {
+async fn api_get_flamegraph_torch() -> Result<impl IntoResponse, ApiError> {
     let probe = PROBE.clone();
     let retval = probe.send(ProbeCall::CallFlamegraph).await;
+
     match retval {
-        Ok(ProbeCall::ReturnFlamegraph(flamegraph)) => HttpResponse::Ok()
-            .insert_header(http::header::ContentType(mime::IMAGE_SVG))
-            .body(flamegraph),
-        Ok(ProbeCall::Err(err)) => HttpResponse::InternalServerError().body(err),
-        _ => HttpResponse::InternalServerError()
-            .body(format!("unexpected response from probe: {:?}", retval)),
+        Ok(ProbeCall::ReturnFlamegraph(flamegraph)) => Ok((
+            AppendHeaders([
+                ("Content-Type", "image/svg+xml"),
+                ("Content-Disposition", "attachment; filename=flamegraph.svg"),
+            ]),
+            flamegraph,
+        )),
+        Ok(ProbeCall::Err(err)) => Err(anyhow::anyhow!(err).into()),
+        _ => Err(anyhow::anyhow!("unexpected response from probe: {:?}", retval).into()),
     }
 }
 
-#[get("/flamegraph/pprof")]
-async fn api_get_flamegraph_pprof() -> impl Responder {
+async fn api_get_flamegraph_pprof() -> Result<impl IntoResponse, ApiError> {
     match PPROF_HOLDER.flamegraph() {
-        Ok(graph) => HttpResponse::Ok()
-            .insert_header(http::header::ContentType(mime::IMAGE_SVG))
-            .body(graph),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Ok(graph) => Ok((
+            AppendHeaders([
+                ("Content-Type", "image/svg+xml"),
+                ("Content-Disposition", "attachment; filename=flamegraph.svg"),
+            ]),
+            graph,
+        )),
+        Err(err) => Err(anyhow::anyhow!(err).into()),
     }
 }
 
-#[derive(serde::Deserialize)]
-struct Info {
-    tid: Option<i32>,
-    path: Option<String>,
-}
-
-#[get("/callstack")]
-async fn api_get_callstack(req: web::Query<Info>) -> impl Responder {
-    let tid: Option<i32> = req.tid;
+async fn api_get_callstack(
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+) -> Result<String, ApiError> {
+    let tid: Option<i32> = params.get("tid").map(|x| x.parse().unwrap_or_default());
     let probe = crate::server::services::PROBE.clone();
 
     let reply = match probe.send(ProbeCall::CallBacktrace(tid)).await {
         Ok(reply) => reply,
         Err(err) => ProbeCall::Err(err.to_string()),
     };
-    let reply = match serde_json::to_string(&reply) {
-        Ok(reply) => reply,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-    };
-    HttpResponse::Ok().body(reply)
+    Ok(serde_json::to_string(&reply)?)
 }
 
-#[get("/files")]
-async fn api_get_files(req: web::Query<Info>) -> impl Responder {
-    let content = if let Some(path) = req.path.clone() {
-        std::fs::read_to_string(path).unwrap_or_default()
+async fn api_get_files(
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+) -> Result<String, ApiError> {
+    let path = params.get("path");
+    if let Some(path) = path {
+        let content = std::fs::read_to_string(path)?;
+        Ok(content)
     } else {
-        "".to_string()
-    };
-    HttpResponse::Ok().body(content)
+        Ok("".to_string())
+    }
 }
 
-#[put("/nodes")]
-async fn put_nodes(req: String) -> impl Responder {
-    let request = serde_json::from_str::<Node>(&req);
-    let request = match request {
-        Ok(request) => request,
-        Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
-    };
+async fn put_nodes(axum::Json(payload): axum::Json<Node>) -> Result<(), ApiError> {
     use probing_engine::plugins::cluster::service::update_node;
-    update_node(request);
-    HttpResponse::Ok().body("")
+    update_node(payload);
+    Ok(())
 }
 
-#[get("/nodes")]
-async fn get_nodes() -> impl Responder {
+async fn get_nodes() -> Result<String, ApiError> {
     use probing_engine::plugins::cluster::service::get_nodes;
     let nodes = get_nodes();
-    let nodes = serde_json::to_string(&nodes);
-    let nodes = match nodes {
-        Ok(nodes) => nodes,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-    };
-    HttpResponse::Ok().body(nodes)
+    Ok(serde_json::to_string(&nodes)?)
 }
 
-pub fn api_service_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(put_nodes)
-        .service(get_nodes)
-        .service(api_get_overview)
-        .service(api_get_callstack)
-        .service(api_get_files)
-        .service(api_get_flamegraph_torch)
-        .service(api_get_flamegraph_pprof);
+pub fn apis_route() -> axum::Router {
+    Router::new()
+        .route("/overview", axum::routing::get(api_get_overview))
+        .route("/callback", axum::routing::get(api_get_callstack))
+        .route("/files", axum::routing::get(api_get_files))
+        .route("/nodes", axum::routing::get(get_nodes).put(put_nodes))
+        .route(
+            "/flamegraph/torch",
+            axum::routing::get(api_get_flamegraph_torch),
+        )
+        .route(
+            "/flamegraph/pprof",
+            axum::routing::get(api_get_flamegraph_pprof),
+        )
+}
+
+// Make our own error that wraps `anyhow::Error`.
+struct ApiError(anyhow::Error);
+
+// Tell axum how to convert `ApiError` into a response.
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
+    }
+}
+
+// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+// `Result<_, AppError>`. That way you don't need to do that manually.
+impl<E> From<E> for ApiError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
 }

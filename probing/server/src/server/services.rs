@@ -3,10 +3,12 @@ use std::thread;
 
 use actix::Actor;
 use actix::Addr;
-use actix_web::http::header;
-use actix_web::HttpRequest;
-use actix_web::{post, web, HttpResponse, Responder};
 use anyhow::Result;
+use axum::http::StatusCode;
+use axum::http::Uri;
+use axum::response::AppendHeaders;
+use axum::response::IntoResponse;
+use axum::response::Response;
 use once_cell::sync::Lazy;
 
 use probing_cc::TaskStatsPlugin;
@@ -67,33 +69,34 @@ pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
     }
 }
 
-#[post("/probe")]
-pub async fn probe(req: String) -> impl Responder {
+// #[post("/probe")]
+pub async fn probe(
+    axum::extract::RawForm(req): axum::extract::RawForm,
+) -> Result<impl IntoResponse, AppError> {
     let probe = PROBE.clone();
-    let request = ron::from_str::<ProbeCall>(&req);
+    let request = ron::from_str::<ProbeCall>(String::from_utf8(req.to_vec())?.as_str());
     let request = match request {
         Ok(request) => request,
-        Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
+        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
     let reply = probe.send(request).await;
     let reply = match reply {
         Ok(reply) => reply,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
     let reply = ron::to_string(&reply);
     let reply = match reply {
         Ok(reply) => reply,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
-    HttpResponse::Ok().body(reply)
+    Ok(reply)
 }
 
-#[post("/query")]
-pub async fn query(req: String) -> impl Responder {
+pub async fn query(req: String) -> Result<String, AppError> {
     let request = ron::from_str::<QueryMessage>(&req);
     let request = match request {
         Ok(request) => request,
-        Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
+        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
 
     let reply = match handle_query(request) {
@@ -103,40 +106,59 @@ pub async fn query(req: String) -> impl Responder {
         },
     };
 
-    match ron::to_string(&reply) {
-        Ok(reply) => HttpResponse::Ok().body(reply),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
+    Ok(ron::to_string(&reply)?)
 }
 
-async fn index() -> impl Responder {
-    HttpResponse::Ok()
-        .insert_header(header::ContentType(mime::TEXT_HTML))
-        .body(asset::get("/index.html"))
+pub async fn index() -> impl IntoResponse {
+    (
+        AppendHeaders([("Content-Type", "text/html")]),
+        asset::get("/index.html"),
+    )
 }
 
-pub async fn static_files(req: HttpRequest) -> HttpResponse {
-    let filename: &str = req.match_info().query("filename");
+pub async fn static_files(filename: Uri) -> Result<impl IntoResponse, StatusCode> {
+    let filename = filename.path();
     if !asset::contains(filename) {
-        return HttpResponse::NotFound().body("");
+        return Err(StatusCode::NOT_FOUND);
     }
-    let file = asset::get(filename);
-    let mime_header = match filename {
-        p if p.ends_with(".html") => header::ContentType(mime::TEXT_HTML),
-        p if p.ends_with(".js") => header::ContentType(mime::APPLICATION_JAVASCRIPT),
-        p if p.ends_with(".css") => header::ContentType(mime::TEXT_CSS),
-        p if p.ends_with(".svg") => header::ContentType(mime::IMAGE_SVG),
-        p if p.ends_with(".wasm") => header::ContentType(mime::APPLICATION_OCTET_STREAM),
-        _ => header::ContentType(mime::TEXT_HTML),
-    };
-    HttpResponse::Ok().insert_header(mime_header).body(file)
+    log::debug!("serving file: {}", filename);
+    Ok((
+        AppendHeaders([(
+            "Content-Type",
+            match &filename {
+                p if p.ends_with(".html") => "text/html",
+                p if p.ends_with(".js") => "application/javascript",
+                p if p.ends_with(".css") => "text/css",
+                p if p.ends_with(".svg") => "image/svg+xml",
+                p if p.ends_with(".wasm") => "application/wasm",
+                _ => "text/html",
+            },
+        )]),
+        asset::get(filename),
+    ))
 }
 
-pub fn page_service_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::resource("/").route(web::get().to(index)))
-        .service(web::resource("/overview").route(web::get().to(index)))
-        .service(web::resource("/cluster").route(web::get().to(index)))
-        .service(web::resource("/activity").route(web::get().to(index)))
-        .service(web::resource("/inspect").route(web::get().to(index)))
-        .service(web::resource("/index.html").route(web::get().to(index)));
+// Make our own error that wraps `anyhow::Error`.
+pub struct AppError(anyhow::Error);
+
+// Tell axum how to convert `AppError` into a response.
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
+    }
+}
+
+// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+// `Result<_, AppError>`. That way you don't need to do that manually.
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
 }

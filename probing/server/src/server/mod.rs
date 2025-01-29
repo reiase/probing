@@ -4,14 +4,13 @@ mod services;
 
 use std::thread;
 
-use actix_web::{web, App, HttpServer};
 use anyhow::Result;
+use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
-use apis::api_service_config;
 use probing_proto::prelude::QueryMessage;
-use services::{handle_query, page_service_config, static_files};
+use services::{handle_query, index, probe, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -32,6 +31,21 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
         .unwrap()
 });
 
+fn build_app() -> axum::Router {
+    axum::Router::new()
+        .route("/", axum::routing::get(index))
+        .route("/overview", axum::routing::get(index))
+        .route("/cluster", axum::routing::get(index))
+        .route("/activity", axum::routing::get(index))
+        .route("/inspect", axum::routing::get(index))
+        .route("/index.html", axum::routing::get(index))
+        .route("/profiler", axum::routing::get(index))
+        .route("/probe", axum::routing::post(probe))
+        .route("/query", axum::routing::post(query))
+        .nest_service("/apis", apis_route())
+        .fallback(static_files)
+}
+
 pub async fn local_server() -> Result<()> {
     let prefix_path = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
 
@@ -42,24 +56,8 @@ pub async fn local_server() -> Result<()> {
 
     let socket_path = format!("{}/{}", prefix_path, std::process::id());
 
-    let server = match HttpServer::new(|| {
-        App::new()
-            .service(services::probe)
-            .service(services::query)
-            .service(web::scope("/apis").configure(api_service_config))
-            .configure(page_service_config)
-            .route("/{filename:.*}", web::get().to(static_files))
-    })
-    .workers(2)
-    .bind_uds(socket_path.clone())
-    {
-        Ok(server) => server,
-        Err(err) => {
-            error!("Failed to bind server to {}: {}", socket_path, err);
-            return Err(err.into());
-        }
-    };
-    server.run().await?;
+    let app = build_app();
+    axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
     Ok(())
 }
 
@@ -71,25 +69,10 @@ pub fn start_local() {
 
 pub async fn remote_server(addr: Option<String>) -> Result<()> {
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
-    let server = match HttpServer::new(|| {
-        App::new()
-            .service(services::probe)
-            .service(services::query)
-            .service(web::scope("/apis").configure(api_service_config))
-            .configure(page_service_config)
-            .route("/{filename:.*}", web::get().to(static_files))
-    })
-    .workers(2)
-    .bind(addr.clone())
-    {
-        Ok(server) => server,
-        Err(err) => {
-            error!("Failed to bind server to {}: {}", addr.clone(), err);
-            return Err(err.into());
-        }
-    };
 
-    server.run().await?;
+    let app = build_app();
+    axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
+
     Ok(())
 }
 
