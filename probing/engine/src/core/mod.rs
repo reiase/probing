@@ -16,6 +16,10 @@ pub use table_plugin::TablePlugin;
 
 pub use table_plugin::LazyTableSource;
 
+pub use error::EngineError;
+pub use extension::EngineExtension;
+pub use extension::EngineExtensionOption;
+
 pub use datafusion::arrow::array::ArrayRef;
 pub use datafusion::arrow::array::Float32Array;
 pub use datafusion::arrow::array::Float64Array;
@@ -30,9 +34,6 @@ pub use datafusion::arrow::datatypes::SchemaRef;
 pub use datafusion::arrow::util::pretty;
 pub use datafusion::common::error::DataFusionError;
 pub use datafusion::config::CatalogOptions;
-pub use datafusion::config::ConfigEntry;
-pub use datafusion::config::ConfigExtension;
-pub use datafusion::config::ExtensionOptions;
 
 // pub static ENGINE_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
 //     tokio::runtime::Builder::new_multi_thread()

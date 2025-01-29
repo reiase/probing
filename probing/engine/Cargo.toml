@@ -17,6 +17,7 @@ probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false}
+log = { workspace = true }
 once_cell = { workspace = true }
 procfs = { workspace = true }
 serde = {workspace = true }

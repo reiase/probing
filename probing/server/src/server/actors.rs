@@ -23,14 +23,6 @@ impl Handler<ProbeCall> for ProbeActor {
     fn handle(&mut self, msg: ProbeCall, _ctx: &mut Context<Self>) -> Self::Result {
         debug!("ProbeActor received message: {:?}", msg);
         match msg {
-            ProbeCall::CallEnable(feature) => match self.probe.enable(&feature) {
-                Ok(res) => ProbeCall::ReturnEnable(res),
-                Err(err) => ProbeCall::Err(err.to_string()),
-            },
-            ProbeCall::CallDisable(feature) => match self.probe.disable(&feature) {
-                Ok(res) => ProbeCall::ReturnDisable(res),
-                Err(err) => ProbeCall::Err(err.to_string()),
-            },
             ProbeCall::CallBacktrace(depth) => match self.probe.backtrace(depth) {
                 Ok(res) => ProbeCall::ReturnBacktrace(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
@@ -61,20 +53,6 @@ mod specs {
     struct TestProbe;
 
     impl Probe for TestProbe {
-        fn enable(&self, feture: &str) -> anyhow::Result<()> {
-            match feture {
-                "test" => Ok(()),
-                _ => Err(anyhow::anyhow!("unknown feature")),
-            }
-        }
-
-        fn disable(&self, feture: &str) -> anyhow::Result<()> {
-            match feture {
-                "test" => Ok(()),
-                _ => Err(anyhow::anyhow!("unknown feature")),
-            }
-        }
-
         fn backtrace(
             &self,
             _tid: Option<i32>,
@@ -93,14 +71,6 @@ mod specs {
     #[actix::test]
     async fn test_probe_actor() {
         let probe = ProbeActor::new(Box::new(TestProbe)).start();
-
-        assert_eq!(
-            probe
-                .send(ProbeCall::CallEnable("test".to_string()))
-                .await
-                .unwrap(),
-            ProbeCall::ReturnEnable(())
-        );
 
         assert_eq!(
             probe

@@ -3598,6 +3598,7 @@ dependencies = [
  "async-trait",
  "datafusion",
  "futures",
+ "log",
  "once_cell",
  "probing-proto",
  "procfs",

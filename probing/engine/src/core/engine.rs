@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::RwLock;
 
 use anyhow::Context;
@@ -19,8 +20,9 @@ use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
 use futures;
 
 use super::chunked_encode::chunked_encode;
-use probing_proto::types::Seq;
+use super::extension::EngineExtension;
 use super::extension::EngineExtensionManager;
+use probing_proto::types::Seq;
 
 #[derive(PartialEq, Eq)]
 pub enum PluginType {
@@ -49,7 +51,7 @@ pub trait Plugin {
 
 pub struct Engine {
     context: SessionContext,
-    plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
+    plugins: RwLock<HashMap<String, Arc<dyn Plugin + Sync + Send>>>,
     extensions: RwLock<EngineExtensionManager>,
 }
 
@@ -136,7 +138,7 @@ impl Engine {
         futures::executor::block_on(async { self.async_query(q).await })
     }
 
-    pub fn execute<E: Into<String>>(self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>> {
+    pub fn execute<E: Into<String>>(&self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>> {
         futures::executor::block_on(async {
             let batches = self.sql(query).await?.collect().await?;
             if batches.is_empty() {
@@ -147,7 +149,11 @@ impl Engine {
         })
     }
 
-    pub fn enable<S: AsRef<str>>(&self, domain: S, plugin: Arc<dyn Plugin>) -> Result<()> {
+    pub fn enable<S: AsRef<str>>(
+        &self,
+        domain: S,
+        plugin: Arc<dyn Plugin + Sync + Send>,
+    ) -> Result<()> {
         let category = plugin.category();
 
         let catalog = if let Some(catalog) = self.context.catalog(domain.as_ref()) {
@@ -188,7 +194,8 @@ impl Engine {
 // Define the EngineBuilder struct
 pub struct EngineBuilder {
     config: SessionConfig,
-    plugins: Vec<(String, Arc<dyn Plugin>)>,
+    plugins: Vec<(String, Arc<dyn Plugin + Sync + Send>)>,
+    extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
 }
 
 impl EngineBuilder {
@@ -197,6 +204,7 @@ impl EngineBuilder {
         EngineBuilder {
             config: SessionConfig::default(),
             plugins: Vec::new(),
+            extensions: Vec::new(),
         }
     }
 
@@ -213,9 +221,21 @@ impl EngineBuilder {
     }
 
     // Add a plugin to the builder
-    pub fn with_plugin<T: Into<String>>(mut self, namespace: T, plugin: Arc<dyn Plugin>) -> Self {
+    pub fn with_plugin<T: Into<String>>(
+        mut self,
+        namespace: T,
+        plugin: Arc<dyn Plugin + Sync + Send>,
+    ) -> Self {
         let namespace = namespace.into();
         self.plugins.push((namespace, plugin));
+        self
+    }
+
+    pub fn with_engine_extension(
+        mut self,
+        extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>,
+    ) -> Self {
+        self.extensions.push(extension);
         self
     }
 
@@ -225,16 +245,23 @@ impl EngineBuilder {
     }
 
     // Build the Engine with the specified configurations
-    pub fn build(self) -> Result<Engine> {
+    pub fn build(mut self) -> Result<Engine> {
+        let mut eem = EngineExtensionManager::new();
+        for extension in self.extensions {
+            eem.register(extension);
+        }
+        self.config.options_mut().extensions.insert(eem);
+
         let context = SessionContext::new_with_config(self.config);
         let engine = Engine {
             context,
             plugins: Default::default(),
             extensions: RwLock::new(EngineExtensionManager::new()),
         };
-        for (namespace, plugin) in self.plugins {
-            engine.enable(namespace.as_str(), plugin)?;
-        }
+        // for (namespace, plugin) in self.plugins {
+        //     engine.enable(namespace.as_str(), plugin)?;
+        // }
+
         Ok(engine)
     }
 }

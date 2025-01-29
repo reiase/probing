@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 
 use actix::Actor;
@@ -10,10 +11,11 @@ use axum::response::AppendHeaders;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use once_cell::sync::Lazy;
+use tokio::sync::RwLock;
 
 use probing_cc::TaskStatsPlugin;
+use probing_engine::core::Engine;
 use probing_proto::prelude::*;
-use probing_python::ProbingOptions;
 use probing_python::PythonProbe;
 
 use crate::asset;
@@ -22,18 +24,50 @@ use crate::server::actors::ProbeActor;
 pub static PROBE: Lazy<Addr<ProbeActor>> =
     Lazy::new(|| ProbeActor::new(Box::new(PythonProbe::default())).start());
 
-pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
+pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
+    let engine = match probing_engine::create_engine()
+        // .with_extension_options(ProbingOptions::default())
+        .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+        .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
+        .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
+        .with_engine_extension(Arc::new(Mutex::new(
+            probing_python::extensions::PprofExtension::default(),
+        )))
+        .with_engine_extension(Arc::new(Mutex::new(
+            probing_python::extensions::TaskStatsExtension::default(),
+        )))
+        .with_engine_extension(Arc::new(Mutex::new(
+            probing_python::extensions::TorchExtension::default(),
+        )))
+        .with_engine_extension(Arc::new(Mutex::new(
+            probing_python::extensions::PythonExtension::default(),
+        )))
+        .build()
+    {
+        Ok(engine) => engine,
+        Err(e) => {
+            log::error!("Error creating engine: {}", e);
+            Engine::default()
+        }
+    };
+    RwLock::new(engine)
+});
+
+pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
+    // use probing_engine::plugins::cluster::ClusterPlugin;
+    // use probing_python::plugins::python::PythonPlugin;
+
     if let QueryMessage::Query { expr, opts: _ } = request {
         let resp = thread::spawn(move || {
-            let engine = probing_engine::create_engine()
-                .with_extension_options(ProbingOptions::default())
-                .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
-                .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
-                .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
-                .build()?;
+            // let engine = probing_engine::create_engine()
+            //     .with_extension_options(ProbingOptions::default())
+            //     .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+            //     .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
+            //     .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
+            //     .build()?;
 
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(4)
@@ -42,6 +76,8 @@ pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
                 .unwrap()
                 .block_on(async {
                     let q = expr.clone();
+                    let engine = ENGINE.read().await;
+
                     if q.starts_with("set") && q.contains(";") {
                         for q in q.split(";") {
                             match engine.sql(q).await {

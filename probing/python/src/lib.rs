@@ -1,4 +1,5 @@
 pub mod catch_crash;
+pub mod extensions;
 pub mod flamegraph;
 pub mod plugins;
 pub mod pprof;
@@ -8,19 +9,9 @@ pub mod repl;
 use std::ffi::CStr;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
 
 use anyhow::Result;
-
-use catch_crash::enable_crash_handler;
-use catch_crash::CRASH_HANDLER;
 use log::error;
-use once_cell::sync::Lazy;
-use pprof::PPROF_HOLDER;
-use probing_engine::core::ConfigEntry;
-use probing_engine::core::ConfigExtension;
-use probing_engine::core::DataFusionError;
-use probing_engine::core::ExtensionOptions;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -153,46 +144,46 @@ impl Probe for PythonProbe {
         Ok(flamegraph::flamegraph())
     }
 
-    fn enable(&self, feture: &str) -> Result<()> {
-        create_probing_module()?;
-        match feture {
-            "profiling" => {
-                PPROF_HOLDER.setup(100);
-                Ok(())
-            }
-            name => {
-                let filename = if let Some(pos) = name.find('(') {
-                    &name[..pos]
-                } else {
-                    name
-                };
+    // fn enable(&self, feture: &str) -> Result<()> {
+    //     create_probing_module()?;
+    //     match feture {
+    //         "profiling" => {
+    //             PPROF_HOLDER.setup(100);
+    //             Ok(())
+    //         }
+    //         name => {
+    //             let filename = if let Some(pos) = name.find('(') {
+    //                 &name[..pos]
+    //             } else {
+    //                 name
+    //             };
 
-                let filename = format!("{}.py", filename);
-                let code = get_code(filename.as_str());
-                if let Some(code) = code {
-                    Python::with_gil(|py| {
-                        let code = format!("{}\0", code);
-                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-                        py.run(code, None, None).map_err(|err| {
-                            anyhow::anyhow!("error loading feature {}: {}", name, err)
-                        })?;
+    //             let filename = format!("{}.py", filename);
+    //             let code = get_code(filename.as_str());
+    //             if let Some(code) = code {
+    //                 Python::with_gil(|py| {
+    //                     let code = format!("{}\0", code);
+    //                     let code = CStr::from_bytes_with_nul(code.as_bytes())?;
+    //                     py.run(code, None, None).map_err(|err| {
+    //                         anyhow::anyhow!("error loading feature {}: {}", name, err)
+    //                     })?;
 
-                        let code = format!("{}\0", name);
-                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-                        py.run(code, None, None).map_err(|err| {
-                            anyhow::anyhow!("error running feature {}: {}", name, err)
-                        })
-                    })
-                } else {
-                    Err(anyhow::anyhow!("unsupported feature {}", name))
-                }
-            }
-        }
-    }
+    //                     let code = format!("{}\0", name);
+    //                     let code = CStr::from_bytes_with_nul(code.as_bytes())?;
+    //                     py.run(code, None, None).map_err(|err| {
+    //                         anyhow::anyhow!("error running feature {}: {}", name, err)
+    //                     })
+    //                 })
+    //             } else {
+    //                 Err(anyhow::anyhow!("unsupported feature {}", name))
+    //             }
+    //         }
+    //     }
+    // }
 
-    fn disable(&self, _feture: &str) -> anyhow::Result<()> {
-        todo!()
-    }
+    // fn disable(&self, _feture: &str) -> anyhow::Result<()> {
+    //     todo!()
+    // }
 }
 
 #[derive(Default)]
@@ -221,139 +212,4 @@ pub fn create_probing_module() -> PyResult<()> {
         Ok(())
     })?;
     Ok(())
-}
-
-pub static PROBING_OPTIONS: Lazy<Mutex<ProbingOptions>> =
-    Lazy::new(|| Mutex::new(ProbingOptions::default()));
-
-#[derive(Debug, Clone)]
-pub struct ProbingOptions {
-    pprof_sample_freq: i32,
-    torch_sample_ratio: f64,
-    task_stats_interval: i64,
-    crash_handler: Option<String>,
-}
-
-impl Default for ProbingOptions {
-    fn default() -> Self {
-        ProbingOptions {
-            pprof_sample_freq: 0,
-            torch_sample_ratio: 0.0,
-            task_stats_interval: 0,
-            crash_handler: None,
-        }
-    }
-}
-
-impl ConfigExtension for ProbingOptions {
-    const PREFIX: &'static str = "probing";
-}
-
-impl ExtensionOptions for ProbingOptions {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-
-    fn cloned(&self) -> Box<dyn ExtensionOptions> {
-        Box::new(self.clone())
-    }
-
-    fn set(&mut self, key: &str, value: &str) -> Result<(), DataFusionError> {
-        log::debug!("probing update setting: {} = {}", key, value);
-        let mut global_setting = PROBING_OPTIONS.lock().unwrap();
-        match key {
-            "pprof_sample_freq" | "pprof.sample_freq" | "pprof.sample.freq" => {
-                let sample_freq: i32 = value.parse().unwrap_or(100);
-                global_setting.pprof_sample_freq = sample_freq;
-                PPROF_HOLDER.setup(sample_freq);
-            }
-            "torch_sample_ratio" | "torch.sample_ratio" | "torch.sample.ratio" => {
-                let sample_ratio: f64 = value.parse().unwrap_or(0.0);
-                global_setting.torch_sample_ratio = sample_ratio;
-                let filename = format!("{}.py", "torch_profiling");
-                let code = get_code(filename.as_str());
-                match if let Some(code) = code {
-                    Python::with_gil(|py| {
-                        let code = format!("{}\0", code);
-                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-                        py.run(code, None, None).map_err(|err| {
-                            anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
-                        })?;
-
-                        let code = format!("torch_profiling({})\0", sample_ratio);
-                        let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-                        py.run(code, None, None).map_err(|err| {
-                            anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
-                        })
-                    })
-                } else {
-                    Err(anyhow::anyhow!("unsupported setting {}={}", key, value))
-                } {
-                    Ok(_) => {}
-                    Err(err) => {
-                        log::error!("{}", err);
-                    }
-                }
-            }
-            "task_stats_interval" | "task_stats.interval" | "task.stats.interval" => {
-                let interval: i64 = value.parse().unwrap_or(0);
-                global_setting.task_stats_interval = interval;
-                match probing_cc::TaskStatsWorker::instance().start(probing_cc::WorkerConfig {
-                    interval: Duration::from_millis(interval as u64),
-                    iterations: None,
-                }) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("Failed to start task stats worker: {}", e);
-                    }
-                };
-            }
-            "python.crash_handler" | "python.crash.handler" => {
-                CRASH_HANDLER.lock().unwrap().replace(value.to_string());
-                global_setting.crash_handler = Some(value.to_string());
-                match enable_crash_handler() {
-                    Ok(_) => {
-                        log::debug!("Enabled crash handler: {}", value);
-                    }
-                    Err(e) => {
-                        log::error!("Failed to enable crash handler: {}", e);
-                    }
-                }
-            }
-            _ => println!("unknown setting {}={}", key, value),
-        }
-        Ok(())
-    }
-
-    fn entries(&self) -> Vec<ConfigEntry> {
-        let global_setting = PROBING_OPTIONS.lock().unwrap();
-        let ret = vec![
-            ConfigEntry {
-                key: "probing.pprof.sample_freq".to_string(),
-                value: Some(format!("{}", global_setting.pprof_sample_freq)),
-                description: "pprof sample frequency",
-            },
-            ConfigEntry {
-                key: "probing.torch.sample_ratio".to_string(),
-                value: Some(format!("{}", global_setting.torch_sample_ratio)),
-                description: "torch profiling sample ratio",
-            },
-            ConfigEntry {
-                key: "probing.task_stats.interval".to_string(),
-                value: Some(format!("{}", global_setting.task_stats_interval)),
-                description: "task stats sampling interval",
-            },
-            ConfigEntry {
-                key: "probing.python.crash_handler".to_string(),
-                value: Some(format!("{:?}", global_setting.crash_handler)),
-                description: "python crash handler",
-            },
-        ];
-        println!("{:?}", ret);
-        ret
-    }
 }
