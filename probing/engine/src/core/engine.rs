@@ -20,6 +20,7 @@ use futures;
 
 use super::chunked_encode::chunked_encode;
 use probing_proto::types::Seq;
+use super::extension::EngineExtensionManager;
 
 #[derive(PartialEq, Eq)]
 pub enum PluginType {
@@ -49,6 +50,7 @@ pub trait Plugin {
 pub struct Engine {
     context: SessionContext,
     plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
+    extensions: RwLock<EngineExtensionManager>,
 }
 
 impl Default for Engine {
@@ -59,6 +61,7 @@ impl Default for Engine {
         Engine {
             context: SessionContext::new_with_config(config),
             plugins: Default::default(),
+            extensions: RwLock::new(EngineExtensionManager::new()),
         }
     }
 }
@@ -227,6 +230,7 @@ impl EngineBuilder {
         let engine = Engine {
             context,
             plugins: Default::default(),
+            extensions: RwLock::new(EngineExtensionManager::new()),
         };
         for (namespace, plugin) in self.plugins {
             engine.enable(namespace.as_str(), plugin)?;

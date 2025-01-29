@@ -1,5 +1,7 @@
 mod chunked_encode;
 mod engine;
+mod error;
+mod extension;
 mod table_plugin;
 
 pub use engine::Engine;

@@ -22,6 +22,7 @@ procfs = { workspace = true }
 serde = {workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+thiserror = { workspace = true }
 
 async-trait = "0.1.83"
 datafusion = {version = "44.0.0", default-features = false, features = []}
