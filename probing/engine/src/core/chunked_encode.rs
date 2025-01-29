@@ -52,6 +52,9 @@ impl Serialize for DataFrameChunk<'_> {
             .collect::<Vec<_>>();
         df.serialize_field("cols", &cols)?;
 
+        let size = self.chunk.num_rows();
+        df.serialize_field("size", &size)?;
+
         df.end()
     }
 }
@@ -62,39 +65,24 @@ impl Serialize for ArrayChunk<'_> {
         S: serde::Serializer,
     {
         if let Some(array) = self.chunk.as_any().downcast_ref::<Int32Array>() {
-            serializer.serialize_newtype_variant("Array", 0, "Int32Array", &array.values().to_vec())
+            serializer.serialize_newtype_variant("Seq", 0, "SeqI32", &array.values().to_vec())
         } else if let Some(array) = self.chunk.as_any().downcast_ref::<Int64Array>() {
-            serializer.serialize_newtype_variant("Array", 0, "Int64Array", &array.values().to_vec())
+            serializer.serialize_newtype_variant("Seq", 0, "SeqI64", &array.values().to_vec())
         } else if let Some(array) = self.chunk.as_any().downcast_ref::<Float32Array>() {
-            serializer.serialize_newtype_variant(
-                "Array",
-                0,
-                "Float32Array",
-                &array.values().to_vec(),
-            )
+            serializer.serialize_newtype_variant("Seq", 0, "SeqF32", &array.values().to_vec())
         } else if let Some(array) = self.chunk.as_any().downcast_ref::<Float64Array>() {
-            serializer.serialize_newtype_variant(
-                "Array",
-                0,
-                "Float64Array",
-                &array.values().to_vec(),
-            )
+            serializer.serialize_newtype_variant("Seq", 0, "SeqF64", &array.values().to_vec())
         } else if let Some(array) = self.chunk.as_any().downcast_ref::<StringArray>() {
             let values = (0..array.len())
                 .map(|x| array.value(x).to_string())
                 .collect::<Vec<_>>();
-            serializer.serialize_newtype_variant("Array", 0, "TextArray", &values)
+            serializer.serialize_newtype_variant("Seq", 0, "SeqText", &values)
         } else if let Some(array) = self
             .chunk
             .as_any()
             .downcast_ref::<TimestampMicrosecondArray>()
         {
-            serializer.serialize_newtype_variant(
-                "Array",
-                0,
-                "DateTimeArray",
-                &array.values().to_vec(),
-            )
+            serializer.serialize_newtype_variant("Seq", 0, "SeqDateTime", &array.values().to_vec())
         } else {
             Err(serde::ser::Error::custom("Unsupported array type"))
         }
