@@ -2,8 +2,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
-use actix::Actor;
-use actix::Addr;
 use anyhow::Result;
 use axum::http::StatusCode;
 use axum::http::Uri;
@@ -19,11 +17,9 @@ use probing_proto::prelude::*;
 use probing_python::PythonProbe;
 
 use crate::asset;
-use crate::server::actors::ProbeActor;
 
-pub static PROBE: Lazy<Addr<ProbeActor>> =
-    Lazy::new(|| ProbeActor::new(Box::new(PythonProbe::default())).start());
-
+pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
+    Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
     use probing_engine::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
@@ -109,19 +105,14 @@ pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
 pub async fn probe(
     axum::extract::RawForm(req): axum::extract::RawForm,
 ) -> Result<impl IntoResponse, AppError> {
-    let probe = PROBE.clone();
+    let probe = PROBE.lock().unwrap();
     let request = ron::from_str::<ProbeCall>(String::from_utf8(req.to_vec())?.as_str());
     let request = match request {
         Ok(request) => request,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
-    let reply = probe.send(request).await;
-    let reply = match reply {
-        Ok(reply) => reply,
-        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
-    };
-    let reply = ron::to_string(&reply);
-    let reply = match reply {
+    let reply = probe.ask(request);
+    let reply = match ron::to_string(&reply) {
         Ok(reply) => reply,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };

@@ -7,8 +7,6 @@ use serde::Serialize;
 
 use crate::protocol::process::CallFrame;
 
-#[cfg_attr(feature = "actor", derive(actix::Message))]
-#[cfg_attr(feature = "actor", rtype(result = "ProbeCall"))]
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum ProbeCall {
     CallBacktrace(Option<i32>),
@@ -43,19 +41,6 @@ impl Display for ProbeCall {
     }
 }
 
-#[cfg(feature = "actor")]
-impl<A, M> actix::dev::MessageResponse<A, M> for ProbeCall
-where
-    A: actix::Actor,
-    M: actix::Message<Result = ProbeCall>,
-{
-    fn handle(self, _ctx: &mut A::Context, tx: Option<actix::dev::OneshotSender<M::Result>>) {
-        if let Some(tx) = tx {
-            let _ = tx.send(self);
-        }
-    }
-}
-
 pub trait Probe: Send + Sync {
     fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
     fn eval(&self, code: &str) -> Result<String>;
@@ -64,10 +49,8 @@ pub trait Probe: Send + Sync {
         Err(anyhow::anyhow!("not implemented"))
     }
 
-    fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
-        let msg = ron::de::from_bytes::<ProbeCall>(msg)?;
-        log::debug!("probe request: {}", msg);
-        let res = match msg {
+    fn ask(&self, request: ProbeCall) -> ProbeCall {
+        match request {
             ProbeCall::CallBacktrace(depth) => match self.backtrace(depth) {
                 Ok(res) => ProbeCall::ReturnBacktrace(res),
                 Err(err) => ProbeCall::Err(err.to_string()),
@@ -82,7 +65,13 @@ pub trait Probe: Send + Sync {
             },
             ProbeCall::Err(err) => ProbeCall::Err(err),
             _ => unreachable!(),
-        };
+        }
+    }
+
+    fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
+        let msg = ron::de::from_bytes::<ProbeCall>(msg)?;
+        log::debug!("probe request: {}", msg);
+        let res = self.ask(msg);
         log::debug!("probe reply: {}", res);
         Ok(ron::to_string(&res)?.as_bytes().to_vec())
     }

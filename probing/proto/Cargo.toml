@@ -6,21 +6,16 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-default = ["actor"]
-actor = ["dep:actix"]
 
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }
-minstant = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
 pco = "0.4.1"
-actix = { version = "0.13", optional=true }
 
 [dev-dependencies]
 arrow = { workspace = true }

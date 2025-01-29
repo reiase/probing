@@ -55,18 +55,18 @@ async fn api_get_overview() -> Result<String, ApiError> {
 }
 
 async fn api_get_flamegraph_torch() -> Result<impl IntoResponse, ApiError> {
-    let probe = PROBE.clone();
-    let retval = probe.send(ProbeCall::CallFlamegraph).await;
+    let probe = PROBE.lock().unwrap();
+    let retval = probe.ask(ProbeCall::CallFlamegraph);
 
     match retval {
-        Ok(ProbeCall::ReturnFlamegraph(flamegraph)) => Ok((
+        ProbeCall::ReturnFlamegraph(flamegraph) => Ok((
             AppendHeaders([
                 ("Content-Type", "image/svg+xml"),
                 ("Content-Disposition", "attachment; filename=flamegraph.svg"),
             ]),
             flamegraph,
         )),
-        Ok(ProbeCall::Err(err)) => Err(anyhow::anyhow!(err).into()),
+        ProbeCall::Err(err) => Err(anyhow::anyhow!(err).into()),
         _ => Err(anyhow::anyhow!("unexpected response from probe: {:?}", retval).into()),
     }
 }
@@ -88,12 +88,9 @@ async fn api_get_callstack(
     axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
 ) -> Result<String, ApiError> {
     let tid: Option<i32> = params.get("tid").map(|x| x.parse().unwrap_or_default());
-    let probe = crate::server::services::PROBE.clone();
+    let probe = PROBE.lock().unwrap();
 
-    let reply = match probe.send(ProbeCall::CallBacktrace(tid)).await {
-        Ok(reply) => reply,
-        Err(err) => ProbeCall::Err(err.to_string()),
-    };
+    let reply = probe.ask(ProbeCall::CallBacktrace(tid));
     Ok(serde_json::to_string(&reply)?)
 }
 
