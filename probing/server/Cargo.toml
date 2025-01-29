@@ -23,10 +23,16 @@ rustix = { workspace = true }
 
 actix = "0.13"
 actix-rt = "2"
-actix-web = "4"
 mime = "0.3"
 bytes = "1"
 dns-lookup = "2.0.4"
 include_dir = "=0.7.4"
 procfs = { workspace = true }
 ureq = { version = "3.0.2", default-features = false, features = ["json"] }
+axum = { version = "0.8.1", default-features = false, features = [
+    "tokio",
+    "http1",
+    "query",
+    "json",
+    "tower-log",
+] }

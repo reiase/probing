@@ -26,8 +26,6 @@ pub enum WorkerError {
     StartError(String),
     #[error("Failed to stop worker: {0}")]
     StopError(String),
-    #[error("Taskstats error: {0}")]
-    TaskStatsError(#[from] linux_taskstats::Error),
 }
 
 pub struct WorkerConfig {
