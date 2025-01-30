@@ -30,22 +30,6 @@ pub fn get_hostname() -> Result<String> {
     let uname = rustix::system::uname();
     let hostname = uname.nodename();
     Ok(hostname.to_str()?.to_string())
-    // let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
-    // let size = libc::c_long::max(limit, 256) as usize;
-
-    // // Reserve additional space for terminating nul byte.
-    // let mut buffer = vec![0u8; size + 1];
-
-    // #[allow(trivial_casts)]
-    // let result = unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) };
-
-    // if result != 0 {
-    //     return Err(anyhow::anyhow!("gethostname failed"));
-    // }
-
-    // let hostname = std::ffi::CStr::from_bytes_until_nul(buffer.as_slice())?;
-
-    // Ok(hostname.to_str()?.to_string())
 }
 
 #[ctor]
@@ -73,16 +57,11 @@ fn setup() {
         };
 
         let address = format!(
-            "{}:{}",
+            "'{}:{}'",
             hostname,
             port.parse().unwrap_or(DEFAULT_PORT) + local_rank
         );
-        println!(
-            "Starting remote server for process {} at {}",
-            std::process::id(),
-            address
-        );
-        probing_server::start_remote(Some(address));
+        std::env::set_var("PROBING_SERVER_ADDR", address);
         probing_server::start_report_worker();
     }
     let _ = create_probing_module();

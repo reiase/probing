@@ -81,10 +81,7 @@ impl Engine {
     }
 
     pub async fn sql(&self, query: &str) -> anyhow::Result<DataFrame> {
-        self.context
-            .sql(query)
-            .await
-            .with_context(|| "execute sql in query engine")
+        Ok(self.context.sql(query).await?)
     }
 
     pub async fn async_query<T: Into<String>>(

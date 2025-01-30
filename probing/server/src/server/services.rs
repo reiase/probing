@@ -41,6 +41,9 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
         .with_engine_extension(Arc::new(Mutex::new(
             probing_python::extensions::PythonExtension::default(),
         )))
+        .with_engine_extension(Arc::new(Mutex::new(
+            crate::extensions::ServerExtension::default(),
+        )))
         .build()
     {
         Ok(engine) => engine,
@@ -53,18 +56,8 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
 });
 
 pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
-    // use probing_engine::plugins::cluster::ClusterPlugin;
-    // use probing_python::plugins::python::PythonPlugin;
-
     if let QueryMessage::Query { expr, opts: _ } = request {
         let resp = thread::spawn(move || {
-            // let engine = probing_engine::create_engine()
-            //     .with_extension_options(ProbingOptions::default())
-            //     .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
-            //     .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
-            //     .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
-            //     .build()?;
-
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(4)
                 .enable_all()
@@ -74,7 +67,7 @@ pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
                     let q = expr.clone();
                     let engine = ENGINE.read().await;
 
-                    if q.starts_with("set") && q.contains(";") {
+                    if q.starts_with("set") {
                         for q in q.split(";") {
                             match engine.sql(q).await {
                                 Ok(_) => {}

@@ -68,6 +68,7 @@ pub fn start_local() {
 
 pub async fn remote_server(addr: Option<String>) -> Result<()> {
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
+    log::info!("Starting probe server at {}", addr);
 
     let app = build_app();
     axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
@@ -84,8 +85,10 @@ pub fn start_remote(addr: Option<String>) {
 pub fn sync_env_settings() {
     thread::spawn(|| {
         std::env::vars().for_each(|(k, v)| {
-            if k.starts_with("PROBING_") {
-                let k = k.replace("_", ".");
+            if k.starts_with("PROBING_")
+                && !["PROBING_PORT", "PROBING_LOG", "PROBING_ASSETS_ROOT"].contains(&k.as_str())
+            {
+                let k = k.replace("_", ".").to_lowercase();
                 let setting = format!("set {}={}", k, v);
                 match handle_query(QueryMessage::Query {
                     expr: setting.clone(),
@@ -95,7 +98,7 @@ pub fn sync_env_settings() {
                         log::debug!("Synced env setting: {}", setting);
                     }
                     Err(err) => {
-                        error!("Failed to sync env settings: {}", err);
+                        error!("Failed to sync env settings: {setting}, {err}");
                     }
                 };
             }
