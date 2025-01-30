@@ -11,9 +11,9 @@ pub struct EngineExtensionOption {
     pub help: &'static str,
 }
 
-pub trait EngineExtension: Debug {
+pub trait EngineExtension: Debug + Send + Sync {
     fn name(&self) -> String;
-    fn set(&mut self, key: &str, value: &str) -> Result<(), EngineError>;
+    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError>;
     fn get(&self, key: &str) -> Result<String, EngineError>;
     fn options(&self) -> Vec<EngineExtensionOption>;
 }
@@ -36,13 +36,15 @@ impl EngineExtensionManager {
 
     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
         for extension in &self.extensions {
-            match extension.lock().unwrap().set(key, value) {
-                Ok(_) => {
-                    log::debug!("update setting {} = {}", key, value);
-                    return Ok(());
+            if let Ok(mut ext) = extension.lock() {
+                match ext.set(key, value) {
+                    Ok(old) => {
+                        log::info!("setting update [{}]:{key}={value} <= {old}", ext.name());
+                        return Ok(());
+                    }
+                    Err(EngineError::UnsupportedOption(_)) => continue,
+                    Err(e) => return Err(e),
                 }
-                Err(EngineError::UnsupportedOption(_)) => continue,
-                Err(e) => return Err(e),
             }
         }
         Err(EngineError::UnsupportedOption(key.to_string()))
@@ -50,8 +52,11 @@ impl EngineExtensionManager {
 
     pub fn get_option(&self, key: &str) -> Result<String, EngineError> {
         for extension in &self.extensions {
-            if let Ok(value) = extension.lock().unwrap().get(key) {
-                return Ok(value);
+            if let Ok(ext) = extension.lock() {
+                if let Ok(value) = ext.get(key) {
+                    log::info!("setting read [{}]:{key}={value}", ext.name());
+                    return Ok(value);
+                }
             }
         }
         Err(EngineError::UnsupportedOption(key.to_string()))

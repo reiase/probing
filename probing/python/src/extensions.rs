@@ -5,7 +5,7 @@ use pyo3::Python;
 
 use crate::{
     catch_crash::{enable_crash_handler, CRASH_HANDLER},
-    get_code,
+    get_code, pprof::PPROF_HOLDER,
 };
 
 #[derive(Debug, Default)]
@@ -18,14 +18,16 @@ impl EngineExtension for PprofExtension {
         "pprof".to_string()
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
+    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
         match key {
             "pprof_sample_freq" | "pprof.sample_freq" | "pprof.sample.freq" => {
                 let freq = value.parse::<i32>().map_err(|_| {
-                    EngineError::UnsupportedOptionValue(key.to_string(), value.to_string())
+                    EngineError::InvalidOption(key.to_string(), value.to_string())
                 })?;
+                let old_value = format!("{}", self.pprof_sample_freq);
                 self.pprof_sample_freq = freq;
-                Ok(())
+                PPROF_HOLDER.setup(self.pprof_sample_freq);
+                Ok(old_value)
             }
             _ => Err(EngineError::UnsupportedOption(key.to_string())),
         }
@@ -59,17 +61,18 @@ impl EngineExtension for TaskStatsExtension {
         "task_stats".to_string()
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
+    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
         match key {
             "task_stats_interval" | "task_stats.interval" | "task.stats.interval" => {
+                let old_value = format!("{}", self.task_stats_interval);
                 let interval: i64 = value.parse().unwrap_or(0);
                 self.task_stats_interval = interval;
                 match probing_cc::TaskStatsWorker::instance().start(probing_cc::WorkerConfig {
                     interval: Duration::from_millis(interval as u64),
                     iterations: None,
                 }) {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(EngineError::UnsupportedOptionValue(
+                    Ok(_) => Ok(old_value),
+                    Err(e) => Err(EngineError::InvalidOption(
                         key.to_string(),
                         value.to_string(),
                     )),
@@ -107,9 +110,10 @@ impl EngineExtension for TorchExtension {
         "torch".to_string()
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
+    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
         match key {
             "torch_sample_ratio" | "torch.sample_ratio" | "torch.sample.ratio" => {
+                let old_value = format!("{}", self.torch_sample_ratio);
                 let sample_ratio: f64 = value.parse().unwrap_or(0.0);
                 let filename = format!("{}.py", "torch_profiling");
                 let code = get_code(filename.as_str());
@@ -130,8 +134,8 @@ impl EngineExtension for TorchExtension {
                 } else {
                     Err(anyhow::anyhow!("unsupported setting {}={}", key, value))
                 } {
-                    Ok(_) => Ok(()),
-                    Err(err) => Err(EngineError::UnsupportedOptionValue(
+                    Ok(_) => Ok(old_value),
+                    Err(err) => Err(EngineError::InvalidOption(
                         key.to_string(),
                         value.to_string(),
                     )),
@@ -169,14 +173,15 @@ impl EngineExtension for PythonExtension {
         "python".to_string()
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
+    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
         match key {
             "python.crash_handler" | "python.crash.handler" => {
+                let old_value = self.crash_handler.clone().unwrap_or_default();
                 self.crash_handler = Some(value.to_string());
                 CRASH_HANDLER.lock().unwrap().replace(value.to_string());
                 match enable_crash_handler() {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(EngineError::UnsupportedOptionValue(
+                    Ok(_) => Ok(old_value),
+                    Err(e) => Err(EngineError::InvalidOption(
                         key.to_string(),
                         value.to_string(),
                     )),
