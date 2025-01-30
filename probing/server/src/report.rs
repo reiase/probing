@@ -1,10 +1,10 @@
-use anyhow::Result;
-use log::debug;
+use std::time::Duration;
 
-use probing_proto::prelude::Node;
+use anyhow::Result;
 
 use super::vars::PROBING_ADDRESS;
 use crate::server::SERVER_RUNTIME;
+use probing_proto::prelude::Node;
 
 pub fn get_hostname() -> Result<String> {
     let uname = rustix::system::uname();
@@ -12,61 +12,53 @@ pub fn get_hostname() -> Result<String> {
     Ok(hostname.to_str()?.to_string())
 }
 
-pub fn start_report_worker() {
-    SERVER_RUNTIME.spawn(report_worker());
+pub fn start_report_worker(report_addr: String, local_addr: String) {
+    log::debug!("start report worker: {} => {}", local_addr, report_addr);
+    SERVER_RUNTIME.spawn(report_worker(report_addr, local_addr));
 }
 
-async fn report_worker() {
+async fn report_worker(report_addr: String, local_addr: String) {
     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
 
     loop {
         interval.tick().await;
-        if let (Ok(master_addr), Ok(probing_port)) =
-            (std::env::var("MASTER_ADDR"), std::env::var("PROBING_PORT"))
-        {
-            let report_addr = format!("http://{}:{}/apis/nodes", master_addr, probing_port);
-            let hostname = get_hostname().unwrap_or("localhost".to_string());
-            let local_rank = std::env::var("LOCAL_RANK")
-                .unwrap_or("0".to_string())
-                .parse()
-                .unwrap_or(0);
-            let mut address = format!(
-                "{}:{}",
-                hostname,
-                probing_port.parse().unwrap_or(9700) + local_rank
-            );
-            {
-                let probing_address = PROBING_ADDRESS.read().unwrap();
-                let probing_address: String = (*probing_address).clone();
-                if !probing_address.is_empty() {
-                    address = probing_address;
-                }
-            }
-            let node = Node {
-                host: hostname.clone(),
-                addr: address,
-                local_rank: get_i32_env("LOCAL_RANK"),
-                rank: get_i32_env("RANK"),
-                world_size: get_i32_env("WORLD_SIZE"),
-                group_rank: get_i32_env("GROUP_RANK"),
-                group_world_size: get_i32_env("GROUP_WORLD_SIZE"),
-                role_name: std::env::var("ROLE_NAME").ok(),
-                role_rank: get_i32_env("ROLE_RANK"),
-                role_world_size: get_i32_env("ROLE_WORLD_SIZE"),
-                status: Some("running".to_string()),
-                timestamp: 0,
-            };
 
-            debug!("reporting node status to {report_addr}: {:?}", node);
-            match request_remote(&report_addr, node).await {
-                Ok(reply) => {
-                    debug!("node status reported to {report_addr}: {:?}", reply);
-                }
-                Err(err) => {
-                    eprintln!(
-                        "failed to report node status to {master_addr}:{probing_port}, {err}"
-                    );
-                }
+        let report_addr = format!("http://{}/apis/nodes", report_addr);
+        let hostname = get_hostname().unwrap_or("localhost".to_string());
+        let local_rank = std::env::var("LOCAL_RANK")
+            .unwrap_or("0".to_string())
+            .parse()
+            .unwrap_or(0);
+        let mut address = local_addr.clone();
+        {
+            let probing_address = PROBING_ADDRESS.read().unwrap();
+            let probing_address: String = (*probing_address).clone();
+            if !probing_address.is_empty() {
+                address = probing_address;
+            }
+        }
+        let node = Node {
+            host: hostname.clone(),
+            addr: address,
+            local_rank: get_i32_env("LOCAL_RANK"),
+            rank: get_i32_env("RANK"),
+            world_size: get_i32_env("WORLD_SIZE"),
+            group_rank: get_i32_env("GROUP_RANK"),
+            group_world_size: get_i32_env("GROUP_WORLD_SIZE"),
+            role_name: std::env::var("ROLE_NAME").ok(),
+            role_rank: get_i32_env("ROLE_RANK"),
+            role_world_size: get_i32_env("ROLE_WORLD_SIZE"),
+            status: Some("running".to_string()),
+            timestamp: 0,
+        };
+
+        log::debug!("reporting node status to {report_addr}: {:?}", node);
+        match request_remote(&report_addr, node).await {
+            Ok(reply) => {
+                log::debug!("node status reported to {report_addr}: {:?}", reply);
+            }
+            Err(err) => {
+                log::error!("failed to report node status to {report_addr}, {err}");
             }
         }
     }
@@ -76,10 +68,13 @@ fn get_i32_env(name: &str) -> Option<i32> {
     std::env::var(name).unwrap_or_default().parse().ok()
 }
 
-async fn request_remote(url: &str, node: Node) -> Result<Vec<u8>> {
-    let reply = ureq::put(url)
+async fn request_remote(url: &str, node: Node) -> Result<String> {
+    Ok(ureq::put(url)
+        .config()
+        .no_delay(true)
+        .timeout_global(Some(Duration::from_millis(100)))
+        .build()
         .send_json(node)?
         .body_mut()
-        .read_to_string()?;
-    Ok(reply.into_bytes())
+        .read_to_string()?)
 }

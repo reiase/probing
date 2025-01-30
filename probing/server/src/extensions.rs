@@ -1,11 +1,12 @@
 use probing_engine::core::{EngineError, EngineExtension, EngineExtensionOption};
 
-use crate::start_remote;
+use crate::{start_remote, start_report_worker};
 
 #[derive(Debug)]
 pub struct ServerExtension {
     addr: Option<String>,
     unix_socket: Option<String>,
+    report_addr: Option<String>,
     max_concurrent_requests: usize,
     request_timeout_ms: u64,
 }
@@ -15,6 +16,7 @@ impl Default for ServerExtension {
         Self {
             addr: None,
             unix_socket: None,
+            report_addr: None,
             max_concurrent_requests: 100,
             request_timeout_ms: 30000,
         }
@@ -55,6 +57,18 @@ impl EngineExtension for ServerExtension {
                 self.unix_socket = Some(value.to_string());
                 Ok(old)
             }
+            "server.report_addr" | "server.report.addr" => {
+                if self.report_addr.is_some() {
+                    return Err(EngineError::InvalidOption(
+                        key.to_string(),
+                        value.to_string(),
+                    ));
+                }
+                let old = self.report_addr.clone().unwrap_or_default();
+                self.report_addr = Some(value.to_string());
+                start_report_worker(value.to_string(), self.addr.clone().unwrap_or_default());
+                Ok(old)
+            }
             "server.max_concurrent_requests" => {
                 let max = value
                     .parse::<usize>()
@@ -79,6 +93,9 @@ impl EngineExtension for ServerExtension {
         match key {
             "server.addr" => Ok(self.addr.clone().unwrap_or_default()),
             "server.unix_socket" => Ok(self.unix_socket.clone().unwrap_or_default()),
+            "server.report_addr" | "server.report.addr" => {
+                Ok(self.report_addr.clone().unwrap_or_default())
+            }
             "server.max_concurrent_requests" => Ok(self.max_concurrent_requests.to_string()),
             "server.request_timeout_ms" => Ok(self.request_timeout_ms.to_string()),
             _ => Err(EngineError::UnsupportedOption(key.to_string())),
@@ -96,6 +113,11 @@ impl EngineExtension for ServerExtension {
                 key: "server.unix_socket".to_string(),
                 value: self.unix_socket.clone(),
                 help: "Unix domain socket path (e.g. /tmp/server.sock)",
+            },
+            EngineExtensionOption {
+                key: "server.report_addr".to_string(),
+                value: self.report_addr.clone(),
+                help: "Report server address (e.g. 127.0.0.1:9922)",
             },
             EngineExtensionOption {
                 key: "server.request_timeout_ms".to_string(),

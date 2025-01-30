@@ -65,6 +65,7 @@ ron = { workspace = true }
 ctor = { version = "0.2.9", features = [] }
 rustix = { workspace = true }
 
+dns-lookup = "2.0.4"
 env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
     "auto-color",

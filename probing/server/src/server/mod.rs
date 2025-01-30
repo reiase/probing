@@ -13,9 +13,9 @@ use services::{handle_query, index, probe, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
-        .unwrap_or("2".to_string())
+        .unwrap_or("4".to_string())
         .parse::<usize>()
-        .unwrap_or(2);
+        .unwrap_or(4);
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(worker_threads)
@@ -71,7 +71,19 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
     log::info!("Starting probe server at {}", addr);
 
     let app = build_app();
-    axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+
+    if let Ok(addr) = listener.local_addr() {
+        {
+            let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
+            *probing_address = addr.to_string();
+        }
+        use nu_ansi_term::Color::{Green, Red};
+
+        eprintln!("{}", Red.bold().paint("probing server is available on:"));
+        eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+    }
+    axum::serve(listener, app).await?;
 
     Ok(())
 }

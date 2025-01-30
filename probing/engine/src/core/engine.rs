@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 
-use anyhow::Context;
 use arrow::array::Float32Array;
 use arrow::array::Float64Array;
 use arrow::array::Int32Array;
