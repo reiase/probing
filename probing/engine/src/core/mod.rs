@@ -18,6 +18,7 @@ pub use table_plugin::LazyTableSource;
 
 pub use error::EngineError;
 pub use extension::EngineExtension;
+pub use extension::EngineExtensionManager;
 pub use extension::EngineExtensionOption;
 
 pub use datafusion::arrow::array::ArrayRef;

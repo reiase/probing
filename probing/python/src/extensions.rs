@@ -46,7 +46,7 @@ impl EngineExtension for PprofExtension {
         vec![EngineExtensionOption {
             key: "pprof.sample_freq".to_string(),
             value: Some(self.pprof_sample_freq.to_string()),
-            help: "Set the pprof sample frequency",
+            help: "CPU profiling sample frequency in Hz (higher values increase overhead)",
         }]
     }
 }
@@ -95,7 +95,7 @@ impl EngineExtension for TaskStatsExtension {
         vec![EngineExtensionOption {
             key: "task_stats.interval".to_string(),
             value: Some(self.task_stats_interval.to_string()),
-            help: "task stats sampling interval",
+            help: "Task statistics collection interval in milliseconds (0 to disable)",
         }]
     }
 }
@@ -158,7 +158,7 @@ impl EngineExtension for TorchExtension {
         vec![EngineExtensionOption {
             key: "torch.sample_ratio".to_string(),
             value: Some(self.torch_sample_ratio.to_string()),
-            help: "torch sampling ratio",
+            help: "PyTorch profiler sampling ratio (0.0-1.0, where 1.0 profiles all operations)",
         }]
     }
 }
@@ -204,7 +204,7 @@ impl EngineExtension for PythonExtension {
         vec![EngineExtensionOption {
             key: "python.crash_handler".to_string(),
             value: self.crash_handler.clone(),
-            help: "Python crash handler",
+            help: "Path to Python crash handler script (executed when interpreter crashes)",
         }]
     }
 }

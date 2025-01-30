@@ -52,7 +52,6 @@ pub trait Plugin {
 pub struct Engine {
     context: SessionContext,
     plugins: RwLock<HashMap<String, Arc<dyn Plugin + Sync + Send>>>,
-    extensions: RwLock<EngineExtensionManager>,
 }
 
 impl Default for Engine {
@@ -63,7 +62,6 @@ impl Default for Engine {
         Engine {
             context: SessionContext::new_with_config(config),
             plugins: Default::default(),
-            extensions: RwLock::new(EngineExtensionManager::new()),
         }
     }
 }
@@ -246,7 +244,7 @@ impl EngineBuilder {
 
     // Build the Engine with the specified configurations
     pub fn build(mut self) -> Result<Engine> {
-        let mut eem = EngineExtensionManager::new();
+        let mut eem = EngineExtensionManager::default();
         for extension in self.extensions {
             eem.register(extension);
         }
@@ -256,11 +254,10 @@ impl EngineBuilder {
         let engine = Engine {
             context,
             plugins: Default::default(),
-            extensions: RwLock::new(EngineExtensionManager::new()),
         };
-        // for (namespace, plugin) in self.plugins {
-        //     engine.enable(namespace.as_str(), plugin)?;
-        // }
+        for (namespace, plugin) in self.plugins {
+            engine.enable(namespace.as_str(), plugin)?;
+        }
 
         Ok(engine)
     }
