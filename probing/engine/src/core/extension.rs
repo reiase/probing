@@ -1,9 +1,60 @@
+use std::convert::Infallible;
 use std::fmt::Debug;
+use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use datafusion::config::{ConfigExtension, ExtensionOptions};
 
 use super::error::EngineError;
+
+#[derive(Clone, Debug)]
+pub enum Maybe<T> {
+    Just(T),
+    Nothing,
+}
+
+impl<T: FromStr> FromStr for Maybe<T> {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            Ok(Maybe::Nothing)
+        } else {
+            match s.parse() {
+                Ok(v) => Ok(Maybe::Just(v)),
+                Err(_) => Ok(Maybe::Nothing),
+            }
+        }
+    }
+}
+
+impl<T: Display> Display for Maybe<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            Maybe::Just(s) => write!(f, "{}", s),
+            Maybe::Nothing => write!(f, ""),
+        }
+    }
+}
+
+impl<T> From<Maybe<T>> for Option<T> {
+    fn from(val: Maybe<T>) -> Self {
+        match val {
+            Maybe::Just(v) => Some(v),
+            Maybe::Nothing => None,
+        }
+    }
+}
+
+impl<T: Display> From<Maybe<T>> for String {
+    fn from(value: Maybe<T>) -> Self {
+        match value {
+            Maybe::Just(v) => v.to_string(),
+            Maybe::Nothing => "".to_string(),
+        }
+    }
+}
 
 /// Represents a configuration option for an engine extension.
 ///
@@ -80,9 +131,15 @@ pub struct EngineExtensionOption {
 /// ```
 pub trait EngineExtension: Debug + Send + Sync {
     fn name(&self) -> String;
-    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {todo!()}
-    fn get(&self, key: &str) -> Result<String, EngineError> {todo!()}
-    fn options(&self) -> Vec<EngineExtensionOption> {todo!()}
+    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
+        todo!()
+    }
+    fn get(&self, key: &str) -> Result<String, EngineError> {
+        todo!()
+    }
+    fn options(&self) -> Vec<EngineExtensionOption> {
+        todo!()
+    }
 }
 
 /// Engine extension management module for configurable functionality.
@@ -104,17 +161,17 @@ pub trait EngineExtension: Debug + Send + Sync {
 /// use probing_engine::core::EngineExtensionManager;
 /// use probing_engine::core::{EngineExtension, EngineExtensionOption};
 /// use probing_engine::core::EngineError;
-/// 
+///
 /// #[derive(Debug)]
 /// struct MyExtension {
 ///     some_option: String
 /// }
-/// 
+///
 /// impl EngineExtension for MyExtension {
 ///     fn name(&self) -> String {
 ///         "my_extension".to_string()
 ///     }
-/// 
+///
 ///     fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
 ///         match key {
 ///             "some_option" => {
@@ -143,7 +200,7 @@ pub trait EngineExtension: Debug + Send + Sync {
 ///         ]
 ///     }
 /// }
-/// 
+///
 /// let mut manager = EngineExtensionManager::default();
 /// // Register extensions
 /// manager.register(Arc::new(Mutex::new(MyExtension { some_option: "default".to_string() })));

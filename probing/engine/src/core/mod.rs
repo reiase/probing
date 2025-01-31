@@ -20,6 +20,8 @@ pub use error::EngineError;
 pub use extension::EngineExtension;
 pub use extension::EngineExtensionManager;
 pub use extension::EngineExtensionOption;
+pub use extension::Maybe;
+pub use probing_macros::EngineExtension;
 
 pub use datafusion::arrow::array::ArrayRef;
 pub use datafusion::arrow::array::Float32Array;

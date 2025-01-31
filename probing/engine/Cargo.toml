@@ -14,6 +14,7 @@ kmsg = ["dep:rmesg"]
 
 [dependencies]
 probing-proto = { path = "../proto" }
+probing-macros = { path = "../macros" }
 
 anyhow = { workspace = true }
 arrow = { workspace = true, default-features=false}

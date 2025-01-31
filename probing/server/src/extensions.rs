@@ -1,130 +1,53 @@
-use probing_engine::core::{EngineError, EngineExtension, EngineExtensionOption};
+use probing_engine::core::{EngineError, EngineExtension, EngineExtensionOption, Maybe};
 
 use crate::{start_remote, start_report_worker};
 
-#[derive(Debug)]
+#[derive(Debug, EngineExtension)]
 pub struct ServerExtension {
-    addr: Option<String>,
-    unix_socket: Option<String>,
-    report_addr: Option<String>,
-    max_concurrent_requests: usize,
-    request_timeout_ms: u64,
+    /// Server bind address (e.g. 127.0.0.1:8080)
+    #[option(name = "server.address", aliases=["server_address", "server.addr", "server_addr"])]
+    address: Maybe<String>,
+
+    /// Unix domain socket path (e.g. /tmp/probing/<pid>)
+    /// This option is readonly.
+    #[option(name = "server.unix_socket", aliases=["server_unix_socket", "server.unixsocket"])]
+    unix_socket: Maybe<String>,
+
+    /// Report server address (e.g. 127.0.0.1:9922)
+    #[option(name = "server.report_addr", aliases=["server_report_addr", "server.report.addr"])]
+    report_addr: Maybe<String>,
 }
 
 impl Default for ServerExtension {
     fn default() -> Self {
         Self {
-            addr: None,
-            unix_socket: None,
-            report_addr: None,
-            max_concurrent_requests: 100,
-            request_timeout_ms: 30000,
+            address: Maybe::Nothing,
+            unix_socket: Maybe::Nothing,
+            report_addr: Maybe::Nothing,
         }
     }
 }
 
-impl EngineExtension for ServerExtension {
-    fn name(&self) -> String {
-        "server".to_string()
+impl ServerExtension {
+    fn set_address(&mut self, address: Maybe<String>) -> Result<(), EngineError> {
+        self.address = address.clone();
+        let address: String = address.clone().into();
+        address
+            .parse::<std::net::SocketAddr>()
+            .map_err(|_| EngineError::InvalidOption("server.address".to_string(), address.to_string()))?;
+        start_remote(address.into());
+        Ok(())
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
-        match key {
-            "server.addr" => {
-                // Validate address format
-                value
-                    .parse::<std::net::SocketAddr>()
-                    .map_err(|_| EngineError::InvalidOption(key.to_string(), value.to_string()))?;
-                if self.addr.is_some() {
-                    return Err(EngineError::InvalidOption(
-                        key.to_string(),
-                        value.to_string(),
-                    ));
-                }
-                let old = self.addr.clone().unwrap_or_default();
-                self.addr = Some(value.to_string());
-                start_remote(self.addr.clone());
-                Ok(old)
-            }
-            "server.unix_socket" => {
-                if self.unix_socket.is_some() {
-                    return Err(EngineError::InvalidOption(
-                        key.to_string(),
-                        value.to_string(),
-                    ));
-                }
-                let old = self.unix_socket.clone().unwrap_or_default();
-                self.unix_socket = Some(value.to_string());
-                Ok(old)
-            }
-            "server.report_addr" | "server.report.addr" => {
-                if self.report_addr.is_some() {
-                    return Err(EngineError::InvalidOption(
-                        key.to_string(),
-                        value.to_string(),
-                    ));
-                }
-                let old = self.report_addr.clone().unwrap_or_default();
-                self.report_addr = Some(value.to_string());
-                start_report_worker(value.to_string(), self.addr.clone().unwrap_or_default());
-                Ok(old)
-            }
-            "server.max_concurrent_requests" => {
-                let max = value
-                    .parse::<usize>()
-                    .map_err(|_| EngineError::InvalidOption(key.to_string(), value.to_string()))?;
-                let old = self.max_concurrent_requests.to_string();
-                self.max_concurrent_requests = max;
-                Ok(old)
-            }
-            "server.request_timeout_ms" => {
-                let timeout = value
-                    .parse::<u64>()
-                    .map_err(|_| EngineError::InvalidOption(key.to_string(), value.to_string()))?;
-                let old = self.request_timeout_ms.to_string();
-                self.request_timeout_ms = timeout;
-                Ok(old)
-            }
-            _ => Err(EngineError::UnsupportedOption(key.to_string())),
-        }
+    fn set_unix_socket(&mut self, unix_socket: Maybe<String>) -> Result<(), EngineError> {
+        self.unix_socket = unix_socket.clone();
+        Ok(())
     }
 
-    fn get(&self, key: &str) -> Result<String, EngineError> {
-        match key {
-            "server.addr" => Ok(self.addr.clone().unwrap_or_default()),
-            "server.unix_socket" => Ok(self.unix_socket.clone().unwrap_or_default()),
-            "server.report_addr" | "server.report.addr" => {
-                Ok(self.report_addr.clone().unwrap_or_default())
-            }
-            "server.max_concurrent_requests" => Ok(self.max_concurrent_requests.to_string()),
-            "server.request_timeout_ms" => Ok(self.request_timeout_ms.to_string()),
-            _ => Err(EngineError::UnsupportedOption(key.to_string())),
-        }
-    }
-
-    fn options(&self) -> Vec<EngineExtensionOption> {
-        vec![
-            EngineExtensionOption {
-                key: "server.addr".to_string(),
-                value: self.addr.clone(),
-                help: "Server bind address (e.g. 127.0.0.1:8080)",
-            },
-            EngineExtensionOption {
-                key: "server.unix_socket".to_string(),
-                value: self.unix_socket.clone(),
-                help: "Unix domain socket path (e.g. /tmp/server.sock)",
-            },
-            EngineExtensionOption {
-                key: "server.report_addr".to_string(),
-                value: self.report_addr.clone(),
-                help: "Report server address (e.g. 127.0.0.1:9922)",
-            },
-            EngineExtensionOption {
-                key: "server.request_timeout_ms".to_string(),
-                value: Some(self.request_timeout_ms.to_string()),
-                help: "Request timeout in milliseconds",
-            },
-        ]
+    fn set_report_addr(&mut self, report_addr: Maybe<String>) -> Result<(), EngineError> {
+        self.report_addr = report_addr.clone();
+        start_report_worker(self.report_addr.clone().into(), self.address.clone().into());
+        Ok(())
     }
 }
 
@@ -149,18 +72,6 @@ mod test {
         assert!(ext.set("server.unix_socket", "/tmp/test.sock").is_ok());
         assert_eq!(ext.get("server.unix_socket").unwrap(), "/tmp/test.sock");
 
-        // Test max concurrent requests
-        assert!(ext.set("server.max_concurrent_requests", "200").is_ok());
-        assert_eq!(ext.get("server.max_concurrent_requests").unwrap(), "200");
-        assert!(ext
-            .set("server.max_concurrent_requests", "invalid")
-            .is_err());
-
-        // Test request timeout
-        assert!(ext.set("server.request_timeout_ms", "5000").is_ok());
-        assert_eq!(ext.get("server.request_timeout_ms").unwrap(), "5000");
-        assert!(ext.set("server.request_timeout_ms", "invalid").is_err());
-
         // Test invalid option
         assert!(ext.set("invalid.key", "value").is_err());
         assert!(ext.get("invalid.key").is_err());
@@ -168,10 +79,7 @@ mod test {
         // Test options list
         let options = ext.options();
         assert_eq!(options.len(), 3);
-        assert!(options.iter().any(|opt| opt.key == "server.addr"));
+        assert!(options.iter().any(|opt| opt.key == "server.address"));
         assert!(options.iter().any(|opt| opt.key == "server.unix_socket"));
-        assert!(options
-            .iter()
-            .any(|opt| opt.key == "server.request_timeout_ms"));
     }
 }

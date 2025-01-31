@@ -175,7 +175,6 @@ fn parse_field_metadata(field: &Field) -> OptionMetadata {
         }
         if attr.path().is_ident("doc") {
             if let Meta::NameValue(nv) = &attr.meta {
-                eprintln!("== {:?}", nv);
                 if let syn::Expr::Lit(syn::ExprLit {
                     attrs: _,
                     lit: syn::Lit::Str(s),

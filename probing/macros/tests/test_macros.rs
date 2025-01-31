@@ -5,28 +5,33 @@ use std::str::FromStr;
 use probing_engine::core::EngineError;
 use probing_engine::core::EngineExtension;
 use probing_engine::core::EngineExtensionOption;
-use probing_macros::EngineExtension;
 
 #[derive(Debug)]
-struct MaybeString(Option<String>);
+enum Maybe<T> {
+    Just(T),
+    Nothing,
+}
 
-impl FromStr for MaybeString {
+impl<T: FromStr> FromStr for Maybe<T> {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Ok(MaybeString(None))
+            Ok(Maybe::Nothing)
         } else {
-            Ok(MaybeString(Some(s.to_string())))
+            match s.parse() {
+                Ok(v) => Ok(Maybe::Just(v)),
+                Err(_) => Ok(Maybe::Nothing),
+            }
         }
     }
 }
 
-impl Display for MaybeString {
+impl<T: Display> Display for Maybe<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            Some(s) => write!(f, "{}", s),
-            None => write!(f, ""),
+        match &self {
+            Maybe::Just(s) => write!(f, "{}", s),
+            Maybe::Nothing => write!(f, ""),
         }
     }
 }
@@ -46,7 +51,7 @@ fn test_macro() {
 
         /// describe managed_field_name3
         #[option(name = "managed_field_name3")]
-        managed_field_name3: MaybeString,
+        managed_field_name3: Maybe<String>,
 
         /// this is a unmanaged field
         unmanaged_field_name: i64,
@@ -63,7 +68,7 @@ fn test_macro() {
             Ok(())
         }
 
-        fn set_managed_field_name3(&mut self, value: MaybeString) -> Result<(), EngineError> {
+        fn set_managed_field_name3(&mut self, value: Maybe<String>) -> Result<(), EngineError> {
             self.managed_field_name3 = value;
             Ok(())
         }
@@ -72,7 +77,7 @@ fn test_macro() {
     let mut ext = TestExtension {
         managed_field_name1: 1,
         managed_field_name2: "a".to_string(),
-        managed_field_name3: MaybeString(Some("A".to_string())),
+        managed_field_name3: Maybe::Just("A".to_string()),
         unmanaged_field_name: 3,
     };
 
@@ -102,7 +107,10 @@ fn test_macro() {
     assert_eq!(ext.set("mfn2", "c").unwrap(), "b".to_string());
     assert_eq!(ext.set("b", "d").unwrap(), "c".to_string());
 
-    assert_eq!(ext.set("managed_field_name3", "B").unwrap(), "A".to_string());
+    assert_eq!(
+        ext.set("managed_field_name3", "B").unwrap(),
+        "A".to_string()
+    );
 
     let opts = ext.options();
     assert_eq!(opts.len(), 3);
@@ -117,8 +125,5 @@ fn test_macro() {
     );
     assert_eq!(opts[2].key, "managed_field_name3");
     assert_eq!(opts[2].value, Some("B".to_string()));
-    assert_eq!(
-        opts[2].help,
-        "describe managed_field_name3"
-    );
+    assert_eq!(opts[2].help, "describe managed_field_name3");
 }
