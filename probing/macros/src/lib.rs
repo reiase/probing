@@ -37,22 +37,29 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
     // eprintln!("== {:?}", field_metadata);
 
     let get_matches = field_metadata.iter().map(|meta| {
+        let field_ident = format_ident!("{}", meta.field);
+
         let field_name = meta.name.to_string();
         let aliases = &meta.aliases;
-        let field_ident = format_ident!("{}", meta.field);
+        let mut matchers = vec![field_name.clone()];
+        matchers.extend(aliases.iter().cloned());
+
         quote! {
-            #field_name | #(#aliases)|* => Ok(self.#field_ident.to_string())
+            #(#matchers)|* => Ok(self.#field_ident.to_string())
         }
     });
 
     let set_matches = field_metadata.iter().map(|meta| {
-        let field_name = meta.name.to_string();
-        let aliases = &meta.aliases;
         let field_ident = format_ident!("{}", meta.field);
         let set_field = format_ident!("set_{}", meta.field);
 
+        let field_name = meta.name.to_string();
+        let aliases = &meta.aliases;
+        let mut matchers = vec![field_name.clone()];
+        matchers.extend(aliases.iter().cloned());
+
         quote! {
-            #field_name | #(#aliases)|* => {
+            #(#matchers)|* => {
                 let old = self.#field_ident.to_string();
                 let new = value.parse()
                 .map_err(|_| EngineError::InvalidOption(key.to_string(), value.to_string()))?;
