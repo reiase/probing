@@ -1,0 +1,17 @@
+[package]
+name = "probing-macros"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = { version = "1" }
+syn = { version = "2", features = ["full"] }
+
+[dev-dependencies]
+probing-engine = { path = "../engine" }

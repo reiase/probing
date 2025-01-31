@@ -58,6 +58,7 @@ probing-proto = { path = "probing/proto" }
 probing-engine = { path = "probing/engine" }
 probing-server = { path = "probing/server" }
 probing-python = { path = "probing/python" }
+probing-macros = { path = "probing/macros" }
 
 anyhow = { workspace = true }
 log = { workspace = true }

@@ -18,7 +18,9 @@ where
 {
     unsafe {
         match signal_hook_registry::register_unchecked(sig, move |_: &_| handler()) {
-            Ok(_) => {}
+            Ok(_) => {
+                log::debug!("Registered signal handler for signal {sig}");
+            }
             Err(e) => log::error!("Failed to register signal handler: {}", e),
         }
     };

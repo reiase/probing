@@ -3472,6 +3472,7 @@ dependencies = [
  "log",
  "probing-cli",
  "probing-engine",
+ "probing-macros",
  "probing-proto",
  "probing-python",
  "probing-server",
@@ -3542,6 +3543,15 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.3",
  "tokio",
+]
+
+[[package]]
+name = "probing-macros"
+version = "0.2.0"
+dependencies = [
+ "probing-engine",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]
