@@ -8,9 +8,10 @@ use datafusion::config::{ConfigExtension, ExtensionOptions};
 
 use super::error::EngineError;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Maybe<T> {
     Just(T),
+    #[default]
     Nothing,
 }
 

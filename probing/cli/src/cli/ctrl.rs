@@ -89,6 +89,9 @@ impl ProbeEndpoint {
         let reply = ron::from_str::<QueryMessage>(&reply)?;
 
         if let QueryMessage::Reply { data, format } = reply {
+            if data.is_empty() {
+                return Ok(DataFrame::default());
+            }
             let df = match format {
                 QueryDataFormat::JSON => serde_json::from_slice(&data)?,
                 QueryDataFormat::RON => ron::from_str(&String::from_utf8(data)?)?,
