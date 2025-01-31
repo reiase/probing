@@ -1,5 +1,6 @@
 use anyhow::Error;
 use anyhow::Result;
+use log::error;
 use std::collections::HashSet;
 use std::thread;
 use std::time::Duration;
@@ -48,8 +49,15 @@ impl ProcessMonitor {
 
         while let Ok(None) = self.child.try_wait() {
             if let Ok(children) = get_descendant_pids(self.child.id() as i32) {
-                for pid in children {
-                    self.inject(pid)?;
+                let remain: Vec<i32> = children
+                    .iter()
+                    .filter(|pid| !self.injected.contains(pid))
+                    .cloned()
+                    .collect();
+                for pid in remain {
+                    if let Err(err) = self.inject(pid) {
+                        error!("failed to probe {}, retry later: {}", pid, err)
+                    }
                 }
             }
             thread::sleep(Duration::from_secs(1));

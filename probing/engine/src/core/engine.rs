@@ -225,11 +225,12 @@ impl EngineBuilder {
         self
     }
 
-    pub fn with_engine_extension(
-        mut self,
-        extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>,
-    ) -> Self {
-        self.extensions.push(extension);
+    pub fn with_engine_extension<T>(mut self) -> Self
+    where
+        T: EngineExtension + Send + Sync + Default + 'static,
+    {
+        let ext = Arc::new(Mutex::new(T::default()));
+        self.extensions.push(ext);
         self
     }
 

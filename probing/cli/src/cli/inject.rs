@@ -27,18 +27,8 @@ impl InjectCommand {
     }
 
     fn wait_for_library(&self, pid: i32, lib_name: &str) -> Result<()> {
-        for _ in 0..15 {
-            if self
-                .check_library(pid, lib_name)
-                .map_err(|err| {
-                    eprintln!("Failed to check library: {}", err);
-                    false
-                })
-                .unwrap_or(false)
-            {
-                return Ok(());
-            }
-            std::thread::sleep(std::time::Duration::from_secs(1));
+        if self.check_library(pid, lib_name).unwrap_or(false) {
+            return Ok(());
         }
         Err(anyhow!("Library {} not found in target process", lib_name))
     }

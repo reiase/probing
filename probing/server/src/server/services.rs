@@ -29,21 +29,11 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
         .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
         .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
         .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
-        .with_engine_extension(Arc::new(Mutex::new(
-            probing_python::extensions::PprofExtension::default(),
-        )))
-        .with_engine_extension(Arc::new(Mutex::new(
-            probing_python::extensions::TaskStatsExtension::default(),
-        )))
-        .with_engine_extension(Arc::new(Mutex::new(
-            probing_python::extensions::TorchExtension::default(),
-        )))
-        .with_engine_extension(Arc::new(Mutex::new(
-            probing_python::extensions::PythonExtension::default(),
-        )))
-        .with_engine_extension(Arc::new(Mutex::new(
-            crate::extensions::ServerExtension::default(),
-        )))
+        .with_engine_extension::<probing_python::extensions::PprofExtension>()
+        .with_engine_extension::<probing_python::extensions::TorchExtension>()
+        .with_engine_extension::<probing_python::extensions::PythonExtension>()
+        .with_engine_extension::<probing_python::extensions::TaskStatsExtension>()
+        .with_engine_extension::<crate::extensions::ServerExtension>()
         .build()
     {
         Ok(engine) => engine,
