@@ -126,11 +126,15 @@ struct _frame {
 - return：函数返回；
 - exception：发生一场；
 - opcode：执行一条字节码；
-借助`trace`函数可以实现Python的调试器，profiler等。如果我们需要实现一个分布式调试器，可以开发一个受RPC控制的trace函数。
+借助`trace`函数可以实现Python的调试器，profiler等。如果我们需要实现一个分布式调试器，可以开发一个受RPC控制的trace函数。此外，在Python代码可通过自省的方式获取每一个函数的字节码，并对这些字节码进行反编译和插桩。关于字节码的反编译与插桩方法在此处不进行展开。
 
 #### Torch框架插桩
 
 Torch框架的dispatch机制中预留了一些hook接口，可以通过`torch::addGlobalCallback`接口来捕获算子调用。这些hook会被传入一个`torch::RecordFunction`结构体，通过这个结构体可以获取调用上下文，包括name，inputs等。但是记录这些调用信息的开销很高，需要做好控制。同时Torch也提供`c10::ThreadLocalDebugInfo`接口，用于在整个forward和backward过程中追踪一些信息。
+
+PyTorch中使用`addGlobalCallback`进行trace的主要功能有：
+1. Kineto Profiler，目前Torch Profiler的主要实现: torch/csrc/autograd/profiler_kineto.cpp: ;
+2. Execution Trace Observer，用于导出计算图供底层设施分析和仿真：torch/csrc/profiler/standalone/execution_trace_observer.cpp；
 
 ### Sampling方法
 
@@ -230,9 +234,6 @@ CUDA支持对设备上的PC指针（program counter）进行采样，每个SM（
   - 指令计数器：`instructions`指令计数器与`cycles`时钟计数器等；
   - 缓存：`cache-misses`L1、L2、L3 缓存未命中的次数与`cache-references`缓存访问次数等;
   - 分支：`branch-instructions`分支指令次数与`branch-misses`分支预测失败次数等；
-- GPU[^3][^4][^5]
-  - 计算：`sm_inst_executed`执行的指令数, `sm_inst_executed_atomics`执行的原子指令数；
-  - 访存：`sm_inst_executed_generic_loads`访存load指令数和`sm_inst_executed_generic_stores`访存save指令数；
 - RDMA[^6]
   - 基础统计：`port_rcv_packets`接收包数和`port_xmit_packets`（发送包数等；
   - 数据：`port_rcv_data`接收数据量和`port_xmit_data`发送数据量；
@@ -247,6 +248,39 @@ CUDA支持对设备上的PC指针（program counter）进行采样，每个SM（
 - 框架层面：
   - NCCL Counter[^7]
   - PyTorch Flight Recorder[^8]
+
+#### GPU上的性能计数器
+
+GPU上的PMU分为两部分Core PMU和Uncore PMU，分别用于监控Core上的性能指标与Core外的性能指标：
+
+- Core上性能计数器[^nsyscomp]：
+  - 计算：`sm_inst_executed`执行的指令数, `sm_inst_executed_atomics`执行的原子指令数；
+  - 访存：`sm_inst_executed_generic_loads`访存load指令数和`sm_inst_executed_generic_stores`访存save指令数；
+- Uncore性能计数器[^uncore]
+  - SCF PMU: 监控系统级缓存事件、CPU 流量以及到本地/远程内存的强排序 (SO) PCIE 写入流量;
+  - NVLink-C2C0 PMU: 监控来自通过 NVLink-C2C (芯片到芯片) 互连连接的 GPU/CPU 的传入流量;
+  - NVLink-C2C1 PMU: 监控来自通过 NVLink-C2C (芯片到芯片) 互连连接的 GPU 的传入流量;
+  - CNVLink PMU: 监控从远程插槽上的 GPU 和 PCIE 设备到本地内存的流量;
+  - PCIE PMU: 监控从 PCIE 根端口到本地/远程内存的所有读取/写入流量;
+
+#### 对GPU上性能计数器进行采样
+
+性能计数器常见的用法是在一个span开始和结束的时候分别抓取性能计数器的数值，并通过两者的diff来判断span内的代码产生了多少网络吞吐或者计算量。但是对于GPU这种异构计算场景，性能计数器的采样和统计往往需要考虑到GPU Stream执行与CPU的同步关系。即必须在GPU Stream上异步采样，才能获得一段时间的真实数值。如下图所示，虽然计算是由CPU在时刻`2-3`发起，但是获取硬件性能计数器需要在时刻`5-9`。
+
+```mermaid
+block-beta
+  columns 11
+  TL["Time:"]
+  1 2 3 4 5 6 7 8 9 10
+  C["CPU:"] space CS["launch"]:2 space:7
+  G["GPU:"] space:4 S["span"]:5 space:1
+  
+  style TL fill:#00000000, stroke:#00000000;
+  style G fill:#00000000, stroke:#00000000;
+  style C fill:#00000000, stroke:#00000000;
+```
+
+因此读取GPU硬件寄存器的工作必须在GPU设备上完成才能比较好的满足Stream异步语义。如何在GPU上读取性能计数器，并同步数据到CPU端将在另外文章里边讨论。
 
 ## 分布式训练Profiling的挑战与应对策略
 
@@ -347,7 +381,7 @@ probing给出的profiling方案本质上是通过纵向分层解耦分析代替�
 [^1]: https://github.com/torvalds/linux/blob/master/tools/perf/Documentation/perf-intel-pt.txt
 [^2]: perf list 可查看完整列表
 [^3]: [Nvidia显卡的硬件性能计数器](https://docs.nvidia.com/gameworks/index.html#developertools/desktop/linux_graphics_debugger/lgd_perf_counters.htm)
-[^4]: [NSight Compute中的硬件Metric](https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference)
+[^nsyscomp]: [NSight Compute中的硬件Metric](https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference)
 [^5]: [PTX中的PMU寄存器](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#special-registers-pm0-pm7)
 [^6]: [RDMA网卡的硬件计数器](https://enterprise-support.nvidia.com/s/article/understanding-mlx5-linux-counters-and-status-parameters);
 [^7]: https://github.com/NVIDIA/nccl/blob/master/src/include/nvtx3/nvtxDetail/nvtxExtImplCounters_v1.h
@@ -355,3 +389,5 @@ probing给出的profiling方案本质上是通过纵向分层解耦分析代替�
 [^9]:https://man7.org/linux/man-pages/man2/perf_event_open.2.html
 [^setitimer]: https://linux.die.net/man/2/setitimer
 [^cupti_pm]: https://docs.nvidia.com/cupti/main/main.html#cupti-pm-sampling-api
+[^nvpmu]: https://docs.nvidia.com/grace-perf-tuning-guide/measuring-performance.html#grace-coresight-system-pmu-units
+[^uncore]: https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/perf/nvidia-pmu.rst
