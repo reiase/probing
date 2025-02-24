@@ -1,13 +1,12 @@
-import os
-import stat
 import hashlib
+import os
 import pathlib
+import stat
 from email.message import EmailMessage
-from wheel.wheelfile import WheelFile
-from zipfile import ZipInfo, ZIP_DEFLATED
-from inspect import cleandoc
+from zipfile import ZIP_DEFLATED, ZipInfo
 
-PLATFORM = "manylinux_2_12_x86_64.manylinux2010_x86_64"
+import toml
+from wheel.wheelfile import WheelFile
 
 
 def make_message(headers, payload=None):
@@ -35,29 +34,10 @@ def write_wheel_file(filename, contents):
     return filename
 
 
-def write_wheel(
-    out_dir, *, name, version, tag, metadata, description, contents, entry_points
-):
+def write_wheel(out_dir, *, name, version, tag, metadata, description, contents):
     name_snake = name.replace("-", "_")
     wheel_name = f"{name_snake}-{version}-{tag}.whl"
     dist_info = f"{name_snake}-{version}.dist-info"
-    if entry_points:
-        contents[f"{dist_info}/entry_points.txt"] = (
-            (
-                cleandoc(
-                    """
-            [console_scripts]
-            {entry_points}
-        """
-                ).format(
-                    entry_points="\n".join(
-                        [f"{k} = {v}" for k, v in entry_points.items()]
-                        if entry_points
-                        else []
-                    )
-                )
-            ).encode("ascii"),
-        )
     return write_wheel_file(
         os.path.join(out_dir, wheel_name),
         {
@@ -74,7 +54,7 @@ def write_wheel(
             f"{dist_info}/WHEEL": make_message(
                 {
                     "Wheel-Version": "1.0",
-                    "Generator": "make_wheels.py",
+                    "Generator": "probing.make_wheel",
                     "Root-Is-Purelib": "false",
                     "Tag": tag,
                 }
@@ -83,9 +63,22 @@ def write_wheel(
     )
 
 
-def write_probing_wheel(out_dir, *, version, platform):
+def write_probing_wheel(
+    out_dir, *, platform="manylinux_2_12_x86_64.manylinux2010_x86_64"
+):
     contents = {}
-    entry_points = {}
+    meta = toml.load("Cargo.toml")
+    package_meta = meta.get("package", {})
+    workspace_meta = meta.get("workspace", {}).get("package", {})
+    metadata = {
+        "version": workspace_meta.get("version") or package_meta.get("version"),
+        "authors": workspace_meta.get("authors", []) or package_meta.get("authors", []),
+        "license": workspace_meta.get("license") or package_meta.get("license", ""),
+        "description": package_meta.get("description", ""),  # Only in package
+        "repository": package_meta.get("repository", ""),  # Only in package
+        "homepage": package_meta.get("homepage", ""),  # Only in package
+        "keywords": package_meta.get("keywords", []),  # Only in package
+    }
 
     # Create the output directory if it does not exist
     out_dir_path = pathlib.Path(out_dir)
@@ -96,7 +89,7 @@ def write_probing_wheel(out_dir, *, version, platform):
         "probing": "target/x86_64-unknown-linux-gnu/release/probing",
         "libprobing.so": "target/x86_64-unknown-linux-gnu/release/libprobing.so",
     }.items():
-        zip_info = ZipInfo(f"probing-{version}.data/scripts/{name}")
+        zip_info = ZipInfo(f"probing-{metadata["version"]}.data/scripts/{name}")
         zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
         with open(path, "rb") as f:
             contents[zip_info] = f.read()
@@ -109,39 +102,32 @@ def write_probing_wheel(out_dir, *, version, platform):
     return write_wheel(
         out_dir,
         name="probing",
-        version=version,
+        version=metadata["version"],
         tag=f"py3-none-{platform}",
         metadata={
-            "Summary": "A Python package for probing and monitoring system performance",
+            "Summary": metadata["description"],
             "Description-Content-Type": "text/markdown",
-            "License": "MIT",
+            "License": metadata["license"],
             "Classifier": [
-                "License :: OSI Approved :: MIT License",
+                f"License :: OSI Approved :: {metadata['license']} License",
                 "Programming Language :: Python :: 3",
                 "Operating System :: POSIX :: Linux",
-                "Topic :: System :: Monitoring",
-                "Topic :: System :: Systems Administration",
             ],
             "Project-URL": [
-                "Source Code, https://github.com/reiase/probing",
+                f"Homepage, {metadata['homepage']}",
+                f"Repository, {metadata['repository']}",
             ],
+            "Keywords": ", ".join(metadata["keywords"]),
+            "Author": ", ".join(metadata["authors"]),
             "Requires-Python": ">=3.7",
         },
         description=description,
         contents=contents,
-        entry_points=entry_points,
     )
 
 
 def main():
-    import toml
-
-    meta = toml.load("Cargo.toml")
-    wheel_version = meta["workspace"]["package"]["version"]
-    print("--")
-    print("Making Wheels for version", wheel_version)
-
-    wheel_path = write_probing_wheel("dist/", version=wheel_version, platform=PLATFORM)
+    wheel_path = write_probing_wheel("dist/")
     with open(wheel_path, "rb") as wheel:
         print(f"  {wheel_path}")
         print(f"    {hashlib.sha256(wheel.read()).hexdigest()}")
