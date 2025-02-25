@@ -1,5 +1,5 @@
 use crate::inject::Process;
-use eyre::{Context, Report, Result};
+use eyre::{Context, Result};
 use libloading::os::unix::Library;
 
 /// The address of the libc functions we need to call within a process.
@@ -16,61 +16,50 @@ pub struct LibcAddrs {
 }
 
 impl LibcAddrs {
+    fn find_symbol(lib: &Library, name: &str) -> Result<u64> {
+        let addr = unsafe {
+            lib.get::<u64>(name.as_bytes())
+                .wrap_err(format!("getting address of symbol {name:?} failed"))?
+                .into_raw() as u64
+        };
+        log::debug!("Found {name:?} at {addr:x}");
+        Ok(addr)
+    }
+
+    fn addr_of(lib: &str, name: &str) -> Result<u64> {
+        let lib = unsafe {
+            Library::new(lib).wrap_err(format!(
+                "loading lib {lib} to get function addresses failed"
+            ))?
+        };
+
+        Self::find_symbol(&lib, name)
+    }
+
+    fn find_dlopen() -> Result<(bool, u64)> {
+        if let Ok(addr) = Self::addr_of("libc.so.6", "___dlopen") {
+            return Ok((false, addr));
+        };
+        if let Ok(addr) = Self::addr_of("libc.so.6", "dlopen") {
+            return Ok((false, addr));
+        };
+        if let Ok(addr) = Self::addr_of("libdl.so.2", "dlopen") {
+            return Ok((true, addr));
+        };
+        Err(eyre::eyre!("Could not find dlopen in libc or libdl"))
+    }
+
     /// Get the addresses of functions in the currently running process.
     fn for_current_process() -> Result<Self> {
-        let mut use_libdl = false;
-        let addr_of = unsafe {
-            let lib = Library::new("libc.so.6")
-                .wrap_err("loading local libc to get function addresses failed")?;
-
-            move |name: &str| {
-                let addr = lib
-                    .get::<u64>(name.as_bytes())
-                    .wrap_err(format!(
-                        "getting address of symbol {name:?} from libc failed"
-                    ))?
-                    .into_raw() as u64;
-                log::debug!("Found {name:?} at {addr:x} in libc");
-                Ok::<_, Report>(addr)
-            }
-        };
-        let addr_of_dl = unsafe {
-            let lib = Library::new("libdl.so.2")
-                .wrap_err("loading local libc to get function addresses failed")?;
-
-            move |name: &str| {
-                let addr = lib
-                    .get::<u64>(name.as_bytes())
-                    .wrap_err(format!(
-                        "getting address of symbol {name:?} from libc failed"
-                    ))?
-                    .into_raw() as u64;
-                log::debug!("Found {name:?} at {addr:x} in libdl");
-                Ok::<_, Report>(addr)
-            }
-        };
-        let dlopen_addr = match addr_of("___dlopen") {
-            Ok(addr) => addr,
-            Err(_) => {
-                log::debug!("Could not find ___dlopen in libc, trying dlopen");
-                match addr_of("dlopen") {
-                    Ok(addr) => addr,
-                    Err(_) => {
-                        log::debug!("Could not find dlopen in libc, trying dlopen in libdl");
-                        use_libdl = true;
-                        addr_of_dl("dlopen")?
-                    }
-                }
-            }
-        };
+        let (use_libdl, dlopen_addr) = Self::find_dlopen()?;
         let addrs = Self {
             use_libdl: use_libdl,
-            malloc: addr_of("malloc")?,
-            free: addr_of("free")?,
-            putenv: addr_of("putenv")?,
-            setenv: addr_of("setenv")?,
-            getenv: addr_of("getenv")?,
-            printf: addr_of("printf")?,
+            malloc: Self::addr_of("libc.so.6", "malloc")?,
+            free: Self::addr_of("libc.so.6", "free")?,
+            putenv: Self::addr_of("libc.so.6", "putenv")?,
+            setenv: Self::addr_of("libc.so.6", "setenv")?,
+            getenv: Self::addr_of("libc.so.6", "getenv")?,
+            printf: Self::addr_of("libc.so.6", "printf")?,
             dlopen: dlopen_addr,
         };
         log::debug!("Got libc addresses for current process: {addrs:x?}");
