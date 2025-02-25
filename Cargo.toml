@@ -17,7 +17,7 @@ license = "GPL3"
 
 [workspace.dependencies]
 anyhow = "1.0"
-arrow = { version = "53.3.0", default-features = false, features = [] }
+arrow = { version = "54.2.0", default-features = false, features = ["csv"] }
 chrono = "0.4"
 log = "0.4"
 nix = { version = "0.29.0", default-features = false, features = [
@@ -83,7 +83,7 @@ signal-hook-registry = "1.4.2"
 # probing-cli = { path = "probing/cli" }
 
 anyhow = { workspace = true }
-arrow = { workspace = true, default-features = false, features = ["csv"] }
+arrow = { workspace = true }
 pyo3 = { version = "0.23.5", features = [
     "abi3",
     "abi3-py37",
