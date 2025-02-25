@@ -9,5 +9,5 @@ pub enum EngineError {
     InvalidOption(String, String),
 
     #[error("Internal error: {0}")]
-    InternalError(String)
+    InternalError(String),
 }

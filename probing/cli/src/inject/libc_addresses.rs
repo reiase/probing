@@ -1,5 +1,6 @@
 use crate::inject::Process;
-use eyre::{Context, Result};
+use anyhow::Context;
+use anyhow::Result;
 use libloading::os::unix::Library;
 
 /// The address of the libc functions we need to call within a process.
@@ -19,7 +20,7 @@ impl LibcAddrs {
     fn find_symbol(lib: &Library, name: &str) -> Result<u64> {
         let addr = unsafe {
             lib.get::<u64>(name.as_bytes())
-                .wrap_err(format!("getting address of symbol {name:?} failed"))?
+                .with_context(|| format!("getting address of symbol {name:?} failed"))?
                 .into_raw() as u64
         };
         log::debug!("Found {name:?} at {addr:x}");
@@ -28,9 +29,8 @@ impl LibcAddrs {
 
     fn addr_of(lib: &str, name: &str) -> Result<u64> {
         let lib = unsafe {
-            Library::new(lib).wrap_err(format!(
-                "loading lib {lib} to get function addresses failed"
-            ))?
+            Library::new(lib)
+                .with_context(|| format!("loading lib {lib} to get function addresses failed"))?
         };
 
         Self::find_symbol(&lib, name)
@@ -46,7 +46,7 @@ impl LibcAddrs {
         if let Ok(addr) = Self::addr_of("libdl.so.2", "dlopen") {
             return Ok((true, addr));
         };
-        Err(eyre::eyre!("Could not find dlopen in libc or libdl"))
+        anyhow::bail!("Could not find dlopen in libc or libdl")
     }
 
     /// Get the addresses of functions in the currently running process.
@@ -97,15 +97,15 @@ impl LibcAddrs {
     /// Get the addresses of functions in a given process - the whole point.
     pub(crate) fn for_process(process: &Process) -> Result<Self> {
         let our_libc = Process::current()
-            .wrap_err("getting current process to find the local libc offset failed")?
+            .context("getting current process to find the local libc offset failed")?
             .libc_address()
-            .wrap_err("getting the local libc offset failed")?;
+            .context("getting the local libc offset failed")?;
         let their_libc = process
             .libc_address()
-            .wrap_err("getting the target libc offset failed")?;
+            .context("getting the target libc offset failed")?;
 
         let our_libdl = Process::current()
-            .wrap_err("getting current process to find the local libc offset failed")?
+            .context("getting current process to find the local libc offset failed")?
             .libdl_address()
             .ok();
         let their_libdl = process.libdl_address().ok();

@@ -1,4 +1,5 @@
-use eyre::{eyre, Context, Report, Result};
+use anyhow::Context;
+use anyhow::Result;
 use procfs::process;
 use std::fmt::Display;
 
@@ -18,7 +19,7 @@ impl Process {
     /// Get the current running process (for comparing libc addresses).
     pub(crate) fn current() -> Result<Self> {
         Ok(Self(
-            process::Process::myself().wrap_err("failed to get PID of current process")?,
+            process::Process::myself().context("failed to get PID of current process")?,
         ))
     }
 
@@ -31,9 +32,9 @@ impl Process {
         // https://unix.stackexchange.com/a/16884 - A PID should fit in 31 bits comfortably.
         let id = i32::try_from(id).expect("PID to fit in an i32");
         log::trace!("Getting process with PID {}", id);
-        Ok(Self(
-            process::Process::new(id).wrap_err(format!("failed to get process by pid {id}"))?,
-        ))
+        Ok(Self(process::Process::new(id).with_context(|| {
+            format!("failed to get process by pid {id}")
+        })?))
     }
 
     /// Search for a process by the name of its executable.
@@ -43,9 +44,9 @@ impl Process {
     pub fn by_name(name: &str) -> Result<Option<Self>> {
         log::debug!("Searching for process with executable name {}", name);
         for process in
-            process::all_processes().wrap_err("failed to list processes to search them")?
+            process::all_processes().context("failed to list processes to search them")?
         {
-            let process = process.wrap_err("failed to read process metadata to check its name")?;
+            let process = process.context("failed to read process metadata to check its name")?;
             log::trace!("Checking process {}", process.pid);
             if let Ok(exe) = process.exe() {
                 if exe.ends_with(name) {
@@ -68,7 +69,7 @@ impl Process {
     pub fn by_cmdline(pat: &str) -> Result<Option<i32>> {
         log::debug!("Searching for process with executable name {}", pat);
         let ps: Vec<i32> = process::all_processes()
-            .wrap_err("failed to list processes to search them")?
+            .context("failed to list processes to search them")?
             .filter_map(std::result::Result::ok)
             .filter_map(|p| {
                 p.cmdline().map_or(None, |cmdline| {
@@ -83,8 +84,11 @@ impl Process {
             .collect();
         match ps.len() {
             1 => Ok(Some(ps[0])),
-            0 => Err(eyre!("found no process with cmdline pattern: {}", pat)),
-            _ => Err(eyre!(
+            0 => Err(anyhow::anyhow!(
+                "found no process with cmdline pattern: {}",
+                pat
+            )),
+            _ => Err(anyhow::anyhow!(
                 "found multiple processes with cmdline pattern: {}",
                 pat
             )),
@@ -96,11 +100,13 @@ impl Process {
         log::trace!("Finding executable space in target process");
         self.0
             .maps()
-            .wrap_err("failed to read process memory maps to find executable region")?
+            .context("failed to read process memory maps to find executable region")?
             .into_iter()
             .find(|m| m.perms.contains(process::MMPermissions::EXECUTE))
             .map(|m| m.address.0)
-            .ok_or_else(|| eyre!("could not find an executable region in the target process"))
+            .ok_or_else(|| {
+                anyhow::anyhow!("could not find an executable region in the target process")
+            })
     }
 
     /// Get the address of the libc library in the process.
@@ -109,7 +115,7 @@ impl Process {
         log::trace!("Finding libc address in process with PID {}", self.0.pid);
         self.0
             .maps()
-            .wrap_err("failed to read process memory maps to find libc")?
+            .context("failed to read process memory maps to find libc")?
             .into_iter()
             .find(move |m| {
                 log::trace!("Checking mapping: {m:?}");
@@ -122,7 +128,7 @@ impl Process {
                 }
             })
             .map(|m| m.address.0)
-            .ok_or_else(|| eyre!("could not find libc in the target process"))
+            .ok_or_else(|| anyhow::anyhow!("could not find libc in the target process"))
     }
     /// Get the address of the libc library in the process.
     pub(crate) fn libdl_address(&self) -> Result<u64> {
@@ -130,7 +136,7 @@ impl Process {
         log::trace!("Finding libc address in process with PID {}", self.0.pid);
         self.0
             .maps()
-            .wrap_err("failed to read process memory maps to find libc")?
+            .context("failed to read process memory maps to find libc")?
             .into_iter()
             .find(move |m| {
                 log::trace!("Checking mapping: {m:?}");
@@ -143,15 +149,15 @@ impl Process {
                 }
             })
             .map(|m| m.address.0)
-            .ok_or_else(|| eyre!("could not find libc in the target process"))
+            .ok_or_else(|| anyhow::anyhow!("could not find libc in the target process"))
     }
     /// Get the TIDs of each of the threads in the process.
     pub(crate) fn thread_ids(&self) -> Result<Vec<i32>> {
         log::trace!("Getting thread IDs of process with PID {}", self.0.pid);
         self.0
             .tasks()
-            .wrap_err("failed to read process thread IDs")?
-            .map(|t| Ok::<_, Report>(t.wrap_err("failed to read process thread IDs")?.tid))
+            .context("failed to read process thread IDs")?
+            .map(|t| Ok(t.context("failed to read process thread IDs")?.tid))
             .collect()
     }
 
