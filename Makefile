@@ -9,21 +9,16 @@ endif
 
 ifndef ZIG
 	CARGO_BUILD_CMD := build
-	MATURIN_FLAGS :=
 	TARGET_DIR_PREFIX := target
 else
 	CARGO_BUILD_CMD := zigbuild --target x86_64-unknown-linux-gnu.2.17
-	MATURIN_FLAGS := --zig
 	TARGET_DIR_PREFIX := target/x86_64-unknown-linux-gnu
 endif
 
 all: wheel
 
 wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
-	rm -rf dist
-	maturin build -r ${MATURIN_FLAGS}
-	test -e dist || mkdir -p dist
-	cp target/wheels/*.whl dist/
+	python make_wheel.py
 
 .PHONY: app/dist
 app/dist:
