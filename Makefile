@@ -18,6 +18,7 @@ endif
 all: wheel
 
 wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
+	rm dist/* -rf
 	python make_wheel.py
 
 .PHONY: app/dist

@@ -122,11 +122,7 @@ impl Probe for PythonProbe {
             CALLSTACKS.lock().unwrap().take();
         }
         let tid = tid.unwrap_or(std::process::id() as i32);
-        rustix::process::kill_process(
-            rustix::process::Pid::from_raw(tid)
-                .ok_or(anyhow::anyhow!("error get thread/process"))?,
-            rustix::process::Signal::Usr2,
-        )?;
+        nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2)?;
         std::thread::sleep(std::time::Duration::from_secs(1));
         match CALLSTACKS.lock().unwrap().take() {
             Some(frames) => Ok(frames),

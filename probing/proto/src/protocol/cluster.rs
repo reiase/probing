@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,27 @@ pub struct Node {
 
     pub status: Option<String>,
     pub timestamp: u64,
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Node {{ host: {}, addr: {}, local_rank: {:?}, rank: {:?}, world_size: {:?}, group_rank: {:?}, group_world_size: {:?}, role_name: {:?}, role_rank: {:?}, role_world_size: {:?}, status: {:?}, timestamp: {} }}",
+            self.host,
+            self.addr,
+            self.local_rank,
+            self.rank,
+            self.world_size,
+            self.group_rank,
+            self.group_world_size,
+            self.role_name,
+            self.role_rank,
+            self.role_world_size,
+            self.status,
+            self.timestamp
+        )
+    }
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]

@@ -54,7 +54,7 @@ impl InjectCommand {
         Injector::attach(Process::get(pid as u32).map_err(Error::msg)?)
             .map_err(Error::msg)?
             .inject(&soname, settings)
-            .map_err(|e| anyhow!("Failed to inject probing: {}", e))
+            .map_err(|e| anyhow!("Failed to inject probing: {}\n\t{}", e, e.root_cause()))
     }
 
     pub fn run(&self, ctrl: ProbeEndpoint) -> Result<()> {

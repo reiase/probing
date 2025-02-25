@@ -7,9 +7,9 @@ use crate::server::SERVER_RUNTIME;
 use probing_proto::prelude::Node;
 
 pub fn get_hostname() -> Result<String> {
-    let uname = rustix::system::uname();
-    let hostname = uname.nodename();
-    Ok(hostname.to_str()?.to_string())
+    let uname = nix::sys::utsname::uname()?;
+    let hostname = uname.nodename().to_string_lossy().to_string();
+    Ok(hostname)
 }
 
 pub fn start_report_worker(report_addr: String, local_addr: String) {
@@ -25,10 +25,6 @@ async fn report_worker(report_addr: String, local_addr: String) {
 
         let report_addr = format!("http://{}/apis/nodes", report_addr);
         let hostname = get_hostname().unwrap_or("localhost".to_string());
-        let local_rank = std::env::var("LOCAL_RANK")
-            .unwrap_or("0".to_string())
-            .parse()
-            .unwrap_or(0);
         let mut address = local_addr.clone();
         {
             let probing_address = PROBING_ADDRESS.read().unwrap();
@@ -53,12 +49,12 @@ async fn report_worker(report_addr: String, local_addr: String) {
         };
 
         log::debug!("reporting node status to {report_addr}: {:?}", node);
-        match request_remote(&report_addr, node).await {
+        match request_remote(&report_addr, node.clone()).await {
             Ok(reply) => {
                 log::debug!("node status reported to {report_addr}: {:?}", reply);
             }
             Err(err) => {
-                log::error!("failed to report node status to {report_addr}, {err}");
+                log::error!("failed to report {node} to {report_addr}, {err}");
             }
         }
     }

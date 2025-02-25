@@ -67,21 +67,31 @@ pub fn start_local() {
 }
 
 pub async fn remote_server(addr: Option<String>) -> Result<()> {
+    use nu_ansi_term::Color::{Green, Red};
+
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
     log::info!("Starting probe server at {}", addr);
 
     let app = build_app();
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    if let Ok(addr) = listener.local_addr() {
-        {
-            let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
-            *probing_address = addr.to_string();
-        }
-        use nu_ansi_term::Color::{Green, Red};
+    match listener.local_addr() {
+        Ok(addr) => {
+            {
+                let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
+                *probing_address = addr.to_string();
+            }
 
-        eprintln!("{}", Red.bold().paint("probing server is available on:"));
-        eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+            eprintln!("{}", Red.bold().paint("probing server is available on:"));
+            eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+        }
+        Err(err) => {
+            eprintln!(
+                "{}",
+                Red.bold()
+                    .paint(format!("error getting server address: {err}"))
+            );
+        }
     }
     axum::serve(listener, app).await?;
 
@@ -98,7 +108,13 @@ pub fn sync_env_settings() {
     thread::spawn(|| {
         std::env::vars().for_each(|(k, v)| {
             if k.starts_with("PROBING_")
-                && !["PROBING_PORT", "PROBING_LOG", "PROBING_ASSETS_ROOT"].contains(&k.as_str())
+                && ![
+                    "PROBING_PORT",
+                    "PROBING_LOG",
+                    "PROBING_ASSETS_ROOT",
+                    "PROBING_SERVER_ADDRPATTERN",
+                ]
+                .contains(&k.as_str())
             {
                 let k = k.replace("_", ".").to_lowercase();
                 let setting = format!("set {}={}", k, v);

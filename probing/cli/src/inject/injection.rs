@@ -312,8 +312,11 @@ impl Drop for Injection<'_> {
         if !self.removed {
             log::warn!("Injection dropped without being removed, removing now");
         }
-        self.remove_internal()
+        if let Err(e) = self
+            .remove_internal()
             .wrap_err("removing injection from drop impl failed")
-            .unwrap();
+        {
+            log::error!("Failed to remove injection: {e}");
+        };
     }
 }

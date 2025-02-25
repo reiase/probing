@@ -1,4 +1,7 @@
+use nix::ioctl_read;
+use nix::libc;
 use std::os::fd::AsFd;
+use std::os::fd::AsRawFd;
 
 use tabled::builder::Builder;
 use tabled::grid::config::Position;
@@ -94,14 +97,24 @@ fn terminal_width() -> Option<u32> {
     terminal_size_of(std::io::stdout())
 }
 
-fn terminal_size_of<Fd: AsFd>(fd: Fd) -> Option<u32> {
-    use rustix::termios::{isatty, tcgetwinsize};
+ioctl_read!(get_winsize, libc::TIOCGWINSZ, 0, libc::winsize);
 
-    if !isatty(&fd) {
+fn terminal_size_of<Fd: AsFd>(fd: Fd) -> Option<u32> {
+    use nix::unistd::isatty;
+    if isatty(fd.as_fd().as_raw_fd()).is_err() {
         return None;
     }
 
-    let winsize = tcgetwinsize(&fd).ok()?;
+    let winsize = unsafe {
+        let mut winsize = libc::winsize {
+            ws_row: 0,
+            ws_col: 0,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        };
+        get_winsize(fd.as_fd().as_raw_fd(), &mut winsize).ok()?;
+        winsize
+    };
     let cols = winsize.ws_col;
 
     if cols > 0 {

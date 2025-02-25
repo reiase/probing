@@ -2,6 +2,7 @@
 extern crate ctor;
 
 use anyhow::Result;
+use nix::libc::SIGUSR2;
 
 use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
@@ -27,15 +28,37 @@ where
 }
 
 pub fn get_hostname() -> Result<String> {
-    let uname = rustix::system::uname();
-    let hostname = uname.nodename();
+    let addrs = nix::ifaddrs::getifaddrs()?;
+    let mut ips = Vec::new();
+    for addr in addrs {
+        if let Some(address) = addr.address {
+            if let Some(ip) = address.as_sockaddr_in() {
+                let ip_addr = std::net::IpAddr::V4(ip.ip().into());
+                if !ip_addr.is_unspecified() {
+                    ips.push(ip_addr.to_string());
+                }
+            }
+        }
+    }
 
-    let ip = dns_lookup::lookup_host(hostname.to_str()?)?;
-    let ip = ip
-        .iter()
-        .filter(|ipaddr| ipaddr.is_ipv4())
-        .collect::<Vec<_>>();
-    Ok(format!("{}", ip[0]))
+    // Check for address pattern match from environment variable
+    if let Ok(pattern) = std::env::var("PROBING_SERVER_ADDRPATTERN") {
+        log::debug!("Matching IP address with pattern: {pattern}");
+        for ip in ips.iter() {
+            log::debug!(
+                "Checking IP address: {ip} vs {pattern}: {}",
+                ip.starts_with(pattern.as_str())
+            );
+            if ip.starts_with(pattern.as_str()) {
+                return Ok(ip.clone());
+            }
+        }
+    }
+
+    // Return first IP if no pattern match found
+    ips.first()
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("No suitable IP address found"))
 }
 
 #[ctor]
@@ -47,10 +70,7 @@ fn setup() {
     env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOG));
 
     // initialize signal handlers
-    register_signal_handler(
-        rustix::process::Signal::Usr2 as i32,
-        backtrace_signal_handler,
-    );
+    register_signal_handler(SIGUSR2, backtrace_signal_handler);
 
     // initialize probing server
     probing_server::start_local();

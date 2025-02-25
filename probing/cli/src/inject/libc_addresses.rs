@@ -5,6 +5,7 @@ use libloading::os::unix::Library;
 /// The address of the libc functions we need to call within a process.
 #[derive(Debug, Clone, Copy)]
 pub struct LibcAddrs {
+    pub(crate) use_libdl: bool,
     pub(crate) malloc: u64,
     pub(crate) dlopen: u64,
     pub(crate) free: u64,
@@ -17,18 +18,20 @@ pub struct LibcAddrs {
 impl LibcAddrs {
     /// Get the addresses of functions in the currently running process.
     fn for_current_process() -> Result<Self> {
+        let mut use_libdl = false;
         let addr_of = unsafe {
             let lib = Library::new("libc.so.6")
                 .wrap_err("loading local libc to get function addresses failed")?;
 
             move |name: &str| {
-                Ok::<_, Report>(
-                    lib.get::<u64>(name.as_bytes())
-                        .wrap_err(format!(
-                            "getting address of symbol {name:?} from libc failed"
-                        ))?
-                        .into_raw() as u64,
-                )
+                let addr = lib
+                    .get::<u64>(name.as_bytes())
+                    .wrap_err(format!(
+                        "getting address of symbol {name:?} from libc failed"
+                    ))?
+                    .into_raw() as u64;
+                log::debug!("Found {name:?} at {addr:x} in libc");
+                Ok::<_, Report>(addr)
             }
         };
         let addr_of_dl = unsafe {
@@ -36,23 +39,39 @@ impl LibcAddrs {
                 .wrap_err("loading local libc to get function addresses failed")?;
 
             move |name: &str| {
-                Ok::<_, Report>(
-                    lib.get::<u64>(name.as_bytes())
-                        .wrap_err(format!(
-                            "getting address of symbol {name:?} from libc failed"
-                        ))?
-                        .into_raw() as u64,
-                )
+                let addr = lib
+                    .get::<u64>(name.as_bytes())
+                    .wrap_err(format!(
+                        "getting address of symbol {name:?} from libc failed"
+                    ))?
+                    .into_raw() as u64;
+                log::debug!("Found {name:?} at {addr:x} in libdl");
+                Ok::<_, Report>(addr)
+            }
+        };
+        let dlopen_addr = match addr_of("___dlopen") {
+            Ok(addr) => addr,
+            Err(_) => {
+                log::debug!("Could not find ___dlopen in libc, trying dlopen");
+                match addr_of("dlopen") {
+                    Ok(addr) => addr,
+                    Err(_) => {
+                        log::debug!("Could not find dlopen in libc, trying dlopen in libdl");
+                        use_libdl = true;
+                        addr_of_dl("dlopen")?
+                    }
+                }
             }
         };
         let addrs = Self {
+            use_libdl: use_libdl,
             malloc: addr_of("malloc")?,
             free: addr_of("free")?,
             putenv: addr_of("putenv")?,
             setenv: addr_of("setenv")?,
             getenv: addr_of("getenv")?,
             printf: addr_of("printf")?,
-            dlopen: addr_of_dl("dlopen")?,
+            dlopen: dlopen_addr,
         };
         log::debug!("Got libc addresses for current process: {addrs:x?}");
         Ok(addrs)
@@ -70,12 +89,12 @@ impl LibcAddrs {
     ) -> Self {
         // We cannot calculate an offset as `new_base - old_base` because it
         // might be less than 0.
-        let dlopen = if let (Some(old), Some(new)) = (old_dl, new_dl) {
-            self.dlopen - old + new
-        } else {
-            self.dlopen - old_base + new_base
+        let dlopen = match (old_dl, new_dl) {
+            (Some(old), Some(new)) if self.use_libdl => self.dlopen - old + new,
+            _ => self.dlopen - old_base + new_base,
         };
         Self {
+            use_libdl: self.use_libdl,
             malloc: self.malloc - old_base + new_base,
             dlopen,
             free: self.free - old_base + new_base,
@@ -106,6 +125,12 @@ impl LibcAddrs {
             our_libc,
             their_libc
         );
-        Ok(Self::for_current_process()?.change_base(our_libc, their_libc, our_libdl, their_libdl))
+        let addrs =
+            Self::for_current_process()?.change_base(our_libc, their_libc, our_libdl, their_libdl);
+        log::debug!(
+            "Got libc addresses for process {}: {addrs:x?}",
+            process.pid()
+        );
+        Ok(addrs)
     }
 }
