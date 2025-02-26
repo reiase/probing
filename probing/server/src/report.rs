@@ -49,12 +49,16 @@ async fn report_worker(report_addr: String, local_addr: String) {
         };
 
         log::debug!("reporting node status to {report_addr}: {:?}", node);
-        match request_remote(&report_addr, node.clone()).await {
-            Ok(reply) => {
-                log::debug!("node status reported to {report_addr}: {:?}", reply);
-            }
-            Err(err) => {
-                log::error!("failed to report {node} to {report_addr}, {err}");
+        if node.rank == Some(0) {
+            probing_engine::plugins::cluster::service::update_node(node.clone());
+        } else {
+            match request_remote(&report_addr, node.clone()).await {
+                Ok(reply) => {
+                    log::debug!("node status reported to {report_addr}: {:?}", reply);
+                }
+                Err(err) => {
+                    log::error!("failed to report {node} to {report_addr}, {err}");
+                }
             }
         }
     }

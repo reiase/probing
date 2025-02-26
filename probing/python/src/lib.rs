@@ -1,4 +1,4 @@
-pub mod catch_crash;
+pub mod python;
 pub mod extensions;
 pub mod flamegraph;
 pub mod plugins;
