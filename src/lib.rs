@@ -44,8 +44,10 @@ pub fn get_hostname() -> Result<String> {
     if let Ok(pattern) = std::env::var("PROBING_SERVER_ADDRPATTERN") {
         for ip in ips.iter() {
             if ip.starts_with(pattern.as_str()) {
+                log::debug!("Select IP address {ip} with pattern {pattern}");
                 return Ok(ip.clone());
             }
+            log::debug!("Skip IP address {ip} with pattern {pattern}");
         }
     }
 

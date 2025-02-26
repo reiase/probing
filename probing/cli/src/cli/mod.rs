@@ -13,16 +13,13 @@ use commands::Commands;
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]
+#[command(version = "0.2.0")]
 pub struct Cli {
     /// Enable verbose mode
     #[arg(short, long, global = true)]
     verbose: bool,
 
-    /// Send ctrl commands via ptrace
-    #[arg(long)]
-    ptrace: bool,
-
-    /// target process, PID (e.g., 1234) or `Name` (e.g., "chrome.exe") for local process, and <ip>:<port> for remote process
+    /// target process, PID (e.g., 1234) for local process, and <ip>:<port> for remote process
     #[arg()]
     target: Option<String>,
 
