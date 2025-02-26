@@ -94,7 +94,16 @@ def write_probing_wheel(
         with open(path, "rb") as f:
             contents[zip_info] = f.read()
 
-    contents["probing/__init__.py"] = b""
+    python_dir = pathlib.Path("python")
+    for root, _, files in os.walk(python_dir):
+        for file in files:
+            if file.endswith(".py"):
+                file_path = pathlib.Path(root)/file
+                pkg_path = file_path.relative_to(python_dir)
+                with open(file_path, "rb") as f:
+                    zip_info = ZipInfo(str(pkg_path))
+                    contents[zip_info] = f.read()
+                    print(f"add file: {pkg_path}")
 
     with open("README.md", "rb") as f:
         description = f.read()
