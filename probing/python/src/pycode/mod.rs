@@ -1,5 +1,4 @@
 use include_dir::{include_dir, Dir};
-use log::error;
 use std::path::Path;
 
 static CODE: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/pycode/");
@@ -7,25 +6,33 @@ static CODE: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/pycode/");
 pub(crate) fn get_code(path: &str) -> Option<String> {
     let clean_path = path.trim_start_matches('/');
 
-    if let Ok(code_root) = std::env::var("PROBING_CODE_ROOT") {
-        let fs_path = Path::new(&code_root).join(clean_path);
-        match std::fs::read_to_string(&fs_path) {
-            Ok(content) => Some(content),
-            Err(e) => {
-                error!("Failed to read file from disk {}: {}", fs_path.display(), e);
-                None
-            }
-        }
-    } else {
-        CODE.get_file(clean_path).map(|f| {
-            f.contents_utf8()
-                .unwrap_or_else(|| {
-                    error!("Embedded file {} is not valid UTF-8", clean_path);
-                    ""
-                })
-                .to_string()
+    std::env::var("PROBING_CODE_ROOT")
+        .ok()
+        .and_then(|code_root| std::fs::read_to_string(Path::new(&code_root).join(clean_path)).ok())
+        .or_else(|| {
+            CODE.get_file(clean_path)
+                .and_then(|f| f.contents_utf8().map(|s| s.to_string()))
         })
-    }
+        .or_else(|| std::fs::read_to_string(Path::new(clean_path)).ok())
+
+    // if let Ok(code_root) = std::env::var("PROBING_CODE_ROOT") {
+    //     let fs_path = Path::new(&code_root).join(clean_path);
+    //     if let Ok(content) = std::fs::read_to_string(&fs_path) {
+    //         return Some(content);
+    //     }
+    // } else {
+    //     if let Some(f) = CODE.get_file(clean_path) {
+    //         if let Some(content) = f.contents_utf8() {
+    //             return Some(content.to_string());
+    //         }
+    //     }
+    // }
+
+    // let current_dir_path = Path::new(clean_path);
+    // if let Ok(content) = std::fs::read_to_string(current_dir_path) {
+    //     return Some(content);
+    // }
+    // None
 }
 
 #[cfg(test)]

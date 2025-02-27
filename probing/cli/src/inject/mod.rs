@@ -57,7 +57,8 @@
     // Register names like `rsi` and `rdi` break this.
     clippy::similar_names,
 )]
-use eyre::{eyre, Context, Result};
+use anyhow::Context;
+use anyhow::Result;
 use injection::Injection;
 pub use libc_addresses::LibcAddrs;
 pub use process::Process;
@@ -84,7 +85,7 @@ impl Injector {
         let mut tracer = pete::Ptracer::new();
         tracer
             .attach((&proc).into())
-            .wrap_err("failed to attach to given process")?;
+            .context("failed to attach to given process")?;
         log::trace!("Attached to process with PID {}", proc);
         Self::new(proc, tracer)
     }
@@ -99,7 +100,7 @@ impl Injector {
         };
         injector
             .attach_children()
-            .wrap_err("failed to attach to child threads")?;
+            .context("failed to attach to child threads")?;
         Ok(injector)
     }
 
@@ -108,7 +109,7 @@ impl Injector {
         let threads = self
             .proc
             .thread_ids()
-            .wrap_err("couldn't get thread IDs of target to attach to them")?;
+            .context("couldn't get thread IDs of target to attach to them")?;
         log::trace!("Attaching to {} child threads of target", threads.len() - 1);
         threads
             .iter()
@@ -116,16 +117,18 @@ impl Injector {
             .try_for_each(|&tid| {
                 self.tracer
                     .attach(pete::Pid::from_raw(tid))
-                    .wrap_err_with(|| format!("failed to attach to child thread with TID {tid}"))?;
+                    .with_context(|| format!("failed to attach to child thread with TID {tid}"))?;
                 self.attached.push(nix::unistd::Pid::from_raw(tid));
                 // The order that the threads stop is not necessarily the same as the order
                 // that they were attached to, so we don't know what tracee we're getting here.
                 let actual_tid = self
                     .tracer
                     .wait()
-                    .wrap_err("failed to wait for thread to stop")?
+                    .context("failed to wait for thread to stop")?
                     .ok_or_else(|| {
-                        eyre!("a target thread exited quietly as soon as we started tracing it")
+                        anyhow::anyhow!(
+                            "a target thread exited quietly as soon as we started tracing it"
+                        )
                     })?
                     .pid;
                 log::trace!("Attached to thread ID {actual_tid} of target process");
@@ -139,20 +142,20 @@ impl Injector {
         // Pete doesn't have a wrapper for this.
         self.attached.drain(..).try_for_each(|tid| {
             nix::sys::ptrace::detach(tid, None)
-                .wrap_err_with(|| format!("failed to detach from thread with TID {tid}"))
+                .with_context(|| format!("failed to detach from thread with TID {tid}"))
         })
     }
 
     /// Inject the given library into the traced process.
     pub fn inject(&mut self, library: &std::path::Path, settings: Vec<String>) -> Result<()> {
         let Some(tracee) = self.tracer.wait()? else {
-            return Err(eyre!(
+            return Err(anyhow::anyhow!(
                 "the target exited quietly as soon as we started tracing it"
             ));
         };
         log::trace!("Attached to process with ID {}", tracee.pid);
         let mut injection = Injection::inject(&self.proc, &mut self.tracer, tracee)
-            .wrap_err("failed to inject shellcode")?;
+            .context("failed to inject shellcode")?;
 
         for setting in settings {
             if let Some((name, value)) = setting.split_once('=') {
@@ -161,14 +164,14 @@ impl Injector {
 
                 injection
                     .setenv(Some(&name), Some(&value))
-                    .wrap_err("failed to prepare env string")?;
+                    .context("failed to prepare env string")?;
             }
         }
 
         injection
             .execute(library)
-            .wrap_err("failed to execute shellcode")?;
-        injection.remove().wrap_err("failed to remove shellcode")?;
+            .context("failed to execute shellcode")?;
+        injection.remove().context("failed to remove shellcode")?;
         log::info!(
             "Successfully injected library {} into process with PID {}",
             library.display(),

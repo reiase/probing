@@ -28,30 +28,26 @@ where
 }
 
 pub fn get_hostname() -> Result<String> {
-    let addrs = nix::ifaddrs::getifaddrs()?;
-    let mut ips = Vec::new();
-    for addr in addrs {
-        if let Some(address) = addr.address {
-            if let Some(ip) = address.as_sockaddr_in() {
-                let ip_addr = std::net::IpAddr::V4(ip.ip().into());
-                if !ip_addr.is_unspecified() {
-                    ips.push(ip_addr.to_string());
-                }
+    let ips = nix::ifaddrs::getifaddrs()?
+        .filter_map(|addr| addr.address)
+        .filter_map(|addr| addr.as_sockaddr_in().cloned())
+        .filter_map(|addr| {
+            let ip_addr = addr.ip();
+            match ip_addr.is_unspecified() {
+                true => None,
+                false => Some(ip_addr.to_string()),
             }
-        }
-    }
+        })
+        .collect::<Vec<_>>();
 
     // Check for address pattern match from environment variable
     if let Ok(pattern) = std::env::var("PROBING_SERVER_ADDRPATTERN") {
-        log::debug!("Matching IP address with pattern: {pattern}");
         for ip in ips.iter() {
-            log::debug!(
-                "Checking IP address: {ip} vs {pattern}: {}",
-                ip.starts_with(pattern.as_str())
-            );
             if ip.starts_with(pattern.as_str()) {
+                log::debug!("Select IP address {ip} with pattern {pattern}");
                 return Ok(ip.clone());
             }
+            log::debug!("Skip IP address {ip} with pattern {pattern}");
         }
     }
 

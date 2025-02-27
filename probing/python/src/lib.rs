@@ -1,9 +1,9 @@
-pub mod catch_crash;
 pub mod extensions;
 pub mod flamegraph;
 pub mod plugins;
 pub mod pprof;
 pub mod pycode;
+pub mod python;
 pub mod repl;
 
 use std::ffi::CStr;
@@ -139,47 +139,6 @@ impl Probe for PythonProbe {
     fn flamegraph(&self) -> Result<String> {
         Ok(flamegraph::flamegraph())
     }
-
-    // fn enable(&self, feture: &str) -> Result<()> {
-    //     create_probing_module()?;
-    //     match feture {
-    //         "profiling" => {
-    //             PPROF_HOLDER.setup(100);
-    //             Ok(())
-    //         }
-    //         name => {
-    //             let filename = if let Some(pos) = name.find('(') {
-    //                 &name[..pos]
-    //             } else {
-    //                 name
-    //             };
-
-    //             let filename = format!("{}.py", filename);
-    //             let code = get_code(filename.as_str());
-    //             if let Some(code) = code {
-    //                 Python::with_gil(|py| {
-    //                     let code = format!("{}\0", code);
-    //                     let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-    //                     py.run(code, None, None).map_err(|err| {
-    //                         anyhow::anyhow!("error loading feature {}: {}", name, err)
-    //                     })?;
-
-    //                     let code = format!("{}\0", name);
-    //                     let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-    //                     py.run(code, None, None).map_err(|err| {
-    //                         anyhow::anyhow!("error running feature {}: {}", name, err)
-    //                     })
-    //                 })
-    //             } else {
-    //                 Err(anyhow::anyhow!("unsupported feature {}", name))
-    //             }
-    //         }
-    //     }
-    // }
-
-    // fn disable(&self, _feture: &str) -> anyhow::Result<()> {
-    //     todo!()
-    // }
 }
 
 #[derive(Default)]
@@ -196,16 +155,18 @@ pub fn create_probing_module() -> PyResult<()> {
         let sys = PyModule::import(py, "sys")?;
         let modules = sys.getattr("modules")?;
 
-        if modules.contains("probing")? {
-            return Ok(());
+        if !modules.contains("probing")? {
+            let m = PyModule::new(py, "probing")?;
+            modules.set_item("probing", m)?;
         }
 
-        let m = PyModule::new(py, "probing")?;
+        let m = PyModule::import(py, "probing")?;
+        if m.hasattr(pyo3::intern!(py, "_C"))? {
+            return Ok(());
+        }
+        m.setattr(pyo3::intern!(py, "_C"), 42)?;
         m.add_class::<ExternalTable>()?;
 
-        modules.set_item("probing", m)?;
-
         Ok(())
-    })?;
-    Ok(())
+    })
 }

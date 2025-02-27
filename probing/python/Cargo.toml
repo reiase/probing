@@ -25,8 +25,15 @@ pyo3 = { version = "0.23.4", features = [
     "extension-module",
     "auto-initialize",
 ] }
-inferno = "0.12.1"
-pprof = { version = "0.14.0", features = ["cpp", "flamegraph"] }
+inferno = { version = "0.12.1", default-features = false, features = [
+    "nameattr",
+    "multithreaded",
+] }
+pprof = { version = "0.14.0", features = [
+    "cpp",
+    "flamegraph",
+    "frame-pointer",
+] }
 
 [dev-dependencies]
 rspec = "1"

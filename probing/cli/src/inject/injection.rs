@@ -1,5 +1,7 @@
 use crate::inject::{LibcAddrs, Process};
-use eyre::{eyre, Context, Result};
+// use eyre::{eyre, Context, Result};
+use anyhow::Context;
+use anyhow::Result;
 use std::os::unix::ffi::OsStringExt;
 
 /// The x64 shellcode that will be injected into the tracee.
@@ -44,22 +46,22 @@ impl<'a> Injection<'a> {
     ) -> Result<Self> {
         let injected_at = proc
             .find_executable_space()
-            .wrap_err("couldn't find region to write shellcode")?;
+            .context("couldn't find region to write shellcode")?;
         log::debug!("Injecting shellcode at {injected_at:x}");
         let saved_memory = tracee
             .read_memory(injected_at, SHELLCODE.len())
-            .wrap_err("failed to read memory we were going to overwrite")?;
+            .context("failed to read memory we were going to overwrite")?;
         log::trace!("Read memory to overwrite: {saved_memory:x?}");
         tracee
             .write_memory(injected_at, &SHELLCODE)
-            .wrap_err("failed to write shellcode to tracee")?;
+            .context("failed to write shellcode to tracee")?;
         log::trace!("Written shellcode");
         let saved_registers = tracee
             .registers()
-            .wrap_err("failed to save original tracee registers")?;
+            .context("failed to save original tracee registers")?;
         log::trace!("Saved registers: {saved_registers:x?}");
         let libc = LibcAddrs::for_process(proc)
-            .wrap_err("couldn't get libc function addresses for tracee")?;
+            .context("couldn't get libc function addresses for tracee")?;
         log::trace!("Found libc addresses: {libc:x?}");
         log::debug!("Injected shellcode into tracee");
         Ok(Self {
@@ -77,11 +79,11 @@ impl<'a> Injection<'a> {
     pub(crate) fn execute(&mut self, filename: &std::path::Path) -> Result<()> {
         let address = self
             .write_filename(filename)
-            .wrap_err("couldn't write library filename to tracee address space")?;
+            .context("couldn't write library filename to tracee address space")?;
         self.open_library(address)
-            .wrap_err("failed to load library in tracee")?;
+            .context("failed to load library in tracee")?;
         self.free_alloc(address)
-            .wrap_err("failed to free memory we stored the library filename in")?;
+            .context("failed to free memory we stored the library filename in")?;
         log::debug!("Executed injected shellcode to load library");
         Ok(())
     }
@@ -92,7 +94,7 @@ impl<'a> Injection<'a> {
     fn write_filename(&mut self, filename: &std::path::Path) -> Result<u64> {
         // Get the absolute path since the tracee's CWD could be anything.
         let mut filename = std::fs::canonicalize(filename)
-            .wrap_err("couldn't get absolute path of given library")?
+            .context("couldn't get absolute path of given library")?
             .into_os_string()
             .into_vec();
         // Null-terminate the filename.
@@ -100,9 +102,9 @@ impl<'a> Injection<'a> {
         // RSI is unused, 0 is arbitrary.
         let address = self
             .call_function(self.libc.malloc, filename.len() as u64, 0)
-            .wrap_err("calling malloc in tracee failed")?;
+            .context("calling malloc in tracee failed")?;
         if address == 0 {
-            return Err(eyre!("malloc within tracee returned NULL"));
+            return Err(anyhow::anyhow!("malloc within tracee returned NULL"));
         }
         log::trace!(
             "Allocated {} bytes at {address:x} in tracee for library filename",
@@ -110,7 +112,7 @@ impl<'a> Injection<'a> {
         );
         self.tracee
             .write_memory(address, &filename)
-            .wrap_err("writing library name to tracee failed")?;
+            .context("writing library name to tracee failed")?;
         log::debug!("Wrote library filename to tracee");
         Ok(address)
     }
@@ -120,10 +122,10 @@ impl<'a> Injection<'a> {
     fn open_library(&mut self, filename_address: u64) -> Result<()> {
         let result = self
             .call_function(self.libc.dlopen, filename_address, 1) // flags = RTLD_LAZY
-            .wrap_err("calling dlopen in tracee failed")?;
+            .context("calling dlopen in tracee failed")?;
         log::debug!("Called dlopen in tracee, result = {result:x}");
         if result == 0 {
-            Err(eyre!("dlopen within tracee returned NULL"))
+            Err(anyhow::anyhow!("dlopen within tracee returned NULL"))
         } else {
             Ok(())
         }
@@ -134,7 +136,7 @@ impl<'a> Injection<'a> {
         // Apparently RSI has to be 0 or free might try to free that address too?
         let result = self
             .call_function(self.libc.free, address, 0)
-            .wrap_err("calling free in tracee failed")?;
+            .context("calling free in tracee failed")?;
         log::debug!("Freed memory in tracee, result = {result:x}");
         // Freeing is an optional cleanup step, don't check the result.
         Ok(())
@@ -144,15 +146,15 @@ impl<'a> Injection<'a> {
         if let (Some(name), Some(value)) = (name, value) {
             let name_address = self
                 .write_str(name)
-                .wrap_err("failed to allocate memory for env name")?;
+                .context("failed to allocate memory for env name")?;
             let value_address = self
                 .write_str(value)
-                .wrap_err("failed to allocate memory for env value")?;
+                .context("failed to allocate memory for env value")?;
             let _ = self.call_function3(self.libc.setenv, name_address, value_address, 1);
             self.free_alloc(name_address)
-                .wrap_err("failed to free memory storing the env name")?;
+                .context("failed to free memory storing the env name")?;
             self.free_alloc(value_address)
-                .wrap_err("failed to free memory storing the env value")?;
+                .context("failed to free memory storing the env value")?;
         }
         Ok(())
     }
@@ -165,9 +167,9 @@ impl<'a> Injection<'a> {
         s.push(0);
         let address = self
             .call_function(self.libc.malloc, s.len() as u64, 0)
-            .wrap_err("calling malloc in tracee failed")?;
+            .context("calling malloc in tracee failed")?;
         if address == 0 {
-            return Err(eyre!("malloc within tracee returned NULL"));
+            return Err(anyhow::anyhow!("malloc within tracee returned NULL"));
         }
         log::trace!(
             "Allocated {} bytes at {address:x} in tracee for env string",
@@ -175,7 +177,7 @@ impl<'a> Injection<'a> {
         );
         self.tracee
             .write_memory(address, &s)
-            .wrap_err("writing env str to tracee failed")?;
+            .context("writing env str to tracee failed")?;
         log::debug!("Wrote env str to tracee");
         Ok(address)
     }
@@ -199,13 +201,13 @@ impl<'a> Injection<'a> {
                 rsp: self.saved_registers.rsp & !0xf,
                 ..self.saved_registers
             })
-            .wrap_err("setting tracee registers to run shellcode failed")?;
+            .context("setting tracee registers to run shellcode failed")?;
         self.run_until_trap()
-            .wrap_err("waiting for shellcode in tracee to trap failed")?;
+            .context("waiting for shellcode in tracee to trap failed")?;
         let result = self
             .tracee
             .registers()
-            .wrap_err("reading shellcode call result from tracee registers failed")?
+            .context("reading shellcode call result from tracee registers failed")?
             .rax;
         log::trace!("Function returned {result:x}");
         Ok(result)
@@ -231,13 +233,13 @@ impl<'a> Injection<'a> {
                 rsp: self.saved_registers.rsp & !0xf,
                 ..self.saved_registers
             })
-            .wrap_err("setting tracee registers to run shellcode failed")?;
+            .context("setting tracee registers to run shellcode failed")?;
         self.run_until_trap()
-            .wrap_err("waiting for shellcode in tracee to trap failed")?;
+            .context("waiting for shellcode in tracee to trap failed")?;
         let result = self
             .tracee
             .registers()
-            .wrap_err("reading shellcode call result from tracee registers failed")?
+            .context("reading shellcode call result from tracee registers failed")?
             .rax;
         log::trace!("Function returned {result:x}");
         Ok(result)
@@ -248,11 +250,11 @@ impl<'a> Injection<'a> {
         log::trace!("Running tracee until it receives a signal");
         self.tracer
             .restart(self.tracee, pete::Restart::Continue)
-            .wrap_err("resuming tracee to wait for trap failed")?;
+            .context("resuming tracee to wait for trap failed")?;
         while let Some(tracee) = self
             .tracer
             .wait()
-            .wrap_err("waiting for tracee trap failed")?
+            .context("waiting for tracee trap failed")?
         {
             log::trace!("Tracee stopped with {:?}", tracee.stop);
             match tracee.stop {
@@ -264,7 +266,7 @@ impl<'a> Injection<'a> {
                 }
                 pete::Stop::SignalDelivery { signal } | pete::Stop::Group { signal } => {
                     let rip = tracee.registers().unwrap().rip;
-                    return Err(eyre!(
+                    return Err(anyhow::anyhow!(
                         "shellcode running in tracee sent unexpected signal {signal:?} at rip={rip:x}",
                     ));
                 }
@@ -272,11 +274,13 @@ impl<'a> Injection<'a> {
                     log::trace!("Not an interesting stop, continuing running tracee");
                     self.tracer
                         .restart(tracee, pete::Restart::Continue)
-                        .wrap_err("re-resuming tracee to wait for trap failed")?;
+                        .context("re-resuming tracee to wait for trap failed")?;
                 }
             };
         }
-        Err(eyre!("tracee exited while we were waiting for trap"))
+        Err(anyhow::anyhow!(
+            "tracee exited while we were waiting for trap"
+        ))
     }
 
     /// Remove the injected shellcode and restore the tracee to its original
@@ -295,11 +299,11 @@ impl<'a> Injection<'a> {
         }
         self.tracee
             .write_memory(self.injected_at, &self.saved_memory)
-            .wrap_err("restoring original code to tracee failed")?;
+            .context("restoring original code to tracee failed")?;
         log::trace!("Restored memory the injection overwrote");
         self.tracee
             .set_registers(self.saved_registers)
-            .wrap_err("restoring original registers to tracee failed")?;
+            .context("restoring original registers to tracee failed")?;
         log::trace!("Restored tracee registers");
         log::debug!("Removed injection");
         self.removed = true;
@@ -314,7 +318,7 @@ impl Drop for Injection<'_> {
         }
         if let Err(e) = self
             .remove_internal()
-            .wrap_err("removing injection from drop impl failed")
+            .context("removing injection from drop impl failed")
         {
             log::error!("Failed to remove injection: {e}");
         };

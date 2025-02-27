@@ -8,6 +8,9 @@ pub enum EngineError {
     #[error("Invalid option value: {0}={1}")]
     InvalidOption(String, String),
 
+    #[error("Read-only option: {0}")]
+    ReadOnlyOption(String),
+
     #[error("Internal error: {0}")]
-    InternalError(String)
+    InternalError(String),
 }

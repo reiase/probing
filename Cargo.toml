@@ -1,3 +1,5 @@
+cargo-features = ["codegen-backend"]
+
 [workspace]
 members = [
     "app",
@@ -17,7 +19,7 @@ license = "GPL3"
 
 [workspace.dependencies]
 anyhow = "1.0"
-arrow = { version = "53.3.0", default-features = false, features = [] }
+arrow = { version = "54.2.0", default-features = false, features = ["csv"] }
 chrono = "0.4"
 log = "0.4"
 nix = { version = "0.29.0", default-features = false, features = [
@@ -80,11 +82,11 @@ nix = { workspace = true }
 signal-hook-registry = "1.4.2"
 
 [dev-dependencies]
-probing-cli = { path = "probing/cli" }
+# probing-cli = { path = "probing/cli" }
 
 anyhow = { workspace = true }
-arrow = { workspace = true, default-features = false, features = ["csv"] }
-pyo3 = { version = "0.23.4", features = [
+arrow = { workspace = true }
+pyo3 = { version = "0.23.5", features = [
     "abi3",
     "abi3-py37",
     "auto-initialize",
