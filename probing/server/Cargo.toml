@@ -7,9 +7,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-probing-cc = { path = "../cc" }
+probing-cc = { path = "../extensions/cc" }
+probing-python = { path = "../extensions/python" }
 probing-proto = { path = "../proto" }
-probing-python = { path = "../python" }
 probing-core = { path = "../core" }
 
 anyhow = { workspace = true }

@@ -8,8 +8,8 @@ license.workspace = true
 
 [dependencies]
 probing-cc = { path = "../cc" }
-probing-core = { path = "../core" }
-probing-proto = { path = "../proto" }
+probing-core = { path = "../../core" }
+probing-proto = { path = "../../proto" }
 
 anyhow = { workspace = true }
 log = { workspace = true }

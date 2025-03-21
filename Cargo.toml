@@ -6,9 +6,10 @@ members = [
     "probing/cli",
     "probing/proto",
     "probing/core",
+    "probing/extensions/cc",
+    "probing/extensions/python",
     "probing/server",
-    "probing/cc",
-    "probing/python",
+    
 ]
 
 [workspace.package]
@@ -67,7 +68,7 @@ crate-type = ["cdylib"]
 probing-proto = { path = "probing/proto" }
 probing-core = { path = "probing/core" }
 probing-server = { path = "probing/server" }
-probing-python = { path = "probing/python" }
+probing-python = { path = "probing/extensions/python" }
 probing-macros = { path = "probing/macros" }
 
 anyhow = { workspace = true }
