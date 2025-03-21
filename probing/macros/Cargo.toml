@@ -14,4 +14,4 @@ quote = { version = "1" }
 syn = { version = "2", features = ["full"] }
 
 [dev-dependencies]
-probing-engine = { path = "../engine" }
+probing-core = { path = "../core" }

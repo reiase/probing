@@ -3472,7 +3472,7 @@ dependencies = [
  "env_logger",
  "log",
  "nix 0.29.0",
- "probing-engine",
+ "probing-core",
  "probing-macros",
  "probing-proto",
  "probing-python",
@@ -3491,7 +3491,7 @@ dependencies = [
  "backtrace",
  "log",
  "once_cell",
- "probing-engine",
+ "probing-core",
  "probing-proto",
  "procfs",
  "ron",
@@ -3522,7 +3522,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "probing-engine"
+name = "probing-core"
 version = "0.2.0"
 dependencies = [
  "anyhow",
@@ -3548,7 +3548,7 @@ dependencies = [
 name = "probing-macros"
 version = "0.2.0"
 dependencies = [
- "probing-engine",
+ "probing-core",
  "quote",
  "syn 2.0.98",
 ]
@@ -3581,7 +3581,7 @@ dependencies = [
  "once_cell",
  "pprof",
  "probing-cc",
- "probing-engine",
+ "probing-core",
  "probing-proto",
  "pyo3",
  "pyo3-build-config",
@@ -3603,7 +3603,7 @@ dependencies = [
  "nu-ansi-term",
  "once_cell",
  "probing-cc",
- "probing-engine",
+ "probing-core",
  "probing-proto",
  "probing-python",
  "procfs",

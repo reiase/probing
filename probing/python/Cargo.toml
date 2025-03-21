@@ -8,7 +8,7 @@ license.workspace = true
 
 [dependencies]
 probing-cc = { path = "../cc" }
-probing-engine = { path = "../engine" }
+probing-core = { path = "../core" }
 probing-proto = { path = "../proto" }
 
 anyhow = { workspace = true }

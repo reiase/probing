@@ -11,7 +11,7 @@ use anyhow::Result;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
-use probing_engine::core::{
+use probing_core::core::{
     ArrayRef, CustomSchema, DataType, Field, Float32Array, Float64Array, Int32Array, Int64Array,
     RecordBatch, Schema, SchemaPlugin, SchemaRef, StringArray,
 };
@@ -143,12 +143,12 @@ impl CustomSchema for TaskStatsSchema {
         vec!["cpu".to_string(), "memory".to_string(), "io".to_string()]
     }
 
-    fn make_lazy(expr: &str) -> Arc<probing_engine::core::LazyTableSource<Self>>
+    fn make_lazy(expr: &str) -> Arc<probing_core::core::LazyTableSource<Self>>
     where
         Self: Sized,
     {
         match expr {
-            "cpu" => Arc::new(probing_engine::core::LazyTableSource::<Self> {
+            "cpu" => Arc::new(probing_core::core::LazyTableSource::<Self> {
                 name: expr.to_string(),
                 schema: Some(SchemaRef::new(Schema::new(vec![
                     Field::new("timestamp", DataType::Int64, true),
@@ -157,7 +157,7 @@ impl CustomSchema for TaskStatsSchema {
                 ]))),
                 data: Default::default(),
             }),
-            _ => Arc::new(probing_engine::core::LazyTableSource::<Self> {
+            _ => Arc::new(probing_core::core::LazyTableSource::<Self> {
                 name: expr.to_string(),
                 schema: None,
                 data: Default::default(),

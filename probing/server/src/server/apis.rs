@@ -107,13 +107,13 @@ async fn api_get_files(
 }
 
 async fn put_nodes(axum::Json(payload): axum::Json<Node>) -> Result<(), ApiError> {
-    use probing_engine::plugins::cluster::service::update_node;
+    use probing_core::plugins::cluster::service::update_node;
     update_node(payload);
     Ok(())
 }
 
 async fn get_nodes() -> Result<String, ApiError> {
-    use probing_engine::plugins::cluster::service::get_nodes;
+    use probing_core::plugins::cluster::service::get_nodes;
     let nodes = get_nodes();
     Ok(serde_json::to_string(&nodes)?)
 }

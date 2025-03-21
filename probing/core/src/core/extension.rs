@@ -84,8 +84,8 @@ pub struct EngineExtensionOption {
 /// # Examples
 ///
 /// ```
-/// use probing_engine::core::{EngineExtension, EngineExtensionOption};
-/// use probing_engine::core::EngineError;
+/// use probing_core::core::{EngineExtension, EngineExtensionOption};
+/// use probing_core::core::EngineError;
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {
@@ -159,9 +159,9 @@ pub trait EngineExtension: Debug + Send + Sync {
 ///
 /// ```rust
 /// use std::sync::{Arc, Mutex};
-/// use probing_engine::core::EngineExtensionManager;
-/// use probing_engine::core::{EngineExtension, EngineExtensionOption};
-/// use probing_engine::core::EngineError;
+/// use probing_core::core::EngineExtensionManager;
+/// use probing_core::core::{EngineExtension, EngineExtensionOption};
+/// use probing_core::core::EngineError;
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {

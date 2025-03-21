@@ -174,7 +174,7 @@ mod specs {
 
     use super::*;
 
-    use probing_engine::{
+    use probing_core::{
         core::Engine,
         plugins::{envs::EnvPlugin, file::FilePlugin},
     };

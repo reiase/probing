@@ -12,7 +12,7 @@ use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
 use probing_cc::TaskStatsPlugin;
-use probing_engine::core::Engine;
+use probing_core::core::Engine;
 use probing_proto::prelude::*;
 use probing_python::PythonProbe;
 
@@ -21,10 +21,10 @@ use crate::asset;
 pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
     Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
-    use probing_engine::plugins::cluster::ClusterPlugin;
+    use probing_core::plugins::cluster::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
-    let engine = match probing_engine::create_engine()
+    let engine = match probing_core::create_engine()
         // .with_extension_options(ProbingOptions::default())
         .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
         .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))

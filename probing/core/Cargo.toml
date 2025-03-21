@@ -1,5 +1,5 @@
 [package]
-name = "probing-engine"
+name = "probing-core"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

@@ -2,9 +2,9 @@ use std::convert::Infallible;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use probing_engine::core::EngineError;
-use probing_engine::core::EngineExtension;
-use probing_engine::core::EngineExtensionOption;
+use probing_core::core::EngineError;
+use probing_core::core::EngineExtension;
+use probing_core::core::EngineExtensionOption;
 
 #[derive(Debug)]
 enum Maybe<T> {

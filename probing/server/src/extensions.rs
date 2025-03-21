@@ -1,4 +1,4 @@
-use probing_engine::core::{EngineError, EngineExtension, EngineExtensionOption, Maybe};
+use probing_core::core::{EngineError, EngineExtension, EngineExtensionOption, Maybe};
 
 use crate::{start_remote, start_report_worker};
 
@@ -53,7 +53,7 @@ impl ServerExtension {
 
 #[cfg(test)]
 mod test {
-    use probing_engine::core::EngineExtension;
+    use probing_core::core::EngineExtension;
 
     use crate::extensions::ServerExtension;
 

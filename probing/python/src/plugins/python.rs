@@ -5,11 +5,11 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use log::error;
-use probing_engine::core::{
+use probing_core::core::{
     ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
     SchemaPlugin, SchemaRef, StringArray,
 };
-use probing_engine::core::{Float32Array, Int32Array, LazyTableSource};
+use probing_core::core::{Float32Array, Int32Array, LazyTableSource};
 use probing_proto::types::Ele;
 use probing_proto::types::{self, TimeSeries};
 use pyo3::types::PyAnyMethods;

@@ -5,7 +5,7 @@ members = [
     "app",
     "probing/cli",
     "probing/proto",
-    "probing/engine",
+    "probing/core",
     "probing/server",
     "probing/cc",
     "probing/python",
@@ -65,7 +65,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 probing-proto = { path = "probing/proto" }
-probing-engine = { path = "probing/engine" }
+probing-core = { path = "probing/core" }
 probing-server = { path = "probing/server" }
 probing-python = { path = "probing/python" }
 probing-macros = { path = "probing/macros" }

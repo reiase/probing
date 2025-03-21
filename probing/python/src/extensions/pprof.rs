@@ -1,7 +1,7 @@
-use probing_engine::core::EngineError;
-use probing_engine::core::EngineExtension;
-use probing_engine::core::EngineExtensionOption;
-use probing_engine::core::Maybe;
+use probing_core::core::EngineError;
+use probing_core::core::EngineExtension;
+use probing_core::core::EngineExtensionOption;
+use probing_core::core::Maybe;
 
 use crate::pprof::PPROF_HOLDER;
 

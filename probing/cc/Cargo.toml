@@ -8,7 +8,7 @@ license.workspace = true
 
 [dependencies]
 probing-proto = { path = "../proto" }
-probing-engine = { path = "../engine" }
+probing-core = { path = "../core" }
 
 log = { workspace = true }
 once_cell = { workspace = true }
