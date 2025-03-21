@@ -3479,7 +3479,6 @@ dependencies = [
  "probing-server",
  "pyo3",
  "ron",
- "signal-hook-registry",
  "tokio",
 ]
 
@@ -3574,6 +3573,7 @@ name = "probing-python"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "ctor",
  "include_dir",
  "inferno 0.12.1",
  "log",
@@ -3587,6 +3587,7 @@ dependencies = [
  "pyo3-build-config",
  "rspec",
  "serde_json",
+ "signal-hook-registry",
  "tokio",
 ]
 

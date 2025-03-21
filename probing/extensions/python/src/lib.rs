@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate ctor;
+
 pub mod extensions;
 pub mod flamegraph;
 pub mod plugins;
@@ -5,6 +8,8 @@ pub mod pprof;
 pub mod pycode;
 pub mod python;
 pub mod repl;
+
+mod setup;
 
 use std::ffi::CStr;
 use std::sync::Arc;

@@ -80,7 +80,6 @@ env_logger = { version = "0.11.6", default-features = false, features = [
     "auto-color",
 ] }
 nix = { workspace = true }
-signal-hook-registry = "1.4.2"
 
 [dev-dependencies]
 # probing-cli = { path = "probing/cli" }

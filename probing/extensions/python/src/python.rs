@@ -87,7 +87,7 @@ pub fn enable_crash_handler() -> anyhow::Result<()> {
 }
 
 pub fn enable_monitoring(filename: &str) -> anyhow::Result<()> {
-    Python::with_gil(|py|{
+    Python::with_gil(|py| {
         let ver = py.version_info();
         if ver.major != 3 || ver.minor < 12 {
             return Err(anyhow::anyhow!("Python version must be 3.8+"));
@@ -103,9 +103,8 @@ pub fn enable_monitoring(filename: &str) -> anyhow::Result<()> {
 
         let code = format!("{}\0", code);
         let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-        py.run(code, None, None).map_err(|err| {
-            anyhow::anyhow!("error apply monitoring {}: {}", filename, err)
-        })?;
+        py.run(code, None, None)
+            .map_err(|err| anyhow::anyhow!("error apply monitoring {}: {}", filename, err))?;
         Ok(())
     })
 }

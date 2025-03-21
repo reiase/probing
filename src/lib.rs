@@ -2,9 +2,7 @@
 extern crate ctor;
 
 use anyhow::Result;
-use nix::libc::SIGUSR2;
 
-use probing_python::backtrace_signal_handler;
 use probing_python::create_probing_module;
 use probing_server::sync_env_settings;
 
@@ -12,20 +10,6 @@ const ENV_PROBING_LOG: &str = "PROBING_LOG";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
 const DEFAULT_PORT: u16 = 9700;
-
-pub fn register_signal_handler<F>(sig: std::ffi::c_int, handler: F)
-where
-    F: Fn() + Sync + Send + 'static,
-{
-    unsafe {
-        match signal_hook_registry::register_unchecked(sig, move |_: &_| handler()) {
-            Ok(_) => {
-                log::debug!("Registered signal handler for signal {sig}");
-            }
-            Err(e) => log::error!("Failed to register signal handler: {}", e),
-        }
-    };
-}
 
 pub fn get_hostname() -> Result<String> {
     let ips = nix::ifaddrs::getifaddrs()?
@@ -64,9 +48,6 @@ fn setup() {
 
     // initialize logging
     env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOG));
-
-    // initialize signal handlers
-    register_signal_handler(SIGUSR2, backtrace_signal_handler);
 
     // initialize probing server
     probing_server::start_local();
