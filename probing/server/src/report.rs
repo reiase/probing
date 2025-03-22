@@ -50,7 +50,7 @@ async fn report_worker(report_addr: String, local_addr: String) {
 
         log::debug!("reporting node status to {report_addr}: {:?}", node);
         if node.rank == Some(0) {
-            probing_core::plugins::cluster::service::update_node(node.clone());
+            probing_core::core::cluster::update_node(node.clone());
         } else {
             match request_remote(&report_addr, node.clone()).await {
                 Ok(reply) => {

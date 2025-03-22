@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use probing_cli::table::render_dataframe;
-use probing_engine::create_engine;
+use probing_core::create_engine;
 
 #[tokio::main]
 async fn main() -> Result<()> {

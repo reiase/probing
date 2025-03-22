@@ -1,4 +1,4 @@
-mod plugins;
+pub mod plugins;
 
 pub use probing_proto::protocol::process::CallFrame;
 pub use probing_proto::protocol::process::Value;

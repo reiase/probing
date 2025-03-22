@@ -9,7 +9,7 @@ use datafusion::datasource::{
 use datafusion::error::Result;
 use datafusion::prelude::SessionContext;
 
-use crate::core::{CustomSchema, SchemaPluginHelper};
+use probing_core::core::{CustomSchema, SchemaPluginHelper};
 
 #[derive(Default, Debug)]
 pub struct FileList {}
@@ -52,4 +52,4 @@ impl CustomSchema for FileList {
     }
 }
 
-pub type FilePlugin = SchemaPluginHelper<FileList>;
+pub type FilesPlugin = SchemaPluginHelper<FileList>;

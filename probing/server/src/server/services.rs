@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
@@ -21,7 +20,7 @@ use crate::asset;
 pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
     Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
-    use probing_core::plugins::cluster::ClusterPlugin;
+    use probing_cc::plugins::ClusterPlugin;
     use probing_python::plugins::python::PythonPlugin;
 
     let engine = match probing_core::create_engine()

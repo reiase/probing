@@ -22,6 +22,7 @@ ron = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
+async-trait = "0.1.83"
 backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
 rmesg = { version = "1.0.21", optional = true }
-datafusion = {version = "45.0.0", default-features = false, features = []}
+datafusion = { version = "45.0.0", default-features = false, features = [] }

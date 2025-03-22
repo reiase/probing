@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc, thread};
+use std::{collections::BTreeMap, thread};
 
 use anyhow::Result;
 use inferno;
@@ -18,8 +18,8 @@ pub fn query_profiling() -> Result<Vec<String>> {
             .build()?;
 
         let query = r#"
-        select module_name, stage, avg(duration) 
-            from python.torch_profiling 
+        select module_name, stage, avg(duration)
+            from python.torch_profiling
             group by module_name, stage
             order by (stage, module_name);
         "#;

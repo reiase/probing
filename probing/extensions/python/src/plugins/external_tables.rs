@@ -174,10 +174,9 @@ mod specs {
 
     use super::*;
 
-    use probing_core::{
-        core::Engine,
-        plugins::{envs::EnvPlugin, file::FilePlugin},
-    };
+    use probing_cc::plugins::EnvPlugin;
+    use probing_cc::plugins::FilesPlugin;
+    use probing_core::core::Engine;
     use pyo3::ffi::c_str;
     use rspec;
 
@@ -262,7 +261,7 @@ table3.append([5, 6])
                         .with_information_schema(true)
                         .with_default_catalog_and_schema("probe", "probe")
                         .with_plugin( PythonPlugin::create("python"))
-                        .with_plugin( FilePlugin::create("file"))
+                        .with_plugin( FilesPlugin::create("file"))
                         .with_plugin( EnvPlugin::create("process", "envs"))
                         .build()
                         .unwrap();

@@ -1,4 +1,5 @@
 mod chunked_encode;
+pub mod cluster;
 mod engine;
 mod error;
 mod extension;
@@ -34,6 +35,7 @@ pub use datafusion::arrow::datatypes::DataType;
 pub use datafusion::arrow::datatypes::Field;
 pub use datafusion::arrow::datatypes::Schema;
 pub use datafusion::arrow::datatypes::SchemaRef;
+pub use datafusion::arrow::datatypes::TimeUnit;
 pub use datafusion::arrow::util::pretty;
 pub use datafusion::common::error::DataFusionError;
 pub use datafusion::config::CatalogOptions;
