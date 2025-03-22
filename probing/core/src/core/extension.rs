@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::convert::Infallible;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -141,6 +142,9 @@ pub trait EngineExtension: Debug + Send + Sync {
     fn options(&self) -> Vec<EngineExtensionOption> {
         todo!()
     }
+    fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+        Err(EngineError::UnsupportedCall)
+    }
 }
 
 /// Engine extension management module for configurable functionality.
@@ -215,16 +219,19 @@ pub trait EngineExtension: Debug + Send + Sync {
 /// ```
 #[derive(Debug, Default)]
 pub struct EngineExtensionManager {
-    extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
+    extensions: BTreeMap<String, Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
+    // extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
 }
 
 impl EngineExtensionManager {
     pub fn register(&mut self, extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>) {
-        self.extensions.push(extension);
+        let name = extension.lock().unwrap().name();
+        self.extensions.insert(name, extension);
+        // self.extensions.push(extension);
     }
 
     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
-        for extension in &self.extensions {
+        for (_, extension) in &self.extensions {
             if let Ok(mut ext) = extension.lock() {
                 match ext.set(key, value) {
                     Ok(old) => {
@@ -240,7 +247,7 @@ impl EngineExtensionManager {
     }
 
     pub fn get_option(&self, key: &str) -> Result<String, EngineError> {
-        for extension in &self.extensions {
+        for (_, extension) in &self.extensions {
             if let Ok(ext) = extension.lock() {
                 if let Ok(value) = ext.get(key) {
                     log::info!("setting read [{}]:{key}={value}", ext.name());
@@ -253,10 +260,28 @@ impl EngineExtensionManager {
 
     pub fn options(&self) -> Vec<EngineExtensionOption> {
         let mut options = Vec::new();
-        for extension in &self.extensions {
+        for (_, extension) in &self.extensions {
             options.extend(extension.lock().unwrap().options());
         }
         options
+    }
+
+    pub fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+        for (_, extension) in &self.extensions {
+            if let Ok(ext) = extension.lock() {
+                let name = ext.name();
+                if !path.starts_with(format!("/{}/", name).as_str()) {
+                    continue;
+                }
+                let path = path.split('/').skip(2).collect::<Vec<&str>>().join("/");
+                match ext.call(path.as_str(), params, body) {
+                    Ok(value) => return Ok(value),
+                    Err(EngineError::UnsupportedCall) => continue,
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        Err(EngineError::CallError(path.to_string()))
     }
 }
 
@@ -275,7 +300,11 @@ impl ExtensionOptions for EngineExtensionManager {
 
     fn cloned(&self) -> Box<dyn ExtensionOptions> {
         Box::new(EngineExtensionManager {
-            extensions: self.extensions.iter().map(Arc::clone).collect(),
+            extensions: self
+                .extensions
+                .iter()
+                .map(|(name, ext)| (name.clone(), ext.clone()))
+                .collect(),
         })
     }
 

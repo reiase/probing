@@ -13,4 +13,10 @@ pub enum EngineError {
 
     #[error("Internal error: {0}")]
     InternalError(String),
+
+    #[error("Call error: {0}")]
+    CallError(String),
+
+    #[error("Unsupported call")]
+    UnsupportedCall,
 }

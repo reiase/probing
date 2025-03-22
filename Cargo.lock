@@ -3598,6 +3598,8 @@ dependencies = [
  "anyhow",
  "axum",
  "bytes",
+ "http-body-util",
+ "hyper",
  "include_dir",
  "log",
  "nix 0.29.0",

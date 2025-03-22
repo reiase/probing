@@ -50,7 +50,7 @@ pub trait Plugin {
 }
 
 pub struct Engine {
-    context: SessionContext,
+    pub context: SessionContext,
     plugins: RwLock<HashMap<String, Arc<dyn Plugin + Sync + Send>>>,
 }
 
