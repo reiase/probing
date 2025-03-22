@@ -22,7 +22,7 @@ impl Plugin for FilesPlugin {
     }
 
     fn kind(&self) -> PluginType {
-        PluginType::SchemaProviderPlugin
+        PluginType::Schema
     }
 
     fn category(&self) -> String {

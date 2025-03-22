@@ -8,10 +8,6 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[features]
-default = []
-kmsg = ["dep:rmesg"]
-
 [dependencies]
 probing-proto = { path = "../proto" }
 probing-macros = { path = "../macros" }
@@ -29,7 +25,6 @@ thiserror = { workspace = true }
 async-trait = "0.1.83"
 datafusion = {version = "45.0.0", default-features = false, features = []}
 futures = "0.3.31"
-rmesg = { version = "1.0.21", optional = true }
 ron = "0.8.1"
 
 [dev-dependencies]

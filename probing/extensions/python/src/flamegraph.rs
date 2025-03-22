@@ -14,7 +14,7 @@ struct Frame {
 pub fn query_profiling() -> Result<Vec<String>> {
     let data = thread::spawn(|| {
         let engine = probing_core::create_engine()
-            .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
+            .with_plugin(PythonPlugin::create("python"))
             .build()?;
 
         let query = r#"

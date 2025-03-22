@@ -35,10 +35,12 @@ impl TaskStatsExtension {
                         ));
                     }
                     self.task_stats_interval = task_stats_interval.clone();
-                    match probing_cc::TaskStatsWorker::instance().start(probing_cc::WorkerConfig {
-                        interval: Duration::from_millis(interval as u64),
-                        iterations: None,
-                    }) {
+                    match probing_cc::TaskStatsWorker::instance().start(
+                        probing_cc::TaskStatsConfig {
+                            interval: Duration::from_millis(interval as u64),
+                            iterations: None,
+                        },
+                    ) {
                         Ok(_) => Ok(()),
                         Err(e) => Err(EngineError::InvalidOption(
                             "taskstats.interval".to_string(),

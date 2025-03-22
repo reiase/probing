@@ -7,7 +7,7 @@ use anyhow::Result;
 use log::error;
 use probing_core::core::{
     ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
-    SchemaPlugin, SchemaRef, StringArray,
+    SchemaPluginHelper, SchemaRef, StringArray,
 };
 use probing_core::core::{Float32Array, Int32Array, LazyTableSource};
 use probing_proto::types::Ele;
@@ -360,4 +360,4 @@ impl PythonSchema {
     }
 }
 
-pub type PythonPlugin = SchemaPlugin<PythonSchema>;
+pub type PythonPlugin = SchemaPluginHelper<PythonSchema>;

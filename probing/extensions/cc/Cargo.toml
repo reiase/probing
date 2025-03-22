@@ -6,10 +6,15 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["kmsg"]
+kmsg = ["dep:rmesg"]
+
 [dependencies]
 probing-proto = { path = "../../proto" }
 probing-core = { path = "../../core" }
 
+anyhow = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 procfs = { workspace = true }
@@ -17,5 +22,6 @@ ron = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
-anyhow = { workspace = true }
 backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
+rmesg = { version = "1.0.21", optional = true }
+datafusion = {version = "45.0.0", default-features = false, features = []}

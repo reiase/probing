@@ -3,7 +3,7 @@ use std::sync::Arc;
 use datafusion::arrow::array::{GenericStringBuilder, RecordBatch};
 use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use crate::core::{CustomTable, TablePlugin};
+use crate::core::{CustomTable, TablePluginHelper};
 
 #[derive(Default, Debug)]
 pub struct EnvTable {}
@@ -42,4 +42,4 @@ impl CustomTable for EnvTable {
     }
 }
 
-pub type EnvPlugin = TablePlugin<EnvTable>;
+pub type EnvPlugin = TablePluginHelper<EnvTable>;

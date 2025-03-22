@@ -12,20 +12,36 @@ use datafusion::execution::SessionState;
 use datafusion::physical_plan::{memory::MemoryExec, ExecutionPlan};
 use datafusion::prelude::Expr;
 
+/// Trait defining a custom table with static/dynamic schema and data
+///
+/// Implement this to create tables that:
+/// - Have a fixed name
+/// - Use a predefined schema
 pub trait CustomTable {
+    /// Returns the table name (must be constant)
     fn name() -> &'static str;
+
+    /// Returns the table schema
     fn schema() -> SchemaRef;
+
+    /// Provides the data batches
     fn data() -> Vec<RecordBatch>;
 }
 
-pub struct TablePlugin<T: CustomTable> {
+/// Helper struct that bridges a CustomTable implementation with the Plugin system.
+/// Handles registration and integration with DataFusion query engine.
+pub struct TablePluginHelper<T: CustomTable> {
+    /// Name of the table as it will be registered
     name: String,
+
+    /// Category the table belongs to
     category: String,
 
+    /// PhantomData to track the generic parameter T
     data: PhantomData<T>,
 }
 
-impl<T: CustomTable> Default for TablePlugin<T> {
+impl<T: CustomTable> Default for TablePluginHelper<T> {
     fn default() -> Self {
         Self {
             name: T::name().to_string(),
@@ -35,29 +51,42 @@ impl<T: CustomTable> Default for TablePlugin<T> {
     }
 }
 
-impl<T: CustomTable> TablePlugin<T> {
-    pub fn new<S: Into<String>>(name: S, category: S) -> Self {
+/// Methods for constructing and working with TablePluginHelper instances
+impl<T: CustomTable + std::default::Default + std::fmt::Debug + Send + Sync + 'static>
+    TablePluginHelper<T>
+{
+    /// Creates a new TablePluginHelper with custom name and category
+    pub fn new<S: Into<String>>(category: S, name: S) -> Self {
         Self {
             name: name.into(),
             category: category.into(),
             data: PhantomData::<T> {},
         }
     }
+
+    /// Factory method that creates a TablePluginHelper wrapped in an Arc
+    /// Returns a trait object that can be used with the plugin system
+    pub fn create<S: Into<String>>(category: S, name: S) -> Arc<dyn Plugin + Send + Sync> {
+        Arc::new(Self::new(name, category))
+    }
 }
 
-impl<T: CustomTable + Default + Debug + Send + Sync + 'static> Plugin for TablePlugin<T> {
+/// Implementation of the Plugin trait for TablePluginHelper
+impl<T: CustomTable + Default + Debug + Send + Sync + 'static> Plugin for TablePluginHelper<T> {
     fn name(&self) -> String {
         self.name.clone()
     }
 
     fn kind(&self) -> super::PluginType {
-        super::PluginType::TableProviderPlugin
+        super::PluginType::Table
     }
 
     fn category(&self) -> String {
         self.category.clone()
     }
 
+    /// Registers this table with the provided schema provider
+    /// Links the CustomTable implementation with DataFusion's query engine
     fn register_table(
         &self,
         schema: std::sync::Arc<dyn datafusion::catalog::SchemaProvider>,
@@ -153,15 +182,24 @@ impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> TableProvider
     }
 }
 
+/// Trait for implementing a custom schema that can dynamically generate tables
+/// Provides a mechanism for on-demand table creation based on name/expression
 #[allow(unused)]
 #[async_trait]
 pub trait CustomSchema: Sync + Send {
+    /// Returns the name of the schema
     fn name() -> &'static str;
+
+    /// Returns a list of available table names in this schema
     fn list() -> Vec<String>;
+
+    /// Generates data for a specific table expression
+    /// Default implementation returns empty data
     fn data(expr: &str) -> Vec<RecordBatch> {
         vec![]
     }
 
+    /// Creates a LazyTableSource for this schema with the given expression
     fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>>
     where
         Self: Sized,
@@ -173,6 +211,8 @@ pub trait CustomSchema: Sync + Send {
         })
     }
 
+    /// Factory method to create a TableProvider for a specific table expression
+    /// Used by the schema provider to generate tables on demand
     async fn table(expr: String) -> Result<Option<Arc<dyn TableProvider>>>
     where
         Self: Default + Debug + Send + Sync + Sized + 'static,
@@ -187,13 +227,17 @@ pub trait CustomSchema: Sync + Send {
     }
 }
 
-pub struct SchemaPlugin<T: CustomSchema> {
+/// Helper struct that bridges a CustomSchema implementation with the Plugin system
+/// Manages registration and integration with DataFusion query engine
+pub struct SchemaPluginHelper<T: CustomSchema> {
+    /// Category the schema belongs to
     category: String,
 
+    /// PhantomData to track the generic parameter T
     data: PhantomData<T>,
 }
 
-impl<T: CustomSchema> Default for SchemaPlugin<T> {
+impl<T: CustomSchema> Default for SchemaPluginHelper<T> {
     fn default() -> Self {
         Self {
             category: "probe".to_string(),
@@ -202,22 +246,28 @@ impl<T: CustomSchema> Default for SchemaPlugin<T> {
     }
 }
 
-impl<T: CustomSchema> SchemaPlugin<T> {
+impl<T: CustomSchema + std::default::Default + std::fmt::Debug + Send + Sync + 'static>
+    SchemaPluginHelper<T>
+{
     pub fn new<S: Into<String>>(category: S) -> Self {
         Self {
             category: category.into(),
             data: PhantomData::<T> {},
         }
     }
+
+    pub fn create<S: Into<String>>(category: S) -> Arc<dyn Plugin + Send + Sync> {
+        Arc::new(Self::new(category))
+    }
 }
 
-impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> Plugin for SchemaPlugin<T> {
+impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> Plugin for SchemaPluginHelper<T> {
     fn name(&self) -> String {
         self.category.clone()
     }
 
     fn kind(&self) -> super::PluginType {
-        super::PluginType::SchemaProviderPlugin
+        super::PluginType::Schema
     }
 
     fn category(&self) -> String {

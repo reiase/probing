@@ -6,7 +6,7 @@ use rmesg::entry::{LogFacility, LogLevel};
 use rmesg::log_entries;
 use rmesg::Backend;
 
-use crate::core::{CustomTable, TablePlugin};
+use probing_core::core::{CustomTable, TablePluginHelper};
 
 #[derive(Default, Debug)]
 pub struct KMsgTable {}
@@ -67,4 +67,4 @@ impl CustomTable for KMsgTable {
     }
 }
 
-pub type KMsgPlugin = TablePlugin<KMsgTable>;
+pub type KMsgPlugin = TablePluginHelper<KMsgTable>;

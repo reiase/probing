@@ -24,21 +24,96 @@ use super::extension::EngineExtension;
 use super::extension::EngineExtensionManager;
 use probing_proto::types::Seq;
 
+/// Defines the types of plugins supported by the Probing query engine.
+/// These plugin types determine how data sources are registered with the engine.
 #[derive(PartialEq, Eq)]
 pub enum PluginType {
-    TableProviderPlugin,
-    SchemaProviderPlugin,
+    /// Provides a single table with fixed structure.
+    /// Suitable for hardware metrics, process stats, and performance counter data.
+    /// Tables are accessible via SQL as "category.name".
+    Table,
+
+    /// Provides an entire schema (collection of tables).
+    /// Suitable for file system monitoring, Python module tracking, or dynamically
+    /// generated performance data.
+    /// Tables in a schema are accessible via SQL as "category.table_name".
+    Schema,
 }
+
+/// Low-level interface for extending engine functionality through plugins
+///
+/// Plugins can register either schemas (collections of tables) or
+/// individual tables to the query engine. Implementations should
+/// handle specific data sources or analysis capabilities.
+///
+/// # Naming Convention
+///
+/// Data in the engine is organized hierarchically:
+///
+/// - Catalog (default is "probe")
+///   - Schema (provided by plugin's "category")
+///     - Table (provided by plugin's "name" or dynamically by SchemaProvider)
+///
+/// ## For Table Plugins
+///
+/// A table plugin must provide both a category and a name. The table will be
+/// accessible in SQL queries as:
+///
+/// ```sql
+/// SELECT * FROM probe.category.name
+/// ```
+///
+/// ## For Schema Plugins
+///
+/// A schema plugin only needs to provide a category. The tables within the schema
+/// will be accessible in SQL queries as:
+///
+/// ```sql
+/// SELECT * FROM probe.category.some_table_name
+/// ```
+///
+/// where `some_table_name` is any table provided by the schema plugin.
 pub trait Plugin {
+    /// Returns the unique name of the plugin.
+    ///
+    /// For Table plugins, this is the table name.
+    /// For Schema plugins, this is the schema name.
     fn name(&self) -> String;
+
+    /// Returns the type of this plugin, determining how it integrates with the engine.
+    /// This controls which registration method will be called (register_table or register_schema).
     fn kind(&self) -> PluginType;
+
+    /// Returns the category for this plugin, used for organizing related tables.
+    ///
+    /// - For Table plugins, this defines the schema name under which the table is registered.
+    ///   The table will be accessible as "category.name".
+    ///
+    /// - For Schema plugins, this defines the name of the schema being provided.
+    ///   Tables in this schema will be accessible as "category.table_name".
     fn category(&self) -> String;
 
+    /// Registers a table with the provided schema.
+    ///
+    /// Implemented by Table plugins to register their data source
+    /// with the query engine. The default implementation does nothing.
+    ///
+    /// # Arguments
+    /// * `schema` - The schema provider to register the table with
+    /// * `state` - The current session state
     #[allow(unused)]
     fn register_table(&self, schema: Arc<dyn SchemaProvider>, state: &SessionState) -> Result<()> {
         Ok(())
     }
 
+    /// Registers a schema with the provided catalog.
+    ///
+    /// Implemented by Schema plugins to register their schema
+    /// with the query engine. The default implementation does nothing.
+    ///
+    /// # Arguments
+    /// * `catalog` - The catalog provider to register the schema with
+    /// * `state` - The current session state  
     #[allow(unused)]
     fn register_schema(
         &self,
@@ -144,28 +219,24 @@ impl Engine {
         })
     }
 
-    pub fn enable<S: AsRef<str>>(
-        &self,
-        domain: S,
-        plugin: Arc<dyn Plugin + Sync + Send>,
-    ) -> Result<()> {
+    pub fn enable(&self, plugin: Arc<dyn Plugin + Sync + Send>) -> Result<()> {
         let category = plugin.category();
 
-        let catalog = if let Some(catalog) = self.context.catalog(domain.as_ref()) {
+        let catalog = if let Some(catalog) = self.context.catalog("probe") {
             catalog
         } else {
             self.context
-                .register_catalog(domain.as_ref(), Arc::new(MemoryCatalogProvider::new()));
-            self.context.catalog(domain.as_ref()).unwrap()
+                .register_catalog("probe", Arc::new(MemoryCatalogProvider::new()));
+            self.context.catalog("probe").unwrap()
         };
 
-        if plugin.kind() == PluginType::SchemaProviderPlugin {
+        if plugin.kind() == PluginType::Schema {
             let state: SessionState = self.context.state();
             plugin.register_schema(catalog, &state)?;
             if let Ok(mut maps) = self.plugins.write() {
-                maps.insert(format!("{}.{}", domain.as_ref(), category), plugin);
+                maps.insert(format!("probe.{}", category), plugin);
             }
-        } else if plugin.kind() == PluginType::TableProviderPlugin {
+        } else if plugin.kind() == PluginType::Table {
             let schema = if catalog.schema_names().contains(&category) {
                 catalog.schema(category.as_str())
             } else {
@@ -176,10 +247,7 @@ impl Engine {
             let state: SessionState = self.context.state();
             plugin.register_table(schema.unwrap(), &state)?;
             if let Ok(mut maps) = self.plugins.write() {
-                maps.insert(
-                    format!("{}.{}.{}", domain.as_ref(), category, plugin.name()),
-                    plugin,
-                );
+                maps.insert(format!("probe.{}.{}", category, plugin.name()), plugin);
             }
         }
         Ok(())
@@ -189,7 +257,7 @@ impl Engine {
 // Define the EngineBuilder struct
 pub struct EngineBuilder {
     config: SessionConfig,
-    plugins: Vec<(String, Arc<dyn Plugin + Sync + Send>)>,
+    plugins: Vec<Arc<dyn Plugin + Sync + Send>>,
     extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
 }
 
@@ -216,13 +284,8 @@ impl EngineBuilder {
     }
 
     // Add a plugin to the builder
-    pub fn with_plugin<T: Into<String>>(
-        mut self,
-        namespace: T,
-        plugin: Arc<dyn Plugin + Sync + Send>,
-    ) -> Self {
-        let namespace = namespace.into();
-        self.plugins.push((namespace, plugin));
+    pub fn with_plugin(mut self, plugin: Arc<dyn Plugin + Sync + Send>) -> Self {
+        self.plugins.push(plugin);
         self
     }
 
@@ -253,8 +316,8 @@ impl EngineBuilder {
             context,
             plugins: Default::default(),
         };
-        for (namespace, plugin) in self.plugins {
-            engine.enable(namespace.as_str(), plugin)?;
+        for plugin in self.plugins {
+            engine.enable(plugin)?;
         }
 
         Ok(engine)

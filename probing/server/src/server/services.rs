@@ -26,9 +26,9 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
 
     let engine = match probing_core::create_engine()
         // .with_extension_options(ProbingOptions::default())
-        .with_plugin("probe", Arc::new(PythonPlugin::new("python")))
-        .with_plugin("probe", Arc::new(ClusterPlugin::new("nodes", "cluster")))
-        .with_plugin("probe", Arc::new(TaskStatsPlugin::new("taskstats")))
+        .with_plugin(PythonPlugin::create("python"))
+        .with_plugin(ClusterPlugin::create("cluster", "nodes"))
+        .with_plugin(TaskStatsPlugin::create("taskstats"))
         .with_engine_extension::<probing_python::extensions::PprofExtension>()
         .with_engine_extension::<probing_python::extensions::TorchExtension>()
         .with_engine_extension::<probing_python::extensions::PythonExtension>()
