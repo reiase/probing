@@ -20,7 +20,7 @@ pub struct DebugState {
 }
 
 pub mod prelude {
-    pub use crate::protocol::query::Format as QueryDataFormat;
+    pub use crate::protocol::query::Data as QueryDataFormat;
     pub use crate::protocol::query::Message as QueryMessage;
     pub use crate::protocol::query::Options as QueryOptions;
 

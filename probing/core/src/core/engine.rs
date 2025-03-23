@@ -19,7 +19,6 @@ use datafusion::execution::SessionState;
 use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
 use futures;
 
-use super::chunked_encode::chunked_encode;
 use super::extension::EngineExtension;
 use super::extension::EngineExtensionManager;
 use probing_proto::types::Seq;
@@ -113,7 +112,7 @@ pub trait Plugin {
     ///
     /// # Arguments
     /// * `catalog` - The catalog provider to register the schema with
-    /// * `state` - The current session state  
+    /// * `state` - The current session state
     #[allow(unused)]
     fn register_schema(
         &self,
@@ -206,17 +205,6 @@ impl Engine {
         q: T,
     ) -> anyhow::Result<probing_proto::prelude::DataFrame> {
         futures::executor::block_on(async { self.async_query(q).await })
-    }
-
-    pub fn execute<E: Into<String>>(&self, query: &str, encoder: E) -> anyhow::Result<Vec<u8>> {
-        futures::executor::block_on(async {
-            let batches = self.sql(query).await?.collect().await?;
-            if batches.is_empty() {
-                return Err(anyhow::Error::msg("empty result"));
-            }
-            let merged = concat_batches(&batches[0].schema(), batches.iter())?;
-            chunked_encode(&merged, encoder)
-        })
     }
 
     pub fn enable(&self, plugin: Arc<dyn Plugin + Sync + Send>) -> Result<()> {

@@ -1,21 +1,20 @@
-mod chunked_encode;
 pub mod cluster;
 mod engine;
 mod error;
 mod extension;
-mod table_plugin;
+mod plugin;
 
 pub use engine::Engine;
 pub use engine::EngineBuilder;
 pub use engine::Plugin;
 pub use engine::PluginType;
 
-pub use table_plugin::CustomSchema;
-pub use table_plugin::CustomTable;
-pub use table_plugin::SchemaPluginHelper;
-pub use table_plugin::TablePluginHelper;
+pub use plugin::CustomSchema;
+pub use plugin::CustomTable;
+pub use plugin::SchemaPluginHelper;
+pub use plugin::TablePluginHelper;
 
-pub use table_plugin::LazyTableSource;
+pub use plugin::LazyTableSource;
 
 pub use error::EngineError;
 pub use extension::EngineExtension;

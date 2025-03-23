@@ -1,21 +1,21 @@
 use serde::{Deserialize, Serialize};
 
+use crate::types::{DataFrame, TimeSeries};
+
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Options {
     pub limit: Option<usize>,
-    pub format: Format,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum Format {
-    JSON,
-    RON,
-    BITCODE,
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub enum Data {
     #[default]
-    ARROW,
+    Nil,
+    DataFrame(DataFrame),
+    TimeSeries(TimeSeries),
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub enum Message {
     #[default]
     Nil,
@@ -24,8 +24,7 @@ pub enum Message {
         opts: Option<Options>,
     },
     Reply {
-        data: Vec<u8>,
-        format: Format,
+        data: Data,
     },
     Error {
         message: String,

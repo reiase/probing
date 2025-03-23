@@ -65,19 +65,17 @@ pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
                                 }
                             };
                         }
-                        Ok(vec![])
+                        Ok(QueryMessage::Nil)
                     } else {
-                        engine.execute(&expr, "ron")
+                        engine.query(&expr).map(|data| QueryMessage::Reply {
+                            data: QueryDataFormat::DataFrame(data),
+                        })
                     }
                 })
         })
         .join()
         .map_err(|_| anyhow::anyhow!("error joining thread"))??;
-
-        Ok(QueryMessage::Reply {
-            data: resp,
-            format: QueryDataFormat::RON,
-        })
+        Ok(resp)
     } else {
         Err(anyhow::anyhow!("Invalid query message"))
     }
