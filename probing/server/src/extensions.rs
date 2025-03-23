@@ -33,7 +33,7 @@ impl ServerExtension {
         self.address = address.clone();
         let address: String = address.clone().into();
         address.parse::<std::net::SocketAddr>().map_err(|_| {
-            EngineError::InvalidOption("server.address".to_string(), address.to_string())
+            EngineError::InvalidOptionValue("server.address".to_string(), address.to_string())
         })?;
         start_remote(address.into());
         Ok(())

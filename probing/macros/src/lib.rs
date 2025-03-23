@@ -62,7 +62,7 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
             #(#matchers)|* => {
                 let old = self.#field_ident.to_string();
                 let new = value.parse()
-                .map_err(|_| EngineError::InvalidOption(key.to_string(), value.to_string()))?;
+                .map_err(|_| EngineError::InvalidOptionValue(key.to_string(), value.to_string()))?;
                 // self.#field_ident = new.clone();
                 self.#set_field(new)?;
                 Ok(old)

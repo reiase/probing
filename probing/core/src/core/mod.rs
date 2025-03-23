@@ -9,18 +9,20 @@ pub use engine::EngineBuilder;
 pub use engine::Plugin;
 pub use engine::PluginType;
 
+pub use error::EngineError;
+pub use error::Result;
+
 pub use plugin::CustomSchema;
 pub use plugin::CustomTable;
+pub use plugin::LazyTableSource;
 pub use plugin::SchemaPluginHelper;
 pub use plugin::TablePluginHelper;
 
-pub use plugin::LazyTableSource;
-
-pub use error::EngineError;
 pub use extension::EngineExtension;
 pub use extension::EngineExtensionManager;
 pub use extension::EngineExtensionOption;
 pub use extension::Maybe;
+
 pub use probing_macros::EngineExtension;
 
 pub use datafusion::arrow::array::ArrayRef;

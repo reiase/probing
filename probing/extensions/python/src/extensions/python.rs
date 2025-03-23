@@ -25,7 +25,7 @@ impl PythonExtension {
                 "python.crash_handler".to_string(),
             )),
             Maybe::Nothing => match &crash_handler {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "python.crash_handler".to_string(),
                     crash_handler.clone().into(),
                 )),
@@ -34,7 +34,7 @@ impl PythonExtension {
                     CRASH_HANDLER.lock().unwrap().replace(handler.to_string());
                     match enable_crash_handler() {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOption(
+                        Err(e) => Err(EngineError::InvalidOptionValue(
                             "python.crash_handler".to_string(),
                             handler.to_string(),
                         )),
@@ -49,7 +49,7 @@ impl PythonExtension {
         match self.monitoring {
             Maybe::Just(_) => Err(EngineError::ReadOnlyOption("python.monitoring".to_string())),
             Maybe::Nothing => match &monitoring {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "python.monitoring".to_string(),
                     monitoring.clone().into(),
                 )),
@@ -57,7 +57,7 @@ impl PythonExtension {
                     self.monitoring = monitoring.clone();
                     match enable_monitoring(handler) {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOption(
+                        Err(e) => Err(EngineError::InvalidOptionValue(
                             "python.monitoring".to_string(),
                             handler.to_string(),
                         )),

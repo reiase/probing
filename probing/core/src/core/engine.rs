@@ -154,14 +154,14 @@ impl Engine {
             .insert(extension);
     }
 
-    pub async fn sql(&self, query: &str) -> anyhow::Result<DataFrame> {
+    pub async fn sql(&self, query: &str) -> Result<DataFrame> {
         Ok(self.context.sql(query).await?)
     }
 
     pub async fn async_query<T: Into<String>>(
         &self,
         query: T,
-    ) -> anyhow::Result<probing_proto::prelude::DataFrame> {
+    ) -> Result<probing_proto::prelude::DataFrame> {
         let query: String = query.into();
         let batches = self.sql(query.as_str()).await?.collect().await?;
         if batches.is_empty() {
@@ -200,10 +200,7 @@ impl Engine {
         Ok(probing_proto::prelude::DataFrame::new(names, columns))
     }
 
-    pub fn query<T: Into<String>>(
-        &self,
-        q: T,
-    ) -> anyhow::Result<probing_proto::prelude::DataFrame> {
+    pub fn query<T: Into<String>>(&self, q: T) -> Result<probing_proto::prelude::DataFrame> {
         futures::executor::block_on(async { self.async_query(q).await })
     }
 

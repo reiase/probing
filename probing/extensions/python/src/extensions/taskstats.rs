@@ -18,18 +18,18 @@ impl TaskStatsExtension {
         task_stats_interval: Maybe<i64>,
     ) -> Result<(), EngineError> {
         match self.task_stats_interval {
-            Maybe::Just(_) => Err(EngineError::InvalidOption(
+            Maybe::Just(_) => Err(EngineError::InvalidOptionValue(
                 "taskstats.interval".to_string(),
                 task_stats_interval.clone().into(),
             )),
             Maybe::Nothing => match task_stats_interval {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "taskstats.interval".to_string(),
                     task_stats_interval.clone().into(),
                 )),
                 Maybe::Just(interval) => {
                     if interval < 0 {
-                        return Err(EngineError::InvalidOption(
+                        return Err(EngineError::InvalidOptionValue(
                             "taskstats.interval".to_string(),
                             task_stats_interval.clone().into(),
                         ));
@@ -42,7 +42,7 @@ impl TaskStatsExtension {
                         },
                     ) {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOption(
+                        Err(e) => Err(EngineError::InvalidOptionValue(
                             "taskstats.interval".to_string(),
                             interval.to_string(),
                         )),
