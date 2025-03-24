@@ -14,6 +14,7 @@ use datafusion::catalog::MemoryCatalogProvider;
 use datafusion::catalog::MemorySchemaProvider;
 use datafusion::catalog::{CatalogProvider, SchemaProvider};
 use datafusion::config::ConfigExtension;
+use datafusion::error::DataFusionError;
 use datafusion::error::Result;
 use datafusion::execution::SessionState;
 use datafusion::prelude::{DataFrame, SessionConfig, SessionContext};
@@ -212,7 +213,9 @@ impl Engine {
         } else {
             self.context
                 .register_catalog("probe", Arc::new(MemoryCatalogProvider::new()));
-            self.context.catalog("probe").unwrap()
+            self.context
+                .catalog("probe")
+                .ok_or_else(|| DataFusionError::Internal("no catalog `probe`".to_string()))?
         };
 
         if plugin.kind() == PluginType::Schema {
@@ -228,9 +231,10 @@ impl Engine {
                 let schema = MemorySchemaProvider::new();
                 catalog.register_schema(category.as_str(), Arc::new(schema))?;
                 catalog.schema(category.as_str())
-            };
+            }
+            .ok_or_else(|| DataFusionError::Internal(format!("schema `{}` not found", category)))?;
             let state: SessionState = self.context.state();
-            plugin.register_table(schema.unwrap(), &state)?;
+            plugin.register_table(schema, &state)?;
             if let Ok(mut maps) = self.plugins.write() {
                 maps.insert(format!("probe.{}.{}", category, plugin.name()), plugin);
             }
