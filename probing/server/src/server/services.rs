@@ -20,17 +20,17 @@ use crate::asset;
 pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
     Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
-    use probing_cc::plugins::ClusterPlugin;
+    use probing_cc::extensions::cluster::ClusterExtension;
     use probing_python::plugins::python::PythonPlugin;
 
     let engine = match probing_core::create_engine()
         .with_plugin(PythonPlugin::create("python"))
-        .with_plugin(ClusterPlugin::create("cluster", "nodes"))
         .with_extension::<probing_python::extensions::PprofExtension>()
         .with_extension::<probing_python::extensions::TorchExtension>()
         .with_extension::<probing_python::extensions::PythonExtension>()
         .with_extension::<crate::extensions::ServerExtension>()
         .with_extension2(TaskStatsExtension::default(), "taskstats", None)
+        .with_extension2(ClusterExtension::default(), "cluster", Some("nodes"))
         .build()
     {
         Ok(engine) => engine,
