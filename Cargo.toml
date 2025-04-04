@@ -2,14 +2,14 @@ cargo-features = ["codegen-backend"]
 
 [workspace]
 members = [
-    "app",
+    # "app",
     "probing/cli",
     "probing/proto",
     "probing/core",
     "probing/extensions/cc",
     "probing/extensions/python",
     "probing/server",
-    
+
 ]
 
 [workspace.package]

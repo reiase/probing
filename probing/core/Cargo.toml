@@ -15,17 +15,14 @@ probing-macros = { path = "../macros" }
 anyhow = { workspace = true }
 arrow = { workspace = true }
 log = { workspace = true }
-once_cell = { workspace = true }
-procfs = { workspace = true }
-serde = {workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 
 async-trait = "0.1.83"
-datafusion = {version = "45.0.0", default-features = false, features = []}
+datafusion = { version = "45.0.0", default-features = false, features = [] }
 futures = "0.3.31"
-ron = "0.8.1"
 
 [dev-dependencies]
 rspec = { workspace = true }
