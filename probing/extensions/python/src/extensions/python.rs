@@ -1,11 +1,16 @@
+pub use exttbls::ExternalTable;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+pub use tbls::PythonPlugin;
 
 use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
+
+mod exttbls;
+mod tbls;
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExtension {
@@ -65,5 +70,15 @@ impl PythonExtension {
                 }
             },
         }
+    }
+}
+
+impl PythonExtension {
+    fn datasrc(
+        &self,
+        category: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        Some(PythonPlugin::create(category))
     }
 }

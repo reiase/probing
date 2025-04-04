@@ -1,5 +1,5 @@
 mod pprof;
-mod python;
+pub mod python;
 mod torch;
 
 pub use pprof::PprofExtension;

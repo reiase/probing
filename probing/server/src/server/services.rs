@@ -10,7 +10,6 @@ use axum::response::Response;
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
-use probing_cc::extensions::TaskStatsExtension;
 use probing_core::core::Engine;
 use probing_proto::prelude::*;
 use probing_python::PythonProbe;
@@ -20,17 +19,47 @@ use crate::asset;
 pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
     Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
-    use probing_cc::extensions::cluster::ClusterExtension;
-    use probing_python::plugins::python::PythonPlugin;
-
     let engine = match probing_core::create_engine()
-        .with_plugin(PythonPlugin::create("python"))
-        .with_extension::<probing_python::extensions::PprofExtension>()
-        .with_extension::<probing_python::extensions::TorchExtension>()
-        .with_extension::<probing_python::extensions::PythonExtension>()
-        .with_extension::<crate::extensions::ServerExtension>()
-        .with_extension2(TaskStatsExtension::default(), "taskstats", None)
-        .with_extension2(ClusterExtension::default(), "cluster", Some("nodes"))
+        .with_extension(
+            probing_python::extensions::PprofExtension::default(),
+            "pprof",
+            None,
+        )
+        .with_extension(
+            probing_python::extensions::TorchExtension::default(),
+            "torch",
+            None,
+        )
+        .with_extension(
+            crate::extensions::ServerExtension::default(),
+            "server",
+            None,
+        )
+        .with_extension(
+            probing_python::extensions::PythonExtension::default(),
+            "python",
+            None,
+        )
+        .with_extension(
+            probing_cc::extensions::TaskStatsExtension::default(),
+            "taskstats",
+            None,
+        )
+        .with_extension(
+            probing_cc::extensions::ClusterExtension::default(),
+            "cluster",
+            Some("nodes"),
+        )
+        .with_extension(
+            probing_cc::extensions::EnvExtension::default(),
+            "process",
+            Some("envs"),
+        )
+        .with_extension(
+            probing_cc::extensions::FilesExtension::default(),
+            "files",
+            None,
+        )
         .build()
     {
         Ok(engine) => engine,

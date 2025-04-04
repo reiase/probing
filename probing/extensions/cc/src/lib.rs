@@ -1,5 +1,3 @@
-pub mod plugins;
-
 pub mod extensions;
 
 pub use probing_proto::protocol::process::CallFrame;

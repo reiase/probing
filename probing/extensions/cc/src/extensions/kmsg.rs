@@ -68,3 +68,23 @@ impl CustomTable for KMsgTable {
 }
 
 pub type KMsgPlugin = TablePluginHelper<KMsgTable>;
+
+use probing_core::core::EngineError;
+use probing_core::core::EngineExtension;
+use probing_core::core::EngineExtensionOption;
+
+#[derive(Debug, Default, EngineExtension)]
+pub struct KMsgExtension {}
+
+impl KMsgExtension {
+    fn datasrc(
+        &self,
+        category: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        match name {
+            Some(name) => Some(KMsgPlugin::create(category, name)),
+            None => None,
+        }
+    }
+}

@@ -170,12 +170,12 @@ impl ExternalTable {
 
 #[cfg(test)]
 mod specs {
-    use crate::{create_probing_module, plugins::python::PythonPlugin};
+    use crate::{create_probing_module, extensions::python::PythonPlugin};
 
     use super::*;
 
-    use probing_cc::plugins::EnvPlugin;
-    use probing_cc::plugins::FilesPlugin;
+    use probing_cc::extensions::envs::EnvPlugin;
+    use probing_cc::extensions::files::FilesPlugin;
     use probing_core::core::Engine;
     use pyo3::ffi::c_str;
     use rspec;

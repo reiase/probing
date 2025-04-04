@@ -3,7 +3,6 @@ extern crate ctor;
 
 pub mod extensions;
 pub mod flamegraph;
-pub mod plugins;
 pub mod pprof;
 pub mod pycode;
 pub mod python;
@@ -27,7 +26,7 @@ use probing_proto::protocol::probe::Probe;
 use probing_proto::protocol::probe::ProbeFactory;
 use probing_proto::protocol::process::CallFrame;
 
-use plugins::external_tables::ExternalTable;
+use extensions::python::ExternalTable;
 use repl::PythonRepl;
 
 use crate::pycode::get_code;

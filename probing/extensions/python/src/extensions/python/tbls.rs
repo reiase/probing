@@ -32,14 +32,14 @@ impl CustomSchema for PythonSchema {
     }
 
     fn list() -> Vec<String> {
-        let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
         binding.keys().cloned().collect()
     }
 
     fn data(expr: &str) -> Vec<RecordBatch> {
         if Self::list().contains(&expr.to_string()) {
             {
-                let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+                let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
                 let table = binding.get(expr).unwrap();
                 let names = table.lock().unwrap().names.clone();
                 let ts = &table.lock().unwrap();
@@ -98,7 +98,7 @@ impl CustomSchema for PythonSchema {
     }
 
     fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>> {
-        let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
 
         let schema = if binding.contains_key(expr) {
             let table = binding.get(expr).unwrap();

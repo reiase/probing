@@ -278,7 +278,7 @@ impl EngineBuilder {
         self
     }
 
-    pub fn with_extension<T>(mut self) -> Self
+    fn with_extension_class<T>(mut self) -> Self
     where
         T: EngineExtension + Send + Sync + Default + 'static,
     {
@@ -287,7 +287,7 @@ impl EngineBuilder {
         self
     }
 
-    pub fn with_extension2<T>(mut self, ext: T, category: &str, name: Option<&str>) -> Self
+    pub fn with_extension<T>(mut self, ext: T, category: &str, name: Option<&str>) -> Self
     where
         T: EngineExtension + Send + Sync + 'static,
     {
