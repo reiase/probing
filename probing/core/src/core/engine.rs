@@ -156,7 +156,7 @@ impl Engine {
     }
 
     pub async fn sql(&self, query: &str) -> Result<DataFrame> {
-        Ok(self.context.sql(query).await?)
+        self.context.sql(query).await
     }
 
     pub async fn async_query<T: Into<String>>(
@@ -278,17 +278,12 @@ impl EngineBuilder {
         self
     }
 
-    pub fn with_engine_extension<T>(mut self) -> Self
+    pub fn with_extension<T>(mut self) -> Self
     where
         T: EngineExtension + Send + Sync + Default + 'static,
     {
         let ext = Arc::new(Mutex::new(T::default()));
         self.extensions.push(ext);
-        self
-    }
-
-    pub fn with_extension_options<T: ConfigExtension>(mut self, extension: T) -> Self {
-        self.config.options_mut().extensions.insert(extension);
         self
     }
 

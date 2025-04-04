@@ -231,7 +231,7 @@ impl EngineExtensionManager {
     }
 
     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             if let Ok(mut ext) = extension.lock() {
                 match ext.set(key, value) {
                     Ok(old) => {
@@ -247,7 +247,7 @@ impl EngineExtensionManager {
     }
 
     pub fn get_option(&self, key: &str) -> Result<String, EngineError> {
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
                 if let Ok(value) = ext.get(key) {
                     log::info!("setting read [{}]:{key}={value}", ext.name());
@@ -260,14 +260,14 @@ impl EngineExtensionManager {
 
     pub fn options(&self) -> Vec<EngineExtensionOption> {
         let mut options = Vec::new();
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             options.extend(extension.lock().unwrap().options());
         }
         options
     }
 
     pub fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
                 let name = ext.name();
                 if !path.starts_with(format!("/{}/", name).as_str()) {

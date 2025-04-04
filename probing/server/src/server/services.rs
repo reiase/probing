@@ -24,15 +24,14 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
     use probing_python::plugins::python::PythonPlugin;
 
     let engine = match probing_core::create_engine()
-        // .with_extension_options(ProbingOptions::default())
         .with_plugin(PythonPlugin::create("python"))
         .with_plugin(ClusterPlugin::create("cluster", "nodes"))
         .with_plugin(TaskStatsPlugin::create("taskstats"))
-        .with_engine_extension::<probing_python::extensions::PprofExtension>()
-        .with_engine_extension::<probing_python::extensions::TorchExtension>()
-        .with_engine_extension::<probing_python::extensions::PythonExtension>()
-        .with_engine_extension::<probing_python::extensions::TaskStatsExtension>()
-        .with_engine_extension::<crate::extensions::ServerExtension>()
+        .with_extension::<probing_python::extensions::PprofExtension>()
+        .with_extension::<probing_python::extensions::TorchExtension>()
+        .with_extension::<probing_python::extensions::PythonExtension>()
+        .with_extension::<probing_python::extensions::TaskStatsExtension>()
+        .with_extension::<crate::extensions::ServerExtension>()
         .build()
     {
         Ok(engine) => engine,
