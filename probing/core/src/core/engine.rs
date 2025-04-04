@@ -287,6 +287,18 @@ impl EngineBuilder {
         self
     }
 
+    pub fn with_extension2<T>(mut self, ext: T, category: &str, name: Option<&str>) -> Self
+    where
+        T: EngineExtension + Send + Sync + 'static,
+    {
+        let ext = Arc::new(Mutex::new(ext));
+        if let Some(datasrc) = ext.lock().unwrap().datasrc(category, name) {
+            self.plugins.push(datasrc)
+        };
+        self.extensions.push(ext);
+        self
+    }
+
     // Build the Engine with the specified configurations
     pub fn build(mut self) -> Result<Engine> {
         let mut eem = EngineExtensionManager::default();

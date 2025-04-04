@@ -1,9 +1,12 @@
 use std::time::Duration;
 
+use datasrc::TaskStatsPlugin;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+
+mod datasrc;
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct TaskStatsExtension {
@@ -35,12 +38,10 @@ impl TaskStatsExtension {
                         ));
                     }
                     self.task_stats_interval = task_stats_interval.clone();
-                    match probing_cc::TaskStatsWorker::instance().start(
-                        probing_cc::TaskStatsConfig {
-                            interval: Duration::from_millis(interval as u64),
-                            iterations: None,
-                        },
-                    ) {
+                    match datasrc::TaskStatsWorker::instance().start(datasrc::TaskStatsConfig {
+                        interval: Duration::from_millis(interval as u64),
+                        iterations: None,
+                    }) {
                         Ok(_) => Ok(()),
                         Err(e) => Err(EngineError::InvalidOptionValue(
                             "taskstats.interval".to_string(),
@@ -50,5 +51,15 @@ impl TaskStatsExtension {
                 }
             },
         }
+    }
+}
+
+impl TaskStatsExtension {
+    fn datasrc(
+        &self,
+        category: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        Some(TaskStatsPlugin::create(category))
     }
 }

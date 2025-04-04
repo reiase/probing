@@ -10,7 +10,7 @@ use axum::response::Response;
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
-use probing_cc::TaskStatsPlugin;
+use probing_cc::extensions::TaskStatsExtension;
 use probing_core::core::Engine;
 use probing_proto::prelude::*;
 use probing_python::PythonProbe;
@@ -26,12 +26,11 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
     let engine = match probing_core::create_engine()
         .with_plugin(PythonPlugin::create("python"))
         .with_plugin(ClusterPlugin::create("cluster", "nodes"))
-        .with_plugin(TaskStatsPlugin::create("taskstats"))
         .with_extension::<probing_python::extensions::PprofExtension>()
         .with_extension::<probing_python::extensions::TorchExtension>()
         .with_extension::<probing_python::extensions::PythonExtension>()
-        .with_extension::<probing_python::extensions::TaskStatsExtension>()
         .with_extension::<crate::extensions::ServerExtension>()
+        .with_extension2(TaskStatsExtension::default(), "taskstats", None)
         .build()
     {
         Ok(engine) => engine,
