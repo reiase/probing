@@ -38,6 +38,7 @@ impl<T: Display> Display for Maybe<T> {
 
 #[test]
 fn test_macro() {
+    #[allow(unused)]
     #[derive(Debug, EngineExtension)]
     struct TestExtension {
         /// describe managed_field_name1

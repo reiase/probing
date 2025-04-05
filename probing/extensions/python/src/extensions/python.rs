@@ -12,6 +12,8 @@ use crate::python::CRASH_HANDLER;
 mod exttbls;
 mod tbls;
 
+pub use tbls::PythonSchema;
+
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExtension {
     /// Path to Python crash handler script (executed when interpreter crashes)
@@ -39,7 +41,7 @@ impl PythonExtension {
                     CRASH_HANDLER.lock().unwrap().replace(handler.to_string());
                     match enable_crash_handler() {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOptionValue(
+                        Err(_) => Err(EngineError::InvalidOptionValue(
                             "python.crash_handler".to_string(),
                             handler.to_string(),
                         )),
@@ -62,7 +64,7 @@ impl PythonExtension {
                     self.monitoring = monitoring.clone();
                     match enable_monitoring(handler) {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOptionValue(
+                        Err(_) => Err(EngineError::InvalidOptionValue(
                             "python.monitoring".to_string(),
                             handler.to_string(),
                         )),
@@ -77,7 +79,7 @@ impl PythonExtension {
     fn datasrc(
         &self,
         category: &str,
-        name: Option<&str>,
+        _name: Option<&str>,
     ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
         Some(PythonPlugin::create(category))
     }

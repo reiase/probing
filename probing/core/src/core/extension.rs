@@ -132,6 +132,7 @@ pub struct EngineExtensionOption {
 /// assert_eq!(ext.set("some_option", "new").unwrap(), "default");
 /// assert_eq!(ext.get("some_option").unwrap(), "new");
 /// ```
+#[allow(unused)]
 pub trait EngineExtension: Debug + Send + Sync {
     fn name(&self) -> String;
     fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {

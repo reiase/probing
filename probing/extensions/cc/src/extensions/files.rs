@@ -61,6 +61,7 @@ use probing_core::core::EngineExtensionOption;
 #[derive(Debug, Default, EngineExtension)]
 pub struct FilesExtension {}
 
+#[allow(unused)]
 impl FilesExtension {
     fn datasrc(
         &self,

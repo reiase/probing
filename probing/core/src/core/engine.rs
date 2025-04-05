@@ -278,15 +278,6 @@ impl EngineBuilder {
         self
     }
 
-    fn with_extension_class<T>(mut self) -> Self
-    where
-        T: EngineExtension + Send + Sync + Default + 'static,
-    {
-        let ext = Arc::new(Mutex::new(T::default()));
-        self.extensions.push(ext);
-        self
-    }
-
     pub fn with_extension<T>(mut self, ext: T, category: &str, name: Option<&str>) -> Self
     where
         T: EngineExtension + Send + Sync + 'static,

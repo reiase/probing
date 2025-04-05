@@ -146,6 +146,7 @@ impl From<&str> for EngineError {
     }
 }
 
+#[allow(unused)]
 pub trait ResultExt<T> {
     fn context<C: Into<String>>(self, context: C) -> Result<T>;
 }
@@ -159,6 +160,7 @@ impl<T, E: Into<EngineError>> ResultExt<T> for std::result::Result<T, E> {
     }
 }
 
+#[allow(unused)]
 pub fn ensure(condition: bool, message: impl Into<String>) -> Result<()> {
     if condition {
         Ok(())
@@ -167,6 +169,7 @@ pub fn ensure(condition: bool, message: impl Into<String>) -> Result<()> {
     }
 }
 
+#[allow(unused)]
 pub fn bail<T>(message: impl Into<String>) -> Result<T> {
     Err(EngineError::InternalError(message.into()))
 }

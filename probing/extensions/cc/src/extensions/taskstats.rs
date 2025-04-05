@@ -43,7 +43,7 @@ impl TaskStatsExtension {
                         iterations: None,
                     }) {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOptionValue(
+                        Err(_) => Err(EngineError::InvalidOptionValue(
                             "taskstats.interval".to_string(),
                             interval.to_string(),
                         )),
@@ -54,6 +54,7 @@ impl TaskStatsExtension {
     }
 }
 
+#[allow(unused)]
 impl TaskStatsExtension {
     fn datasrc(
         &self,

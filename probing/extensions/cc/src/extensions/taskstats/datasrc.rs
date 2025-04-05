@@ -18,6 +18,7 @@ use probing_core::core::{
 
 use probing_proto::types::{self, Ele, TimeSeries};
 
+#[allow(unused)]
 #[derive(Error, Debug)]
 pub enum WorkerError {
     #[error("Worker already running")]
@@ -112,6 +113,7 @@ impl TaskStatsWorker {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn stop(&self) -> Result<(), WorkerError> {
         if !self.running.swap(false, Ordering::SeqCst) {
             return Ok(());

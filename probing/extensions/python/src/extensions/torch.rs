@@ -61,7 +61,7 @@ impl TorchExtension {
                         Err(anyhow::anyhow!("unsupported setting {}={}", key, value))
                     } {
                         Ok(_) => Ok(()),
-                        Err(err) => Err(EngineError::InvalidOptionValue(key, value)),
+                        Err(_) => Err(EngineError::InvalidOptionValue(key, value)),
                     }
                 }
             },
