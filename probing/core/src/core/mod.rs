@@ -50,55 +50,49 @@ pub use datafusion::config::CatalogOptions;
 // });
 
 #[cfg(test)]
-mod specs {
+mod tests {
     use super::*;
-    use rspec;
 
-    #[test]
-    fn engine_specs() {
-        rspec::run(&rspec::describe(
-            "Build `Engine` with `EngineBuilder`",
-            (),
-            |ctx| {
-                ctx.specify("EngineBuilder supports different options", |ctx| {
-                    ctx.it("build engine with information schema", |_| {
-                        let engine = Engine::builder().with_information_schema(true).build();
-                        assert!(engine.is_ok());
+    #[tokio::test]
+    async fn build_engine_with_information_schema() {
+        let engine = Engine::builder()
+            .with_information_schema(true)
+            .build()
+            .unwrap();
 
-                        let show_tables = engine.unwrap().query("show tables");
-                        assert!(show_tables.is_ok());
-                    });
+        let result = engine.query("show tables");
+        assert!(result.is_ok(), "Should execute SHOW TABLES query");
+    }
 
-                    ctx.it("build engine with default catalog and schema", |_| {
-                        let engine = Engine::builder()
-                            .with_default_catalog_and_schema("probe", "probe")
-                            .build();
-                        assert!(engine.is_ok());
-                    });
-                });
+    #[tokio::test]
+    async fn build_engine_with_default_catalog() {
+        let engine = Engine::builder()
+            .with_default_catalog_and_schema("probe", "probe")
+            .build()
+            .unwrap();
 
-                ctx.specify("Execute querues with `Engine`", |ctx| {
-                    ctx.it("execute `show tables`", |_| {
-                        let engine = Engine::builder()
-                            .with_information_schema(true)
-                            .build()
-                            .unwrap();
+        assert_eq!(engine.default_schema(), "probe".to_string());
+    }
 
-                        let show_tables = engine.query("show tables");
-                        assert!(show_tables.is_ok());
-                    });
+    #[tokio::test]
+    async fn execute_basic_queries() {
+        let engine = Engine::builder()
+            .with_information_schema(true)
+            .build()
+            .unwrap();
 
-                    ctx.it("execute `SELECT 1 as val`", move |_| {
-                        let engine = Engine::builder()
-                            .with_information_schema(true)
-                            .build()
-                            .unwrap();
+        // Test SHOW TABLES
+        let show_tables = engine.query("show tables");
+        assert!(show_tables.is_ok(), "SHOW TABLES should succeed");
 
-                        let show_schemas = engine.query("SELECT 1 as val");
-                        assert!(show_schemas.is_ok());
-                    });
-                });
-            },
-        ));
+        // Test SELECT
+        let select_query = engine.query("SELECT 1 as val");
+        assert!(select_query.is_ok(), "SELECT should return results");
+
+        // Verify result schema
+        let df = select_query.unwrap();
+        assert_eq!(df.names.len(), 1, "Should have one column");
+        assert_eq!(df.names[0], "val", "Column name should match");
+        assert!(!df.cols.is_empty(), "Should have data columns");
     }
 }

@@ -16,7 +16,8 @@ members = [
 version = "0.2.0"
 authors = ["reiase <reiase@gmail.com>"]
 edition = "2021"
-license = "GPL3"
+license = "GPL-3.0"
+description = "Performance and Stability Diagnostic Tool for AI Applications"
 
 [workspace.dependencies]
 anyhow = "1.0"
@@ -47,15 +48,13 @@ tokio = { version = "1.41.1", default-features = false, features = [
 ] }
 criterion = { version = "0.5", features = ["html_reports"] }
 
-rspec = "1"
-
 [package]
 name = "probing"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Performance and Stability Diagnostic Tool for AI Applications"
+description.workspace = true
 readme = "README.md"
 repository = "https://github.com/reiase/probing"
 homepage = "https://github.com/reiase/probing"
