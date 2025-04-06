@@ -4,6 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Core library for the Probing framework, providing essential data analysis and inspection capabilities"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -102,6 +102,9 @@ impl Slice {
     }
 }
 
+/// Configuration for Series data storage and compression
+///
+/// Controls how Series data is chunked, compressed, and managed in memory.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct SeriesConfig {
     pub dtype: EleType,
@@ -156,6 +159,11 @@ impl SeriesConfig {
     }
 }
 
+/// Time series data structure with compression and memory management
+///
+/// Series stores sequences of homogeneous data with automatic chunking,
+/// optional compression, and automatic pruning of old data when memory
+/// thresholds are exceeded.
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Series {
     config: SeriesConfig,
