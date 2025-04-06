@@ -12,10 +12,10 @@ pub use engine::PluginType;
 pub use error::EngineError;
 pub use error::Result;
 
-pub use plugin::CustomSchema;
+pub use plugin::CustomNamespace;
 pub use plugin::CustomTable;
 pub use plugin::LazyTableSource;
-pub use plugin::SchemaPluginHelper;
+pub use plugin::NamespacePluginHelper;
 pub use plugin::TablePluginHelper;
 
 pub use extension::EngineExtension;
@@ -54,7 +54,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn build_engine_with_information_schema() {
+    async fn build_engine() {
         let engine = Engine::builder().build().unwrap();
 
         let result = engine.query("show tables");
@@ -62,13 +62,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_engine_with_default_catalog() {
+    async fn build_engine_with_default_namespace() {
         let engine = Engine::builder()
-            .with_default_namespace("probe")
+            .with_default_namespace("test")
             .build()
             .unwrap();
 
-        assert_eq!(engine.default_namespace(), "probe".to_string());
+        assert_eq!(engine.default_namespace(), "test".to_string());
     }
 
     #[tokio::test]

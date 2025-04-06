@@ -78,9 +78,9 @@ impl PythonExtension {
 impl PythonExtension {
     fn datasrc(
         &self,
-        category: &str,
+        namespace: &str,
         _name: Option<&str>,
     ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        Some(PythonPlugin::create(category))
+        Some(PythonPlugin::create(namespace))
     }
 }

@@ -34,8 +34,8 @@ pub struct TablePluginHelper<T: CustomTable> {
     /// Name of the table as it will be registered
     name: String,
 
-    /// Category the table belongs to
-    category: String,
+    /// Namespace the table belongs to
+    namespace: String,
 
     /// PhantomData to track the generic parameter T
     data: PhantomData<T>,
@@ -45,7 +45,7 @@ impl<T: CustomTable> Default for TablePluginHelper<T> {
     fn default() -> Self {
         Self {
             name: T::name().to_string(),
-            category: "probe".to_string(),
+            namespace: "probe".to_string(),
             data: Default::default(),
         }
     }
@@ -55,19 +55,19 @@ impl<T: CustomTable> Default for TablePluginHelper<T> {
 impl<T: CustomTable + std::default::Default + std::fmt::Debug + Send + Sync + 'static>
     TablePluginHelper<T>
 {
-    /// Creates a new TablePluginHelper with custom name and category
-    pub fn new<S: Into<String>>(category: S, name: S) -> Self {
+    /// Creates a new TablePluginHelper with custom name and namespace
+    pub fn new<S: Into<String>>(namespace: S, name: S) -> Self {
         Self {
             name: name.into(),
-            category: category.into(),
+            namespace: namespace.into(),
             data: PhantomData::<T> {},
         }
     }
 
     /// Factory method that creates a TablePluginHelper wrapped in an Arc
     /// Returns a trait object that can be used with the plugin system
-    pub fn create<S: Into<String>>(category: S, name: S) -> Arc<dyn Plugin + Send + Sync> {
-        Arc::new(Self::new(name, category))
+    pub fn create<S: Into<String>>(namespace: S, name: S) -> Arc<dyn Plugin + Send + Sync> {
+        Arc::new(Self::new(name, namespace))
     }
 }
 
@@ -81,8 +81,8 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> Plugin for TableP
         super::PluginType::Table
     }
 
-    fn category(&self) -> String {
-        self.category.clone()
+    fn namespace(&self) -> String {
+        self.namespace.clone()
     }
 
     /// Registers this table with the provided schema provider
@@ -133,14 +133,14 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> TableProvider
 }
 
 #[derive(Default, Debug)]
-pub struct LazyTableSource<T: CustomSchema> {
+pub struct LazyTableSource<T: CustomNamespace> {
     pub name: String,
     pub schema: Option<SchemaRef>,
     pub data: PhantomData<T>,
 }
 
 #[async_trait]
-impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> TableProvider
+impl<T: CustomNamespace + Default + Debug + Send + Sync + 'static> TableProvider
     for LazyTableSource<T>
 {
     fn as_any(&self) -> &dyn Any {
@@ -182,15 +182,15 @@ impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> TableProvider
     }
 }
 
-/// Trait for implementing a custom schema that can dynamically generate tables
+/// Trait for implementing a custom namespace that can dynamically generate tables
 /// Provides a mechanism for on-demand table creation based on name/expression
 #[allow(unused)]
 #[async_trait]
-pub trait CustomSchema: Sync + Send {
-    /// Returns the name of the schema
+pub trait CustomNamespace: Sync + Send {
+    /// Returns the name of the namespace
     fn name() -> &'static str;
 
-    /// Returns a list of available table names in this schema
+    /// Returns a list of available table names in this namespace
     fn list() -> Vec<String>;
 
     /// Generates data for a specific table expression
@@ -199,7 +199,7 @@ pub trait CustomSchema: Sync + Send {
         vec![]
     }
 
-    /// Creates a LazyTableSource for this schema with the given expression
+    /// Creates a LazyTableSource for this namespace with the given expression
     fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>>
     where
         Self: Sized,
@@ -212,7 +212,7 @@ pub trait CustomSchema: Sync + Send {
     }
 
     /// Factory method to create a TableProvider for a specific table expression
-    /// Used by the schema provider to generate tables on demand
+    /// Used by the namespace provider to generate tables on demand
     async fn table(expr: String) -> Result<Option<Arc<dyn TableProvider>>>
     where
         Self: Default + Debug + Send + Sync + Sized + 'static,
@@ -227,75 +227,77 @@ pub trait CustomSchema: Sync + Send {
     }
 }
 
-/// Helper struct that bridges a CustomSchema implementation with the Plugin system
+/// Helper struct that bridges a CustomNamespace implementation with the Plugin system
 /// Manages registration and integration with DataFusion query engine
-pub struct SchemaPluginHelper<T: CustomSchema> {
-    /// Category the schema belongs to
-    category: String,
+pub struct NamespacePluginHelper<T: CustomNamespace> {
+    /// Namespace the schema belongs to
+    namespace: String,
 
     /// PhantomData to track the generic parameter T
     data: PhantomData<T>,
 }
 
-impl<T: CustomSchema> Default for SchemaPluginHelper<T> {
+impl<T: CustomNamespace> Default for NamespacePluginHelper<T> {
     fn default() -> Self {
         Self {
-            category: "probe".to_string(),
+            namespace: "probe".to_string(),
             data: Default::default(),
         }
     }
 }
 
-impl<T: CustomSchema + std::default::Default + std::fmt::Debug + Send + Sync + 'static>
-    SchemaPluginHelper<T>
+impl<T: CustomNamespace + std::default::Default + std::fmt::Debug + Send + Sync + 'static>
+    NamespacePluginHelper<T>
 {
-    pub fn new<S: Into<String>>(category: S) -> Self {
+    pub fn new<S: Into<String>>(namespace: S) -> Self {
         Self {
-            category: category.into(),
+            namespace: namespace.into(),
             data: PhantomData::<T> {},
         }
     }
 
-    pub fn create<S: Into<String>>(category: S) -> Arc<dyn Plugin + Send + Sync> {
-        Arc::new(Self::new(category))
+    pub fn create<S: Into<String>>(namespace: S) -> Arc<dyn Plugin + Send + Sync> {
+        Arc::new(Self::new(namespace))
     }
 }
 
-impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> Plugin for SchemaPluginHelper<T> {
+impl<T: CustomNamespace + Default + Debug + Send + Sync + 'static> Plugin
+    for NamespacePluginHelper<T>
+{
     fn name(&self) -> String {
-        self.category.clone()
+        self.namespace.clone()
     }
 
     fn kind(&self) -> super::PluginType {
-        super::PluginType::Schema
+        super::PluginType::Namespace
     }
 
-    fn category(&self) -> String {
-        self.category.clone()
+    fn namespace(&self) -> String {
+        self.namespace.clone()
     }
 
     #[allow(unused)]
-    fn register_schema(
+    fn register_namespace(
         &self,
         catalog: Arc<dyn CatalogProvider>,
         state: &SessionState,
     ) -> Result<()> {
         catalog.register_schema(
-            self.category().as_str(),
-            Arc::new(CustomSchemaDataSource::<T>::default()),
+            self.namespace().as_str(),
+            Arc::new(CustomNamespaceDataSource::<T>::default()),
         );
         Ok(())
     }
 }
 
 #[derive(Default, Debug)]
-pub struct CustomSchemaDataSource<T: CustomSchema> {
+pub struct CustomNamespaceDataSource<T: CustomNamespace> {
     data: PhantomData<T>,
 }
 
 #[async_trait]
-impl<T: CustomSchema + Default + Debug + Send + Sync + 'static> SchemaProvider
-    for CustomSchemaDataSource<T>
+impl<T: CustomNamespace + Default + Debug + Send + Sync + 'static> SchemaProvider
+    for CustomNamespaceDataSource<T>
 {
     fn as_any(&self) -> &dyn Any {
         self

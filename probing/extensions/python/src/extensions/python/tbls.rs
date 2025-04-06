@@ -6,8 +6,8 @@ use anyhow::Result;
 
 use log::error;
 use probing_core::core::{
-    ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
-    SchemaPluginHelper, SchemaRef, StringArray,
+    ArrayRef, CustomNamespace, DataType, Field, Float64Array, Int64Array, NamespacePluginHelper,
+    RecordBatch, Schema, SchemaRef, StringArray,
 };
 use probing_core::core::{Float32Array, Int32Array, LazyTableSource};
 use probing_proto::types::Ele;
@@ -26,7 +26,7 @@ use pyo3::Python;
 #[derive(Default, Debug)]
 pub struct PythonSchema {}
 
-impl CustomSchema for PythonSchema {
+impl CustomNamespace for PythonSchema {
     fn name() -> &'static str {
         "python"
     }
@@ -360,4 +360,4 @@ impl PythonSchema {
     }
 }
 
-pub type PythonPlugin = SchemaPluginHelper<PythonSchema>;
+pub type PythonPlugin = NamespacePluginHelper<PythonSchema>;

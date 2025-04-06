@@ -30,19 +30,19 @@ use probing_proto::types::Seq;
 pub enum PluginType {
     /// Provides a single table with fixed structure.
     /// Suitable for hardware metrics, process stats, and performance counter data.
-    /// Tables are accessible via SQL as "category.name".
+    /// Tables are accessible via SQL as "namespace.name".
     Table,
 
-    /// Provides an entire schema (collection of tables).
+    /// Provides an entire namespace (collection of tables).
     /// Suitable for file system monitoring, Python module tracking, or dynamically
     /// generated performance data.
-    /// Tables in a schema are accessible via SQL as "category.table_name".
-    Schema,
+    /// Tables in a namespace are accessible via SQL as "namespace.table_name".
+    Namespace,
 }
 
 /// Low-level interface for extending engine functionality through plugins
 ///
-/// Plugins can register either schemas (collections of tables) or
+/// Plugins can register either namespaces (collections of tables) or
 /// individual tables to the query engine. Implementations should
 /// handle specific data sources or analysis capabilities.
 ///
@@ -51,71 +51,75 @@ pub enum PluginType {
 /// Data in the engine is organized hierarchically:
 ///
 /// - Catalog (default is "probe")
-///   - Schema (provided by plugin's "category")
-///     - Table (provided by plugin's "name" or dynamically by SchemaProvider)
+///   - Schema (provided by plugin's "namespace")
+///     - Table (provided by plugin's "name" or dynamically by NamespaceProvider)
 ///
 /// ## For Table Plugins
 ///
-/// A table plugin must provide both a category and a name. The table will be
+/// A table plugin must provide both a namespace and a name. The table will be
 /// accessible in SQL queries as:
 ///
 /// ```sql
-/// SELECT * FROM probe.category.name
+/// SELECT * FROM namespace.name
 /// ```
 ///
-/// ## For Schema Plugins
+/// ## For Namespace Plugins
 ///
-/// A schema plugin only needs to provide a category. The tables within the schema
+/// A namespace plugin only needs to provide a namespace. The tables within the namespace
 /// will be accessible in SQL queries as:
 ///
 /// ```sql
-/// SELECT * FROM probe.category.some_table_name
+/// SELECT * FROM namespace.some_table_name
 /// ```
 ///
-/// where `some_table_name` is any table provided by the schema plugin.
+/// where `some_table_name` is any table provided by the namespace plugin.
 pub trait Plugin {
     /// Returns the unique name of the plugin.
     ///
     /// For Table plugins, this is the table name.
-    /// For Schema plugins, this is the schema name.
+    /// For Namespace plugins, this is the namespace.
     fn name(&self) -> String;
 
     /// Returns the type of this plugin, determining how it integrates with the engine.
-    /// This controls which registration method will be called (register_table or register_schema).
+    /// This controls which registration method will be called (register_table or register_namespace).
     fn kind(&self) -> PluginType;
 
-    /// Returns the category for this plugin, used for organizing related tables.
+    /// Returns the namespace for this plugin, used for organizing related tables.
     ///
-    /// - For Table plugins, this defines the schema name under which the table is registered.
-    ///   The table will be accessible as "category.name".
+    /// - For Table plugins, this defines the namespace under which the table is registered.
+    ///   The table will be accessible as "namespace.name".
     ///
-    /// - For Schema plugins, this defines the name of the schema being provided.
-    ///   Tables in this schema will be accessible as "category.table_name".
-    fn category(&self) -> String;
+    /// - For Namespace plugins, this defines the name of the namespace being provided.
+    ///   Tables in this namespace will be accessible as "namespace.table_name".
+    fn namespace(&self) -> String;
 
-    /// Registers a table with the provided schema.
+    /// Registers a table with the provided namespace.
     ///
     /// Implemented by Table plugins to register their data source
     /// with the query engine. The default implementation does nothing.
     ///
     /// # Arguments
-    /// * `schema` - The schema provider to register the table with
+    /// * `namespace` - The namespace provider to register the table with
     /// * `state` - The current session state
     #[allow(unused)]
-    fn register_table(&self, schema: Arc<dyn SchemaProvider>, state: &SessionState) -> Result<()> {
+    fn register_table(
+        &self,
+        namespace: Arc<dyn SchemaProvider>,
+        state: &SessionState,
+    ) -> Result<()> {
         Ok(())
     }
 
-    /// Registers a schema with the provided catalog.
+    /// Registers a namespace with the provided catalog.
     ///
-    /// Implemented by Schema plugins to register their schema
+    /// Implemented by Namespace plugins to register their namespace
     /// with the query engine. The default implementation does nothing.
     ///
     /// # Arguments
-    /// * `catalog` - The catalog provider to register the schema with
+    /// * `catalog` - The catalog provider to register the namespace with
     /// * `state` - The current session state
     #[allow(unused)]
-    fn register_schema(
+    fn register_namespace(
         &self,
         catalog: Arc<dyn CatalogProvider>,
         state: &SessionState,
@@ -133,17 +137,17 @@ pub trait Plugin {
 /// # Data Organization
 ///
 /// Data in the engine is organized hierarchically:
-/// - Catalog (default is "probe")
-///   - Schema (provided by plugins' "category")
-///     - Table (provided by plugins)
+/// - Namespace (provided by plugins)
+///   - Table (provided by plugins)
+///
+/// Note: Internally, namespaces are mapped to DataFusion schemas within a default catalog.
 ///
 /// # Usage Example
 ///
 /// ```
 /// // Create a new engine using the builder pattern
 /// let engine = probing_core::core::Engine::builder()
-///     .with_information_schema(true)
-///     .with_default_namespace("example_schema")
+///     .with_default_namespace("example_namespace")
 ///     .build().unwrap();
 ///
 /// // Execute a SQL query
@@ -170,7 +174,7 @@ impl Default for Engine {
     ///
     /// The default engine:
     /// - Enables the information schema for metadata queries
-    /// - Sets "probe" as both the default catalog and schema
+    /// - Sets "probe" as both the default namespace
     /// - Has no plugins registered initially
     fn default() -> Self {
         let config = SessionConfig::default()
@@ -247,7 +251,7 @@ impl Engine {
         futures::executor::block_on(async { self.async_query(q).await })
     }
 
-    /// Get default schema from configuration
+    /// Get default namespace from configuration
     pub fn default_namespace(&self) -> String {
         self.context
             .state()
@@ -259,7 +263,7 @@ impl Engine {
     }
 
     pub fn enable(&self, plugin: Arc<dyn Plugin + Sync + Send>) -> Result<()> {
-        let category = plugin.category();
+        let namespace = plugin.namespace();
 
         let catalog = if let Some(catalog) = self.context.catalog("probe") {
             catalog
@@ -271,25 +275,28 @@ impl Engine {
                 .ok_or_else(|| DataFusionError::Internal("no catalog `probe`".to_string()))?
         };
 
-        if plugin.kind() == PluginType::Schema {
+        if plugin.kind() == PluginType::Namespace {
             let state: SessionState = self.context.state();
-            plugin.register_schema(catalog, &state)?;
+            plugin.register_namespace(catalog, &state)?;
             if let Ok(mut maps) = self.plugins.write() {
-                maps.insert(format!("probe.{}", category), plugin);
+                maps.insert(format!("probe.{}", namespace), plugin);
             }
         } else if plugin.kind() == PluginType::Table {
-            let schema = if catalog.schema_names().contains(&category) {
-                catalog.schema(category.as_str())
+            // In DataFusion, schemas are used to implement namespaces
+            let schema = if catalog.schema_names().contains(&namespace) {
+                catalog.schema(namespace.as_str())
             } else {
                 let schema = MemorySchemaProvider::new();
-                catalog.register_schema(category.as_str(), Arc::new(schema))?;
-                catalog.schema(category.as_str())
+                catalog.register_schema(namespace.as_str(), Arc::new(schema))?;
+                catalog.schema(namespace.as_str())
             }
-            .ok_or_else(|| DataFusionError::Internal(format!("schema `{}` not found", category)))?;
+            .ok_or_else(|| {
+                DataFusionError::Internal(format!("namespace `{}` not found", namespace))
+            })?;
             let state: SessionState = self.context.state();
             plugin.register_table(schema, &state)?;
             if let Ok(mut maps) = self.plugins.write() {
-                maps.insert(format!("probe.{}.{}", category, plugin.name()), plugin);
+                maps.insert(format!("probe.{}.{}", namespace, plugin.name()), plugin);
             }
         }
         Ok(())
@@ -321,24 +328,18 @@ impl EngineBuilder {
         self
     }
 
-    // // Enable or disable the information schema
-    // pub fn with_information_schema(mut self, enabled: bool) -> Self {
-    //     self.config = self.config.with_information_schema(enabled);
-    //     self
-    // }
-
     // Add a plugin to the builder
     pub fn with_plugin(mut self, plugin: Arc<dyn Plugin + Sync + Send>) -> Self {
         self.plugins.push(plugin);
         self
     }
 
-    pub fn with_extension<T>(mut self, ext: T, category: &str, name: Option<&str>) -> Self
+    pub fn with_extension<T>(mut self, ext: T, namespace: &str, name: Option<&str>) -> Self
     where
         T: EngineExtension + Send + Sync + 'static,
     {
         let ext = Arc::new(Mutex::new(ext));
-        if let Some(datasrc) = ext.lock().unwrap().datasrc(category, name) {
+        if let Some(datasrc) = ext.lock().unwrap().datasrc(namespace, name) {
             self.plugins.push(datasrc)
         };
         self.extensions.push(ext);
@@ -432,8 +433,8 @@ mod tests {
             PluginType::Table
         }
 
-        fn category(&self) -> String {
-            "test_schema".to_string()
+        fn namespace(&self) -> String {
+            "test_namespace".to_string()
         }
 
         fn register_table(
@@ -478,19 +479,19 @@ mod tests {
     }
 
     #[derive(Default)]
-    struct TestSchemaPlugin {}
+    struct TestNamespacePlugin {}
 
-    impl Plugin for TestSchemaPlugin {
+    impl Plugin for TestNamespacePlugin {
         fn name(&self) -> String {
-            "test_schema".to_string()
+            "test_namespace".to_string()
         }
 
         fn kind(&self) -> PluginType {
-            PluginType::Schema
+            PluginType::Namespace
         }
 
-        fn category(&self) -> String {
-            "test_schema".to_string()
+        fn namespace(&self) -> String {
+            "test_namespace".to_string()
         }
     }
 
@@ -500,12 +501,12 @@ mod tests {
         let engine = Engine::builder().build().unwrap();
         assert_eq!(engine.default_namespace(), "probe");
 
-        // building with custom catalog and schema
+        // building with custom namespace
         let engine = Engine::builder()
-            .with_default_namespace("test_schema")
+            .with_default_namespace("test_namespace")
             .build()
             .unwrap();
-        assert_eq!(engine.default_namespace(), "test_schema");
+        assert_eq!(engine.default_namespace(), "test_namespace");
     }
 
     #[tokio::test]
@@ -518,14 +519,14 @@ mod tests {
         engine.enable(plugin)?;
 
         // verify table registration
-        let result = engine.query("SELECT * FROM probe.test_schema.test_table")?;
+        let result = engine.query("SELECT * FROM test_namespace.test_table")?;
 
         assert_eq!(result.names.len(), 2);
         assert_eq!(result.names[0], "id");
         assert_eq!(result.names[1], "name");
 
         // verify data
-        let result = engine.query("SELECT * FROM probe.test_schema.test_table WHERE id > 1")?;
+        let result = engine.query("SELECT * FROM test_namespace.test_table WHERE id > 1")?;
         if let Seq::SeqI32(ids) = &result.cols[0] {
             assert_eq!(ids.len(), 2); // expect 2 rows
             assert!(ids.iter().all(|&id| id > 1)); // with id > 1
@@ -552,12 +553,12 @@ mod tests {
         // register extension
         let engine = Engine::builder()
             .with_default_namespace("probe")
-            .with_extension(TestExtension, "test_schema", Some("test_table"))
+            .with_extension(TestExtension, "test_namespace", Some("test_table"))
             .build()
             .unwrap();
 
-        // 验证插件是否正确注册
-        let result = engine.query("SELECT * FROM test_schema.test_table");
+        // Verify the plugin is correctly registered
+        let result = engine.query("SELECT * FROM test_namespace.test_table");
         assert!(result.is_ok());
     }
 
@@ -565,13 +566,13 @@ mod tests {
     async fn test_plugin_registration() {
         let engine = Engine::builder().build().unwrap();
 
-        // 测试Table插件注册
+        // testing Table plugin registration
         let table_plugin = Arc::new(TestTablePlugin::default());
         assert!(engine.enable(table_plugin).is_ok());
 
-        // 测试Schema插件注册
-        let schema_plugin = Arc::new(TestSchemaPlugin::default());
-        assert!(engine.enable(schema_plugin).is_ok());
+        // testing Namespace plugin registration
+        let namespace_plugin = Arc::new(TestNamespacePlugin::default());
+        assert!(engine.enable(namespace_plugin).is_ok());
     }
 
     #[tokio::test]
@@ -646,11 +647,11 @@ mod tests {
 
     #[test]
     fn test_engine_builder_configuration() {
-        let builder = Engine::builder().with_default_namespace("test_schema");
+        let builder = Engine::builder().with_default_namespace("test_namespace");
 
-        // testing default catalog and schema
+        // testing default namespace
         let engine = builder.build().unwrap();
-        assert_eq!(engine.default_namespace(), "test_schema");
+        assert_eq!(engine.default_namespace(), "test_namespace");
 
         // testing information schema
         let result = engine.query("SHOW TABLES");

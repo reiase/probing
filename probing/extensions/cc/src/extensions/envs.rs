@@ -54,11 +54,11 @@ pub struct EnvExtension {}
 impl EnvExtension {
     fn datasrc(
         &self,
-        category: &str,
+        namespace: &str,
         name: Option<&str>,
     ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
         match name {
-            Some(name) => Some(EnvPlugin::create(category, name)),
+            Some(name) => Some(EnvPlugin::create(namespace, name)),
             None => None,
         }
     }

@@ -58,9 +58,9 @@ impl TaskStatsExtension {
 impl TaskStatsExtension {
     fn datasrc(
         &self,
-        category: &str,
+        namespace: &str,
         name: Option<&str>,
     ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        Some(TaskStatsPlugin::create(category))
+        Some(TaskStatsPlugin::create(namespace))
     }
 }

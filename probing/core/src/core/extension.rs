@@ -147,7 +147,11 @@ pub trait EngineExtension: Debug + Send + Sync {
     fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
         Err(EngineError::UnsupportedCall)
     }
-    fn datasrc(&self, category: &str, name: Option<&str>) -> Option<Arc<dyn Plugin + Sync + Send>> {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<Arc<dyn Plugin + Sync + Send>> {
         None
     }
 }

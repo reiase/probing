@@ -79,11 +79,11 @@ pub struct KMsgExtension {}
 impl KMsgExtension {
     fn datasrc(
         &self,
-        category: &str,
+        namespace: &str,
         name: Option<&str>,
     ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
         match name {
-            Some(name) => Some(KMsgPlugin::create(category, name)),
+            Some(name) => Some(KMsgPlugin::create(namespace, name)),
             None => None,
         }
     }

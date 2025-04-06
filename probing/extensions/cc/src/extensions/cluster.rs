@@ -80,11 +80,11 @@ pub struct ClusterExtension {}
 impl ClusterExtension {
     fn datasrc(
         &self,
-        category: &str,
+        namespace: &str,
         name: Option<&str>,
     ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
         match name {
-            Some(name) => Some(ClusterPlugin::create(category, name)),
+            Some(name) => Some(ClusterPlugin::create(namespace, name)),
             None => None,
         }
     }
