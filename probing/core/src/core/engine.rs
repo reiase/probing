@@ -385,6 +385,8 @@ impl Default for EngineBuilder {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::{EngineCall, EngineDatasource};
+
     use super::*;
     use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
     use arrow::record_batch::RecordBatch;
@@ -544,7 +546,11 @@ mod tests {
             fn name(&self) -> String {
                 "test_extension".to_string()
             }
+        }
 
+        impl EngineCall for TestExtension {}
+
+        impl EngineDatasource for TestExtension {
             fn datasrc(&self, _: &str, _: Option<&str>) -> Option<Arc<dyn Plugin + Send + Sync>> {
                 Some(Arc::new(TestTablePlugin::default()))
             }

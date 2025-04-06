@@ -1,4 +1,6 @@
-use probing_core::core::{EngineError, EngineExtension, EngineExtensionOption, Maybe};
+use probing_core::core::{
+    EngineCall, EngineDatasource, EngineError, EngineExtension, EngineExtensionOption, Maybe,
+};
 
 use crate::{start_remote, start_report_worker};
 
@@ -17,6 +19,10 @@ pub struct ServerExtension {
     #[option(name = "server.report_addr", aliases=["server_report_addr", "server.report.addr"])]
     report_addr: Maybe<String>,
 }
+
+impl EngineCall for ServerExtension {}
+
+impl EngineDatasource for ServerExtension {}
 
 impl Default for ServerExtension {
     fn default() -> Self {
@@ -48,14 +54,6 @@ impl ServerExtension {
         self.report_addr = report_addr.clone();
         start_report_worker(self.report_addr.clone().into(), self.address.clone().into());
         Ok(())
-    }
-
-    fn plugin(
-        &self,
-        _ns: &str,
-        _name: Option<&str>,
-    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        None
     }
 }
 

@@ -6,7 +6,7 @@ use rmesg::entry::{LogFacility, LogLevel};
 use rmesg::log_entries;
 use rmesg::Backend;
 
-use probing_core::core::{CustomTable, TablePluginHelper};
+use probing_core::core::{CustomTable, EngineCall, EngineDatasource, TablePluginHelper};
 
 #[derive(Default, Debug)]
 pub struct KMsgTable {}
@@ -76,8 +76,10 @@ use probing_core::core::EngineExtensionOption;
 #[derive(Debug, Default, EngineExtension)]
 pub struct KMsgExtension {}
 
-impl KMsgExtension {
-    fn plugin(
+impl EngineCall for KMsgExtension {}
+
+impl EngineDatasource for KMsgExtension {
+    fn datasrc(
         &self,
         namespace: &str,
         name: Option<&str>,

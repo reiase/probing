@@ -71,6 +71,45 @@ pub struct EngineExtensionOption {
     pub help: &'static str,
 }
 
+/// Extension trait for handling API calls
+#[allow(unused)]
+pub trait EngineCall: Debug + Send + Sync {
+    /// Handle API calls to the extension
+    ///
+    /// # Arguments
+    /// * `path` - The path component of the API call
+    /// * `params` - URL query parameters
+    /// * `body` - Request body data
+    ///
+    /// # Returns
+    /// * `Ok(Vec<u8>)` - Response data on success
+    /// * `Err(EngineError)` - Error information on failure
+    fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+        Err(EngineError::UnsupportedCall)
+    }
+}
+
+/// Extension trait for providing data sources
+#[allow(unused)]
+pub trait EngineDatasource: Debug + Send + Sync {
+    /// Provide a data source plugin implementation
+    ///
+    /// # Arguments
+    /// * `namespace` - The namespace for the data source
+    /// * `name` - Optional name of the specific data source
+    ///
+    /// # Returns
+    /// * `Some(Arc<dyn Plugin>)` - Data source plugin if available
+    /// * `None` - If no matching data source is available
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<Arc<dyn Plugin + Sync + Send>> {
+        None
+    }
+}
+
 /// A trait for engine extensions that can be configured with key-value pairs.
 ///
 /// This trait defines the interface for extensions that can be registered with
@@ -133,7 +172,7 @@ pub struct EngineExtensionOption {
 /// assert_eq!(ext.get("some_option").unwrap(), "new");
 /// ```
 #[allow(unused)]
-pub trait EngineExtension: Debug + Send + Sync {
+pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
     fn name(&self) -> String;
     fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
         todo!()
@@ -143,16 +182,6 @@ pub trait EngineExtension: Debug + Send + Sync {
     }
     fn options(&self) -> Vec<EngineExtensionOption> {
         todo!()
-    }
-    fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
-        Err(EngineError::UnsupportedCall)
-    }
-    fn datasrc(
-        &self,
-        namespace: &str,
-        name: Option<&str>,
-    ) -> Option<Arc<dyn Plugin + Sync + Send>> {
-        None
     }
 }
 

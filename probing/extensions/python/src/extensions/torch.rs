@@ -1,5 +1,7 @@
 use std::ffi::CStr;
 
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -14,6 +16,10 @@ pub struct TorchExtension {
     #[option(name = "torch.sample_ratio", aliases=["torch_sample_ratio"])]
     torch_sample_ratio: Maybe<f64>,
 }
+
+impl EngineCall for TorchExtension {}
+
+impl EngineDatasource for TorchExtension {}
 
 impl TorchExtension {
     fn set_torch_sample_ratio(
@@ -66,13 +72,5 @@ impl TorchExtension {
                 }
             },
         }
-    }
-
-    fn plugin(
-        &self,
-        _ns: &str,
-        _name: Option<&str>,
-    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        None
     }
 }

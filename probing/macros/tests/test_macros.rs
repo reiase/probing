@@ -2,6 +2,8 @@ use std::convert::Infallible;
 use std::fmt::Display;
 use std::str::FromStr;
 
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -58,6 +60,10 @@ fn test_macro() {
         unmanaged_field_name: i64,
     }
 
+    impl EngineCall for TestExtension {}
+
+    impl EngineDatasource for TestExtension {}
+
     impl TestExtension {
         fn set_managed_field_name1(&mut self, value: i32) -> Result<(), EngineError> {
             self.managed_field_name1 = value;
@@ -72,14 +78,6 @@ fn test_macro() {
         fn set_managed_field_name3(&mut self, value: Maybe<String>) -> Result<(), EngineError> {
             self.managed_field_name3 = value;
             Ok(())
-        }
-
-        fn plugin(
-            &self,
-            _ns: &str,
-            _name: Option<&str>,
-        ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-            None
         }
     }
 

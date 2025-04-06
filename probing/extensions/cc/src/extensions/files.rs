@@ -9,7 +9,7 @@ use datafusion::datasource::{
 use datafusion::error::Result;
 use datafusion::prelude::SessionContext;
 
-use probing_core::core::{CustomNamespace, NamespacePluginHelper};
+use probing_core::core::{CustomNamespace, EngineCall, EngineDatasource, NamespacePluginHelper};
 
 #[derive(Default, Debug)]
 pub struct FileList {}
@@ -61,9 +61,11 @@ use probing_core::core::EngineExtensionOption;
 #[derive(Debug, Default, EngineExtension)]
 pub struct FilesExtension {}
 
+impl EngineCall for FilesExtension {}
+
 #[allow(unused)]
-impl FilesExtension {
-    fn plugin(
+impl EngineDatasource for FilesExtension {
+    fn datasrc(
         &self,
         namespace: &str,
         name: Option<&str>,

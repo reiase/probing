@@ -18,6 +18,8 @@ pub use plugin::LazyTableSource;
 pub use plugin::NamespacePluginHelper;
 pub use plugin::TablePluginHelper;
 
+pub use extension::EngineCall;
+pub use extension::EngineDatasource;
 pub use extension::EngineExtension;
 pub use extension::EngineExtensionManager;
 pub use extension::EngineExtensionOption;

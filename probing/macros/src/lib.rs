@@ -110,9 +110,9 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
                 ]
             }
 
-            fn datasrc(&self, namespace: &str, name: Option<&str>) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-                self.plugin(namespace, name)
-            }
+            // fn datasrc(&self, namespace: &str, name: Option<&str>) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+            //     self.plugin(namespace, name)
+            // }
         }
     };
 

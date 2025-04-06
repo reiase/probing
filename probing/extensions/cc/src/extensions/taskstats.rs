@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use datasrc::TaskStatsPlugin;
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -13,6 +15,19 @@ pub struct TaskStatsExtension {
     /// Task statistics collection interval in milliseconds (0 to disable)
     #[option(name = "taskstats.interval", aliases=["taskstats_interval"])]
     task_stats_interval: Maybe<i64>,
+}
+
+impl EngineCall for TaskStatsExtension {}
+
+#[allow(unused)]
+impl EngineDatasource for TaskStatsExtension {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        Some(TaskStatsPlugin::create(namespace))
+    }
 }
 
 impl TaskStatsExtension {
@@ -51,16 +66,5 @@ impl TaskStatsExtension {
                 }
             },
         }
-    }
-}
-
-#[allow(unused)]
-impl TaskStatsExtension {
-    fn plugin(
-        &self,
-        namespace: &str,
-        name: Option<&str>,
-    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        Some(TaskStatsPlugin::create(namespace))
     }
 }

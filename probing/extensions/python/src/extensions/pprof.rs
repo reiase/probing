@@ -1,3 +1,5 @@
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -11,6 +13,10 @@ pub struct PprofExtension {
     #[option(name = "pprof.sample_freq", aliases=["pprof_sample_freq", "pprof.sample.freq"])]
     pprof_sample_freq: Maybe<i32>,
 }
+
+impl EngineCall for PprofExtension {}
+
+impl EngineDatasource for PprofExtension {}
 
 impl PprofExtension {
     fn set_pprof_sample_freq(&mut self, pprof_sample_freq: Maybe<i32>) -> Result<(), EngineError> {
@@ -37,13 +43,5 @@ impl PprofExtension {
                 }
             },
         }
-    }
-
-    fn plugin(
-        &self,
-        _ns: &str,
-        _name: Option<&str>,
-    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        None
     }
 }

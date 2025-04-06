@@ -1,5 +1,7 @@
 use probing_core::core::cluster;
 use probing_core::core::CustomTable;
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::TablePluginHelper;
 
 use probing_core::core::ArrayRef;
@@ -77,8 +79,10 @@ use probing_core::core::EngineExtensionOption;
 #[derive(Debug, Default, EngineExtension)]
 pub struct ClusterExtension {}
 
-impl ClusterExtension {
-    fn plugin(
+impl EngineCall for ClusterExtension {}
+
+impl EngineDatasource for ClusterExtension {
+    fn datasrc(
         &self,
         namespace: &str,
         name: Option<&str>,

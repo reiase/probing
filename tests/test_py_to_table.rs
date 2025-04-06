@@ -1,5 +1,5 @@
 use probing_core::core::DataType;
-use probing_python::extensions::python::PythonSchema;
+use probing_python::extensions::python::PythonNamespace;
 use pyo3::ffi::c_str;
 use pyo3::Python;
 
@@ -9,7 +9,7 @@ use arrow::csv::Writer;
 fn test_int_to_table() {
     let rb = Python::with_gil(|py| {
         let value = py.eval(c_str!("1"), None, None).unwrap();
-        PythonSchema::object_to_recordbatch(value).unwrap()
+        PythonNamespace::object_to_recordbatch(value).unwrap()
     });
 
     assert_eq!(*rb[0].schema().fields()[0].data_type(), DataType::Int64);
@@ -23,7 +23,7 @@ fn test_int_to_table() {
 fn test_float_to_table() {
     let rb = Python::with_gil(|py| {
         let value = py.eval(c_str!("2.0"), None, None).unwrap();
-        PythonSchema::object_to_recordbatch(value).unwrap()
+        PythonNamespace::object_to_recordbatch(value).unwrap()
     });
 
     assert_eq!(*rb[0].schema().fields()[0].data_type(), DataType::Float64);
@@ -37,7 +37,7 @@ fn test_float_to_table() {
 fn test_string_to_table() {
     let rb = Python::with_gil(|py| {
         let value = py.eval(c_str!("'str'"), None, None).unwrap();
-        PythonSchema::object_to_recordbatch(value).unwrap()
+        PythonNamespace::object_to_recordbatch(value).unwrap()
     });
 
     assert_eq!(*rb[0].schema().fields()[0].data_type(), DataType::Utf8);
@@ -51,7 +51,7 @@ fn test_string_to_table() {
 fn test_dict_to_table() {
     let rb = Python::with_gil(|py| {
         let value = py.eval(c_str!("{'a':1, 'b':2}"), None, None).unwrap();
-        PythonSchema::object_to_recordbatch(value).unwrap()
+        PythonNamespace::object_to_recordbatch(value).unwrap()
     });
 
     assert_eq!(*rb[0].schema().fields()[0].name(), "a");
@@ -66,7 +66,7 @@ fn test_dict_to_table() {
 fn test_object_to_table() {
     let rb = Python::with_gil(|py| {
         let value = py.eval(c_str!("lambda x: x*2"), None, None).unwrap();
-        PythonSchema::object_to_recordbatch(value).unwrap()
+        PythonNamespace::object_to_recordbatch(value).unwrap()
     });
 
     assert_eq!(*rb[0].schema().fields()[0].data_type(), DataType::Utf8);

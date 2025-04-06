@@ -24,9 +24,9 @@ use pyo3::PyAny;
 use pyo3::Python;
 
 #[derive(Default, Debug)]
-pub struct PythonSchema {}
+pub struct PythonNamespace {}
 
-impl CustomNamespace for PythonSchema {
+impl CustomNamespace for PythonNamespace {
     fn name() -> &'static str {
         "python"
     }
@@ -139,7 +139,7 @@ impl CustomNamespace for PythonSchema {
     }
 }
 
-impl PythonSchema {
+impl PythonNamespace {
     pub fn time_series_to_recordbatch(
         names: Vec<String>,
         ts: &TimeSeries,
@@ -360,4 +360,4 @@ impl PythonSchema {
     }
 }
 
-pub type PythonPlugin = NamespacePluginHelper<PythonSchema>;
+pub type PythonPlugin = NamespacePluginHelper<PythonNamespace>;

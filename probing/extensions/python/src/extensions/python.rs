@@ -1,4 +1,6 @@
 pub use exttbls::ExternalTable;
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -12,7 +14,7 @@ use crate::python::CRASH_HANDLER;
 mod exttbls;
 mod tbls;
 
-pub use tbls::PythonSchema;
+pub use tbls::PythonNamespace;
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExtension {
@@ -23,6 +25,18 @@ pub struct PythonExtension {
     /// Path to Python Monitoring Handler
     #[option(name = "python.monitoring")]
     monitoring: Maybe<String>,
+}
+
+impl EngineCall for PythonExtension {}
+
+impl EngineDatasource for PythonExtension {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        _name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        Some(PythonPlugin::create(namespace))
+    }
 }
 
 impl PythonExtension {
@@ -72,15 +86,5 @@ impl PythonExtension {
                 }
             },
         }
-    }
-}
-
-impl PythonExtension {
-    fn plugin(
-        &self,
-        namespace: &str,
-        _name: Option<&str>,
-    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
-        Some(PythonPlugin::create(namespace))
     }
 }
