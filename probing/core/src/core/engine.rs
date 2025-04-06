@@ -143,7 +143,7 @@ pub trait Plugin {
 /// // Create a new engine using the builder pattern
 /// let engine = probing_core::core::Engine::builder()
 ///     .with_information_schema(true)
-///     .with_default_catalog_and_schema("probe", "example_schema")
+///     .with_default_namespace("example_schema")
 ///     .build().unwrap();
 ///
 /// // Execute a SQL query
@@ -248,7 +248,7 @@ impl Engine {
     }
 
     /// Get default schema from configuration
-    pub fn default_schema(&self) -> String {
+    pub fn default_namespace(&self) -> String {
         self.context
             .state()
             .config()
@@ -299,6 +299,7 @@ impl Engine {
 // Define the EngineBuilder struct
 pub struct EngineBuilder {
     config: SessionConfig,
+    default_namespace: Option<String>,
     plugins: Vec<Arc<dyn Plugin + Sync + Send>>,
     extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
 }
@@ -308,22 +309,23 @@ impl EngineBuilder {
     pub fn new() -> Self {
         EngineBuilder {
             config: SessionConfig::default(),
+            default_namespace: None,
             plugins: Vec::new(),
             extensions: Vec::new(),
         }
     }
 
     // Set the default catalog and schema
-    pub fn with_default_catalog_and_schema(mut self, catalog: &str, schema: &str) -> Self {
-        self.config = self.config.with_default_catalog_and_schema(catalog, schema);
+    pub fn with_default_namespace(mut self, namespace: &str) -> Self {
+        self.default_namespace = Some(namespace.to_string());
         self
     }
 
-    // Enable or disable the information schema
-    pub fn with_information_schema(mut self, enabled: bool) -> Self {
-        self.config = self.config.with_information_schema(enabled);
-        self
-    }
+    // // Enable or disable the information schema
+    // pub fn with_information_schema(mut self, enabled: bool) -> Self {
+    //     self.config = self.config.with_information_schema(enabled);
+    //     self
+    // }
 
     // Add a plugin to the builder
     pub fn with_plugin(mut self, plugin: Arc<dyn Plugin + Sync + Send>) -> Self {
@@ -350,6 +352,16 @@ impl EngineBuilder {
             eem.register(extension);
         }
         self.config.options_mut().extensions.insert(eem);
+        if let Some(namespace) = self.default_namespace {
+            self.config = self
+                .config
+                .with_default_catalog_and_schema("probe", &namespace);
+        } else {
+            self.config = self
+                .config
+                .with_default_catalog_and_schema("probe", "probe");
+        }
+        self.config = self.config.with_information_schema(true);
 
         let context = SessionContext::new_with_config(self.config);
         let engine = Engine {
@@ -486,20 +498,20 @@ mod tests {
     async fn test_engine_builder() {
         // testing default builder
         let engine = Engine::builder().build().unwrap();
-        assert_eq!(engine.default_schema(), "public"); // 'public' is the default schema in DataFusion
+        assert_eq!(engine.default_namespace(), "probe");
 
         // building with custom catalog and schema
         let engine = Engine::builder()
-            .with_default_catalog_and_schema("test_catalog", "test_schema")
+            .with_default_namespace("test_schema")
             .build()
             .unwrap();
-        assert_eq!(engine.default_schema(), "test_schema");
+        assert_eq!(engine.default_namespace(), "test_schema");
     }
 
     #[tokio::test]
     async fn test_plugin_with_data() -> Result<()> {
         // create engine
-        let engine = Engine::builder().with_information_schema(true).build()?;
+        let engine = Engine::builder().build()?;
 
         // register table plugin
         let plugin = Arc::new(TestTablePlugin::default());
@@ -539,8 +551,7 @@ mod tests {
 
         // register extension
         let engine = Engine::builder()
-            .with_default_catalog_and_schema("probe", "probe")
-            .with_information_schema(true)
+            .with_default_namespace("probe")
             .with_extension(TestExtension, "test_schema", Some("test_table"))
             .build()
             .unwrap();
@@ -565,10 +576,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_basic_queries() {
-        let engine = Engine::builder()
-            .with_information_schema(true)
-            .build()
-            .unwrap();
+        let engine = Engine::builder().build().unwrap();
 
         // testing basic SELECT query
         let result = engine.query("SELECT 1 as num, 'test' as str").unwrap();
@@ -638,13 +646,11 @@ mod tests {
 
     #[test]
     fn test_engine_builder_configuration() {
-        let builder = Engine::builder()
-            .with_default_catalog_and_schema("test_catalog", "test_schema")
-            .with_information_schema(true);
+        let builder = Engine::builder().with_default_namespace("test_schema");
 
         // testing default catalog and schema
         let engine = builder.build().unwrap();
-        assert_eq!(engine.default_schema(), "test_schema");
+        assert_eq!(engine.default_namespace(), "test_schema");
 
         // testing information schema
         let result = engine.query("SHOW TABLES");

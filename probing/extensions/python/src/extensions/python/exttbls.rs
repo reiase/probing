@@ -258,8 +258,7 @@ table3.append([5, 6])
 
                 ctx.it("should see py table in engine", |_| {
                     let engine = Engine::builder()
-                        .with_information_schema(true)
-                        .with_default_catalog_and_schema("probe", "probe")
+                        .with_default_namespace("probe")
                         .with_plugin( PythonPlugin::create("python"))
                         .with_plugin( FilesPlugin::create("file"))
                         .with_plugin( EnvPlugin::create("process", "envs"))
@@ -282,8 +281,7 @@ table3.append([5, 6])
 
                 ctx.it("should see py table data in engine", |_| {
                     let engine = Engine::builder()
-                        .with_information_schema(true)
-                        .with_default_catalog_and_schema("probe", "probe")
+                        .with_default_namespace("probe")
                         .with_plugin( PythonPlugin::create("python"))
                         .build()
                         .unwrap();
@@ -298,8 +296,7 @@ table3.append([5, 6])
 
                 ctx.it("should support calculate in sql", |_| {
                     let engine = Engine::builder()
-                        .with_information_schema(true)
-                        .with_default_catalog_and_schema("probe", "probe")
+                        .with_default_namespace("probe")
                         .with_plugin( PythonPlugin::create("python"))
                         .build()
                         .unwrap();
@@ -320,8 +317,7 @@ table3.append([5, 6])
 
                 ctx.it("should support calculate in sql", |_| {
                     let engine = Engine::builder()
-                    .with_information_schema(true)
-                    .with_default_catalog_and_schema("probe", "probe")
+                    .with_default_namespace("probe")
                     .with_plugin( PythonPlugin::create("python"))
                     .build()
                     .unwrap();

@@ -55,10 +55,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_engine_with_information_schema() {
-        let engine = Engine::builder()
-            .with_information_schema(true)
-            .build()
-            .unwrap();
+        let engine = Engine::builder().build().unwrap();
 
         let result = engine.query("show tables");
         assert!(result.is_ok(), "Should execute SHOW TABLES query");
@@ -67,19 +64,16 @@ mod tests {
     #[tokio::test]
     async fn build_engine_with_default_catalog() {
         let engine = Engine::builder()
-            .with_default_catalog_and_schema("probe", "probe")
+            .with_default_namespace("probe")
             .build()
             .unwrap();
 
-        assert_eq!(engine.default_schema(), "probe".to_string());
+        assert_eq!(engine.default_namespace(), "probe".to_string());
     }
 
     #[tokio::test]
     async fn execute_basic_queries() {
-        let engine = Engine::builder()
-            .with_information_schema(true)
-            .build()
-            .unwrap();
+        let engine = Engine::builder().build().unwrap();
 
         // Test SHOW TABLES
         let show_tables = engine.query("show tables");
