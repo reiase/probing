@@ -52,7 +52,7 @@ use probing_core::core::EngineExtensionOption;
 pub struct EnvExtension {}
 
 impl EnvExtension {
-    fn datasrc(
+    fn plugin(
         &self,
         namespace: &str,
         name: Option<&str>,

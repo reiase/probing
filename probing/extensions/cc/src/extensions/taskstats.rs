@@ -56,7 +56,7 @@ impl TaskStatsExtension {
 
 #[allow(unused)]
 impl TaskStatsExtension {
-    fn datasrc(
+    fn plugin(
         &self,
         namespace: &str,
         name: Option<&str>,

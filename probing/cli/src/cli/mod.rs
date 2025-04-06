@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_proto::prelude::{ProbeCall, QueryMessage};
+use probing_proto::prelude::{ProbeCall, Query};
 use process_monitor::ProcessMonitor;
 
 pub mod commands;
@@ -51,13 +51,13 @@ impl Cli {
                         } else {
                             setting.clone()
                         };
-                        ctrl::query(ctrl, QueryMessage::Query {
+                        ctrl::query(ctrl, Query {
                             expr: setting,
                             opts: None,
                         })
                     },
                     None => {
-                        ctrl::query(ctrl, QueryMessage::Query {
+                        ctrl::query(ctrl, Query {
                             expr: "select * from information_schema.df_settings where name like 'probing.%';".to_string(),
                             opts: None,
                         })
@@ -73,7 +73,7 @@ impl Cli {
             },//ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
             Commands::Query { query } => ctrl::query(
                 ctrl,
-                QueryMessage::Query {
+                Query {
                     expr: query.clone(),
                     opts: None,
                 },

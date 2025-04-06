@@ -73,6 +73,14 @@ fn test_macro() {
             self.managed_field_name3 = value;
             Ok(())
         }
+
+        fn plugin(
+            &self,
+            _ns: &str,
+            _name: Option<&str>,
+        ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+            None
+        }
     }
 
     let mut ext = TestExtension {

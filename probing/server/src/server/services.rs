@@ -71,41 +71,36 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
     RwLock::new(engine)
 });
 
-pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
-    if let QueryMessage::Query { expr, opts: _ } = request {
-        let resp = thread::spawn(move || {
-            tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(4)
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(async {
-                    let q = expr.clone();
-                    let engine = ENGINE.read().await;
+pub fn handle_query(request: Query) -> Result<QueryDataFormat> {
+    let Query { expr, opts: _ } = request;
+    let resp = thread::spawn(move || {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let q = expr.clone();
+                let engine = ENGINE.read().await;
 
-                    if q.starts_with("set") {
-                        for q in q.split(";") {
-                            match engine.sql(q).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    log::error!("Error executing query: {}", e);
-                                }
-                            };
-                        }
-                        Ok(QueryMessage::Nil)
-                    } else {
-                        engine.query(&expr).map(|data| QueryMessage::Reply {
-                            data: QueryDataFormat::DataFrame(data),
-                        })
+                if q.starts_with("set") {
+                    for q in q.split(";") {
+                        match engine.sql(q).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("Error executing query: {}", e);
+                            }
+                        };
                     }
-                })
-        })
-        .join()
-        .map_err(|_| anyhow::anyhow!("error joining thread"))??;
-        Ok(resp)
-    } else {
-        Err(anyhow::anyhow!("Invalid query message"))
-    }
+                    Ok(QueryDataFormat::Nil)
+                } else {
+                    engine.query(&expr).map(QueryDataFormat::DataFrame)
+                }
+            })
+    })
+    .join()
+    .map_err(|_| anyhow::anyhow!("error joining thread"))??;
+    Ok(resp)
 }
 
 // #[post("/probe")]
@@ -127,17 +122,15 @@ pub async fn probe(
 }
 
 pub async fn query(req: String) -> Result<String, AppError> {
-    let request = ron::from_str::<QueryMessage>(&req);
+    let request = ron::from_str::<Message<Query>>(&req);
     let request = match request {
-        Ok(request) => request,
+        Ok(request) => request.payload,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
 
     let reply = match handle_query(request) {
-        Ok(reply) => reply,
-        Err(err) => QueryMessage::Error {
-            message: err.to_string(),
-        },
+        Ok(reply) => Message::new(reply),
+        Err(err) => Message::new(QueryDataFormat::Error(err.to_string())),
     };
 
     Ok(ron::to_string(&reply)?)

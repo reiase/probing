@@ -63,7 +63,7 @@ pub struct FilesExtension {}
 
 #[allow(unused)]
 impl FilesExtension {
-    fn datasrc(
+    fn plugin(
         &self,
         namespace: &str,
         name: Option<&str>,

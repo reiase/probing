@@ -9,8 +9,8 @@ pub struct Options {
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Query {
-    expr: String,
-    opts: Option<Options>,
+    pub expr: String,
+    pub opts: Option<Options>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
@@ -20,20 +20,4 @@ pub enum Data {
     Error(String),
     DataFrame(DataFrame),
     TimeSeries(TimeSeries),
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub enum QueryMessage {
-    #[default]
-    Nil,
-    Query {
-        expr: String,
-        opts: Option<Options>,
-    },
-    Reply {
-        data: Data,
-    },
-    Error {
-        message: String,
-    },
 }

@@ -14,7 +14,7 @@ pub fn probe(ctrl: ProbeEndpoint, cmd: ProbeCall) -> Result<()> {
     Ok(())
 }
 
-pub fn query(ctrl: ProbeEndpoint, query: QueryMessage) -> Result<()> {
+pub fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
     let reply = ctrl.query(query)?;
     render_dataframe(&reply);
     Ok(())
@@ -83,19 +83,17 @@ impl ProbeEndpoint {
         Ok(ron::from_str::<ProbeCall>(&reply)?)
     }
 
-    pub fn query(&self, q: QueryMessage) -> Result<DataFrame> {
-        let q_str = ron::to_string(&q)?;
+    pub fn query(&self, q: Query) -> Result<DataFrame> {
+        let request = Message::new(q);
+        let q_str = ron::to_string(&request)?;
         let reply = self.send_request("/query", &q_str)?;
-        let reply = ron::from_str::<QueryMessage>(&reply)?;
+        let reply = ron::from_str::<Message<QueryDataFormat>>(&reply)?.payload;
 
-        if let QueryMessage::Reply { data } = reply {
-            let df = match data {
-                QueryDataFormat::DataFrame(data) => data,
-                _ => todo!(),
-            };
-            Ok(df)
-        } else {
-            Err(anyhow::anyhow!("unexpected reply: {:?}", reply))
+        match reply {
+            QueryDataFormat::Error(err) => Err(anyhow::anyhow!("error: {}", err)),
+            QueryDataFormat::Nil => Err(anyhow::anyhow!("error: nil")),
+            QueryDataFormat::DataFrame(df) => Ok(df),
+            QueryDataFormat::TimeSeries(_) => todo!(),
         }
     }
 }

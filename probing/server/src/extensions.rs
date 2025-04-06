@@ -49,6 +49,14 @@ impl ServerExtension {
         start_report_worker(self.report_addr.clone().into(), self.address.clone().into());
         Ok(())
     }
+
+    fn plugin(
+        &self,
+        _ns: &str,
+        _name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        None
+    }
 }
 
 #[cfg(test)]

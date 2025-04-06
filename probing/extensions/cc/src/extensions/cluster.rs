@@ -78,7 +78,7 @@ use probing_core::core::EngineExtensionOption;
 pub struct ClusterExtension {}
 
 impl ClusterExtension {
-    fn datasrc(
+    fn plugin(
         &self,
         namespace: &str,
         name: Option<&str>,

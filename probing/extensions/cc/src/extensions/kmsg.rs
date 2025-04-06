@@ -77,7 +77,7 @@ use probing_core::core::EngineExtensionOption;
 pub struct KMsgExtension {}
 
 impl KMsgExtension {
-    fn datasrc(
+    fn plugin(
         &self,
         namespace: &str,
         name: Option<&str>,

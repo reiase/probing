@@ -76,7 +76,7 @@ impl PythonExtension {
 }
 
 impl PythonExtension {
-    fn datasrc(
+    fn plugin(
         &self,
         namespace: &str,
         _name: Option<&str>,

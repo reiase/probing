@@ -26,7 +26,7 @@ impl ProtocolVersion {
     pub fn is_compatible_with(&self, other: &ProtocolVersion) -> bool {
         self.major == other.major
     }
-    
+
     /// Get the current protocol version
     pub fn current() -> Self {
         Self::default()
