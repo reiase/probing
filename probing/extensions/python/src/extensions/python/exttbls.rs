@@ -169,173 +169,183 @@ impl ExternalTable {
 }
 
 #[cfg(test)]
-mod specs {
-    use crate::{create_probing_module, extensions::python::PythonPlugin};
-
+mod tests {
     use super::*;
-
+    use crate::{create_probing_module, extensions::python::PythonPlugin};
     use probing_cc::extensions::envs::EnvPlugin;
     use probing_cc::extensions::files::FilesPlugin;
     use probing_core::core::Engine;
     use pyo3::ffi::c_str;
-    use rspec;
 
-    #[test]
-    fn external_table_specs() {
-        rspec::run(&rspec::describe("External Table in Python", (), |ctx| {
-            ctx.specify("External Table Rust APIs", |ctx| {
-                ctx.before_all(|_| {
-                    create_probing_module().unwrap();
-                });
+    fn setup() {
+        create_probing_module().unwrap();
+    }
 
-                ctx.it("should create a new table", |_| {
-                    let table =
-                        ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()]);
-                    assert_eq!(table.names(), vec!["a", "b"]);
-                });
-
-                ctx.it("should execute create table in python", |_| {
-                    Python::with_gil(|py| {
-                        create_probing_module().unwrap();
-                        py.run(
-                            c_str!(
-                                r#"
-import probing
-table = probing.ExternalTable.get_or_create("table2", ["a", "b"])
-"#
-                            ),
-                            None,
-                            None,
-                        )
-                        .unwrap();
-                        let binding = EXTERN_TABLES.lock().unwrap();
-                        let table1 = binding.get("table2");
-                        assert!(table1.is_some());
-                    });
-                });
-
-                ctx.it("should drop a table in python", |_| {
-                    Python::with_gil(|py| {
-                        py.run(
-                            c_str!(
-                                r#"
-import probing
-probing.ExternalTable.drop("table2")
-                        "#
-                            ),
-                            None,
-                            None,
-                        )
-                        .unwrap();
-                        let binding = EXTERN_TABLES.lock().unwrap();
-                        let table1 = binding.get("table2");
-                        assert!(table1.is_none());
-                    });
-                });
-            });
-
-            ctx.specify("Access External Table in Engine", |ctx| {
-                ctx.before_all(|_| {
-                    create_probing_module().unwrap();
-
-                    Python::with_gil(|py| {
-                        py.run(
-                            c_str!(
-                                r#"
+    fn setup_table3() {
+        setup();
+        Python::with_gil(|py| {
+            py.run(
+                c_str!(
+                    r#"
 import probing
 table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"])
 table3.append([1, 2])
 table3.append([3, 4])
 table3.append([5, 6])
-                        "#
-                            ),
-                            None,
-                            None,
-                        )
-                        .unwrap();
-                    });
-                });
+                "#
+                ),
+                None,
+                None,
+            )
+            .unwrap();
+        });
+    }
 
-                ctx.it("should see py table in engine", |_| {
-                    let engine = Engine::builder()
-                        .with_default_namespace("probe")
-                        .with_plugin( PythonPlugin::create("python"))
-                        .with_plugin( FilesPlugin::create("file"))
-                        .with_plugin( EnvPlugin::create("process", "envs"))
-                        .build()
-                        .unwrap();
-                    let tables = tokio::runtime::Builder::new_multi_thread()
-                        .worker_threads(4)
-                        .enable_all()
-                        .build()
-                        .unwrap()
-                        .block_on(async {
-                            engine
-                        .query(
-                            "select * from probe.information_schema.tables where table_name = 'table3' ",
-                        )
-                        .unwrap()
-                        });
-                    assert_eq!(tables.len(), 1);
-                });
+    #[test]
+    fn test_create_new_table() {
+        setup();
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(table.names(), vec!["a", "b"]);
+    }
 
-                ctx.it("should see py table data in engine", |_| {
-                    let engine = Engine::builder()
-                        .with_default_namespace("probe")
-                        .with_plugin( PythonPlugin::create("python"))
-                        .build()
-                        .unwrap();
-                    let tables = tokio::runtime::Builder::new_multi_thread()
-                        .worker_threads(4)
-                        .enable_all()
-                        .build()
-                        .unwrap()
-                        .block_on(async { engine.query("select * from python.table3 ").unwrap() });
-                    assert_eq!(tables.len(), 3);
-                });
+    #[test]
+    fn test_create_table_in_python() {
+        setup();
+        Python::with_gil(|py| {
+            py.run(
+                c_str!(
+                    r#"
+import probing
+table = probing.ExternalTable.get_or_create("table2", ["a", "b"])
+"#
+                ),
+                None,
+                None,
+            )
+            .unwrap();
+            let binding = EXTERN_TABLES.lock().unwrap();
+            let table1 = binding.get("table2");
+            assert!(table1.is_some());
+        });
+    }
 
-                ctx.it("should support calculate in sql", |_| {
-                    let engine = Engine::builder()
-                        .with_default_namespace("probe")
-                        .with_plugin( PythonPlugin::create("python"))
-                        .build()
-                        .unwrap();
-                    let tables = tokio::runtime::Builder::new_multi_thread()
-                        .worker_threads(4)
-                        .enable_all()
-                        .build()
-                        .unwrap()
-                        .block_on(async {
-                            engine
-                                .query(
-                                    "select a + b as c from python.table3 where a > 1",
-                                )
-                                .unwrap()
-                        });
-                    assert_eq!(tables.len(), 2);
-                });
+    #[test]
+    fn test_drop_table_in_python() {
+        setup();
+        Python::with_gil(|py| {
+            // Create the table first
+            py.run(
+                c_str!(
+                    r#"
+import probing
+probing.ExternalTable.get_or_create("table2", ["a", "b"])
+                    "#
+                ),
+                None,
+                None,
+            )
+            .unwrap();
 
-                ctx.it("should support calculate in sql", |_| {
-                    let engine = Engine::builder()
-                    .with_default_namespace("probe")
-                    .with_plugin( PythonPlugin::create("python"))
-                    .build()
-                    .unwrap();
-                    let tables = tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(4)
-                    .enable_all()
-                    .build()
+            // Now drop it
+            py.run(
+                c_str!(
+                    r#"
+import probing
+probing.ExternalTable.drop("table2")
+                    "#
+                ),
+                None,
+                None,
+            )
+            .unwrap();
+            let binding = EXTERN_TABLES.lock().unwrap();
+            let table1 = binding.get("table2");
+            assert!(table1.is_none());
+        });
+    }
+
+    #[test]
+    fn test_see_py_table_in_engine() {
+        setup_table3();
+        let engine = Engine::builder()
+            .with_default_namespace("probe")
+            .with_plugin(PythonPlugin::create("python"))
+            .with_plugin(FilesPlugin::create("file"))
+            .with_plugin(EnvPlugin::create("process", "envs"))
+            .build()
+            .unwrap();
+        let tables = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                engine
+                    .query(
+                        "select * from probe.information_schema.tables where table_name = 'table3' ",
+                    )
                     .unwrap()
-                    .block_on(async {
-                        engine
-                            .query(
-                                "select sum(a), sum(b) from python.table3",
-                            )
-                            .unwrap()
-                    });
-                    println!("{:?}", tables);
-                });
             });
-        }));
+        assert_eq!(tables.len(), 1);
+    }
+
+    #[test]
+    fn test_see_py_table_data_in_engine() {
+        setup_table3();
+        let engine = Engine::builder()
+            .with_default_namespace("probe")
+            .with_plugin(PythonPlugin::create("python"))
+            .build()
+            .unwrap();
+        let tables = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async { engine.query("select * from python.table3 ").unwrap() });
+        assert_eq!(tables.len(), 3);
+    }
+
+    #[test]
+    fn test_calculate_in_sql_with_filter() {
+        setup_table3();
+        let engine = Engine::builder()
+            .with_default_namespace("probe")
+            .with_plugin(PythonPlugin::create("python"))
+            .build()
+            .unwrap();
+        let tables = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                engine
+                    .query("select a + b as c from python.table3 where a > 1")
+                    .unwrap()
+            });
+        assert_eq!(tables.len(), 2);
+    }
+
+    #[test]
+    fn test_aggregate_in_sql() {
+        setup_table3();
+        let engine = Engine::builder()
+            .with_default_namespace("probe")
+            .with_plugin(PythonPlugin::create("python"))
+            .build()
+            .unwrap();
+        let tables = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                engine
+                    .query("select sum(a), sum(b) from python.table3")
+                    .unwrap()
+            });
+        println!("{:?}", tables);
+        assert!(!tables.is_empty());
     }
 }

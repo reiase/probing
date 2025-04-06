@@ -38,7 +38,6 @@ pprof = { version = "0.14.0", features = [
 signal-hook-registry = "1.4.2"
 
 [dev-dependencies]
-rspec = "1"
 tokio = { workspace = true }
 
 [build-dependencies]
