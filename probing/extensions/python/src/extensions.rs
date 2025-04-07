@@ -1,11 +1,9 @@
 mod pprof;
-mod python;
-mod taskstats;
+pub mod python;
 mod torch;
 
 pub use pprof::PprofExtension;
 pub use python::PythonExtension;
-pub use taskstats::TaskStatsExtension;
 pub use torch::TorchExtension;
 
 // #[derive(Debug, Default)]

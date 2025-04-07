@@ -1,5 +1,4 @@
 use crate::inject::{LibcAddrs, Process};
-// use eyre::{eyre, Context, Result};
 use anyhow::Context;
 use anyhow::Result;
 use std::os::unix::ffi::OsStringExt;
@@ -276,7 +275,7 @@ impl<'a> Injection<'a> {
                         .restart(tracee, pete::Restart::Continue)
                         .context("re-resuming tracee to wait for trap failed")?;
                 }
-            };
+            }
         }
         Err(anyhow::anyhow!(
             "tracee exited while we were waiting for trap"
@@ -321,6 +320,6 @@ impl Drop for Injection<'_> {
             .context("removing injection from drop impl failed")
         {
             log::error!("Failed to remove injection: {e}");
-        };
+        }
     }
 }

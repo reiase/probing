@@ -5,8 +5,6 @@ use pprof::ProfilerGuard;
 use pprof::ProfilerGuardBuilder;
 use std::sync::Mutex;
 
-// use hyperparameter::*;
-
 pub struct PprofHolder(Mutex<Option<ProfilerGuard<'static>>>);
 
 impl PprofHolder {

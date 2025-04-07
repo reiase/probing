@@ -1,3 +1,5 @@
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -12,21 +14,25 @@ pub struct PprofExtension {
     pprof_sample_freq: Maybe<i32>,
 }
 
+impl EngineCall for PprofExtension {}
+
+impl EngineDatasource for PprofExtension {}
+
 impl PprofExtension {
     fn set_pprof_sample_freq(&mut self, pprof_sample_freq: Maybe<i32>) -> Result<(), EngineError> {
         match self.pprof_sample_freq {
-            Maybe::Just(_) => Err(EngineError::InvalidOption(
+            Maybe::Just(_) => Err(EngineError::InvalidOptionValue(
                 "pprof.sample_freq".to_string(),
                 pprof_sample_freq.clone().into(),
             )),
             Maybe::Nothing => match pprof_sample_freq {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "pprof.sample_freq".to_string(),
                     pprof_sample_freq.clone().into(),
                 )),
                 Maybe::Just(freq) => {
                     if freq < 1 {
-                        return Err(EngineError::InvalidOption(
+                        return Err(EngineError::InvalidOptionValue(
                             "pprof.sample_freq".to_string(),
                             pprof_sample_freq.clone().into(),
                         ));

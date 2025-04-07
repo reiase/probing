@@ -1,33 +1,23 @@
 use serde::{Deserialize, Serialize};
 
+use crate::types::{DataFrame, TimeSeries};
+
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Options {
     pub limit: Option<usize>,
-    pub format: Format,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum Format {
-    JSON,
-    RON,
-    BITCODE,
-    #[default]
-    ARROW,
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct Query {
+    pub expr: String,
+    pub opts: Option<Options>,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub enum Message {
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub enum Data {
     #[default]
     Nil,
-    Query {
-        expr: String,
-        opts: Option<Options>,
-    },
-    Reply {
-        data: Vec<u8>,
-        format: Format,
-    },
-    Error {
-        message: String,
-    },
+    Error(String),
+    DataFrame(DataFrame),
+    TimeSeries(TimeSeries),
 }

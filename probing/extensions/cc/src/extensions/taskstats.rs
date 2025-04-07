@@ -1,9 +1,14 @@
 use std::time::Duration;
 
+use datasrc::TaskStatsPlugin;
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+
+mod datasrc;
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct TaskStatsExtension {
@@ -12,37 +17,48 @@ pub struct TaskStatsExtension {
     task_stats_interval: Maybe<i64>,
 }
 
+impl EngineCall for TaskStatsExtension {}
+
+#[allow(unused)]
+impl EngineDatasource for TaskStatsExtension {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        Some(TaskStatsPlugin::create(namespace))
+    }
+}
+
 impl TaskStatsExtension {
     fn set_task_stats_interval(
         &mut self,
         task_stats_interval: Maybe<i64>,
     ) -> Result<(), EngineError> {
         match self.task_stats_interval {
-            Maybe::Just(_) => Err(EngineError::InvalidOption(
+            Maybe::Just(_) => Err(EngineError::InvalidOptionValue(
                 "taskstats.interval".to_string(),
                 task_stats_interval.clone().into(),
             )),
             Maybe::Nothing => match task_stats_interval {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "taskstats.interval".to_string(),
                     task_stats_interval.clone().into(),
                 )),
                 Maybe::Just(interval) => {
                     if interval < 0 {
-                        return Err(EngineError::InvalidOption(
+                        return Err(EngineError::InvalidOptionValue(
                             "taskstats.interval".to_string(),
                             task_stats_interval.clone().into(),
                         ));
                     }
                     self.task_stats_interval = task_stats_interval.clone();
-                    match probing_cc::TaskStatsWorker::instance().start(
-                        probing_cc::TaskStatsConfig {
-                            interval: Duration::from_millis(interval as u64),
-                            iterations: None,
-                        },
-                    ) {
+                    match datasrc::TaskStatsWorker::instance().start(datasrc::TaskStatsConfig {
+                        interval: Duration::from_millis(interval as u64),
+                        iterations: None,
+                    }) {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOption(
+                        Err(_) => Err(EngineError::InvalidOptionValue(
                             "taskstats.interval".to_string(),
                             interval.to_string(),
                         )),

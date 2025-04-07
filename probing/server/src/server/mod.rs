@@ -8,7 +8,7 @@ use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
-use probing_proto::prelude::QueryMessage;
+use probing_proto::prelude::Query;
 use services::{handle_query, index, probe, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
@@ -118,7 +118,7 @@ pub fn sync_env_settings() {
             {
                 let k = k.replace("_", ".").to_lowercase();
                 let setting = format!("set {}={}", k, v);
-                match handle_query(QueryMessage::Query {
+                match handle_query(Query {
                     expr: setting.clone(),
                     opts: None,
                 }) {

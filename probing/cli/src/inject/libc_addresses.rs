@@ -39,13 +39,13 @@ impl LibcAddrs {
     fn find_dlopen() -> Result<(bool, u64)> {
         if let Ok(addr) = Self::addr_of("libc.so.6", "___dlopen") {
             return Ok((false, addr));
-        };
+        }
         if let Ok(addr) = Self::addr_of("libc.so.6", "dlopen") {
             return Ok((false, addr));
-        };
+        }
         if let Ok(addr) = Self::addr_of("libdl.so.2", "dlopen") {
             return Ok((true, addr));
-        };
+        }
         anyhow::bail!("Could not find dlopen in libc or libdl")
     }
 
@@ -53,7 +53,7 @@ impl LibcAddrs {
     fn for_current_process() -> Result<Self> {
         let (use_libdl, dlopen_addr) = Self::find_dlopen()?;
         let addrs = Self {
-            use_libdl: use_libdl,
+            use_libdl,
             malloc: Self::addr_of("libc.so.6", "malloc")?,
             free: Self::addr_of("libc.so.6", "free")?,
             putenv: Self::addr_of("libc.so.6", "putenv")?,

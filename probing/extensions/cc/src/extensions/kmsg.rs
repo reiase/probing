@@ -6,7 +6,7 @@ use rmesg::entry::{LogFacility, LogLevel};
 use rmesg::log_entries;
 use rmesg::Backend;
 
-use probing_core::core::{CustomTable, TablePluginHelper};
+use probing_core::core::{CustomTable, EngineCall, EngineDatasource, TablePluginHelper};
 
 #[derive(Default, Debug)]
 pub struct KMsgTable {}
@@ -68,3 +68,25 @@ impl CustomTable for KMsgTable {
 }
 
 pub type KMsgPlugin = TablePluginHelper<KMsgTable>;
+
+use probing_core::core::EngineError;
+use probing_core::core::EngineExtension;
+use probing_core::core::EngineExtensionOption;
+
+#[derive(Debug, Default, EngineExtension)]
+pub struct KMsgExtension {}
+
+impl EngineCall for KMsgExtension {}
+
+impl EngineDatasource for KMsgExtension {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        match name {
+            Some(name) => Some(KMsgPlugin::create(namespace, name)),
+            None => None,
+        }
+    }
+}

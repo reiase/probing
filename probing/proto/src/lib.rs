@@ -20,8 +20,9 @@ pub struct DebugState {
 }
 
 pub mod prelude {
-    pub use crate::protocol::query::Format as QueryDataFormat;
-    pub use crate::protocol::query::Message as QueryMessage;
+    pub use crate::protocol::query::Data as QueryDataFormat;
+    pub use crate::protocol::query::Query;
+    // pub use crate::protocol::query::QueryMessage as QueryMessage;
     pub use crate::protocol::query::Options as QueryOptions;
 
     pub use crate::protocol::cluster::Cluster;
@@ -35,4 +36,7 @@ pub mod prelude {
     pub use crate::protocol::probe::Probe;
     pub use crate::protocol::probe::ProbeCall;
     pub use crate::protocol::probe::ProbeFactory;
+
+    pub use crate::protocol::message::Message;
+    pub use crate::protocol::version::ProtocolVersion;
 }

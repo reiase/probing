@@ -6,8 +6,8 @@ use anyhow::Result;
 
 use log::error;
 use probing_core::core::{
-    ArrayRef, CustomSchema, DataType, Field, Float64Array, Int64Array, RecordBatch, Schema,
-    SchemaPluginHelper, SchemaRef, StringArray,
+    ArrayRef, CustomNamespace, DataType, Field, Float64Array, Int64Array, NamespacePluginHelper,
+    RecordBatch, Schema, SchemaRef, StringArray,
 };
 use probing_core::core::{Float32Array, Int32Array, LazyTableSource};
 use probing_proto::types::Ele;
@@ -24,22 +24,22 @@ use pyo3::PyAny;
 use pyo3::Python;
 
 #[derive(Default, Debug)]
-pub struct PythonSchema {}
+pub struct PythonNamespace {}
 
-impl CustomSchema for PythonSchema {
+impl CustomNamespace for PythonNamespace {
     fn name() -> &'static str {
         "python"
     }
 
     fn list() -> Vec<String> {
-        let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
         binding.keys().cloned().collect()
     }
 
     fn data(expr: &str) -> Vec<RecordBatch> {
         if Self::list().contains(&expr.to_string()) {
             {
-                let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+                let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
                 let table = binding.get(expr).unwrap();
                 let names = table.lock().unwrap().names.clone();
                 let ts = &table.lock().unwrap();
@@ -98,7 +98,7 @@ impl CustomSchema for PythonSchema {
     }
 
     fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>> {
-        let binding = super::external_tables::EXTERN_TABLES.lock().unwrap();
+        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
 
         let schema = if binding.contains_key(expr) {
             let table = binding.get(expr).unwrap();
@@ -139,7 +139,7 @@ impl CustomSchema for PythonSchema {
     }
 }
 
-impl PythonSchema {
+impl PythonNamespace {
     pub fn time_series_to_recordbatch(
         names: Vec<String>,
         ts: &TimeSeries,
@@ -360,4 +360,4 @@ impl PythonSchema {
     }
 }
 
-pub type PythonPlugin = SchemaPluginHelper<PythonSchema>;
+pub type PythonPlugin = NamespacePluginHelper<PythonNamespace>;

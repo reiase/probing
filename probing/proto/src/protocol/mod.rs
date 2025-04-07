@@ -1,6 +1,6 @@
 pub mod cluster;
-// pub mod dataframe;
+pub mod message;
 pub mod probe;
 pub mod process;
 pub mod query;
-// pub mod timeseries;
+pub mod version;

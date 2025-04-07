@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, thread};
 use anyhow::Result;
 use inferno;
 
-use crate::plugins::python::PythonPlugin;
+use crate::extensions::python::PythonPlugin;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Frame {

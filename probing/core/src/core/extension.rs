@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use datafusion::config::{ConfigExtension, ExtensionOptions};
 
 use super::error::EngineError;
+use super::Plugin;
 
 #[derive(Clone, Debug, Default)]
 pub enum Maybe<T> {
@@ -68,6 +69,45 @@ pub struct EngineExtensionOption {
     pub key: String,
     pub value: Option<String>,
     pub help: &'static str,
+}
+
+/// Extension trait for handling API calls
+#[allow(unused)]
+pub trait EngineCall: Debug + Send + Sync {
+    /// Handle API calls to the extension
+    ///
+    /// # Arguments
+    /// * `path` - The path component of the API call
+    /// * `params` - URL query parameters
+    /// * `body` - Request body data
+    ///
+    /// # Returns
+    /// * `Ok(Vec<u8>)` - Response data on success
+    /// * `Err(EngineError)` - Error information on failure
+    fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+        Err(EngineError::UnsupportedCall)
+    }
+}
+
+/// Extension trait for providing data sources
+#[allow(unused)]
+pub trait EngineDatasource: Debug + Send + Sync {
+    /// Provide a data source plugin implementation
+    ///
+    /// # Arguments
+    /// * `namespace` - The namespace for the data source
+    /// * `name` - Optional name of the specific data source
+    ///
+    /// # Returns
+    /// * `Some(Arc<dyn Plugin>)` - Data source plugin if available
+    /// * `None` - If no matching data source is available
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<Arc<dyn Plugin + Sync + Send>> {
+        None
+    }
 }
 
 /// A trait for engine extensions that can be configured with key-value pairs.
@@ -131,7 +171,8 @@ pub struct EngineExtensionOption {
 /// assert_eq!(ext.set("some_option", "new").unwrap(), "default");
 /// assert_eq!(ext.get("some_option").unwrap(), "new");
 /// ```
-pub trait EngineExtension: Debug + Send + Sync {
+#[allow(unused)]
+pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
     fn name(&self) -> String;
     fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
         todo!()
@@ -141,9 +182,6 @@ pub trait EngineExtension: Debug + Send + Sync {
     }
     fn options(&self) -> Vec<EngineExtensionOption> {
         todo!()
-    }
-    fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
-        Err(EngineError::UnsupportedCall)
     }
 }
 
@@ -231,7 +269,7 @@ impl EngineExtensionManager {
     }
 
     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             if let Ok(mut ext) = extension.lock() {
                 match ext.set(key, value) {
                     Ok(old) => {
@@ -247,7 +285,7 @@ impl EngineExtensionManager {
     }
 
     pub fn get_option(&self, key: &str) -> Result<String, EngineError> {
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
                 if let Ok(value) = ext.get(key) {
                     log::info!("setting read [{}]:{key}={value}", ext.name());
@@ -260,14 +298,14 @@ impl EngineExtensionManager {
 
     pub fn options(&self) -> Vec<EngineExtensionOption> {
         let mut options = Vec::new();
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             options.extend(extension.lock().unwrap().options());
         }
         options
     }
 
     pub fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
-        for (_, extension) in &self.extensions {
+        for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
                 let name = ext.name();
                 if !path.starts_with(format!("/{}/", name).as_str()) {

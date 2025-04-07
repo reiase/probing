@@ -1,5 +1,7 @@
 use std::ffi::CStr;
 
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -15,24 +17,28 @@ pub struct TorchExtension {
     torch_sample_ratio: Maybe<f64>,
 }
 
+impl EngineCall for TorchExtension {}
+
+impl EngineDatasource for TorchExtension {}
+
 impl TorchExtension {
     fn set_torch_sample_ratio(
         &mut self,
         torch_sample_ratio: Maybe<f64>,
     ) -> Result<(), EngineError> {
         match self.torch_sample_ratio {
-            Maybe::Just(_) => Err(EngineError::InvalidOption(
+            Maybe::Just(_) => Err(EngineError::InvalidOptionValue(
                 "torch.sample_ratio".to_string(),
                 torch_sample_ratio.clone().into(),
             )),
             Maybe::Nothing => match torch_sample_ratio {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "torch.sample_ratio".to_string(),
                     torch_sample_ratio.clone().into(),
                 )),
                 Maybe::Just(sample_ratio) => {
                     if sample_ratio < 0.0 {
-                        return Err(EngineError::InvalidOption(
+                        return Err(EngineError::InvalidOptionValue(
                             "torch.sample_ratio".to_string(),
                             torch_sample_ratio.clone().into(),
                         ));
@@ -61,7 +67,7 @@ impl TorchExtension {
                         Err(anyhow::anyhow!("unsupported setting {}={}", key, value))
                     } {
                         Ok(_) => Ok(()),
-                        Err(err) => Err(EngineError::InvalidOption(key, value)),
+                        Err(_) => Err(EngineError::InvalidOptionValue(key, value)),
                     }
                 }
             },

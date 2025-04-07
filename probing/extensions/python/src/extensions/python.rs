@@ -1,11 +1,20 @@
+pub use exttbls::ExternalTable;
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+pub use tbls::PythonPlugin;
 
 use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
+
+mod exttbls;
+mod tbls;
+
+pub use tbls::PythonNamespace;
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExtension {
@@ -18,6 +27,18 @@ pub struct PythonExtension {
     monitoring: Maybe<String>,
 }
 
+impl EngineCall for PythonExtension {}
+
+impl EngineDatasource for PythonExtension {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        _name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        Some(PythonPlugin::create(namespace))
+    }
+}
+
 impl PythonExtension {
     fn set_crash_handler(&mut self, crash_handler: Maybe<String>) -> Result<(), EngineError> {
         match self.crash_handler {
@@ -25,7 +46,7 @@ impl PythonExtension {
                 "python.crash_handler".to_string(),
             )),
             Maybe::Nothing => match &crash_handler {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "python.crash_handler".to_string(),
                     crash_handler.clone().into(),
                 )),
@@ -34,7 +55,7 @@ impl PythonExtension {
                     CRASH_HANDLER.lock().unwrap().replace(handler.to_string());
                     match enable_crash_handler() {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOption(
+                        Err(_) => Err(EngineError::InvalidOptionValue(
                             "python.crash_handler".to_string(),
                             handler.to_string(),
                         )),
@@ -49,7 +70,7 @@ impl PythonExtension {
         match self.monitoring {
             Maybe::Just(_) => Err(EngineError::ReadOnlyOption("python.monitoring".to_string())),
             Maybe::Nothing => match &monitoring {
-                Maybe::Nothing => Err(EngineError::InvalidOption(
+                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
                     "python.monitoring".to_string(),
                     monitoring.clone().into(),
                 )),
@@ -57,7 +78,7 @@ impl PythonExtension {
                     self.monitoring = monitoring.clone();
                     match enable_monitoring(handler) {
                         Ok(_) => Ok(()),
-                        Err(e) => Err(EngineError::InvalidOption(
+                        Err(_) => Err(EngineError::InvalidOptionValue(
                             "python.monitoring".to_string(),
                             handler.to_string(),
                         )),

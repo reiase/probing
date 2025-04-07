@@ -1,4 +1,6 @@
-use probing_core::core::{EngineError, EngineExtension, EngineExtensionOption, Maybe};
+use probing_core::core::{
+    EngineCall, EngineDatasource, EngineError, EngineExtension, EngineExtensionOption, Maybe,
+};
 
 use crate::{start_remote, start_report_worker};
 
@@ -18,6 +20,10 @@ pub struct ServerExtension {
     report_addr: Maybe<String>,
 }
 
+impl EngineCall for ServerExtension {}
+
+impl EngineDatasource for ServerExtension {}
+
 impl Default for ServerExtension {
     fn default() -> Self {
         Self {
@@ -33,7 +39,7 @@ impl ServerExtension {
         self.address = address.clone();
         let address: String = address.clone().into();
         address.parse::<std::net::SocketAddr>().map_err(|_| {
-            EngineError::InvalidOption("server.address".to_string(), address.to_string())
+            EngineError::InvalidOptionValue("server.address".to_string(), address.to_string())
         })?;
         start_remote(address.into());
         Ok(())

@@ -10,7 +10,6 @@ use axum::response::Response;
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
-use probing_cc::TaskStatsPlugin;
 use probing_core::core::Engine;
 use probing_proto::prelude::*;
 use probing_python::PythonProbe;
@@ -20,19 +19,47 @@ use crate::asset;
 pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
     Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
-    use probing_cc::plugins::ClusterPlugin;
-    use probing_python::plugins::python::PythonPlugin;
-
     let engine = match probing_core::create_engine()
-        // .with_extension_options(ProbingOptions::default())
-        .with_plugin(PythonPlugin::create("python"))
-        .with_plugin(ClusterPlugin::create("cluster", "nodes"))
-        .with_plugin(TaskStatsPlugin::create("taskstats"))
-        .with_engine_extension::<probing_python::extensions::PprofExtension>()
-        .with_engine_extension::<probing_python::extensions::TorchExtension>()
-        .with_engine_extension::<probing_python::extensions::PythonExtension>()
-        .with_engine_extension::<probing_python::extensions::TaskStatsExtension>()
-        .with_engine_extension::<crate::extensions::ServerExtension>()
+        .with_extension(
+            probing_python::extensions::PprofExtension::default(),
+            "pprof",
+            None,
+        )
+        .with_extension(
+            probing_python::extensions::TorchExtension::default(),
+            "torch",
+            None,
+        )
+        .with_extension(
+            crate::extensions::ServerExtension::default(),
+            "server",
+            None,
+        )
+        .with_extension(
+            probing_python::extensions::PythonExtension::default(),
+            "python",
+            None,
+        )
+        .with_extension(
+            probing_cc::extensions::TaskStatsExtension::default(),
+            "taskstats",
+            None,
+        )
+        .with_extension(
+            probing_cc::extensions::ClusterExtension::default(),
+            "cluster",
+            Some("nodes"),
+        )
+        .with_extension(
+            probing_cc::extensions::EnvExtension::default(),
+            "process",
+            Some("envs"),
+        )
+        .with_extension(
+            probing_cc::extensions::FilesExtension::default(),
+            "files",
+            None,
+        )
         .build()
     {
         Ok(engine) => engine,
@@ -44,43 +71,36 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
     RwLock::new(engine)
 });
 
-pub fn handle_query(request: QueryMessage) -> Result<QueryMessage> {
-    if let QueryMessage::Query { expr, opts: _ } = request {
-        let resp = thread::spawn(move || {
-            tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(4)
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(async {
-                    let q = expr.clone();
-                    let engine = ENGINE.read().await;
+pub fn handle_query(request: Query) -> Result<QueryDataFormat> {
+    let Query { expr, opts: _ } = request;
+    let resp = thread::spawn(move || {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let q = expr.clone();
+                let engine = ENGINE.read().await;
 
-                    if q.starts_with("set") {
-                        for q in q.split(";") {
-                            match engine.sql(q).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    log::error!("Error executing query: {}", e);
-                                }
-                            };
-                        }
-                        Ok(vec![])
-                    } else {
-                        engine.execute(&expr, "ron")
+                if q.starts_with("set") {
+                    for q in q.split(";") {
+                        match engine.sql(q).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("Error executing query: {}", e);
+                            }
+                        };
                     }
-                })
-        })
-        .join()
-        .map_err(|_| anyhow::anyhow!("error joining thread"))??;
-
-        Ok(QueryMessage::Reply {
-            data: resp,
-            format: QueryDataFormat::RON,
-        })
-    } else {
-        Err(anyhow::anyhow!("Invalid query message"))
-    }
+                    Ok(QueryDataFormat::Nil)
+                } else {
+                    engine.query(&expr).map(QueryDataFormat::DataFrame)
+                }
+            })
+    })
+    .join()
+    .map_err(|_| anyhow::anyhow!("error joining thread"))??;
+    Ok(resp)
 }
 
 // #[post("/probe")]
@@ -102,17 +122,15 @@ pub async fn probe(
 }
 
 pub async fn query(req: String) -> Result<String, AppError> {
-    let request = ron::from_str::<QueryMessage>(&req);
+    let request = ron::from_str::<Message<Query>>(&req);
     let request = match request {
-        Ok(request) => request,
+        Ok(request) => request.payload,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
 
     let reply = match handle_query(request) {
-        Ok(reply) => reply,
-        Err(err) => QueryMessage::Error {
-            message: err.to_string(),
-        },
+        Ok(reply) => Message::new(reply),
+        Err(err) => Message::new(QueryDataFormat::Error(err.to_string())),
     };
 
     Ok(ron::to_string(&reply)?)

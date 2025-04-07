@@ -2,6 +2,8 @@ use std::convert::Infallible;
 use std::fmt::Display;
 use std::str::FromStr;
 
+use probing_core::core::EngineCall;
+use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
@@ -38,6 +40,7 @@ impl<T: Display> Display for Maybe<T> {
 
 #[test]
 fn test_macro() {
+    #[allow(unused)]
     #[derive(Debug, EngineExtension)]
     struct TestExtension {
         /// describe managed_field_name1
@@ -56,6 +59,10 @@ fn test_macro() {
         /// this is a unmanaged field
         unmanaged_field_name: i64,
     }
+
+    impl EngineCall for TestExtension {}
+
+    impl EngineDatasource for TestExtension {}
 
     impl TestExtension {
         fn set_managed_field_name1(&mut self, value: i32) -> Result<(), EngineError> {

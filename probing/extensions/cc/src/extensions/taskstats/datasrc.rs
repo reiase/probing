@@ -12,12 +12,13 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use probing_core::core::{
-    ArrayRef, CustomSchema, DataType, Field, Float32Array, Float64Array, Int32Array, Int64Array,
-    RecordBatch, Schema, SchemaPluginHelper, SchemaRef, StringArray,
+    ArrayRef, CustomNamespace, DataType, Field, Float32Array, Float64Array, Int32Array, Int64Array,
+    NamespacePluginHelper, RecordBatch, Schema, SchemaRef, StringArray,
 };
 
 use probing_proto::types::{self, Ele, TimeSeries};
 
+#[allow(unused)]
 #[derive(Error, Debug)]
 pub enum WorkerError {
     #[error("Worker already running")]
@@ -112,6 +113,7 @@ impl TaskStatsWorker {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn stop(&self) -> Result<(), WorkerError> {
         if !self.running.swap(false, Ordering::SeqCst) {
             return Ok(());
@@ -134,7 +136,7 @@ impl TaskStatsWorker {
 #[derive(Default, Debug)]
 pub struct TaskStatsSchema {}
 
-impl CustomSchema for TaskStatsSchema {
+impl CustomNamespace for TaskStatsSchema {
     fn name() -> &'static str {
         "process"
     }
@@ -184,7 +186,7 @@ impl CustomSchema for TaskStatsSchema {
     }
 }
 
-pub type TaskStatsPlugin = SchemaPluginHelper<TaskStatsSchema>;
+pub type TaskStatsPlugin = NamespacePluginHelper<TaskStatsSchema>;
 
 pub fn time_series_to_recordbatch(names: Vec<String>, ts: &TimeSeries) -> Result<Vec<RecordBatch>> {
     let mut fields: Vec<Field> = vec![];
