@@ -1,4 +1,5 @@
 pub mod core;
+pub mod store;
 
 use self::core::Engine;
 use self::core::EngineBuilder;
