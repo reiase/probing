@@ -9,7 +9,7 @@ members = [
     "probing/extensions/cc",
     "probing/extensions/python",
     "probing/server",
-
+    "probing/crates/store",
 ]
 
 [workspace.package]

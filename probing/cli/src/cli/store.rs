@@ -1,17 +1,17 @@
 use anyhow::Result;
 
 use clap::Args;
-use clap::Subcommand;
 use clap::Parser;
+use clap::Subcommand;
 
-use probing_core::store::TCPStore;
+use probing_store::store::TCPStore;
 
 // 包装结构体，包含共享参数和子命令
 #[derive(Parser, Debug)]
 pub struct StoreCommand {
     #[command(flatten)]
     pub args: StoreArgs,
-    
+
     #[command(subcommand)]
     pub command: StoreSubCommand,
 }

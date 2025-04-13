@@ -2697,8 +2697,8 @@ dependencies = [
  "log",
  "nix 0.29.0",
  "pete",
- "probing-core",
  "probing-proto",
+ "probing-store",
  "procfs",
  "ron",
  "serde_json",
@@ -2795,6 +2795,20 @@ dependencies = [
  "serde_json",
  "tokio",
  "ureq",
+]
+
+[[package]]
+name = "probing-store"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "arrow",
+ "futures",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.11",
+ "tokio",
 ]
 
 [[package]]

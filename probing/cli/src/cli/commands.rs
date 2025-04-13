@@ -40,6 +40,6 @@ pub enum Commands {
     },
 
     /// Access various storage backends
-    #[command(subcommand=false, hide=true)]
+    #[command(subcommand = false, hide = true)]
     Store(StoreCommand),
 }

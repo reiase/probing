@@ -11,7 +11,8 @@ path = "src/main.rs"
 
 [dependencies]
 probing-proto = { path = "../proto", default-features = false, features = [] }
-probing-core = { path = "../core", default-features = false, features = [] }
+probing-store = { path = "../crates/store", default-features = false, features = [
+] }
 
 
 anyhow = { workspace = true }

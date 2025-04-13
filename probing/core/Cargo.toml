@@ -7,7 +7,7 @@ license.workspace = true
 description = "Core library for the Probing framework, providing essential data analysis and inspection capabilities"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 probing-proto = { path = "../proto" }
