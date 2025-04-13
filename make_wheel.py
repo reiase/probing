@@ -74,7 +74,7 @@ def write_probing_wheel(
         "version": workspace_meta.get("version") or package_meta.get("version"),
         "authors": workspace_meta.get("authors", []) or package_meta.get("authors", []),
         "license": workspace_meta.get("license") or package_meta.get("license", ""),
-        "description": package_meta.get("description", ""),  # Only in package
+        "description": workspace_meta.get("description", "") or package_meta.get("description", ""),  # Only in package
         "repository": package_meta.get("repository", ""),  # Only in package
         "homepage": package_meta.get("homepage", ""),  # Only in package
         "keywords": package_meta.get("keywords", []),  # Only in package

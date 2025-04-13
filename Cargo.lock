@@ -2764,6 +2764,7 @@ dependencies = [
  "probing-cc",
  "probing-core",
  "probing-proto",
+ "probing-store",
  "pyo3",
  "pyo3-build-config",
  "serde_json",
