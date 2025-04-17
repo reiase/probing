@@ -93,17 +93,36 @@ def write_probing_wheel(
         zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
         with open(path, "rb") as f:
             contents[zip_info] = f.read()
-
-    python_dir = pathlib.Path("python")
-    for root, _, files in os.walk(python_dir):
-        for file in files:
-            if file.endswith(".py"):
-                file_path = pathlib.Path(root)/file
-                pkg_path = file_path.relative_to(python_dir)
-                with open(file_path, "rb") as f:
+                    
+    def add_python_files_recursively(directory, contents, base_dir):
+        """Recursively add Python files from directory to contents.
+        
+        Args:
+            directory: The directory to process
+            contents: The dict to add files to
+            base_dir: The base directory for relative paths
+        """
+        dir_path = pathlib.Path(directory)
+        
+        # Process all entries in the directory
+        for entry in dir_path.iterdir():
+            if entry.is_file() and entry.suffix == '.py':
+                # Handle Python file
+                pkg_path = entry.relative_to(base_dir)
+                with open(entry, "rb") as f:
                     zip_info = ZipInfo(str(pkg_path))
+                    zip_info.external_attr = 0o644 << 16
                     contents[zip_info] = f.read()
                     print(f"add file: {pkg_path}")
+            elif entry.is_dir():
+                # Recursively process subdirectory
+                add_python_files_recursively(entry, contents, base_dir)
+    
+    python_dir = pathlib.Path("python")
+    add_python_files_recursively(python_dir, contents, python_dir)
+
+    pth_info = ZipInfo(f"probing.pth")
+    contents[pth_info] = "import probing_hook".encode("utf-8")
 
     with open("README.md", "rb") as f:
         description = f.read()
