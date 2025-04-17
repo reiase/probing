@@ -108,10 +108,7 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
             eprintln!("sending ctrl commands via unix socket...");
             let prefix = "\0".to_string();
             let path = format!("{}probing-{}", prefix, pid);
-            let path = std::path::Path::new(&path);
-            if !path.exists() {
-                anyhow::bail!("server not found: {}", path.display());
-            }
+
             let stream = tokio::net::UnixStream::connect(path).await?;
             let io = TokioIo::new(stream);
 
