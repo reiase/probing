@@ -1,5 +1,7 @@
 use clap::Subcommand;
 
+use super::store::StoreCommand;
+
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     #[command(visible_aliases = ["inj", "i"])]
@@ -36,4 +38,8 @@ pub enum Commands {
         #[arg()]
         args: Vec<String>,
     },
+
+    /// Access various storage backends
+    #[command(subcommand = false, hide = true)]
+    Store(StoreCommand),
 }

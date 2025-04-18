@@ -10,6 +10,11 @@ name = "probing"
 path = "src/main.rs"
 
 [dependencies]
+probing-proto = { path = "../proto", default-features = false, features = [] }
+probing-store = { path = "../crates/store", default-features = false, features = [
+] }
+
+
 anyhow = { workspace = true }
 log = { workspace = true }
 procfs = { workspace = true }
@@ -21,7 +26,6 @@ nix = { workspace = true }
 env_logger = { version = "0.11.3", default-features = false, features = [
     "humantime",
 ] }
-probing-proto = { path = "../proto", default-features = false, features = [] }
 http-body-util = { version = "0.1" }
 hyper = { version = "1.3.1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }

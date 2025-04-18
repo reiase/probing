@@ -7,6 +7,7 @@ pub mod commands;
 pub mod ctrl;
 pub mod inject;
 pub mod process_monitor;
+pub mod store;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
@@ -80,6 +81,9 @@ impl Cli {
             ),
             Commands::Launch { recursive, args } => {
                 ProcessMonitor::new(args, *recursive)?.monitor()
+            }
+            Commands::Store(cmd) => {
+                cmd.run()
             }
         }
     }

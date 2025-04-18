@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate ctor;
 
+mod pkg;
+
 pub mod extensions;
 pub mod flamegraph;
 pub mod pprof;
@@ -16,6 +18,7 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use log::error;
+use pkg::TCPStore;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -170,6 +173,7 @@ pub fn create_probing_module() -> PyResult<()> {
         }
         m.setattr(pyo3::intern!(py, "_C"), 42)?;
         m.add_class::<ExternalTable>()?;
+        m.add_class::<TCPStore>()?;
 
         Ok(())
     })

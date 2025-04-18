@@ -9,28 +9,16 @@ _ALL_ = [
 
 VERSION = "0.2.0"
 
-def init(listen=None):
+def init():
     """
     Initialize probing by loading the libprobing.so dynamic library.
-    
-    Args:
-        listen (str, optional): Address to listen on for remote connections.
-                               Format: '<ip>:<port>', e.g., '127.0.0.1:9922'
-    
-    Returns:
-        The loaded library object.
     
     Raises:
         ImportError: If the library cannot be found or loaded.
     """
     import ctypes
-    import os
     import pathlib
     import sys
-    
-    # Set environment variables if needed
-    if listen:
-        os.environ["PROBING_PORT"] = listen.split(":")[-1]
     
     # Search paths for the library
     paths = [
@@ -50,3 +38,5 @@ def init(listen=None):
     raise ImportError(
         f"Could not find or load libprobing.so. Searched in: {', '.join(str(p) for p in paths)}"
     )
+    
+init()
