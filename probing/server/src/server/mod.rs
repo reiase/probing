@@ -9,7 +9,7 @@ use log::error;
 use once_cell::sync::Lazy;
 
 use probing_proto::prelude::Query;
-use services::{handle_query, index, probe, query, static_files};
+use services::{handle_query, index, initialize_engine, probe, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -55,6 +55,11 @@ pub async fn local_server() -> Result<()> {
 }
 
 pub fn start_local() {
+    SERVER_RUNTIME.block_on(async move {
+        initialize_engine()
+            .await
+            .unwrap_or_else(|err| error!("Failed to initialize engine: {err}"));
+    });
     SERVER_RUNTIME.spawn(async move {
         let _ = local_server().await;
     });

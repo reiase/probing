@@ -8,9 +8,7 @@ use axum::response::AppendHeaders;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use once_cell::sync::Lazy;
-use tokio::sync::RwLock;
 
-use probing_core::core::Engine;
 use probing_proto::prelude::*;
 use probing_python::PythonProbe;
 
@@ -18,8 +16,11 @@ use crate::asset;
 
 pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
     Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
-pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
-    let engine = match probing_core::create_engine()
+
+pub use probing_core::ENGINE;
+
+pub async fn initialize_engine() -> Result<()> {
+    let builder = probing_core::create_engine()
         .with_extension(
             probing_python::extensions::PprofExtension::default(),
             "pprof",
@@ -59,17 +60,10 @@ pub static ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| {
             probing_cc::extensions::FilesExtension::default(),
             "files",
             None,
-        )
-        .build()
-    {
-        Ok(engine) => engine,
-        Err(e) => {
-            log::error!("Error creating engine: {}", e);
-            Engine::default()
-        }
-    };
-    RwLock::new(engine)
-});
+        );
+
+    probing_core::initialize_engine(builder).await
+}
 
 pub fn handle_query(request: Query) -> Result<QueryDataFormat> {
     let Query { expr, opts: _ } = request;

@@ -25,6 +25,7 @@ use pyo3::types::PyDict;
 use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
+use probing_core::ENGINE;
 use probing_proto::protocol::probe::Probe;
 use probing_proto::protocol::probe::ProbeFactory;
 use probing_proto::protocol::process::CallFrame;
@@ -157,6 +158,19 @@ impl ProbeFactory for PythonProbeFactory {
     }
 }
 
+#[pyfunction]
+fn query_json(_py: Python, sql: String) -> PyResult<String> {
+    let result = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async { ENGINE.read().await.query(sql.as_str()) })
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    serde_json::to_string(&result)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+}
+
 pub fn create_probing_module() -> PyResult<()> {
     Python::with_gil(|py| -> PyResult<()> {
         let sys = PyModule::import(py, "sys")?;
@@ -174,6 +188,7 @@ pub fn create_probing_module() -> PyResult<()> {
         m.setattr(pyo3::intern!(py, "_C"), 42)?;
         m.add_class::<ExternalTable>()?;
         m.add_class::<TCPStore>()?;
+        m.add_function(wrap_pyfunction!(query_json, py)?)?;
 
         Ok(())
     })

@@ -2716,6 +2716,7 @@ dependencies = [
  "datafusion",
  "futures",
  "log",
+ "once_cell",
  "probing-macros",
  "probing-proto",
  "serde",
