@@ -24,6 +24,8 @@ def init():
     paths = [
         pathlib.Path(sys.executable).parent / "libprobing.so",
         pathlib.Path.cwd() / "libprobing.so",
+        pathlib.Path.cwd() / "target" / "debug" / "libprobing.so",
+        pathlib.Path.cwd() / "target" / "release" / "libprobing.so",
     ]
     
     # Try loading the library from each path
@@ -40,3 +42,20 @@ def init():
     )
     
 init()
+
+def query(sql: str) -> "DataFrame":
+    import sys
+    probing = sys.modules["probing"]
+    
+    ret = probing.query_json(sql)
+    try:
+        import pandas as pd
+        import json
+        data = json.loads(ret)
+        
+        data = {k: list(v.values())[0] for k, v in zip(data["names"], data["cols"])}
+        return pd.DataFrame(data)
+    except:
+        import traceback
+        traceback.print_exc()
+        return ret

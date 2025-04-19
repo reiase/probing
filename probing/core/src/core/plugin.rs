@@ -67,7 +67,7 @@ impl<T: CustomTable + std::default::Default + std::fmt::Debug + Send + Sync + 's
     /// Factory method that creates a TablePluginHelper wrapped in an Arc
     /// Returns a trait object that can be used with the plugin system
     pub fn create<S: Into<String>>(namespace: S, name: S) -> Arc<dyn Plugin + Send + Sync> {
-        Arc::new(Self::new(name, namespace))
+        Arc::new(Self::new(namespace, name))
     }
 }
 
