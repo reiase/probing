@@ -43,7 +43,7 @@ def init():
     
 init()
 
-def query(sql: str) -> "DataFrame":
+def query(sql: str) -> "DataFrame": # type: ignore
     import sys
     probing = sys.modules["probing"]
     
@@ -59,3 +59,31 @@ def query(sql: str) -> "DataFrame":
         import traceback
         traceback.print_exc()
         return ret
+    
+def load_extension(statment: str):
+    """
+    Load a Rust extension into the probing library.
+    
+    Args:
+        statment (str): The SQL statement to load the extension.
+        
+    Returns:
+        None
+    """
+    
+    import sys
+    import importlib
+    
+    parts = statment.split(".")
+    if parts[0] not in sys.modules:
+        importlib.import_module(parts[0])
+    root = sys.modules[parts[0]]
+    module = f"{parts[0]}"
+    for part in parts[1:]:
+        if not hasattr(root, part):
+            importlib.import_module(module + "." + part)
+        module = f"{module}.{part}"
+        
+    return eval(statment,None, {
+        parts[0]: sys.modules[parts[0]],
+    })

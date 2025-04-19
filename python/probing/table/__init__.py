@@ -104,7 +104,7 @@ def table(name: Optional[str] = None):
         def drop(cls):
             table = cache[cls]
             del cache[cls]
-            table.drop()
+            table.drop(table_name)
             
         def save(self):
             cls.append(self)
