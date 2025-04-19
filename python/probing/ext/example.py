@@ -10,6 +10,7 @@ class ExampleExt:
     
 def init():
     print("Initializing ExampleExt")
+    ExampleExt.init_table()
     pass
 
 def deinit():

@@ -109,6 +109,7 @@ def table(name: Optional[str] = None):
         def save(self):
             cls.append(self)
             
+        setattr(cls, 'init_table', init_table)
         setattr(cls, 'append', append)
         setattr(cls, 'append_many', append_many)
         setattr(cls, 'take', take)
