@@ -48,7 +48,7 @@ fn build_app() -> axum::Router {
 pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
-    println!("Starting local server at {}", socket_path);
+    eprintln!("Starting local server at {}", socket_path);
     let app = build_app();
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
     Ok(())
