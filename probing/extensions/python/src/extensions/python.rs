@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::fmt::Display;
+
 pub use exttbls::ExternalTable;
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
@@ -5,6 +8,8 @@ use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+use pyo3::types::PyAnyMethods;
+use pyo3::Python;
 pub use tbls::PythonPlugin;
 
 use crate::python::enable_crash_handler;
@@ -16,6 +21,26 @@ mod tbls;
 
 pub use tbls::PythonNamespace;
 
+/// Collection of Python extensions loaded into the system
+#[derive(Debug, Default)]
+struct PyExtList(HashMap<String, pyo3::Py<pyo3::PyAny>>);
+
+impl Display for PyExtList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut first = true;
+        for ext in self.0.keys() {
+            if first {
+                write!(f, "{}", ext)?;
+                first = false;
+            } else {
+                write!(f, ", {}", ext)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Python integration with the probing system
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExtension {
     /// Path to Python crash handler script (executed when interpreter crashes)
@@ -25,11 +50,20 @@ pub struct PythonExtension {
     /// Path to Python Monitoring Handler
     #[option(name = "python.monitoring")]
     monitoring: Maybe<String>,
+
+    /// List of enabled Python extensions, enable additional Python extensions by setting `python.enabled=<extension_statement>`
+    #[option(name = "python.enabled")]
+    enabled: PyExtList,
+
+    /// Disable Python extension by setting `python.disabled=<extension_statement>`
+    #[option(name = "python.disabled")]
+    disabled: Maybe<String>,
 }
 
 impl EngineCall for PythonExtension {}
 
 impl EngineDatasource for PythonExtension {
+    /// Create a plugin instance for the specified namespace
     fn datasrc(
         &self,
         namespace: &str,
@@ -40,6 +74,7 @@ impl EngineDatasource for PythonExtension {
 }
 
 impl PythonExtension {
+    /// Set up a Python crash handler
     fn set_crash_handler(&mut self, crash_handler: Maybe<String>) -> Result<(), EngineError> {
         match self.crash_handler {
             Maybe::Just(_) => Err(EngineError::ReadOnlyOption(
@@ -65,6 +100,7 @@ impl PythonExtension {
         }
     }
 
+    /// Set up Python monitoring
     fn set_monitoring(&mut self, monitoring: Maybe<String>) -> Result<(), EngineError> {
         log::debug!("setting python.monitoring = {}", monitoring);
         match self.monitoring {
@@ -87,4 +123,103 @@ impl PythonExtension {
             },
         }
     }
+
+    /// Enable a Python extension from code string
+    fn set_enabled(&mut self, enabled: Maybe<String>) -> Result<(), EngineError> {
+        // Extract extension code from Maybe
+        let ext = match &enabled {
+            Maybe::Nothing => {
+                return Err(EngineError::InvalidOptionValue(
+                    "python.enabled".to_string(),
+                    enabled.clone().into(),
+                ));
+            }
+            Maybe::Just(e) => e,
+        };
+
+        // Check if extension is already loaded
+        if self.enabled.0.contains_key(ext) {
+            return Err(EngineError::PluginError(format!(
+                "Python extension {} already loaded",
+                ext
+            )));
+        }
+
+        // Execute Python code and get the extension object
+        let pyext = execute_python_code(ext)
+            .map_err(|e| EngineError::InvalidOptionValue("python.enabled".to_string(), e))?;
+
+        // Store the extension
+        self.enabled.0.insert(ext.clone(), pyext);
+        log::debug!("setting python.enabled = {}", self.enabled);
+
+        Ok(())
+    }
+
+    /// Disable a previously enabled Python extension
+    fn set_disabled(&mut self, disabled: Maybe<String>) -> Result<(), EngineError> {
+        // Extract extension name from Maybe
+        let ext = match &disabled {
+            Maybe::Nothing => {
+                return Err(EngineError::InvalidOptionValue(
+                    "python.disabled".to_string(),
+                    disabled.clone().into(),
+                ));
+            }
+            Maybe::Just(e) => e,
+        };
+
+        // Remove extension if it exists
+        if let Some(pyext) = self.enabled.0.remove(ext) {
+            log::debug!("removing python extension {}", ext);
+
+            // Call deinit method on extension object
+            Python::with_gil(|py| {
+                // Call the Python object's deinit method
+                match pyext.call_method0(py, "deinit") {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        let error_msg = format!("error calling `deinit` method: {}", e);
+                        Err(EngineError::PluginError(error_msg))
+                    }
+                }
+            })
+        } else {
+            // Extension wasn't found, not an error
+            Ok(())
+        }
+    }
+}
+
+/// Execute Python code and return the resulting object
+/// The code should return an object with init/deinit methods
+fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> {
+    Python::with_gil(|py| {
+        let pkg = py.import("probing");
+
+        if pkg.is_err() {
+            return Err(format!("Python import error: {}", pkg.err().unwrap()));
+        }
+
+        let result = pkg
+            .unwrap()
+            .call_method1("load_extension", (code,))
+            .map_err(|e| format!("Error loading Python plugin: {}", e))?;
+
+        // Verify the object has an init method
+        if !result
+            .hasattr("init")
+            .map_err(|e| format!("Unable to check `init` method: {}", e))?
+        {
+            return Err("Plugin must have an `init` method".to_string());
+        }
+
+        // Initialize the plugin
+        result
+            .call_method0("init")
+            .map_err(|e| format!("Error calling `init` method: {}", e))?;
+
+        log::info!("Successfully loaded Python plugin: {}", code);
+        Ok(result.unbind())
+    })
 }
