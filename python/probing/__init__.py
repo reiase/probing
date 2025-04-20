@@ -45,6 +45,8 @@ def init():
 
 init()
 
+import probing.import_hook
+
 
 def query(sql: str) -> "DataFrame":  # type: ignore
     import sys
