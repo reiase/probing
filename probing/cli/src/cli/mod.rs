@@ -9,6 +9,8 @@ pub mod inject;
 pub mod process_monitor;
 pub mod store;
 
+mod ptree;
+
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
 
@@ -82,6 +84,41 @@ impl Cli {
             Commands::Launch { recursive, args } => {
                 ProcessMonitor::new(args, *recursive)?.monitor()
             }
+            Commands::List { verbose, tree } => {
+                match ptree::collect_probe_processes() {
+                    Ok(processes) => {
+                        if processes.is_empty() {
+                            println!("No processes with injected probes found.");
+                            return Ok(());
+                        }
+            
+                        if *tree {
+                            // Build and display process tree
+                            let tree_nodes = ptree::build_process_tree(processes);
+                            println!("Processes with injected probes (tree view):");
+                            ptree::print_process_tree(&tree_nodes, *verbose, "", true);
+                        } else {
+                            // Display flat list
+                            println!("Processes with injected probes:");
+                            for process in processes {
+                                if *verbose {
+                                    println!("PID {} ({}): {}", 
+                                        process.pid,
+                                        if let Some(socket) = &process.socket_name { socket } else { "-" },
+                                        process.cmd
+                                    );
+                                } else {
+                                    println!("PID {}: {}", process.pid, process.cmd);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error listing processes: {}", e);
+                    }
+                }
+                Ok(())
+            },
             Commands::Store(cmd) => {
                 cmd.run()
             }

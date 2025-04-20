@@ -58,7 +58,7 @@ impl StoreCommand {
                     .enable_all()
                     .build()
                     .unwrap()
-                    .block_on(store.set(&key, &value))?;
+                    .block_on(store.set(key, value))?;
             }
             StoreSubCommand::Get { key } => {
                 // let store = TCPStore::new(args.endpoint.clone().unwrap());
@@ -66,7 +66,7 @@ impl StoreCommand {
                     .enable_all()
                     .build()
                     .unwrap()
-                    .block_on(store.get(&key))?;
+                    .block_on(store.get(key))?;
                 println!("{}", value);
             }
         }
