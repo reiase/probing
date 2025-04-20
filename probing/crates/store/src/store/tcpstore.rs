@@ -4,7 +4,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-#[allow(unused)]
+#[allow(unused, clippy::enum_variant_names)]
 #[derive(Error, Debug)]
 pub enum TCPStoreError {
     #[error("IO error: {0}")]
@@ -20,7 +20,7 @@ pub enum TCPStoreError {
     HandlerError(String),
 }
 
-#[allow(unused)]
+#[allow(unused, non_camel_case_types, clippy::upper_case_acronyms)]
 #[repr(u8)]
 pub enum QueryType {
     VALIDATE = 0,
