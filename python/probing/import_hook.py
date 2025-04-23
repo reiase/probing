@@ -2,8 +2,13 @@ import sys
 import importlib.abc
 import importlib.util
 
+from probing.ext.torch import init as torch_init
+
 # Mapping from module names to callback functions
-register = {}
+register = {
+    "torch": torch_init,
+}
+
 # Record modules that have been triggered
 triggered = {}
 
@@ -34,7 +39,7 @@ class ProbingLoader(importlib.abc.Loader):
         if self.fullname in register and self.fullname not in triggered:
             triggered[self.fullname] = True
             try:
-                register[self.fullname](module)
+                register[self.fullname]()
             except Exception as e:
                 print(f"Error in callback for {self.fullname}: {e}")
 
