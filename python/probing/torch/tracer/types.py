@@ -1,6 +1,8 @@
 from typing import Any, List
 from dataclasses import dataclass
 
+from ..step import next_step
+
 
 @dataclass
 class TensorDef:
@@ -29,4 +31,4 @@ class BaseTracer:
         pass
 
     def post_step_hook(self, optimizer, args, kwargs):
-        pass
+        next_step()

@@ -15,9 +15,10 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
             install_hooks(model, tracer=tracer)
         install_hooks(opt=optimizer, tracer=tracer)
         hooks[optimizer] = True
-    from probing.torch.step import next_step
 
-    next_step()
+        from probing.torch.step import next_step
+
+        next_step()
 
 
 def init():
