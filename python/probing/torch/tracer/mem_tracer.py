@@ -56,10 +56,11 @@ class MemTracer(BaseTracer):
 
         # Current position in the sampling order
         self.current_module_index = 0
+        self.current_tracked_module_id = None
 
         # State tracking flags
         self.discovery_phase_complete = False
-        self.current_step_number = 0
+        self.current_step = 0
 
         if tracepy:
             import sys
@@ -83,36 +84,20 @@ class MemTracer(BaseTracer):
 
         module_id = id(module)
         if module_id not in self.module_name_map:
-            # Store the module name
             self.module_name_map[module_id] = module_name(module) or "None"
-
-            # # Add to sampling order (will be properly sorted at end of discovery phase)
-            # self.sampling_order.append(module_id)
 
     def should_log_module(self, module):
         """Determine if this module should be logged for the current step"""
-        # Always attempt to register new modules during discovery phase
+
         if not self.discovery_phase_complete:
             self.register_new_module(module)
-
-        # Safety check for empty sampling order
-        if not self.sampling_order:
             return False
 
-        # Check if we've moved to a new step
-        current_step_value = step()
-        if current_step_value != self.current_step_number:
-            # Reset for new step
-            self.current_step_number = current_step_value
+        module_id = id(module)
 
-            # Advance to next module in sampling order
-            if self.sampling_order:
-                self.current_module_index = (self.current_module_index + 1) % len(
-                    self.sampling_order
-                )
-
-        # Check if this is the currently selected module for sampling
-        return id(module) == self.sampling_order[self.current_module_index]
+        if module_id == self.current_tracked_module_id:
+            return True
+        return False
 
     def log_module_stage(self, stage, module, force=False):
         """Record memory usage for the given module and stage"""
@@ -136,7 +121,7 @@ class MemTracer(BaseTracer):
 
         # Save the trace data
         TorchTrace(
-            step=self.current_step_number,
+            step=self.current_step,
             offset=self.offset(),
             module=self.module_name_map.get(id(module), "None"),
             stage=stage,
@@ -158,5 +143,14 @@ class MemTracer(BaseTracer):
             print(
                 f"Module discovery complete. Found {len(self.sampling_order)} modules to track."
             )
+            return super().post_step_hook(optimizer, args, kwargs)
 
+        self.current_step += 1
+        if self.sampling_order:
+            self.current_module_index = (self.current_module_index + 1) % len(
+                self.sampling_order
+            )
+            self.current_tracked_module_id = self.sampling_order[
+                self.current_module_index
+            ]
         return super().post_step_hook(optimizer, args, kwargs)
