@@ -8,7 +8,7 @@ from ..step import step
 from probing.table import table
 
 
-@table
+@table("torch_trace")
 @dataclass
 class TorchTrace:
     step: int
