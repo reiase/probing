@@ -46,20 +46,20 @@ class MemTracer(BaseTracer):
 
     def __init__(self, tracepy=False, logtime=False, sync=False):
         self.logtime = logtime
-        self.should_synchronize = sync
+        self.sync = sync
 
         # Dictionary mapping module IDs to their names
-        self.module_name_map = {}
+        self.module_names = {}
 
         # List of module IDs in order of sampling priority
-        self.sampling_order = []
+        self.module_ids = []
 
         # Current position in the sampling order
-        self.current_module_index = 0
-        self.current_tracked_module_id = None
+        self.curr_module_idx = 0
+        self.tracking_module = None
 
         # State tracking flags
-        self.discovery_phase_complete = False
+        self.discovery_done = False
         self.current_step = 0
 
         if tracepy:
@@ -79,23 +79,23 @@ class MemTracer(BaseTracer):
     def register_new_module(self, module):
         """Register a newly discovered module during the discovery phase"""
         # Skip registration if discovery phase is already complete
-        if self.discovery_phase_complete:
+        if self.discovery_done:
             return
 
         module_id = id(module)
-        if module_id not in self.module_name_map:
-            self.module_name_map[module_id] = module_name(module) or "None"
+        if module_id not in self.module_names:
+            self.module_names[module_id] = module_name(module) or "None"
 
     def should_log_module(self, module):
         """Determine if this module should be logged for the current step"""
 
-        if not self.discovery_phase_complete:
+        if not self.discovery_done:
             self.register_new_module(module)
             return False
 
         module_id = id(module)
 
-        if module_id == self.current_tracked_module_id:
+        if module_id == self.tracking_module:
             return True
         return False
 
@@ -110,7 +110,7 @@ class MemTracer(BaseTracer):
 
         # Get timing information if requested
         if self.logtime:
-            if self.should_synchronize:
+            if self.sync:
                 import torch
 
                 torch.cuda.synchronize()
@@ -123,7 +123,7 @@ class MemTracer(BaseTracer):
         TorchTrace(
             step=self.current_step,
             offset=self.offset(),
-            module=self.module_name_map.get(id(module), "None"),
+            module=self.module_names.get(id(module), "None"),
             stage=stage,
             allocated=memory_stats["allocated"],
             max_allocated=memory_stats["max_allocated"],
@@ -133,24 +133,28 @@ class MemTracer(BaseTracer):
         ).save()
 
     def post_step_hook(self, optimizer, args, kwargs):
-        # Complete discovery phase after first step
-        if not self.discovery_phase_complete:
-            self.discovery_phase_complete = True
-
-            modules = list(self.module_name_map.items())
-            modules.sort(key=lambda item: len(item[1]))
-            self.sampling_order = [mid for mid, _ in modules]
-            print(
-                f"Module discovery complete. Found {len(self.sampling_order)} modules to track."
-            )
+        """
+        Process after each optimization step:
+        - First step: Complete discovery and sort modules by name length
+        - Later steps: Cycle through modules to track memory usage
+        """
+        # Handle first step (discovery phase)
+        if not self.discovery_done:
+            self.discovery_done = True
+            
+            # Sort modules by name length (shorter names first)
+            mods = list(self.module_names.items())
+            mods.sort(key=lambda x: len(x[1]))
+            self.module_ids = [mid for mid, _ in mods]
             return super().post_step_hook(optimizer, args, kwargs)
 
+        # Handle subsequent steps - cycle to next module
         self.current_step += 1
-        if self.sampling_order:
-            self.current_module_index = (self.current_module_index + 1) % len(
-                self.sampling_order
-            )
-            self.current_tracked_module_id = self.sampling_order[
-                self.current_module_index
-            ]
+        if self.module_ids:
+            # Select next module to track in round-robin fashion
+            idx = self.curr_module_idx
+            idx = (idx + 1) % len(self.module_ids)
+            self.curr_module_idx = idx
+            self.tracking_module = self.module_ids[idx]
+            
         return super().post_step_hook(optimizer, args, kwargs)
