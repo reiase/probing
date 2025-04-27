@@ -35,28 +35,28 @@ class BaseTracer:
             CURRENT_STAGE = stage
 
     def pre_forward_hook(self, m, i):
-        self.process_hook(m, "pre forward")
         self.log_module_stage("pre forward", m)
+        self.process_hook(m, "pre forward")
 
     def post_forward_hook(self, m, i, o):
-        self.process_hook(m, "post forward")
         self.log_module_stage("post forward", m)
+        self.process_hook(m, "post forward")
 
     def pre_backward_hook(self, m, i):
-        self.process_hook(m, "pre backward")
         self.log_module_stage("pre backward", m)
+        self.process_hook(m, "pre backward")
 
     def post_backward_hook(self, m, i, o):
-        self.process_hook(m, "post backward")
         self.log_module_stage("post backward", m)
+        self.process_hook(m, "post backward")
 
     def pre_step_hook(self, optimizer, args, kwargs):
+        self.log_module_stage("pre step", optimizer, force=False)
         self.process_hook(optimizer, "pre step")
-        self.log_module_stage("pre step", optimizer, force=True)
 
     def post_step_hook(self, optimizer, args, kwargs):
+        self.log_module_stage("post step", optimizer, force=False)
         self.process_hook(optimizer, "post step")
-        self.log_module_stage("post step", optimizer, force=True)
-
+        global MODULE_CALL_OFFSET
         MODULE_CALL_OFFSET = 0
         next_step()

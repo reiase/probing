@@ -1,10 +1,25 @@
 import dataclasses
-import probing
-
+import re
 import functools
 from typing import Optional
 
+import probing
+
+
 cache = {}
+
+
+def camel_to_snake(name):
+    """
+    Convert CamelCase to snake_case.
+
+    Examples:
+        TorchTrace -> torch_trace
+        MemTracer -> mem_tracer
+        SomeVeryLongClassName -> some_very_long_class_name
+    """
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 def table(name: Optional[str] = None):
@@ -72,7 +87,7 @@ def table(name: Optional[str] = None):
         if not dataclasses.is_dataclass(cls):
             raise TypeError(f"{cls} is not a dataclass")
 
-        table_name = name or cls.__name__
+        table_name = name or camel_to_snake(cls.__name__)
         fields = [f.name for f in dataclasses.fields(cls)]
 
         @functools.wraps(cls.__init__)
