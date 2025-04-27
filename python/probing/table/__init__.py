@@ -1,10 +1,9 @@
 import dataclasses
-import re
 import functools
+import re
 from typing import Optional
 
 import probing
-
 
 cache = {}
 
@@ -13,10 +12,12 @@ def camel_to_snake(name):
     """
     Convert CamelCase to snake_case.
 
-    Examples:
-        TorchTrace -> torch_trace
-        MemTracer -> mem_tracer
-        SomeVeryLongClassName -> some_very_long_class_name
+    Examples
+    --------
+    >>> camel_to_snake("CamelCase")
+    'camel_case'
+    >>> camel_to_snake("SomeVeryLongClassName")
+    'some_very_long_class_name'
     """
     s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()

@@ -72,6 +72,7 @@ class TorchHelper(Command):
     @staticmethod
     def get_top_level_modules() -> List:
         import gc
+
         import torch
 
         objs = gc.get_objects()
@@ -362,6 +363,7 @@ class HandleCommand(Command):
         limit = int(limit) if limit is not None else None
         toplevel = toplevel in ["true", "True", "T"] if toplevel is not None else False
         import gc
+
         import torch
 
         objs = gc.get_objects()

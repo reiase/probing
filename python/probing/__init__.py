@@ -1,5 +1,5 @@
-from .trace import probe
 from .repl import DebugConsole
+from .trace import probe
 
 _ALL_ = [
     "init",
@@ -55,8 +55,9 @@ def query(sql: str) -> "DataFrame":  # type: ignore
 
     ret = probing.query_json(sql)
     try:
-        import pandas as pd
         import json
+
+        import pandas as pd
 
         data = json.loads(ret)
 
@@ -80,8 +81,8 @@ def load_extension(statement: str):
         None
     """
 
-    import sys
     import importlib
+    import sys
 
     parts = statement.split(".")
     if parts[0] not in sys.modules:

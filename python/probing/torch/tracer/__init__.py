@@ -1,7 +1,7 @@
 import torch
 
-from .types import BaseTracer
 from .module_utils import module_analysis, module_get_fullname
+from .types import BaseTracer
 
 HOOK_CACHE = {}
 EVENT_COUNT = 0
@@ -11,8 +11,9 @@ from .mem_tracer import MemTracer
 
 
 def get_toplevel_module():
-    import torch
     import gc
+
+    import torch
 
     objs = [obj for obj in gc.get_objects() if isinstance(obj, torch.nn.Module)]
     is_child = set()

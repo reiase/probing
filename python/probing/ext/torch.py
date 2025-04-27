@@ -4,9 +4,7 @@ hooks = {}
 def optimizer_step_post_hook(optimizer, *args, **kwargs):
     global hooks
     if optimizer not in hooks:
-        from probing.torch.tracer import install_hooks
-        from probing.torch.tracer import get_toplevel_module
-        from probing.torch.tracer import MemTracer
+        from probing.torch.tracer import MemTracer, get_toplevel_module, install_hooks
 
         tracer = MemTracer()
 

@@ -1,13 +1,11 @@
 import ctypes
 import functools
+import json
 import os
 import sys
 import threading
-import json
-from types import FrameType
-from types import FunctionType
+from types import FrameType, FunctionType, ModuleType
 from typing import Any, AnyStr
-from types import ModuleType
 
 thread_global = threading.local()
 internal_directories = os.path.dirname((lambda: 0).__code__.co_filename)
