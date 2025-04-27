@@ -39,6 +39,22 @@ class TorchTrace:
     duration: float = 0.0
 
 
+class DelayedTrace:
+    def __init__(self, trace: TorchTrace, timestamps, cuda_events):
+        self.trace = trace
+        self.timestamps = timestamps
+        self.cuda_events = cuda_events
+
+    def save(self):
+        if self.cuda_events is not None:
+            start, end = self.cuda_events
+            self.trace.duration = end.elapsed_time(start) / 1000.0
+        else:
+            start, end = self.timestamps
+            self.trace.duration = end - start
+        self.trace.save()
+
+
 def get_memory_stats() -> Dict[str, float]:
     """
     Get current GPU memory statistics in MB.
@@ -141,17 +157,16 @@ class ModuleTimer:
             end_event = torch.cuda.Event(enable_timing=True)
             end_event.record()
 
-            if self.sync:
-                torch.cuda.synchronize()
+            timestamps = (self.start_times[key], timestamp)
+            duration = (self.cuda_events[key], end_event)
 
-            duration = self.cuda_events[key].elapsed_time(end_event) / 1000.0
             del self.cuda_events[key]
             del self.start_times[key]
+            return timestamps, duration
         elif key in self.start_times:
-            duration = timestamp - self.start_times[key]
+            timestamps = (self.start_times[key], timestamp)
             del self.start_times[key]
-
-        return timestamp, duration
+            return timestamps, None
 
 
 class SamplingStrategy:
@@ -255,6 +270,7 @@ class MemTracer(BaseTracer, ModuleTimer, SamplingStrategy, PythonTracer):
     ):
         # Current step counter
         self.current_step = 0
+        self.delayed_traces = []
 
         # Initialize parent classes
         super().__init__(
@@ -271,24 +287,10 @@ class MemTracer(BaseTracer, ModuleTimer, SamplingStrategy, PythonTracer):
         if not force and not self.should_log_module(module):
             return
 
-        if self.logtime:
-            # Synchronize CUDA if needed
-            if self.sync and self.has_cuda:
-                import torch
-
-                torch.cuda.synchronize()
-
-            if stage.startswith("pre"):
-                timestamp, duration = self.begin_timing(module, stage), 0.0
-            elif stage.startswith("post"):
-                timestamp, duration = self.end_timing(module, stage)
-        else:
-            timestamp, duration = 0, 0
-
-        # Get and record memory statistics
+        timestamp, duration = 0, 0
         memory_stats = get_memory_stats()
 
-        TorchTrace(
+        trace = TorchTrace(
             step=self.current_step,
             offset=self.offset(),
             module=self.module_names.get(id(module), "None"),
@@ -299,7 +301,16 @@ class MemTracer(BaseTracer, ModuleTimer, SamplingStrategy, PythonTracer):
             max_cached=memory_stats["max_cached"],
             time=timestamp,
             duration=duration,
-        ).save()
+        )
+        if not self.logtime:
+            return trace.save()
+        else:
+            if stage.startswith("pre"):
+                trace.time, trace.duration = self.begin_timing(module, stage), 0.0
+                return trace.save()
+            elif stage.startswith("post"):
+                timestamp, duration = self.end_timing(module, stage)
+                self.delayed_traces.append(DelayedTrace(trace, timestamp, duration))
 
     def post_step_hook(self, optimizer, args, kwargs):
         """
@@ -313,4 +324,14 @@ class MemTracer(BaseTracer, ModuleTimer, SamplingStrategy, PythonTracer):
         else:
             self.current_step += 1
             self.select_next_module()
+        
+        # Ensure CUDA operations are complete before processing traces
+        if self.has_cuda and self.logtime:
+            import torch
+            
+            torch.cuda.synchronize()
+            
+        for trace in self.delayed_traces:
+            trace.save()
+        self.delayed_traces = []
         return super().post_step_hook(optimizer, args, kwargs)
