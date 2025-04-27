@@ -1,7 +1,6 @@
 import random
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 from probing.table import table
 
@@ -12,24 +11,8 @@ from .types import BaseTracer
 @table("torch_trace")
 @dataclass
 class TorchTrace:
-    """
-    Records memory and timing information for PyTorch module operations.
-
-    Attributes:
-        step: Current training step number
-        offset: Operation offset within the step
-        module: Module name being traced
-        stage: Current operation stage (pre_forward, post_forward, etc.)
-        allocated: Currently allocated memory in MB
-        max_allocated: Peak allocated memory in MB
-        cached: Currently cached memory in MB
-        max_cached: Peak cached memory in MB
-        time: Timestamp when trace was captured
-        duration: Duration of the operation in seconds
-    """
-
     step: int = None
-    offset: int = None
+    seq: int = None
     module: str = None
     stage: str = None
     allocated: float = 0.0
@@ -40,32 +23,22 @@ class TorchTrace:
     duration: float = 0.0
 
 
-class DelayedTrace:
-    def __init__(self, trace: TorchTrace, cuda_events):
-        self.trace = trace
-        self.cuda_events = cuda_events
+class DelayedRecord:
+    def __init__(self, record, events):
+        self.record = record
+        self.events = events
 
     def save(self):
         try:
-            if self.cuda_events is not None:
-                start, end = self.cuda_events
-                self.trace.duration = end.elapsed_time(start) / 1000.0
-            self.trace.save()
+            if self.events is not None:
+                start, end = self.events
+                self.record.duration = end.elapsed_time(start) / 1000.0
+            self.record.save()
         except Exception as e:
             print(f"Error saving trace: {e}")
 
 
-def get_memory_stats() -> Dict[str, float]:
-    """
-    Get current GPU memory statistics in MB.
-
-    Returns:
-        Dictionary containing memory metrics:
-        - allocated: Currently allocated memory
-        - cached: Currently cached/reserved memory
-        - max_allocated: Peak allocated memory
-        - max_cached: Peak reserved memory
-    """
+def mem_stats() -> TorchTrace:
     import torch
 
     MB = 1024 * 1024
@@ -77,160 +50,103 @@ def get_memory_stats() -> Dict[str, float]:
     )
 
 
-class ModuleTimer:
-    """
-    Handles precise timing for module operations during forward/backward pass.
-
-    Uses both CPU timers and CUDA events (when available) to measure execution time
-    of module operations with high accuracy.
-    """
-
+class Timer:
     def __init__(self, sync: bool = False, **kwargs):
-        """
-        Initialize the timer.
-
-        Args:
-            sync: Whether to synchronize CUDA before timing
-            **kwargs: Additional arguments passed to parent classes
-        """
         import torch
 
         self.has_cuda = torch.cuda.is_available()
         self.sync = sync
-        self.cuda_events = {}  # GPU timers
-
-        self.time_base = None
+        self.events = {}  # GPU timers
+        self.step_start = None
 
         super().__init__(**kwargs)
 
-    def begin_timing(self, module, stage) -> float:
-        """
-        Start timing for a specific module and stage.
-
-        Args:
-            module: The PyTorch module being timed
-            stage: Operation stage (e.g. 'pre_forward')
-
-        Returns:
-            Current timestamp or None if timing is disabled
-        """
+    def begin_timing(self, mod, stage) -> float:
         # Synchronize if needed for more accurate timing
         if self.sync and self.has_cuda:
             _cuda_sync()
 
         if self.offset() == 0:
-            self.time_base = time.time()
+            self.step_start = time.time()
             time_offset = 0.0
         else:
-            time_offset = time.time() - self.time_base
+            time_offset = time.time() - self.step_start
 
-        # Create CUDA event if available
         if self.has_cuda:
-            start_event = _cuda_event()
-            start_event.record()
-
-            key = (id(module), stage)
-            self.cuda_events[key] = start_event
+            self.events[(id(mod), stage)] = _cuda_event()
         return time_offset
 
-    def end_timing(self, module, stage) -> tuple:
-        """End timing for a specific module and stage.
-
-        Returns:
-            tuple: ((start_time, end_time), duration) where duration is either
-                a tuple of CUDA events or None
-        """
+    def end_timing(self, mod, stage) -> tuple:
         # Synchronize if needed for more accurate timing
         if self.sync and self.has_cuda:
             _cuda_sync()
 
-        time_offset = time.time() - self.time_base
+        time_offset = time.time() - self.step_start
+        key = (id(mod), stage)
 
-        key = (id(module), stage)
-
-        if key in self.cuda_events:
-            end_event = _cuda_event()
-            end_event.record()
-
-            duration = (self.cuda_events[key], end_event)
-
-            del self.cuda_events[key]
-            return time_offset, duration
+        if key in self.events:
+            return time_offset, (self.events.pop(key), _cuda_event())
         return time_offset, None
 
 
-class SamplingStrategy:
-    """Defines strategies for sampling modules during memory tracing."""
-
-    def __init__(self, strategy="ordered", sample_rate=0.05, **kwargs):
+class Sampler:
+    def __init__(self, mode="ordered", rate=0.05, **kwargs):
         # Strategy configuration
-        self.strategy = strategy
-        self.sample_rate = sample_rate
+        self.mode = mode
+        self.rate = rate
 
         # Module tracking state
-        self.module_names = {}  # Maps module IDs to names
-        self.module_ids = []  # List of module IDs to track
-        self.curr_module_idx = 0
-        self.tracking_module = None
+        self.mod_names = {}  # Maps module IDs to names
+        self.mod_queue = []  # List of module IDs to track
+        self.curr_idx = 0
+        self.curr_mod = None
 
         # Discovery state
-        self.discovery_done = False
+        self.finalized = False
 
         super().__init__(**kwargs)
 
-    def register_new_module(self, module) -> None:
-        """Register a newly discovered module during the discovery phase."""
-        if self.discovery_done:
+    def register_mod(self, mod) -> None:
+        if self.finalized:
             return
+        self.mod_names[id(mod)] = module_name(mod) or mod.__class__.__name__
 
-        module_id = id(module)
-        if module_id not in self.module_names:
-            import torch
+    def finalize_discovery(self):
+        self.finalized = True
+        mods = sorted(self.mod_names.items(), key=lambda x: len(x[1]))
+        self.mod_queue = [x for x, _ in mods]
 
-            self.module_names[module_id] = module_name(module) or (
-                "None"
-                if isinstance(module, torch.nn.Module)
-                else module.__class__.__name__
-            )
+        if self.mod_queue:
+            self.curr_idx = 0
+            self.curr_mod = self.mod_queue[0]
 
-    def complete_discovery(self):
-        """Complete the module discovery phase and prepare for sampling."""
-        self.discovery_done = True
-
-        modules = sorted(self.module_names.items(), key=lambda x: len(x[1]))
-        self.module_ids = [module_id for module_id, _ in modules]
-
-        if self.module_ids:
-            self.tracking_module = self.module_ids[0]
-
-    def should_log_module(self, module) -> bool:
-        """Determine if the current module should be logged based on sampling strategy."""
-        if not self.discovery_done:
-            self.register_new_module(module)
+    def should_sample(self, mod) -> bool:
+        if not self.finalized:
+            self.register_mod(mod)
             return False
 
         if self.offset() == 0:
             return True
 
-        if self.strategy == "ordered":
-            return id(module) == self.tracking_module
-        return random.random() < self.sample_rate
+        if self.mode == "ordered":
+            return id(mod) == self.curr_mod
+        return random.random() < self.rate
 
-    def select_next_module(self) -> None:
-        """Select the next module to track in round-robin fashion."""
-        if self.module_ids:
-            idx = (self.curr_module_idx + 1) % len(self.module_ids)
-            self.curr_module_idx = idx
-            self.tracking_module = self.module_ids[idx]
+    def next_mod(self) -> None:
+        if self.mod_queue:
+            idx = (self.curr_idx + 1) % len(self.mod_queue)
+            self.curr_idx = idx
+            self.curr_mod = self.mod_queue[idx]
 
 
 class PythonTracer:
-    def __init__(self, tracepy=False):
+    def __init__(self, tracepy=False, **kwargs):
         # Set up Python exception tracing if requested
         if tracepy:
             import sys
 
             sys.settrace(self.trace_exceptions)
+        super().__init__(**kwargs)
 
     def trace_exceptions(self, frame, event, arg):
         """Trace Python exceptions during execution."""
@@ -241,72 +157,44 @@ class PythonTracer:
         return self.trace_exceptions
 
 
-class MemTracer(BaseTracer, ModuleTimer, SamplingStrategy, PythonTracer):
-    """
-    Memory tracer for PyTorch modules that samples one module per step.
+class MemTracer(BaseTracer, Timer, Sampler, PythonTracer):
+    def __init__(self, tracepy=False, sync=False, mode="ordered", rate=0.05):
+        self.curr_step = 0
+        self.pending = []
 
-    This tracer discovers modules during the first training step, then
-    cycles through them in subsequent steps, sampling from outer modules
-    (shorter names) to inner modules (longer names).
-    """
+        super().__init__(tracepy=tracepy, sync=sync, mode=mode, rate=rate)
 
-    def __init__(self, tracepy=False, sync=False, strategy="ordered", sample_rate=0.05):
-        # Current step counter
-        self.current_step = 0
-        self.delayed_traces = []
-
-        # Initialize parent classes
-        super().__init__(
-            tracepy=tracepy, sync=sync, strategy=strategy, sample_rate=sample_rate
-        )
-
-    def log_module_stage(self, stage, module, force=False) -> None:
-        """Record memory usage for module operations.
-        
-        Args:
-            stage: Current operation stage (pre_forward, post_forward, etc)
-            module: The PyTorch module being tracked
-            force: Whether to force logging regardless of sampling strategy
-        """
+    def log_module_stage(self, stage, mod, force=False) -> None:
         # Skip if we shouldn't log this module
-        if not force and not self.should_log_module(module):
+        if not force and not self.should_sample(mod):
             return
 
-        trace = get_memory_stats()
-        trace.step = self.current_step
-        self.offset = self.offset()
-        self.module = self.module_names.get(id(module), "None")
-        self.stage = stage
+        record = mem_stats()
+        record.step = self.curr_step
+        record.seq = self.offset()
+        record.module = self.mod_names.get(id(mod), "None")
+        record.stage = stage
 
         if stage.startswith("pre"):
-            trace.time_offset = self.begin_timing(module, stage)
-            return trace.save()
-        elif stage.startswith("post"):
-            trace.time_offset, duration = self.end_timing(module, stage)
-            self.delayed_traces.append(DelayedTrace(trace, duration))
+            record.time_offset = self.begin_timing(mod, stage)
+            record.save()
+        record.time_offset, events = self.end_timing(mod, stage)
+        self.pending.append(DelayedRecord(record, events))
 
-    def post_step_hook(self, optimizer, args, kwargs):
-        """
-        Process actions after each optimization step:
-        - First step: Complete module discovery
-        - Later steps: Select next module to track
-        """
-
-        if not self.discovery_done:
-            self.complete_discovery()
+    def post_step_hook(self, opt, args, kwargs):
+        if not self.finalized:
+            self.finalize_discovery()
         else:
-            self.current_step += 1
-            self.select_next_module()
+            self.curr_step += 1
+            self.next_mod()
 
         # Ensure CUDA operations are complete before processing traces
-        if self.has_cuda and self.delayed_traces:
+        if self.has_cuda and self.pending:
             _cuda_sync()
 
-        for trace in self.delayed_traces:
-            trace.save()
-        self.delayed_traces = []
-        self.time_base = 0
-        return super().post_step_hook(optimizer, args, kwargs)
+        self.pending = [x for x in self.pending if x.save()]
+        self.step_start = 0
+        return super().post_step_hook(opt, args, kwargs)
 
 
 def _cuda_sync():
@@ -318,4 +206,6 @@ def _cuda_sync():
 def _cuda_event():
     import torch
 
-    return torch.cuda.Event(enable_timing=True)
+    event = torch.cuda.Event(enable_timing=True)
+    event.record()
+    return event
