@@ -25,6 +25,15 @@ class TorchTrace:
     duration: float = 0.0
 
 
+@table
+@dataclass
+class Variables:
+    step: Optional[int] = None
+    func: Optional[str] = None
+    name: Optional[str] = None
+    value: Optional[str] = None
+
+
 class DelayedRecord:
     def __init__(self, record, events):
         self.record = record
@@ -159,12 +168,92 @@ class PythonTracer:
         return self.trace_exceptions
 
 
-class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer):
-    def __init__(self, tracepy=False, sync=False, mode="ordered", rate=0.05):
+class VariableTracer:
+    """
+    Traces specified variables within functions during execution.
+    
+    This class allows you to monitor variables in specific functions by providing
+    expressions in the format "variable@function". When the traced functions are
+    executed, the class captures the variable values and saves them.
+    
+    Parameters:
+        exprs (str): Comma-separated list of expressions in format "var@func"
+                    where 'var' is the variable name and 'func' is the function name.
+        **kwargs: Additional keyword arguments passed to parent classes.
+    
+    Examples:
+        >>> # Simple initialization with one variable in one function
+        >>> tracer = VariableTracer("x@calculate")
+        >>> tracer.variabls
+        {'calculate': ['x']}
+        
+        >>> # Multiple variables in different functions
+        >>> tracer = VariableTracer("x@calculate,y@process,z@calculate")
+        >>> sorted(tracer.variabls.keys())
+        ['calculate', 'process']
+        >>> sorted(tracer.variabls['calculate'])
+        ['x', 'z']
+        >>> tracer.variabls['process']
+        ['y']
+        
+        >>> # Empty string initialization
+        >>> tracer = VariableTracer("")
+        >>> tracer.variabls
+        {}
+        
+        >>> # Handling whitespace
+        >>> tracer = VariableTracer(" a@func1 , b@func2 ")
+        >>> tracer.variabls
+        {'func1': ['a'], 'func2': ['b']}
+    """
+    def __init__(self, exprs="", **kwargs):
+        self.variabls = {}
+        for expr in exprs.split(","):  # Fixed: using exprs instead of expr
+            expr = expr.strip()
+            if "@" in expr:
+                var, fun = expr.split("@")
+                if fun not in self.variabls:
+                    self.variabls[fun] = []
+                self.variabls[fun].append(var)
+
+    def trace_variables(self):
+        """
+        Traces variables specified during initialization in the current execution stack.
+        
+        This method inspects the call stack, looking for functions specified during
+        initialization. When found, it retrieves the values of the specified variables
+        and saves them using the Variables dataclass.
+        
+        Note: This method requires access to self.curr_step which should be set by
+        a parent class.
+        """
+        if not self.variabls:
+            return
+        
+        import inspect
+
+        stacks = inspect.stack()[1:]
+        for stack in stacks:
+            frame = stack.frame
+            code = frame.f_code
+            func = code.co_name
+            if func in self.variabls:
+                for var in self.variabls[func]:
+                    if var in frame.f_locals:
+                        val = frame.f_locals[var]
+                        try:
+                            val = str(val)
+                        except Exception as e:
+                            val = f"{type(val)}"
+                        Variables(self.curr_step, func, var, val).save()
+
+
+class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer, VariableTracer):
+    def __init__(self, tracepy=False, sync=False, mode="ordered", rate=0.05, exprs=[]):
         self.curr_step = 0
         self.pending = []
 
-        super().__init__(tracepy=tracepy, sync=sync, mode=mode, rate=rate)
+        super().__init__(tracepy=tracepy, sync=sync, mode=mode, rate=rate, exprs=exprs)
 
     def log_module_stage(self, stage, mod, force=False) -> None:
         # Skip if we shouldn't log this module
@@ -194,7 +283,13 @@ class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer):
         if self.has_cuda and self.pending:
             _cuda_sync()
 
+       # process pending records
         self.pending = [x for x in self.pending if x.save()]
+        
+        # trace Python variables
+        self.trace_variables()
+        
+        # reset the step start time
         self.step_start = 0
         return super().post_step_hook(opt, args, kwargs)
 
