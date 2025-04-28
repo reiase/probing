@@ -9,7 +9,9 @@ use datafusion::catalog::{CatalogProvider, SchemaProvider, Session, TableProvide
 use datafusion::datasource::TableType;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::execution::SessionState;
-use datafusion::physical_plan::{memory::MemoryExec, ExecutionPlan};
+use datafusion::physical_plan::ExecutionPlan;
+use datafusion::datasource::memory::DataSourceExec;
+use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::prelude::Expr;
 
 /// Trait defining a custom table with static/dynamic schema and data
@@ -127,7 +129,8 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> TableProvider
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let data = T::data();
-        let exec = MemoryExec::try_new(&[data], T::schema(), projection.cloned())?;
+        let srccfg = MemorySourceConfig::try_new(&[data], T::schema(), projection.cloned())?;
+        let exec = DataSourceExec::new(Arc::new(srccfg));        
         Ok(Arc::new(exec))
     }
 }
@@ -177,7 +180,8 @@ impl<T: CustomNamespace + Default + Debug + Send + Sync + 'static> TableProvider
             ));
         }
         let schema = data[0].schema();
-        let exec = MemoryExec::try_new(&[data], schema, projection.cloned())?;
+        let srccfg = MemorySourceConfig::try_new(&[data], schema, projection.cloned())?;
+        let exec = DataSourceExec::new(Arc::new(srccfg));
         Ok(Arc::new(exec))
     }
 }
