@@ -4,7 +4,7 @@ import os
 import tempfile
 
 # Import the module we're testing
-from probing import import_hook
+from probing.hooks import import_hook
 
 
 class TestImportHook(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestImportHook(unittest.TestCase):
         sys.path.insert(0, self.temp_dir)
 
         # Create a test module
-        with open(os.path.join(self.temp_dir, "test_module.py"), "w") as f:
+        with open(os.path.join(self.temp_dir, "my_module.py"), "w") as f:
             f.write(
                 'TEST_CONSTANT = "Hello from test module"\nprint("This is a test.")\n'
             )
@@ -29,7 +29,7 @@ class TestImportHook(unittest.TestCase):
 
         # Remove test modules from sys.modules
         for module_name in list(sys.modules.keys()):
-            if module_name.startswith("test_module"):
+            if module_name.startswith("my_module"):
                 del sys.modules[module_name]
 
     def test_import_hook_new_module(self):
@@ -38,18 +38,18 @@ class TestImportHook(unittest.TestCase):
 
         def my_callback(module=None):
             callback_executed.append(True)
-            import test_module  # type: ignore
+            import my_module  # type: ignore
 
-            self.assertEqual(test_module.TEST_CONSTANT, "Hello from test module")
+            self.assertEqual(my_module.TEST_CONSTANT, "Hello from test module")
 
         # Register callback for a module that hasn't been imported yet
-        import_hook.register_module_callback("test_module", my_callback)
+        import_hook.register_module_callback("my_module", my_callback)
 
         # Now import the module - should trigger the callback
-        import test_module  # type: ignore
+        import my_module  # type: ignore
 
         self.assertTrue(callback_executed)
-        self.assertIn("test_module", import_hook.triggered)
+        self.assertIn("my_module", import_hook.triggered)
 
     def test_already_imported_module(self):
         """Test callback execution for an already imported module."""
