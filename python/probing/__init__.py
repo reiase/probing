@@ -22,8 +22,11 @@ def init():
     import sys
 
     # Search paths for the library
+    current_file = pathlib.Path(__file__).resolve()
+
     paths = [
         pathlib.Path(sys.executable).parent / "libprobing.so",
+        current_file.parent / ".." / ".." / ".." / ".." / "bin" / "libprobing.so",
         pathlib.Path.cwd() / "libprobing.so",
         pathlib.Path.cwd() / "target" / "debug" / "libprobing.so",
         pathlib.Path.cwd() / "target" / "release" / "libprobing.so",
