@@ -79,6 +79,7 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
     """
 
     if isinstance(name_or_class, str):
+        cls = None
         name = name_or_class.lower()
     else:
         cls = name_or_class
@@ -138,6 +139,6 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
 
         return cls
 
-    if name is None:
+    if cls is not None:
         return decorator(cls)
     return decorator
