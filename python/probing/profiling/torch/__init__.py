@@ -1,26 +1,14 @@
 import torch
 
 from .module_utils import module_analysis, module_get_fullname
-from .types import BaseTracer
+from ..types import BaseTracer
+from .step import next_step, step
+
+__all__ = ["next_step", "step", "install_hooks", "uninstall_hooks"]
 
 HOOK_CACHE = {}
 EVENT_COUNT = 0
 TOTAL_COUNT = 0
-
-from .mem_tracer import MemTracer
-
-
-def get_toplevel_module():
-    import gc
-
-    import torch
-
-    objs = [obj for obj in gc.get_objects() if isinstance(obj, torch.nn.Module)]
-    is_child = set()
-    for obj in objs:
-        for child in obj.children():
-            is_child.add(id(child))
-    return [obj for obj in objs if id(obj) not in is_child]
 
 
 def install_hooks(

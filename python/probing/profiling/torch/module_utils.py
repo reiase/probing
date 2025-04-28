@@ -1,6 +1,6 @@
 import torch
 
-from .types import TensorDef
+from ..types import TensorDef
 
 NAME_CACHE = {}
 
@@ -75,3 +75,16 @@ def module_get_params(m):
 @_cache
 def module_is_container(m):
     return isinstance(m, torch.nn.Module) and len(list(m.children())) > 0
+
+
+def get_toplevel_module():
+    import gc
+
+    import torch
+
+    objs = [obj for obj in gc.get_objects() if isinstance(obj, torch.nn.Module)]
+    is_child = set()
+    for obj in objs:
+        for child in obj.children():
+            is_child.add(id(child))
+    return [obj for obj in objs if id(obj) not in is_child]

@@ -1,25 +1,26 @@
 import random
 import time
 from dataclasses import dataclass
+from typing import Optional
 
-from probing.table import table
+from probing.core import table
 
-from .module_utils import module_name
+from .torch.module_utils import module_name
 from .types import BaseTracer
 
-
-@table("torch_trace")
+@table
 @dataclass
 class TorchTrace:
-    step: int = None
-    seq: int = None
-    module: str = None
-    stage: str = None
+    step: Optional[int] = None
+    seq: Optional[int] = None
+    module: Optional[str] = None
+    stage: Optional[str] = None
     allocated: float = 0.0
     max_allocated: float = 0.0
     cached: float = 0.0
     max_cached: float = 0.0
     time_offset: float = 0.0
+    duration: float = 0.0
     duration: float = 0.0
 
 
@@ -157,7 +158,7 @@ class PythonTracer:
         return self.trace_exceptions
 
 
-class MemTracer(BaseTracer, Timer, Sampler, PythonTracer):
+class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer):
     def __init__(self, tracepy=False, sync=False, mode="ordered", rate=0.05):
         self.curr_step = 0
         self.pending = []

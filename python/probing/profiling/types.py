@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, List
 
-from ..step import next_step
+from .torch.step import next_step
 
 
 @dataclass

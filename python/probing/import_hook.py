@@ -57,10 +57,10 @@ class ProbingFinder(importlib.abc.MetaPathFinder):
             return None
 
         # Avoid recursive calls
-        if fullname in sys._ProbingFinder_in_progress:
+        if fullname in sys._ProbingFinder_in_progress: # type: ignore
             return None
 
-        sys._ProbingFinder_in_progress.add(fullname)
+        sys._ProbingFinder_in_progress.add(fullname) # type: ignore
         try:
             # Temporarily remove self to avoid recursion
             sys.meta_path = [
@@ -80,7 +80,7 @@ class ProbingFinder(importlib.abc.MetaPathFinder):
 
             return spec
         finally:
-            sys._ProbingFinder_in_progress.remove(fullname)
+            sys._ProbingFinder_in_progress.remove(fullname) # type: ignore
             # Always restore meta_path
             sys.meta_path = list(self.original_meta_path)
 
@@ -100,7 +100,7 @@ def register_module_callback(module_name, callback):
 
 # Initialize recursion protection set
 if not hasattr(sys, "_ProbingFinder_in_progress"):
-    sys._ProbingFinder_in_progress = set()
+    sys._ProbingFinder_in_progress = set() # type: ignore
 
 
 # Install import hook

@@ -4,10 +4,11 @@ hooks = {}
 def optimizer_step_post_hook(optimizer, *args, **kwargs):
     global hooks
     if optimizer not in hooks:
-        from probing.torch.tracer import (MemTracer, get_toplevel_module,
-                                          install_hooks)
+        from probing.profiling.torch_probe import TorchProbe
+        from probing.profiling.torch import install_hooks
+        from probing.profiling.torch.module_utils import get_toplevel_module
 
-        tracer = MemTracer()
+        tracer = TorchProbe()
 
         models = get_toplevel_module()
         for model in models:
@@ -15,7 +16,7 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
         install_hooks(opt=optimizer, tracer=tracer)
         hooks[optimizer] = True
 
-        from probing.torch.step import next_step
+        from probing.profiling.torch import next_step
 
         next_step()
 
@@ -27,6 +28,6 @@ def init():
 
 
 def deinit():
-    from probing.torch.tracer import uninstall_hooks
+    from probing.profiling.torch import uninstall_hooks
 
     uninstall_hooks()

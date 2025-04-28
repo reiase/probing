@@ -1,7 +1,7 @@
 import dataclasses
 import functools
 import re
-from typing import Optional
+from typing import Any, Optional, Type, Union
 
 import probing
 
@@ -23,7 +23,7 @@ def camel_to_snake(name):
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
-def table(name: Optional[str] = None):
+def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
     """A decorator that converts a dataclass into a persistable table.
 
     This decorator adds database-like functionality to dataclasses. When applied to a dataclass,
@@ -78,10 +78,10 @@ def table(name: Optional[str] = None):
     [2, 3]
     """
 
-    if isinstance(name, str):
-        name = name.lower()
+    if isinstance(name_or_class, str):
+        name = name_or_class.lower()
     else:
-        cls = name
+        cls = name_or_class
         name = None
 
     def decorator(cls):

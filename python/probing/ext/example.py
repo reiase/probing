@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from probing.table import table
+from probing.core import table
 
 
 @table
