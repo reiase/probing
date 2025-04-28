@@ -33,7 +33,7 @@ class DelayedRecord:
         try:
             if self.events is not None:
                 start, end = self.events
-                self.record.duration = end.elapsed_time(start) / 1000.0
+                self.record.duration = start.elapsed_time(end) / 1000.0
             self.record.save()
         except Exception as e:
             print(f"Error saving trace: {e}")
