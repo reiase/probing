@@ -8,6 +8,7 @@ from probing.core import table
 from .torch.module_utils import module_name
 from .types import BaseTracer
 
+
 @table
 @dataclass
 class TorchTrace:

@@ -20,7 +20,7 @@ def get_current_script_name():
         script_path = sys.argv[0]
         return os.path.basename(script_path)
     except (IndexError, AttributeError):
-        return None
+        return "<unknown>"
 
 
 # Get the PROBE environment variable
@@ -56,7 +56,7 @@ try:
         try:
             import re
 
-            if re.search(pattern, current_script):
+            if re.search(pattern, current_script) is not None:
                 print(
                     f"Activating probing for script matching '{pattern}'",
                     file=sys.stderr,
