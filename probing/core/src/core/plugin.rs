@@ -6,12 +6,12 @@ use async_trait::async_trait;
 use datafusion::arrow::array::RecordBatch;
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::catalog::{CatalogProvider, SchemaProvider, Session, TableProvider};
+use datafusion::datasource::memory::DataSourceExec;
+use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::datasource::TableType;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::execution::SessionState;
 use datafusion::physical_plan::ExecutionPlan;
-use datafusion::datasource::memory::DataSourceExec;
-use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::prelude::Expr;
 
 /// Trait defining a custom table with static/dynamic schema and data
@@ -130,7 +130,7 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> TableProvider
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let data = T::data();
         let srccfg = MemorySourceConfig::try_new(&[data], T::schema(), projection.cloned())?;
-        let exec = DataSourceExec::new(Arc::new(srccfg));        
+        let exec = DataSourceExec::new(Arc::new(srccfg));
         Ok(Arc::new(exec))
     }
 }

@@ -6,6 +6,8 @@ use thaw::*;
 
 use crate::pages::profiler::Profiler;
 use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
+use crate::pages::timeseries::Timeseries;
+
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -50,7 +52,7 @@ fn TheRouter() -> impl IntoView {
                 <Route path=path!("/activity/:tid") view=Activity />
                 // <Route path="/debug" view=|| view! { <DebugView/> }/>
                 <Route path=path!("/profiler") view=|| view! { <Profiler /> } />
-                <Route path=path!("/timeseries") view=|| view! { <Profiler /> } />
+                <Route path=path!("/timeseries") view=|| view! { <Timeseries /> } />
                 <Route path=path!("/inspect") view=|| view! { <Python /> } />
             // <Route path="/files" view=|| view! { <Files/> }/>
             </Routes>

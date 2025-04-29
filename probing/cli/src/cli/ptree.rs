@@ -197,10 +197,7 @@ pub fn build_process_tree(processes: Vec<ProcessInfo>) -> Vec<ProcessNode> {
             root_nodes.push(process.pid);
         } else {
             // Add to children of parent
-            child_map
-                .entry(process.ppid)
-                .or_default()
-                .push(process.pid);
+            child_map.entry(process.ppid).or_default().push(process.pid);
         }
     }
 

@@ -22,15 +22,10 @@ pub struct Message<T> {
 impl<T> Message<T> {
     /// Create a new message envelope with the current protocol version
     pub fn new(payload: T) -> Self {
-        use std::time::{SystemTime, UNIX_EPOCH};
-
         Self {
             version: ProtocolVersion::current(),
             message_id: None,
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_micros() as u64,
+            timestamp: Self::now(),
             payload,
         }
     }
@@ -40,5 +35,20 @@ impl<T> Message<T> {
         let mut envelope = Self::new(payload);
         envelope.message_id = Some(id);
         envelope
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn now() -> u64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_micros() as u64
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn now() -> u64 {
+        0 as u64
     }
 }

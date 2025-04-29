@@ -102,13 +102,13 @@ pub async fn probe(
     axum::extract::RawForm(req): axum::extract::RawForm,
 ) -> Result<impl IntoResponse, AppError> {
     let probe = PROBE.lock().unwrap();
-    let request = ron::from_str::<ProbeCall>(String::from_utf8(req.to_vec())?.as_str());
+    let request = serde_json::from_str::<ProbeCall>(String::from_utf8(req.to_vec())?.as_str());
     let request = match request {
         Ok(request) => request,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
     let reply = probe.ask(request);
-    let reply = match ron::to_string(&reply) {
+    let reply = match serde_json::to_string(&reply) {
         Ok(reply) => reply,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
     };
@@ -116,10 +116,10 @@ pub async fn probe(
 }
 
 pub async fn query(req: String) -> Result<String, AppError> {
-    let request = ron::from_str::<Message<Query>>(&req);
+    let request = serde_json::from_str::<Message<Query>>(&req);
     let request = match request {
         Ok(request) => request.payload,
-        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
+        Err(err) => return Err(anyhow::anyhow!(format!("Failed to unseal message{err}")).into()),
     };
 
     let reply = match handle_query(request) {
@@ -127,7 +127,7 @@ pub async fn query(req: String) -> Result<String, AppError> {
         Err(err) => Message::new(QueryDataFormat::Error(err.to_string())),
     };
 
-    Ok(ron::to_string(&reply)?)
+    Ok(serde_json::to_string(&reply)?)
 }
 
 pub async fn index() -> impl IntoResponse {
