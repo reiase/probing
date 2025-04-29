@@ -4,13 +4,11 @@ use leptos_meta::Style;
 use thaw::*;
 
 use crate::{components::header_bar::HeaderBar, url_read::read_query_resource};
+use crate::components::dataframe_view::DataFrameView;
 
 #[component]
 pub fn Timeseries() -> impl IntoView {
     let table = read_query_resource("show tables");
-
-    let table = table.get_untracked();
-    log::info!("{:?}", table.clone());
 
     view! {
         <Style>
@@ -31,7 +29,17 @@ pub fn Timeseries() -> impl IntoView {
             content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
             class="doc-content"
         >
-            <span>"123"</span>
+            <div class="table-container">
+                <h2 class="table-title">"数据表列表"</h2>
+                <Suspense fallback=move || view! { <p class="loading-text">"加载数据中..."</p> }>
+                    {move || Suspend::new(async move {
+                        let df = table.await.unwrap_or_default();
+                        view! {
+                            <DataFrameView df />
+                        }  
+                    })}
+                </Suspense>
+            </div>
         </Layout>
     }
 }
