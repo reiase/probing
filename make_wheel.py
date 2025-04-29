@@ -89,7 +89,7 @@ def write_probing_wheel(
         "probing": "target/x86_64-unknown-linux-gnu/release/probing",
         "libprobing.so": "target/x86_64-unknown-linux-gnu/release/libprobing.so",
     }.items():
-        zip_info = ZipInfo(f"probing-{metadata["version"]}.data/scripts/{name}")
+        zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")
         zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
         with open(path, "rb") as f:
             contents[zip_info] = f.read()
