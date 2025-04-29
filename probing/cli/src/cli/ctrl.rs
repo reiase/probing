@@ -78,16 +78,16 @@ impl ProbeEndpoint {
     }
 
     pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
-        let cmd_str = ron::to_string(&cmd)?;
+        let cmd_str = serde_json::to_string(&cmd)?;
         let reply = self.send_request("/probe", &cmd_str)?;
-        Ok(ron::from_str::<ProbeCall>(&reply)?)
+        Ok(serde_json::from_str::<ProbeCall>(&reply)?)
     }
 
     pub fn query(&self, q: Query) -> Result<DataFrame> {
         let request = Message::new(q);
-        let q_str = ron::to_string(&request)?;
+        let q_str = serde_json::to_string(&request)?;
         let reply = self.send_request("/query", &q_str)?;
-        let reply = ron::from_str::<Message<QueryDataFormat>>(&reply)?.payload;
+        let reply = serde_json::from_str::<Message<QueryDataFormat>>(&reply)?.payload;
 
         match reply {
             QueryDataFormat::Error(err) => Err(anyhow::anyhow!("error: {}", err)),

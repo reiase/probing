@@ -37,6 +37,7 @@ fn build_app() -> axum::Router {
         .route("/cluster", axum::routing::get(index))
         .route("/activity", axum::routing::get(index))
         .route("/inspect", axum::routing::get(index))
+        .route("/timeseries", axum::routing::get(index))
         .route("/index.html", axum::routing::get(index))
         .route("/profiler", axum::routing::get(index))
         .route("/probe", axum::routing::post(probe))
