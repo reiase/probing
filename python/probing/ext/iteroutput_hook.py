@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from probing.table import table
+from probing.core.table import table
 
 hooks = {}
 
