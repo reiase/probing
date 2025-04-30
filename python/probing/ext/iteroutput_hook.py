@@ -29,7 +29,8 @@ class IterOutputTracer:
         while f and f.f_code.co_name != 'train':
             f = f.f_back
         if not f:
-            f = sys._getframe().f_back  
+            f = sys._getframe().f_back 
+            print("target frame not found") 
 
         # 从train()中提取局部变量
         local_vars = f.f_locals
