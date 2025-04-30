@@ -91,7 +91,7 @@ impl ProbeEndpoint {
 
         match reply {
             QueryDataFormat::Error(err) => Err(anyhow::anyhow!("error: {}", err)),
-            QueryDataFormat::Nil => Err(anyhow::anyhow!("error: nil")),
+            QueryDataFormat::Nil => Ok(Default::default()),
             QueryDataFormat::DataFrame(df) => Ok(df),
             QueryDataFormat::TimeSeries(_) => todo!(),
         }
