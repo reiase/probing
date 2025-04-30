@@ -2,11 +2,11 @@ import importlib.abc
 import importlib.util
 import sys
 
-from probing.ext.torch import init as torch_init
+from probing.ext.iteroutput_hook import init as iteroutput_init
 
 # Mapping from module names to callback functions
 register = {
-    "torch": torch_init,
+    "iteroutput": iteroutput_init,
 }
 
 # Record modules that have been triggered
