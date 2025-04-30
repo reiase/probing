@@ -97,12 +97,9 @@ pub fn handle_query(request: Query) -> Result<QueryDataFormat> {
     Ok(resp)
 }
 
-// #[post("/probe")]
-pub async fn probe(
-    axum::extract::RawForm(req): axum::extract::RawForm,
-) -> Result<impl IntoResponse, AppError> {
+pub async fn probe(req: String) -> Result<String, AppError> {
     let probe = PROBE.lock().unwrap();
-    let request = serde_json::from_str::<ProbeCall>(String::from_utf8(req.to_vec())?.as_str());
+    let request = serde_json::from_str::<ProbeCall>(&req);
     let request = match request {
         Ok(request) => request,
         Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
