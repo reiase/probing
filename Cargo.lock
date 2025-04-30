@@ -446,9 +446,6 @@ name = "bitflags"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "bumpalo"
@@ -2808,7 +2805,6 @@ dependencies = [
  "probing-python",
  "probing-server",
  "pyo3",
- "ron",
  "tokio",
 ]
 
@@ -2826,7 +2822,6 @@ dependencies = [
  "probing-proto",
  "procfs",
  "rmesg",
- "ron",
  "serde",
  "thiserror 2.0.12",
 ]
@@ -2848,7 +2843,6 @@ dependencies = [
  "probing-proto",
  "probing-store",
  "procfs",
- "ron",
  "serde_json",
  "tabled",
  "tokio",
@@ -2892,7 +2886,6 @@ dependencies = [
  "criterion",
  "log",
  "pco",
- "ron",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -2940,7 +2933,6 @@ dependencies = [
  "probing-proto",
  "probing-python",
  "procfs",
- "ron",
  "serde",
  "serde_json",
  "tokio",
@@ -3247,19 +3239,6 @@ dependencies = [
  "strum",
  "strum_macros",
  "tokio",
-]
-
-[[package]]
-name = "ron"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63f3aa105dea217ef30d89581b65a4d527a19afc95ef5750be3890e8d3c5b837"
-dependencies = [
- "base64",
- "bitflags 2.9.0",
- "serde",
- "serde_derive",
- "unicode-ident",
 ]
 
 [[package]]
