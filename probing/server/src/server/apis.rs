@@ -91,7 +91,10 @@ async fn api_get_callstack(
     axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
 ) -> Result<String, ApiError> {
     let tid: Option<i32> = params.get("tid").map(|x| x.parse().unwrap_or_default());
-    let probe = PROBE.lock().unwrap();
+    let probe = PROBE.lock().map_err(|e| {
+        log::error!("error locking probe: {}", e);
+        anyhow::anyhow!("error locking probe: {}", e)
+    })?;
 
     let reply = probe.ask(ProbeCall::CallBacktrace(tid));
     Ok(serde_json::to_string(&reply)?)
@@ -158,7 +161,7 @@ async fn extension_call(req: axum::extract::Request) -> Result<axum::response::R
 pub fn apis_route() -> axum::Router {
     Router::new()
         .route("/overview", axum::routing::get(api_get_overview))
-        .route("/callback", axum::routing::get(api_get_callstack))
+        .route("/callstack", axum::routing::get(api_get_callstack))
         .route("/files", axum::routing::get(api_get_files))
         .route("/nodes", axum::routing::get(get_nodes).put(put_nodes))
         .route(

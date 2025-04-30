@@ -69,11 +69,10 @@ impl Cli {
             },
             Commands::Backtrace{tid} => {
                 ctrl::probe(ctrl, ProbeCall::CallBacktrace(*tid))
-            },//ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
-            // Commands::Trace(cmd) => ctrl::handle(ctrl, Signal::Trace(cmd.clone())),
+            },
             Commands::Eval { code } => {
                 ctrl::probe(ctrl, ProbeCall::CallEval(code.clone()))
-            },//ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
+            },
             Commands::Query { query } => ctrl::query(
                 ctrl,
                 Query {
