@@ -3,7 +3,8 @@ use leptos_meta::Style;
 use thaw::*;
 
 use crate::components::dataframe_view::DataFrameView;
-use crate::{components::header_bar::HeaderBar, url_read::read_query_resource};
+use crate::components::page_layerout::PageLayout;
+use crate::url_read::read_query_resource;
 
 #[component]
 pub fn Timeseries() -> impl IntoView {
@@ -58,11 +59,7 @@ pub fn Timeseries() -> impl IntoView {
             }
             "
         </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 24px; display: flex; flex-direction: column;"
-            class="timeseries-page-content"
-        >
+        <PageLayout>
             <Space vertical=true>
                 <div class="section-container">
                     <h2>"数据表列表"</h2>
@@ -70,8 +67,8 @@ pub fn Timeseries() -> impl IntoView {
                         {move || Suspend::new(async move {
                             match table.await {
                                 Ok(df) => view! { <DataFrameView df /> }.into_any(),
-                                Err(e) => view! { 
-                                    <p class="error-text">{format!("加载表失败: {}", e)}</p> 
+                                Err(e) => view! {
+                                    <p class="error-text">{format!("加载表失败: {}", e)}</p>
                                 }.into_any()
                             }
                         })}
@@ -83,7 +80,7 @@ pub fn Timeseries() -> impl IntoView {
                     <SqlQueryPanel />
                 </div>
             </Space>
-        </Layout>
+        </PageLayout>
     }
 }
 
@@ -98,12 +95,12 @@ fn SqlQueryPanel() -> impl IntoView {
             if trigger_value == 0 {
                 return Err("请在上方输入 SQL 查询并点击执行".to_string());
             }
-            
+
             let query_text = sql.get();
             if query_text.trim().is_empty() {
                 return Err("请输入 SQL 查询".to_string());
             }
-            
+
             read_query_resource(&query_text)
                 .await
                 .map_err(|e| format!("查询执行失败: {}", e))

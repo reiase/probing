@@ -1,11 +1,9 @@
 use leptos::prelude::*;
-use leptos_meta::Style;
-use thaw::*;
 
 use probing_proto::prelude::*;
 
 use crate::components::card_view::{ProcessCard, ThreadsCard};
-use crate::components::header_bar::HeaderBar;
+use crate::components::page_layerout::PageLayout;
 use crate::components::panel::Panel;
 use crate::components::tableview::TableView;
 use crate::errors::AppError;
@@ -55,24 +53,7 @@ pub fn Overview() -> impl IntoView {
     let resource = url_read_resource::<Process>("/apis/overview");
 
     view! {
-        <Style>
-            "
-            .doc-content {
-                display: flex;
-                flex-direction: column;
-                flex: 1;
-                gap: 16px;
-                max-width: 100%;
-                box-sizing: border-box;
-                padding: 0 24px;
-            }
-            "
-        </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
-            class="doc-content"
-        >
+        <PageLayout>
             // Process Information Panel
             <Panel title="Process Information">
                 <SuspendedView resource view_fn=|process| view! { <ProcessCard process /> } />
@@ -87,6 +68,6 @@ pub fn Overview() -> impl IntoView {
             <Panel title="Environment Variables">
                 <SuspendedView resource view_fn=|process| view! { <TableView tbl=parse_env_vars(&process.env) /> } />
             </Panel>
-        </Layout>
+        </PageLayout>
     }
 }
