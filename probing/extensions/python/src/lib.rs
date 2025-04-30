@@ -90,7 +90,7 @@ pub fn backtrace_signal_handler() {
     let frames = Python::with_gil(|py| {
         let global = PyDict::new(py);
         if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
-            error!("error extract call stacks {}", err.to_string());
+            error!("error extract call stacks {}", err);
             return None;
         }
         match global.get_item("retval") {
@@ -103,7 +103,7 @@ pub fn backtrace_signal_handler() {
                 }
             }
             Err(err) => {
-                error!("error extract call stacks {}", err.to_string());
+                error!("error extract call stacks {}", err);
                 None
             }
         }
@@ -116,7 +116,7 @@ pub fn backtrace_signal_handler() {
                 *callstacks = Some(frames);
             }
             Err(err) => {
-                error!("error deserializing dump stack result: {}", err.to_string());
+                error!("error deserializing dump stack result: {}", err);
             }
         }
     } else {
@@ -130,10 +130,11 @@ impl Probe for PythonProbe {
             CALLSTACKS.lock().unwrap().take();
         }
         let tid = tid.unwrap_or(std::process::id() as i32);
-        nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2).map_err(|e| {
-            log::error!("error sending signal to process {}: {}", tid, e);
-            anyhow::anyhow!("error sending signal to process {}: {}", tid, e)
-        })?;
+        nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2)
+            .map_err(|e| {
+                log::error!("error sending signal to process {}: {}", tid, e);
+                anyhow::anyhow!("error sending signal to process {}: {}", tid, e)
+            })?;
         std::thread::sleep(std::time::Duration::from_secs(1));
         match CALLSTACKS.lock().unwrap().take() {
             Some(frames) => Ok(frames),

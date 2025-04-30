@@ -86,7 +86,7 @@ impl Injector {
         tracer
             .attach((&proc).into())
             .context("failed to attach to given process")?;
-        log::trace!("Attached to process with PID {}", proc);
+        log::trace!("Attached to process with PID {proc}");
         Self::new(proc, tracer)
     }
 
