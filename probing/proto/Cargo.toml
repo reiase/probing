@@ -11,8 +11,8 @@ license.workspace = true
 anyhow = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }
-ron = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 pco = "0.4.1"

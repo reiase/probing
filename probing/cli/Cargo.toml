@@ -18,7 +18,6 @@ probing-store = { path = "../crates/store", default-features = false, features =
 anyhow = { workspace = true }
 log = { workspace = true }
 procfs = { workspace = true }
-ron = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 nix = { workspace = true }

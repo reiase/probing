@@ -24,7 +24,7 @@ wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${TARGET_DIR_PREFIX}/${TARGET_
 .PHONY: app/dist
 app/dist:
 	test -e app/dist || mkdir -p app/dist
-	cd app #&& trunk build --filehash false --release -M -d dist/
+	cd app && trunk build --filehash false --release -M -d dist/
 	cd ..
 
 ${data_scripts_dir}:

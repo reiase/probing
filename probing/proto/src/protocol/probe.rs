@@ -69,11 +69,11 @@ pub trait Probe: Send + Sync {
     }
 
     fn handle(&self, msg: &[u8]) -> Result<Vec<u8>> {
-        let msg = ron::de::from_bytes::<ProbeCall>(msg)?;
+        let msg = serde_json::de::from_slice::<ProbeCall>(msg)?;
         log::debug!("probe request: {}", msg);
         let res = self.ask(msg);
         log::debug!("probe reply: {}", res);
-        Ok(ron::to_string(&res)?.as_bytes().to_vec())
+        Ok(serde_json::to_string(&res)?.as_bytes().to_vec())
     }
 }
 

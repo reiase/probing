@@ -390,6 +390,7 @@ mod tests {
     use super::*;
     use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
     use arrow::record_batch::RecordBatch;
+    use datafusion::catalog::memory::{DataSourceExec, MemorySourceConfig};
     use datafusion::datasource::TableProvider;
     use datafusion::execution::context::SessionState;
     use datafusion::logical_expr::{Expr, TableType};
@@ -470,13 +471,14 @@ mod tests {
             _filters: &[Expr],
             _limit: Option<usize>,
         ) -> Result<Arc<dyn ExecutionPlan>> {
-            Ok(Arc::new(
-                datafusion::physical_plan::memory::MemoryExec::try_new(
-                    &[self.batches.clone()],
-                    self.schema.clone(),
-                    projection.cloned(),
-                )?,
-            ))
+            let srccfg = MemorySourceConfig::try_new(
+                &[self.batches.clone()],
+                self.schema.clone(),
+                projection.cloned(),
+            )?;
+            let exec = DataSourceExec::new(Arc::new(srccfg));
+
+            Ok(Arc::new(exec))
         }
     }
 
