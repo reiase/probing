@@ -12,6 +12,7 @@ use pyo3::types::PyAnyMethods;
 use pyo3::Python;
 pub use tbls::PythonPlugin;
 
+use crate::flamegraph;
 use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
@@ -69,7 +70,7 @@ impl EngineCall for PythonExt {
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
         println!(
-            "PythonExtension::call: path = {}, params = {:?}, body = {:?}",
+            "PythonExt::call: path = {}, params = {:?}, body = {:?}",
             path, params, body
         );
         if path == "callstack" {
@@ -94,8 +95,13 @@ impl EngineCall for PythonExt {
                 EngineError::PluginError(format!("error converting body to string: {}", e))
             })?;
 
+            log::debug!("PythonExt::call: eval code = {}", code);
+
             let mut repl = PythonRepl::default();
             return Ok(repl.process(code.as_str()).unwrap_or_default().into_bytes());
+        }
+        if path == "flamegraph" {
+            return Ok(flamegraph::flamegraph().into_bytes());
         }
         Ok("".as_bytes().to_vec())
     }

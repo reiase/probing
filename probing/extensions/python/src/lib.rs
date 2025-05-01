@@ -13,10 +13,8 @@ pub mod repl;
 mod setup;
 
 use std::ffi::CStr;
-use std::sync::Arc;
 use std::sync::Mutex;
 
-use anyhow::Result;
 use log::error;
 use pkg::TCPStore;
 use pyo3::ffi::c_str;
@@ -26,17 +24,11 @@ use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
 use probing_core::ENGINE;
-use probing_proto::protocol::probe::Probe;
-use probing_proto::protocol::probe::ProbeFactory;
 use probing_proto::protocol::process::CallFrame;
 
 use extensions::python::ExternalTable;
-use repl::PythonRepl;
 
 use crate::pycode::get_code;
-
-#[derive(Default)]
-pub struct PythonProbe {}
 
 const DUMP_STACK: &CStr = c_str!(
     r#"
@@ -121,28 +113,6 @@ pub fn backtrace_signal_handler() {
         }
     } else {
         error!("error running dump stack code");
-    }
-}
-
-impl Probe for PythonProbe {
-
-    fn eval(&self, code: &str) -> Result<String> {
-        let code: String = code.into();
-        let mut repl = PythonRepl::default();
-        Ok(repl.process(code.as_str()).unwrap_or_default())
-    }
-
-    fn flamegraph(&self) -> Result<String> {
-        Ok(flamegraph::flamegraph())
-    }
-}
-
-#[derive(Default)]
-pub struct PythonProbeFactory {}
-
-impl ProbeFactory for PythonProbeFactory {
-    fn create(&self) -> Arc<dyn Probe> {
-        Arc::new(PythonProbe::default())
     }
 }
 

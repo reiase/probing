@@ -1,4 +1,3 @@
-use std::sync::Mutex;
 use std::thread;
 
 use anyhow::Result;
@@ -7,15 +6,10 @@ use axum::http::Uri;
 use axum::response::AppendHeaders;
 use axum::response::IntoResponse;
 use axum::response::Response;
-use once_cell::sync::Lazy;
 
 use probing_proto::prelude::*;
-use probing_python::PythonProbe;
 
 use crate::asset;
-
-pub static PROBE: Lazy<Mutex<Box<dyn Probe>>> =
-    Lazy::new(|| Mutex::new(Box::new(PythonProbe::default())));
 
 pub use probing_core::ENGINE;
 
@@ -95,21 +89,6 @@ pub fn handle_query(request: Query) -> Result<QueryDataFormat> {
     .join()
     .map_err(|_| anyhow::anyhow!("error joining thread"))??;
     Ok(resp)
-}
-
-pub async fn probe(req: String) -> Result<String, AppError> {
-    let probe = PROBE.lock().unwrap();
-    let request = serde_json::from_str::<ProbeCall>(&req);
-    let request = match request {
-        Ok(request) => request,
-        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
-    };
-    let reply = probe.ask(request);
-    let reply = match serde_json::to_string(&reply) {
-        Ok(reply) => reply,
-        Err(err) => return Err(anyhow::anyhow!(err.to_string()).into()),
-    };
-    Ok(reply)
 }
 
 pub async fn query(req: String) -> Result<String, AppError> {
