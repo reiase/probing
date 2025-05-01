@@ -3,16 +3,9 @@ use anyhow::Result;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 
-use probing_proto::prelude::ProbeCall;
-use probing_proto::prelude::*;
+use probing_proto::{prelude::*, protocol::process::CallFrame};
 
 use crate::table::render_dataframe;
-
-pub fn probe(ctrl: ProbeEndpoint, cmd: ProbeCall) -> Result<()> {
-    let reply = ctrl.probe(cmd)?;
-    println!("{reply}");
-    Ok(())
-}
 
 pub fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
     let reply = ctrl.query(query)?;
@@ -77,10 +70,30 @@ impl ProbeEndpoint {
         Ok(String::from_utf8(bytes)?)
     }
 
-    pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
-        let cmd_str = serde_json::to_string(&cmd)?;
-        let reply = self.send_request("/probe", &cmd_str)?;
-        Ok(serde_json::from_str::<ProbeCall>(&reply)?)
+    pub fn backtrace(&self, tid: Option<i32>) -> Result<()> {
+        let mut url = "/apis/pythonext/callstack".to_string();
+        if let Some(tid) = tid {
+            url = format!("/apis/pythonext/callstack?tid={}", tid);
+        }
+        let reply = self.run_in_runtime(request(self.clone(), &url, None))?;
+        match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
+            Ok(msg) => {
+                for f in msg {
+                    println!("{:?}", f)
+                }
+                Ok(())
+            }
+            Err(err) => Err(anyhow::anyhow!("error: {}", err)),
+        }
+    }
+
+    pub fn eval(&self, code: String) -> Result<()> {
+        let reply =
+            self.run_in_runtime(request(self.clone(), "/apis/pythonext/eval", Some(code)))?;
+
+        println!("{}", String::from_utf8(reply)?);
+
+        Ok(())
     }
 
     pub fn query(&self, q: Query) -> Result<DataFrame> {

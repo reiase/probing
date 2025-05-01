@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_proto::prelude::{ProbeCall, Query};
+use probing_proto::prelude::Query;
 use process_monitor::ProcessMonitor;
 
 pub mod commands;
@@ -68,10 +68,10 @@ impl Cli {
                 }
             },
             Commands::Backtrace{tid} => {
-                ctrl::probe(ctrl, ProbeCall::CallBacktrace(*tid))
+                ctrl.backtrace(*tid)
             },
             Commands::Eval { code } => {
-                ctrl::probe(ctrl, ProbeCall::CallEval(code.clone()))
+                ctrl.eval(code.clone())
             },
             Commands::Query { query } => ctrl::query(
                 ctrl,
