@@ -127,9 +127,10 @@ async fn get_nodes() -> Result<String, ApiError> {
 async fn extension_call(req: axum::extract::Request) -> Result<axum::response::Response, ApiError> {
     let (parts, body) = req.into_parts();
     let path = parts.uri.path();
-    let params = parts.uri.query().unwrap_or_default();
+    let params_str = parts.uri.query().unwrap_or_default();
+    let params: HashMap<String, String> = serde_urlencoded::from_str(params_str).unwrap_or_default();
     let body = body.collect().await?.to_bytes().clone();
-    println!("path: {}, params: {}, body: {:?}", path, params, body);
+    println!("path: {}, params: {:?}, body: {:?}", path, params, body);
     let engine = ENGINE.write().await;
     let state = engine.context.state();
     let eem = state
@@ -138,7 +139,7 @@ async fn extension_call(req: axum::extract::Request) -> Result<axum::response::R
         .extensions
         .get::<EngineExtensionManager>();
     if let Some(eem) = eem {
-        match eem.call(path, params, body.to_vec().as_slice()) {
+        match eem.call(path, &params, body.to_vec().as_slice()) {
             Ok(response) => {
                 // If response is a string, return it as plain text
                 return Ok((

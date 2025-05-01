@@ -37,7 +37,7 @@ pub async fn initialize_engine() -> Result<()> {
             None,
         )
         .with_extension(
-            probing_python::extensions::PythonExtension::default(),
+            probing_python::extensions::PythonExt::default(),
             "python",
             None,
         )

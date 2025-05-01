@@ -125,22 +125,6 @@ pub fn backtrace_signal_handler() {
 }
 
 impl Probe for PythonProbe {
-    fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
-        {
-            CALLSTACKS.lock().unwrap().take();
-        }
-        let tid = tid.unwrap_or(std::process::id() as i32);
-        nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2)
-            .map_err(|e| {
-                log::error!("error sending signal to process {}: {}", tid, e);
-                anyhow::anyhow!("error sending signal to process {}: {}", tid, e)
-            })?;
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        match CALLSTACKS.lock().unwrap().take() {
-            Some(frames) => Ok(frames),
-            None => Err(anyhow::anyhow!("no call stack")),
-        }
-    }
 
     fn eval(&self, code: &str) -> Result<String> {
         let code: String = code.into();

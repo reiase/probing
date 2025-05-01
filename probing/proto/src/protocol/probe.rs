@@ -42,7 +42,7 @@ impl Display for ProbeCall {
 }
 
 pub trait Probe: Send + Sync {
-    fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
+    // fn backtrace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
     fn eval(&self, code: &str) -> Result<String>;
 
     fn flamegraph(&self) -> Result<String> {
@@ -51,10 +51,10 @@ pub trait Probe: Send + Sync {
 
     fn ask(&self, request: ProbeCall) -> ProbeCall {
         match request {
-            ProbeCall::CallBacktrace(depth) => match self.backtrace(depth) {
-                Ok(res) => ProbeCall::ReturnBacktrace(res),
-                Err(err) => ProbeCall::Err(err.to_string()),
-            },
+            // ProbeCall::CallBacktrace(depth) => match self.backtrace(depth) {
+            //     Ok(res) => ProbeCall::ReturnBacktrace(res),
+            //     Err(err) => ProbeCall::Err(err.to_string()),
+            // },
             ProbeCall::CallEval(code) => match self.eval(&code) {
                 Ok(res) => ProbeCall::ReturnEval(res),
                 Err(err) => ProbeCall::Err(err.to_string()),

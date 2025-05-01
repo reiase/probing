@@ -3,7 +3,7 @@ pub mod python;
 mod torch;
 
 pub use pprof::PprofExtension;
-pub use python::PythonExtension;
+pub use python::PythonExt;
 pub use torch::TorchExtension;
 
 // #[derive(Debug, Default)]
