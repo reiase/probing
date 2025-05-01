@@ -54,7 +54,7 @@ impl From<ProbeEndpoint> for String {
 }
 
 impl ProbeEndpoint {
-    fn run_in_runtime<F, T>(&self, fut: F) -> T
+    fn async_execute<F, T>(&self, fut: F) -> T
     where
         F: std::future::Future<Output = T>,
     {
@@ -66,7 +66,7 @@ impl ProbeEndpoint {
     }
 
     fn send_request(&self, url: &str, body: &str) -> Result<String> {
-        let bytes = self.run_in_runtime(request(self.clone(), url, Some(body.to_string())))?;
+        let bytes = self.async_execute(request(self.clone(), url, Some(body.to_string())))?;
         Ok(String::from_utf8(bytes)?)
     }
 
@@ -75,7 +75,7 @@ impl ProbeEndpoint {
         if let Some(tid) = tid {
             url = format!("/apis/pythonext/callstack?tid={}", tid);
         }
-        let reply = self.run_in_runtime(request(self.clone(), &url, None))?;
+        let reply = self.async_execute(request(self.clone(), &url, None))?;
         match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
             Ok(msg) => {
                 for f in msg {
@@ -89,7 +89,7 @@ impl ProbeEndpoint {
 
     pub fn eval(&self, code: String) -> Result<()> {
         let reply =
-            self.run_in_runtime(request(self.clone(), "/apis/pythonext/eval", Some(code)))?;
+            self.async_execute(request(self.clone(), "/apis/pythonext/eval", Some(code)))?;
 
         println!("{}", String::from_utf8(reply)?);
 
@@ -138,7 +138,9 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
 
             let (sender, connection) = conn::http1::handshake(io).await?;
             tokio::spawn(async move {
-                connection.await.unwrap();
+                connection.await.map_err(|err| {
+                    eprintln!("error: {}", err);
+                }).unwrap();
             });
             sender
         }

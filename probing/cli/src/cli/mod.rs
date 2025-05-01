@@ -34,15 +34,16 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         let target = self.target.clone().unwrap_or("0".to_string());
-        let query = self.query.clone();
-        let ctrl: ProbeEndpoint = target.as_str().try_into()?;
 
-        if let Some(query) = query {
-            return ctrl::query(ctrl, Query::new(query.clone()));
+        if let Some(query) = &self.query {
+            self.command = Some(Commands::Query {
+                query: query.clone(),
+            });
         }
 
+        let ctrl: ProbeEndpoint = target.as_str().try_into()?;
         self.execute_command(ctrl)
     }
 
@@ -117,8 +118,4 @@ impl Cli {
             Commands::Store(cmd) => cmd.run()
         }
     }
-}
-
-pub fn run() -> Result<()> {
-    Cli::parse().run()
 }
