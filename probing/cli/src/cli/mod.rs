@@ -26,6 +26,9 @@ pub struct Cli {
     #[arg()]
     target: Option<String>,
 
+    #[arg()]
+    query: Option<String>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -33,7 +36,12 @@ pub struct Cli {
 impl Cli {
     pub fn run(&self) -> Result<()> {
         let target = self.target.clone().unwrap_or("0".to_string());
+        let query = self.query.clone();
         let ctrl: ProbeEndpoint = target.as_str().try_into()?;
+
+        if let Some(query) = query {
+            return ctrl::query(ctrl, Query::new(query.clone()));
+        }
 
         self.execute_command(ctrl)
     }
@@ -67,22 +75,10 @@ impl Cli {
                     },
                 }
             },
-            Commands::Backtrace{tid} => {
-                ctrl.backtrace(*tid)
-            },
-            Commands::Eval { code } => {
-                ctrl.eval(code.clone())
-            },
-            Commands::Query { query } => ctrl::query(
-                ctrl,
-                Query {
-                    expr: query.clone(),
-                    opts: None,
-                },
-            ),
-            Commands::Launch { recursive, args } => {
-                ProcessMonitor::new(args, *recursive)?.monitor()
-            }
+            Commands::Backtrace{tid} => ctrl.backtrace(*tid),
+            Commands::Eval { code } => ctrl.eval(code.clone()),
+            Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())),
+            Commands::Launch { recursive, args } => ProcessMonitor::new(args, *recursive)?.monitor(),
             Commands::List { verbose, tree } => {
                 match ptree::collect_probe_processes() {
                     Ok(processes) => {
@@ -90,7 +86,7 @@ impl Cli {
                             println!("No processes with injected probes found.");
                             return Ok(());
                         }
-            
+
                         if *tree {
                             // Build and display process tree
                             let tree_nodes = ptree::build_process_tree(processes);
@@ -118,9 +114,7 @@ impl Cli {
                 }
                 Ok(())
             },
-            Commands::Store(cmd) => {
-                cmd.run()
-            }
+            Commands::Store(cmd) => cmd.run()
         }
     }
 }

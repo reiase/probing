@@ -13,6 +13,12 @@ pub struct Query {
     pub opts: Option<Options>,
 }
 
+impl Query {
+    pub fn new(expr: String) -> Self {
+        Self { expr, opts: None }
+    }
+}
+
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub enum Data {
     #[default]

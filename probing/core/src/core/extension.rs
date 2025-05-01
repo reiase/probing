@@ -85,7 +85,12 @@ pub trait EngineCall: Debug + Send + Sync {
     /// # Returns
     /// * `Ok(Vec<u8>)` - Response data on success
     /// * `Err(EngineError)` - Error information on failure
-    fn call(&self, path: &str, params: &HashMap<String, String>, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+    fn call(
+        &self,
+        path: &str,
+        params: &HashMap<String, String>,
+        body: &[u8],
+    ) -> Result<Vec<u8>, EngineError> {
         Err(EngineError::UnsupportedCall)
     }
 }
@@ -305,11 +310,16 @@ impl EngineExtensionManager {
         options
     }
 
-    pub fn call(&self, path: &str, params: &HashMap<String, String>, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+    pub fn call(
+        &self,
+        path: &str,
+        params: &HashMap<String, String>,
+        body: &[u8],
+    ) -> Result<Vec<u8>, EngineError> {
         for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
                 let name = ext.name();
-                log::debug!("checking extension [{}]:{}", name, path );
+                log::debug!("checking extension [{}]:{}", name, path);
                 if !path.starts_with(format!("/{}/", name).as_str()) {
                     continue;
                 }
