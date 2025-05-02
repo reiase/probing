@@ -24,8 +24,10 @@ pub fn PageLayout(children: Children) -> impl IntoView {
         </Style>
         <HeaderBar />
         <Layout
-            content_style="display: flex; flex-direction: column; flex: 1;" // Basic flex layout
-            class="common-page-content" // Apply common class
+            // Basic flex layout
+            content_style="display: flex; flex-direction: column; flex: 1;"
+            // Apply common class
+            class="common-page-content"
         >
             {children()}
         </Layout>

@@ -138,9 +138,12 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
 
             let (sender, connection) = conn::http1::handshake(io).await?;
             tokio::spawn(async move {
-                connection.await.map_err(|err| {
-                    eprintln!("error: {}", err);
-                }).unwrap();
+                connection
+                    .await
+                    .map_err(|err| {
+                        eprintln!("error: {}", err);
+                    })
+                    .unwrap();
             });
             sender
         }

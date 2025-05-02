@@ -36,12 +36,16 @@ where
     IV: IntoView + 'static,
 {
     view! {
-        <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+        <Suspense fallback=|| {
+            view! { <p>"Loading..."</p> }
+        }>
             {move || {
-                resource.get().map(|result| match result.take() {
-                    Ok(data) => view_fn(data).into_view(),
-                    Err(e) => view_fn(T::default()).into_view(), // Handle error by returning default view
-                })
+                resource
+                    .get()
+                    .map(|result| match result.take() {
+                        Ok(data) => view_fn(data).into_view(),
+                        Err(e) => view_fn(T::default()).into_view(),
+                    })
             }}
         </Suspense>
     }
@@ -61,12 +65,18 @@ pub fn Overview() -> impl IntoView {
 
             // Threads Information Panel
             <Panel title="Threads Information">
-                <SuspendedView resource view_fn=|process| view! { <ThreadsCard threads=process.threads /> } />
+                <SuspendedView
+                    resource
+                    view_fn=|process| view! { <ThreadsCard threads=process.threads /> }
+                />
             </Panel>
 
             // Environment Variables Panel
             <Panel title="Environment Variables">
-                <SuspendedView resource view_fn=|process| view! { <TableView tbl=parse_env_vars(&process.env) /> } />
+                <SuspendedView
+                    resource
+                    view_fn=|process| view! { <TableView tbl=parse_env_vars(&process.env) /> }
+                />
             </Panel>
         </PageLayout>
     }

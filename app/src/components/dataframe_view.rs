@@ -1,11 +1,9 @@
-use leptos::ev::Event;
 use leptos::prelude::*;
 use leptos_chartistry::*;
 use thaw::*;
 
 use probing_proto::types::DataFrame;
 use probing_proto::types::Ele;
-use web_sys::wasm_bindgen::JsCast;
 use web_sys::MouseEvent;
 
 #[component]
@@ -47,7 +45,11 @@ pub fn DataFrameView(df: DataFrame) -> impl IntoView {
             view! { <TableRow>{row}</TableRow> }
         })
         .collect::<Vec<_>>();
-    view! { <Table>{head} <TableBody>{rows}</TableBody></Table> }
+    view! {
+        <Flex style="margin: 8px;">
+            <Table>{head} <TableBody>{rows}</TableBody></Table>
+        </Flex>
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -62,34 +64,13 @@ fn ChartAxisSelector(
     x_column: RwSignal<String>,
     y_columns: RwSignal<Vec<String>>,
 ) -> impl IntoView {
-    let toggle_y_column = move |ev: Event| {
-        let target: web_sys::EventTarget = event_target(&ev);
-        let checkbox = target.dyn_ref::<web_sys::HtmlInputElement>();
-        
-        if let Some(checkbox) = checkbox {
-            let column = checkbox.value();
-            let checked = checkbox.checked();
-            
-            y_columns.update(|cols| {
-                if checked {
-                    if !cols.contains(&column) {
-                        cols.push(column);
-                    }
-                } else {
-                    cols.retain(|c| c != &column);
-                }
-            });
-        }
-    };
-
     view! {
         <Card>
             <CardHeader>
-                <Body1>"选择图表轴"</Body1>
+                <h3>"选择图表轴"</h3>
             </CardHeader>
-            <div style="display: flex; flex-wrap: wrap; gap: 24px;">
-                <div style="min-width: 200px;">
-                    <h4>"X轴列"</h4>
+            <Flex vertical=true>
+                <Field label="X轴列" orientation=FieldOrientation::Horizontal>
                     <Select value=x_column>
                         <For
                             each=move || available_columns.get().into_iter()
@@ -99,25 +80,47 @@ fn ChartAxisSelector(
                             }
                         />
                     </Select>
-                </div>
+                </Field>
 
-                <div style="flex-grow: 1;">
-                    <h4>"Y轴列 (可多选)"</h4>
-                    <For
-                        each=move || available_columns.get().into_iter()
-                        key=|col| col.clone()
-                        children=move |col| {
-                            view! {
-                                <Checkbox
-                                    label=col.clone()
-                                    value=col.clone()
-                                    on:change=toggle_y_column
-                                />
-                            }
-                        }
-                    />
-                </div>
-            </div>
+                <Field label="Y轴列 (可多选)" orientation=FieldOrientation::Horizontal>
+                    <TagPicker selected_options=y_columns>
+                        <TagPickerControl slot>
+                            <TagPickerGroup>
+                                {move || {
+                                    y_columns
+                                        .get()
+                                        .into_iter()
+                                        .map(|option| {
+                                            view! { <Tag value=option.clone()>{option}</Tag> }
+                                        })
+                                        .collect_view()
+                                }}
+                            </TagPickerGroup>
+                            <TagPickerInput />
+                        </TagPickerControl>
+                        {move || {
+                            y_columns
+                                .with(|selected_options| {
+                                    available_columns
+                                        .get()
+                                        .iter()
+                                        .filter_map(|option| {
+                                            if selected_options.iter().any(|o| o == option) {
+                                                return None
+                                            } else {
+                                                Some(
+                                                    view! {
+                                                        <TagPickerOption value=option.clone() text=option.clone() />
+                                                    },
+                                                )
+                                            }
+                                        })
+                                        .collect_view()
+                                })
+                        }}
+                    </TagPicker>
+                </Field>
+            </Flex>
         </Card>
     }
 }
@@ -155,46 +158,7 @@ fn ChartFilterManager(
     view! {
         <Card>
             <CardHeader>
-                <Body1>"过滤条件"</Body1>
-            </CardHeader>
-            <div>
-                <p>"列"</p>
-                <Select default_value="" value=filter_column>
-                    <For
-                        each=move || available_columns.get().into_iter()
-                        key=|col| col.clone()
-                        children=move |col| {
-                            view! { <option value=col.clone()>{col.clone()}</option> }
-                        }
-                    />
-                </Select>
-            </div>
-
-            <div>
-                <p>"操作符"</p>
-                <Select default_value="equals" value=filter_operator>
-                    <option value="equals">"等于"</option>
-                    <option value="contains">"包含"</option>
-                    <option value="greater">"大于"</option>
-                    <option value="less">"小于"</option>
-                </Select>
-            </div>
-
-            <div>
-                <p>"值"</p>
-                <Input
-                    placeholder="输入过滤值"
-                    value=filter_value
-                    on_blur=move |ev| filter_value.set(event_target_value(&ev))
-                />
-            </div>
-
-            <Button appearance=ButtonAppearance::Primary on_click=add_filter>
-                "添加过滤器"
-            </Button>
-
-            <div style="margin-top: 16px;">
-                <h4>"已应用的过滤器:"</h4>
+                <h3>"过滤条件"</h3>
                 <For
                     each=move || applied_filters.get()
                     key=|(col, op, val)| format!("{}-{}-{}", col, op, val)
@@ -209,16 +173,45 @@ fn ChartFilterManager(
                         view! {
                             <Tag
                                 dismissible=true
-                                on_dismiss=move |_| remove_filter(
-                                    format!("{}-{}-{}", col, op, val),
-                                )
+                                on_dismiss=move |_| remove_filter(format!("{}-{}-{}", col, op, val))
                             >
                                 {filter_text}
                             </Tag>
                         }
                     }
                 />
-            </div>
+            </CardHeader>
+            <Flex vertical=true>
+                <Field label="列" orientation=FieldOrientation::Horizontal>
+                    <Select default_value="" value=filter_column>
+                        <For
+                            each=move || available_columns.get().into_iter()
+                            key=|col| col.clone()
+                            children=move |col| {
+                                view! { <option value=col.clone()>{col.clone()}</option> }
+                            }
+                        />
+                    </Select>
+                </Field>
+                <Field label="操作符" orientation=FieldOrientation::Horizontal>
+                    <Select default_value="equals" value=filter_operator>
+                        <option value="equals">"等于"</option>
+                        <option value="contains">"包含"</option>
+                        <option value="greater">"大于"</option>
+                        <option value="less">"小于"</option>
+                    </Select>
+                </Field>
+                <Field label="值" orientation=FieldOrientation::Horizontal>
+                    <Input
+                        placeholder="输入过滤值"
+                        value=filter_value
+                        on_blur=move |ev| filter_value.set(event_target_value(&ev))
+                    />
+                </Field>
+                <Button appearance=ButtonAppearance::Primary on_click=add_filter>
+                    "添加过滤器"
+                </Button>
+            </Flex>
         </Card>
     }
 }
@@ -282,7 +275,7 @@ fn ChartRenderer(
     view! {
         <Card>
             <CardHeader>
-                <Body1>"图表"</Body1>
+                <h3>"图表"</h3>
             </CardHeader>
             {chart_view}
         </Card>
@@ -407,25 +400,27 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
     };
 
     view! {
-        <div
-            class="chart-builder"
-            style="width: 100%; display: flex; flex-direction: column; gap: 16px;"
-        >
-            <ChartAxisSelector 
-                available_columns=available_columns.read_only() 
-                x_column 
-                y_columns
-            />
-            
-            <ChartFilterManager 
-                available_columns=available_columns.read_only() 
-                applied_filters
-            />
-            
-            <ChartRenderer 
-                chart_data=Signal::derive(move || chart_data())
-                selected_y_columns=y_columns.read_only()
-            />
-        </div>
+        <Layout has_sider=true content_style="margin: 8px">
+            <LayoutSider content_style="width: 150px;">
+                <Flex gap=FlexGap::Small vertical=true style="margin: 8px;">
+                    <ChartAxisSelector
+                        available_columns=available_columns.read_only()
+                        x_column
+                        y_columns
+                    />
+                    <ChartFilterManager
+                        available_columns=available_columns.read_only()
+                        applied_filters
+                    />
+                </Flex>
+            </LayoutSider>
+
+            <Flex style="width: 100%;">
+                <ChartRenderer
+                    chart_data=Signal::derive(move || chart_data())
+                    selected_y_columns=y_columns.read_only()
+                />
+            </Flex>
+        </Layout>
     }
 }
