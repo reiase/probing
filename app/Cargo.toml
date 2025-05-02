@@ -15,12 +15,14 @@ console_error_panic_hook = "0.1.7"
 thaw = { version = "0.4.6", features = ["csr"] }
 thiserror = "2"
 icondata = { version = "0.5.0", default-features = false, features = [
-    "ant-design-icons",
+    "ant-design-icons", "css-gg", "simple-icons"
 ] }
 console_log = "1"
 leptos = { version = "0.7.8", default-features = false, features = ["csr"] }
 leptos_meta = { version = "0.7.8", default-features = false }
 leptos_router = { version = "0.7.8", default-features = false }
+leptos-chartistry = "0.2.1"
+web-sys = "0.3.77"
 
 [dependencies.gloo-net]
 version = "0.6.0"
