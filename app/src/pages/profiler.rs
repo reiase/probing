@@ -1,33 +1,14 @@
 use leptos::prelude::*;
-use leptos_meta::Style;
 
 use thaw::*;
 
-use crate::components::header_bar::HeaderBar;
+use crate::components::page_layerout::PageLayout;
 
 #[component]
 pub fn Profiler() -> impl IntoView {
     let selected_tab = RwSignal::new(String::from("pprof"));
     view! {
-        <Style>
-            "
-            .doc-content {
-                margin: 0 auto;
-                width: 100%;
-                display: grid;
-            }
-            @media screen and (max-width: 1200px) {
-                .doc-content {
-                    width: 100%;
-                }
-            }
-            "
-        </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
-            class="doc-content"
-        >
+        <PageLayout>
             <Space align=SpaceAlign::Center vertical=true class="doc-content">
                 <TabList selected_value=selected_tab>
                     <Tab value="pprof">"PProf"</Tab>
@@ -62,6 +43,6 @@ pub fn Profiler() -> impl IntoView {
                     }}
                 </div>
             </Space>
-        </Layout>
+        </PageLayout>
     }
 }

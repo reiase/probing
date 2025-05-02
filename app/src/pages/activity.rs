@@ -1,12 +1,11 @@
 use leptos::prelude::*;
-use leptos_meta::Style;
 use leptos_router::hooks::use_params_map;
 use thaw::*;
 
-use probing_proto::protocol::probe::ProbeCall;
 use probing_proto::protocol::process::CallFrame;
 
-use crate::{components::header_bar::HeaderBar, url_read::url_read_resource};
+use crate::components::page_layerout::PageLayout;
+use crate::url_read::url_read_resource;
 
 use super::common::*;
 
@@ -15,12 +14,12 @@ pub fn Activity() -> impl IntoView {
     log::info!("Activity Page");
     let params = use_params_map();
     let url = if let Some(tid) = params.get().get("tid") {
-        format!("/apis/callstack?tid={}", tid)
+        format!("/apis/pythonext/callstack?tid={}", tid)
     } else {
-        "/apis/callstack".to_string()
+        "/apis/pythonext/callstack".to_string()
     };
 
-    let reply = url_read_resource::<ProbeCall>(url.as_str());
+    let reply = url_read_resource::<Vec<CallFrame>>(url.as_str());
 
     let callstacks = move || {
         view! {
@@ -28,10 +27,7 @@ pub fn Activity() -> impl IntoView {
                 view! { <p>"Loading..."</p> }
             }>
                 {move || Suspend::new(async move {
-                    let callstacks = match reply.await {
-                        Ok(ProbeCall::ReturnBacktrace(callstacks)) => callstacks,
-                        _other => Default::default(),
-                    };
+                    let callstacks = reply.await.unwrap_or_default();
                     log::info!("callstacks: {:?}", callstacks);
                     callstacks
                         .iter()
@@ -46,30 +42,12 @@ pub fn Activity() -> impl IntoView {
     };
 
     view! {
-        <Style>
-            "
-            .doc-content {
-                margin: 0 auto;
-                width: 100%;
-                display: grid;
-            }
-            @media screen and (max-width: 1200px) {
-                .doc-content {
-                    width: 100%;
-                }
-            }
-            "
-        </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
-            class="doc-content"
-        >
+        <PageLayout>
             <Space align=SpaceAlign::Center vertical=true class="doc-content">
                 <h3>"Call Stacks"</h3>
                 <Accordion multiple=true>{callstacks}</Accordion>
             </Space>
-        </Layout>
+        </PageLayout>
     }
 }
 

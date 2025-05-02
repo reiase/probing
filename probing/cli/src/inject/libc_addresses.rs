@@ -110,9 +110,7 @@ impl LibcAddrs {
             .ok();
         let their_libdl = process.libdl_address().ok();
         log::debug!(
-            "Calculating libc address given our offset {:x} and their offset {:x}",
-            our_libc,
-            their_libc
+            "Calculating libc address given our offset {our_libc:x} and their offset {their_libc:x}"
         );
         let addrs =
             Self::for_current_process()?.change_base(our_libc, their_libc, our_libdl, their_libdl);

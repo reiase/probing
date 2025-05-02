@@ -34,3 +34,4 @@ axum = { version = "0.8.1", default-features = false, features = [
 ] }
 hyper = "1"
 http-body-util = { version = "0.1" }
+serde_urlencoded = "0.7.1"

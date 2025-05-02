@@ -31,7 +31,7 @@ impl Process {
     pub fn get(id: u32) -> Result<Self> {
         // https://unix.stackexchange.com/a/16884 - A PID should fit in 31 bits comfortably.
         let id = i32::try_from(id).expect("PID to fit in an i32");
-        log::trace!("Getting process with PID {}", id);
+        log::trace!("Getting process with PID {id}");
         Ok(Self(process::Process::new(id).with_context(|| {
             format!("failed to get process by pid {id}")
         })?))
@@ -42,7 +42,7 @@ impl Process {
     /// This ignores errors when the executable name of certain processes cannot
     /// be read (usually because of lack of permissions).
     pub fn by_name(name: &str) -> Result<Option<Self>> {
-        log::debug!("Searching for process with executable name {}", name);
+        log::debug!("Searching for process with executable name {name}");
         for process in
             process::all_processes().context("failed to list processes to search them")?
         {
@@ -67,7 +67,7 @@ impl Process {
     /// This ignores errors when the executable name of certain processes cannot
     /// be read (usually because of lack of permissions).
     pub fn by_cmdline(pat: &str) -> Result<Option<i32>> {
-        log::debug!("Searching for process with executable name {}", pat);
+        log::debug!("Searching for process with executable name {pat}");
         let ps: Vec<i32> = process::all_processes()
             .context("failed to list processes to search them")?
             .filter_map(std::result::Result::ok)

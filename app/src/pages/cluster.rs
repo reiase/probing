@@ -2,12 +2,13 @@ use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
 use leptos::prelude::*;
-use leptos_meta::Style;
 use thaw::*;
 
 use probing_proto::prelude::*;
 
-use crate::components::{header_bar::HeaderBar, panel::Panel};
+use crate::components::page_layerout::PageLayout;
+use crate::components::panel::Panel;
+
 use crate::url_read::url_read_resource;
 
 #[component]
@@ -71,25 +72,7 @@ pub fn Cluster() -> impl IntoView {
     };
 
     view! {
-        <Style>
-            "
-            .doc-content {
-                    margin: 0 auto;
-                    width: 100%;
-                    display: grid;
-            }
-            @media screen and (max-width: 1200px) {
-                .doc-content {
-                    width: 100%;
-                }
-            }
-            "
-        </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
-            class="doc-content"
-        >
+        <PageLayout>
             <Panel title="Nodes">
                 <Table>
                     <TableHeader>
@@ -111,6 +94,6 @@ pub fn Cluster() -> impl IntoView {
                     <TableBody>{node_info}</TableBody>
                 </Table>
             </Panel>
-        </Layout>
+        </PageLayout>
     }
 }

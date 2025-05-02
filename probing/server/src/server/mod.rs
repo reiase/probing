@@ -9,7 +9,7 @@ use log::error;
 use once_cell::sync::Lazy;
 
 use probing_proto::prelude::Query;
-use services::{handle_query, index, initialize_engine, probe, query, static_files};
+use services::{handle_query, index, initialize_engine, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -40,7 +40,6 @@ fn build_app() -> axum::Router {
         .route("/timeseries", axum::routing::get(index))
         .route("/index.html", axum::routing::get(index))
         .route("/profiler", axum::routing::get(index))
-        .route("/probe", axum::routing::post(probe))
         .route("/query", axum::routing::post(query))
         .nest_service("/apis", apis_route())
         .fallback(static_files)

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use probing_proto::prelude::{ProbeCall, Query};
+use probing_proto::prelude::Query;
 use process_monitor::ProcessMonitor;
 
 pub mod commands;
@@ -26,15 +26,24 @@ pub struct Cli {
     #[arg()]
     target: Option<String>,
 
+    #[arg()]
+    query: Option<String>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
 
 impl Cli {
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         let target = self.target.clone().unwrap_or("0".to_string());
-        let ctrl: ProbeEndpoint = target.as_str().try_into()?;
 
+        if let Some(query) = &self.query {
+            self.command = Some(Commands::Query {
+                query: query.clone(),
+            });
+        }
+
+        let ctrl: ProbeEndpoint = target.as_str().try_into()?;
         self.execute_command(ctrl)
     }
 
@@ -67,23 +76,10 @@ impl Cli {
                     },
                 }
             },
-            Commands::Backtrace{tid} => {
-                ctrl::probe(ctrl, ProbeCall::CallBacktrace(*tid))
-            },//ctrl::handle(ctrl, Signal::Backtrace(cmd.clone())),
-            // Commands::Trace(cmd) => ctrl::handle(ctrl, Signal::Trace(cmd.clone())),
-            Commands::Eval { code } => {
-                ctrl::probe(ctrl, ProbeCall::CallEval(code.clone()))
-            },//ctrl::handle(ctrl, Signal::Eval { code: code.clone() }),
-            Commands::Query { query } => ctrl::query(
-                ctrl,
-                Query {
-                    expr: query.clone(),
-                    opts: None,
-                },
-            ),
-            Commands::Launch { recursive, args } => {
-                ProcessMonitor::new(args, *recursive)?.monitor()
-            }
+            Commands::Backtrace{tid} => ctrl.backtrace(*tid),
+            Commands::Eval { code } => ctrl.eval(code.clone()),
+            Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())),
+            Commands::Launch { recursive, args } => ProcessMonitor::new(args, *recursive)?.monitor(),
             Commands::List { verbose, tree } => {
                 match ptree::collect_probe_processes() {
                     Ok(processes) => {
@@ -91,7 +87,7 @@ impl Cli {
                             println!("No processes with injected probes found.");
                             return Ok(());
                         }
-            
+
                         if *tree {
                             // Build and display process tree
                             let tree_nodes = ptree::build_process_tree(processes);
@@ -119,13 +115,7 @@ impl Cli {
                 }
                 Ok(())
             },
-            Commands::Store(cmd) => {
-                cmd.run()
-            }
+            Commands::Store(cmd) => cmd.run()
         }
     }
-}
-
-pub fn run() -> Result<()> {
-    Cli::parse().run()
 }

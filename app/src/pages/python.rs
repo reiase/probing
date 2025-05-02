@@ -1,12 +1,10 @@
 use leptos::prelude::*;
 use probing_proto::Object;
 
-use leptos_meta::Style;
 use thaw::*;
 
-use crate::{
-    components::header_bar::HeaderBar, pages::common::ObjectList, url_read::url_read_resource,
-};
+use crate::components::page_layerout::PageLayout;
+use crate::{pages::common::ObjectList, url_read::url_read_resource};
 
 // mod module;
 mod object;
@@ -56,25 +54,7 @@ pub fn Python() -> impl IntoView {
     let selected = RwSignal::new(String::from("Python"));
 
     view! {
-        <Style>
-            "
-            .doc-content {
-                margin: 0 auto;
-                width: 100%;
-                display: grid;
-            }
-            @media screen and (max-width: 1200px) {
-                .doc-content {
-                    width: 100%;
-                }
-            }
-            "
-        </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 8px 12px 28px; display: flex; flex-direction: column;"
-            class="doc-content"
-        >
+        <PageLayout>
             <h3>Object Inspection</h3>
 
         // <Flex align=SpaceAlign::Center>
@@ -109,7 +89,7 @@ pub fn Python() -> impl IntoView {
         // </div>
         // </Tab>
         // </TabList>
-        </Layout>
+        </PageLayout>
     }
 }
 
