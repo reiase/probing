@@ -1,8 +1,6 @@
 mod apis;
 mod services;
 
-use std::thread;
-
 use anyhow::Result;
 use apis::apis_route;
 use log::error;
@@ -104,9 +102,10 @@ pub fn start_remote(addr: Option<String>) {
 }
 
 pub fn sync_env_settings() {
-    thread::spawn(|| {
-        std::env::vars().for_each(|(k, v)| {
-            if k.starts_with("PROBING_")
+    // Collect environment variables before spawning the async task
+    let env_vars: Vec<(String, String)> = std::env::vars()
+        .filter(|(k, _)| {
+            k.starts_with("PROBING_")
                 && ![
                     "PROBING_PORT",
                     "PROBING_LOG",
@@ -114,21 +113,28 @@ pub fn sync_env_settings() {
                     "PROBING_SERVER_ADDRPATTERN",
                 ]
                 .contains(&k.as_str())
-            {
-                let k = k.replace("_", ".").to_lowercase();
-                let setting = format!("set {}={}", k, v);
-                match handle_query(Query {
-                    expr: setting.clone(),
-                    opts: None,
-                }) {
-                    Ok(_) => {
-                        log::debug!("Synced env setting: {}", setting);
-                    }
-                    Err(err) => {
-                        error!("Failed to sync env settings: {setting}, {err}");
-                    }
-                };
-            }
-        });
+        })
+        .collect();
+
+    // Spawn the task onto the existing Tokio runtime
+    SERVER_RUNTIME.spawn(async move {
+        for (k, v) in env_vars {
+            let k = k.replace("_", ".").to_lowercase();
+            let setting = format!("set {}={}", k, v);
+            // Since handle_query might not be async itself, but interacts with
+            // components managed by the runtime, it's safer to run it within
+            // the runtime's context. If handle_query becomes async, add .await
+            match handle_query(Query {
+                expr: setting.clone(),
+                opts: None,
+            }).await {
+                Ok(_) => {
+                    log::debug!("Synced env setting: {}", setting);
+                }
+                Err(err) => {
+                    error!("Failed to sync env settings: {setting}, {err}");
+                }
+            };
+        }
     });
 }
