@@ -28,21 +28,21 @@ impl ProcessMonitor {
         })
     }
 
-    fn inject(&mut self, pid: i32) -> Result<()> {
+    async fn inject(&mut self, pid: i32) -> Result<()> {
         if self.injected.contains(&pid) {
             return Ok(());
         }
 
         let ctrl: ProbeEndpoint = pid.to_string().as_str().try_into()?;
-        inject::InjectCommand::default().run(ctrl)?;
+        inject::InjectCommand::default().run(ctrl).await?;
         self.injected.insert(pid);
         Ok(())
     }
 
-    pub fn monitor(&mut self) -> Result<()> {
+    pub async fn monitor(&mut self) -> Result<()> {
         if !self.recursive {
             thread::sleep(Duration::from_secs(1));
-            self.inject(self.child.id() as i32)?;
+            self.inject(self.child.id() as i32).await?;
 
             return self.child.wait().map_err(Error::msg).map(|_| ());
         }
@@ -55,7 +55,7 @@ impl ProcessMonitor {
                     .cloned()
                     .collect();
                 for pid in remain {
-                    if let Err(err) = self.inject(pid) {
+                    if let Err(err) = self.inject(pid).await {
                         error!("failed to probe {}, retry later: {}", pid, err)
                     }
                 }
