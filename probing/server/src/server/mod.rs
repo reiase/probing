@@ -127,7 +127,9 @@ pub fn sync_env_settings() {
             match handle_query(Query {
                 expr: setting.clone(),
                 opts: None,
-            }).await {
+            })
+            .await
+            {
                 Ok(_) => {
                     log::debug!("Synced env setting: {}", setting);
                 }

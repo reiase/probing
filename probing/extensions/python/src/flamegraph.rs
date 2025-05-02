@@ -29,7 +29,7 @@ pub fn query_profiling() -> Result<Vec<String>> {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(async { engine.query(query) })
+            .block_on(async { engine.async_query(query).await })
     })
     .join()
     .map_err(|_| anyhow::anyhow!("error joining thread"))??;

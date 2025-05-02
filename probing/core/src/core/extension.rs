@@ -132,12 +132,18 @@ pub trait EngineDatasource: Debug + Send + Sync {
 ///
 /// ```
 /// use probing_core::core::{EngineExtension, EngineExtensionOption};
+/// use probing_core::core::EngineCall;
+/// use probing_core::core::EngineDatasource;
 /// use probing_core::core::EngineError;
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {
 ///     some_option: String
 /// }
+/// 
+/// impl EngineCall for MyExtension {}
+/// 
+/// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {
 ///     fn name(&self) -> String {
@@ -209,12 +215,18 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 /// use std::sync::{Arc, Mutex};
 /// use probing_core::core::EngineExtensionManager;
 /// use probing_core::core::{EngineExtension, EngineExtensionOption};
+/// use probing_core::core::EngineCall;
+/// use probing_core::core::EngineDatasource;
 /// use probing_core::core::EngineError;
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {
 ///     some_option: String
 /// }
+/// 
+/// impl EngineCall for MyExtension {}
+/// 
+/// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {
 ///     fn name(&self) -> String {
