@@ -28,8 +28,6 @@ use probing_proto::protocol::process::CallFrame;
 
 use extensions::python::ExternalTable;
 
-use crate::pycode::get_code;
-
 const DUMP_STACK: &CStr = c_str!(
     r#"
 def _get_obj_type(obj):

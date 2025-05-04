@@ -101,7 +101,7 @@ class Timer:
 
 
 class Sampler:
-    def __init__(self, mode="ordered", rate=0.05, **kwargs):
+    def __init__(self, mode="ordered", rate=1.0, **kwargs):
         # Strategy configuration
         self.mode = mode
         self.rate = rate
@@ -114,7 +114,8 @@ class Sampler:
 
         # Discovery state
         self.finalized = False
-
+        self.sampled_in_step = False 
+        
         super().__init__(**kwargs)
 
     def register_mod(self, mod) -> None:
@@ -135,6 +136,9 @@ class Sampler:
         if not self.finalized:
             self.register_mod(mod)
             return False
+        
+        if self.sampled_in_step:
+            return False
 
         if self.offset() == 0:
             return True
@@ -144,11 +148,52 @@ class Sampler:
         return random.random() < self.rate
 
     def next_mod(self) -> None:
-        if self.mod_queue:
+        if self.mod_queue and self.mode == "ordered":
+            if random.random() >= self.rate:
+                return # skip if sampling not hit
             idx = (self.curr_idx + 1) % len(self.mod_queue)
             self.curr_idx = idx
             self.curr_mod = self.mod_queue[idx]
-
+            self.sampled_in_step = False
+            
+    def set_sampling_mode(self, expr):
+        """ Set the sampling mode and rate based on the provided expression.
+        
+        The expression should be in the format "mode:rate", where mode can be
+        "ordered" or "random", and rate is a float between 0 and 1.
+        
+        Examples
+        --------
+        
+        >>> tracer = TorchProbe()
+        >>> tracer.mode, tracer.rate
+        ('ordered', 1.0)
+        
+        >>> tracer.set_sampling("random:0.1")
+        >>> tracer.mode, tracer.rate
+        ('random', 0.1)
+        
+        >>> tracer.set_sampling("ordered:0.5")
+        >>> tracer.mode, tracer.rate
+        ('ordered', 0.5)
+        
+        >>> tracer.set_sampling("invalid:1.5")
+        >>> tracer.mode, tracer.rate
+        ('ordered', 1.0)
+        """
+        if expr == "ordered":
+            self.mode = "ordered"
+            self.rate = 1.0
+            return
+        try:
+            mode, rate = expr.split(":")
+            
+            self.mode = mode if mode in ["ordered", "random"] else "ordered"
+            self.rate = float(rate) if 0 < float(rate) <= 1 else 1.0
+        except ValueError:
+            print(f"Invalid sampling expression: {expr}. Using default settings.")
+            self.mode = "ordered"
+            self.rate = 1.0
 
 class PythonTracer:
     def __init__(self, tracepy=False, **kwargs):
@@ -249,7 +294,7 @@ class VariableTracer:
 
 
 class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer, VariableTracer):
-    def __init__(self, tracepy=False, sync=False, mode="ordered", rate=0.05, exprs=[]):
+    def __init__(self, tracepy=False, sync=False, mode="ordered", rate=1.0, exprs=""):
         self.curr_step = 0
         self.pending = []
 
@@ -306,3 +351,13 @@ def _cuda_event():
     event = torch.cuda.Event(enable_timing=True)
     event.record()
     return event
+
+def set_sampling_mode(mode):
+    import gc
+    
+    objs = [obj for obj in gc.get_objects() if isinstance(obj, TorchProbe)]
+    try:
+        for obj in objs:
+            obj.set_sampling_mode(mode)
+    except Exception as e:
+        print(f"Error setting mode: {e}")

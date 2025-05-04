@@ -238,7 +238,7 @@ impl PythonExt {
 
 /// Execute Python code and return the resulting object
 /// The code should return an object with init/deinit methods
-fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> {
+pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> {
     Python::with_gil(|py| {
         let pkg = py.import("probing");
 
