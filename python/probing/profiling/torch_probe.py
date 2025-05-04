@@ -60,6 +60,14 @@ def mem_stats() -> TorchTrace:
         max_cached=torch.cuda.max_memory_reserved() / MB,
     )
 
+STAGEMAP = {
+    "pre forward": "forward",
+    "post forward": "forward",
+    "pre backward": "backward",
+    "post backward": "backward",
+    "pre step": "step",
+    "post step": "step",
+}
 
 class Timer:
     def __init__(self, sync: bool = False, **kwargs):
@@ -84,7 +92,8 @@ class Timer:
             time_offset = time.time() - self.step_start
 
         if self.has_cuda:
-            self.events[(id(mod), stage)] = _cuda_event()
+            key = (id(mod), STAGEMAP[stage])
+            self.events[key] = _cuda_event()
         return time_offset
 
     def end_timing(self, mod, stage) -> tuple:
@@ -93,7 +102,7 @@ class Timer:
             _cuda_sync()
 
         time_offset = time.time() - self.step_start
-        key = (id(mod), stage)
+        key = (id(mod), STAGEMAP[stage])
 
         if key in self.events:
             return time_offset, (self.events.pop(key), _cuda_event())
@@ -114,7 +123,7 @@ class Sampler:
 
         # Discovery state
         self.finalized = False
-        self.sampled_in_step = False 
+        self.sampled_step = True
         
         super().__init__(**kwargs)
 
@@ -136,8 +145,8 @@ class Sampler:
         if not self.finalized:
             self.register_mod(mod)
             return False
-        
-        if self.sampled_in_step:
+
+        if not self.sampled_step:
             return False
 
         if self.offset() == 0:
@@ -149,12 +158,10 @@ class Sampler:
 
     def next_mod(self) -> None:
         if self.mod_queue and self.mode == "ordered":
-            if random.random() >= self.rate:
-                return # skip if sampling not hit
+            self.sampled_step = random.random() < self.rate
             idx = (self.curr_idx + 1) % len(self.mod_queue)
             self.curr_idx = idx
             self.curr_mod = self.mod_queue[idx]
-            self.sampled_in_step = False
             
     def set_sampling_mode(self, expr):
         """ Set the sampling mode and rate based on the provided expression.
@@ -313,9 +320,11 @@ class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer, VariableTracer):
 
         if stage.startswith("pre"):
             record.time_offset = self.begin_timing(mod, stage)
-            record.save()
-        record.time_offset, events = self.end_timing(mod, stage)
-        self.pending.append(DelayedRecord(record, events))
+            # record.save()
+            self.pending.append(DelayedRecord(record, None))
+        else:
+            record.time_offset, events = self.end_timing(mod, stage)
+            self.pending.append(DelayedRecord(record, events))
 
     def post_step_hook(self, opt, args, kwargs):
         if not self.finalized:
