@@ -18,10 +18,10 @@ pub fn query_profiling() -> Result<Vec<String>> {
             .build()?;
 
         let query = r#"
-        select module_name, stage, avg(duration)
-            from python.torch_profiling
-            group by module_name, stage
-            order by (stage, module_name);
+        select module, stage, avg(duration)
+            from python.torch_trace
+            group by module, stage
+            order by (stage, module);
         "#;
 
         tokio::runtime::Builder::new_multi_thread()
