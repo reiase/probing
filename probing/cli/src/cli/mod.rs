@@ -34,7 +34,7 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn run(&mut self) -> Result<()> {
+    pub async fn run(&mut self) -> Result<()> {
         let target = self.target.clone().unwrap_or("0".to_string());
 
         if let Some(query) = &self.query {
@@ -44,17 +44,17 @@ impl Cli {
         }
 
         let ctrl: ProbeEndpoint = target.as_str().try_into()?;
-        self.execute_command(ctrl)
+        self.execute_command(ctrl).await
     }
 
-    fn execute_command(&self, ctrl: ProbeEndpoint) -> Result<()> {
+    async fn execute_command(&self, ctrl: ProbeEndpoint) -> Result<()> {
         if self.command.is_none() {
-            inject::InjectCommand::default().run(ctrl.clone())?;
+            inject::InjectCommand::default().run(ctrl.clone()).await?;
             return Ok(());
         }
         let command = self.command.as_ref().unwrap();
         match command {
-            Commands::Inject(cmd) => cmd.run(ctrl),
+            Commands::Inject(cmd) => cmd.run(ctrl).await,
             Commands::Config { setting } => {
                 match *setting {
                     Some(ref setting) => {
@@ -66,20 +66,20 @@ impl Cli {
                         ctrl::query(ctrl, Query {
                             expr: setting,
                             opts: None,
-                        })
+                        }).await
                     },
                     None => {
                         ctrl::query(ctrl, Query {
                             expr: "select * from information_schema.df_settings where name like 'probing.%';".to_string(),
                             opts: None,
-                        })
+                        }).await
                     },
                 }
             },
-            Commands::Backtrace{tid} => ctrl.backtrace(*tid),
-            Commands::Eval { code } => ctrl.eval(code.clone()),
-            Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())),
-            Commands::Launch { recursive, args } => ProcessMonitor::new(args, *recursive)?.monitor(),
+            Commands::Backtrace{tid} => ctrl.backtrace(*tid).await,
+            Commands::Eval { code } => ctrl.eval(code.clone()).await,
+            Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())).await,
+            Commands::Launch { recursive, args } => ProcessMonitor::new(args, *recursive)?.monitor().await,
             Commands::List { verbose, tree } => {
                 match ptree::collect_probe_processes() {
                     Ok(processes) => {
@@ -98,7 +98,7 @@ impl Cli {
                             println!("Processes with injected probes:");
                             for process in processes {
                                 if *verbose {
-                                    println!("PID {} ({}): {}", 
+                                    println!("PID {} ({}): {}",
                                         process.pid,
                                         if let Some(socket) = &process.socket_name { socket } else { "-" },
                                         process.cmd
@@ -115,7 +115,7 @@ impl Cli {
                 }
                 Ok(())
             },
-            Commands::Store(cmd) => cmd.run()
+            Commands::Store(cmd) => cmd.run().await
         }
     }
 }

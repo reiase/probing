@@ -8,7 +8,8 @@ mod table;
 
 const ENV_PROBING_LOG: &str = "PROBING_LOG";
 
-pub fn main() -> Result<()> {
+#[tokio::main]
+pub async fn main() -> Result<()> {
     env_logger::init_from_env(Env::new().filter(ENV_PROBING_LOG));
-    cli::Cli::parse().run()
+    cli::Cli::parse().run().await
 }

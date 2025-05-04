@@ -49,24 +49,16 @@ pub struct StoreArgs {
 }
 
 impl StoreCommand {
-    pub fn run(&self) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
         let store = TCPStore::new(self.args.endpoint.clone().unwrap());
 
         match &self.command {
             StoreSubCommand::Set { key, value } => {
-                tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(store.set(key, value))?;
+                store.set(key, value).await?;
+                println!("Set key '{}'", key); // Add confirmation
             }
             StoreSubCommand::Get { key } => {
-                // let store = TCPStore::new(args.endpoint.clone().unwrap());
-                let value = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(store.get(key))?;
+                let value = store.get(key).await?;
                 println!("{}", value);
             }
         }

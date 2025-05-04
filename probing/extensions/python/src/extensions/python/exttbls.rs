@@ -281,9 +281,9 @@ probing.ExternalTable.drop("table2")
             .unwrap()
             .block_on(async {
                 engine
-                    .query(
+                    .async_query(
                         "select * from probe.information_schema.tables where table_name = 'table3' ",
-                    )
+                    ).await
                     .unwrap()
             });
         assert_eq!(tables.len(), 1);
@@ -302,7 +302,12 @@ probing.ExternalTable.drop("table2")
             .enable_all()
             .build()
             .unwrap()
-            .block_on(async { engine.query("select * from python.table3 ").unwrap() });
+            .block_on(async {
+                engine
+                    .async_query("select * from python.table3 ")
+                    .await
+                    .unwrap()
+            });
         assert_eq!(tables.len(), 3);
     }
 
@@ -321,7 +326,8 @@ probing.ExternalTable.drop("table2")
             .unwrap()
             .block_on(async {
                 engine
-                    .query("select a + b as c from python.table3 where a > 1")
+                    .async_query("select a + b as c from python.table3 where a > 1")
+                    .await
                     .unwrap()
             });
         assert_eq!(tables.len(), 2);
@@ -342,7 +348,8 @@ probing.ExternalTable.drop("table2")
             .unwrap()
             .block_on(async {
                 engine
-                    .query("select sum(a), sum(b) from python.table3")
+                    .async_query("select sum(a), sum(b) from python.table3")
+                    .await
                     .unwrap()
             });
         println!("{:?}", tables);

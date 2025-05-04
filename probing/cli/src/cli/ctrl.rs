@@ -7,8 +7,8 @@ use probing_proto::{prelude::*, protocol::process::CallFrame};
 
 use crate::table::render_dataframe;
 
-pub fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
-    let reply = ctrl.query(query)?;
+pub async fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
+    let reply = ctrl.query(query).await?;
     render_dataframe(&reply);
     Ok(())
 }
@@ -54,28 +54,18 @@ impl From<ProbeEndpoint> for String {
 }
 
 impl ProbeEndpoint {
-    fn async_execute<F, T>(&self, fut: F) -> T
-    where
-        F: std::future::Future<Output = T>,
-    {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(fut)
-    }
-
-    fn send_request(&self, url: &str, body: &str) -> Result<String> {
-        let bytes = self.async_execute(request(self.clone(), url, Some(body.to_string())))?;
+    async fn send_request(&self, url: &str, body: &str) -> Result<String> {
+        // Await request directly
+        let bytes = request(self.clone(), url, Some(body.to_string())).await?;
         Ok(String::from_utf8(bytes)?)
     }
 
-    pub fn backtrace(&self, tid: Option<i32>) -> Result<()> {
+    pub async fn backtrace(&self, tid: Option<i32>) -> Result<()> {
         let mut url = "/apis/pythonext/callstack".to_string();
         if let Some(tid) = tid {
             url = format!("/apis/pythonext/callstack?tid={}", tid);
         }
-        let reply = self.async_execute(request(self.clone(), &url, None))?;
+        let reply = request(self.clone(), &url, None).await?;
         match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
             Ok(msg) => {
                 for f in msg {
@@ -87,20 +77,19 @@ impl ProbeEndpoint {
         }
     }
 
-    pub fn eval(&self, code: String) -> Result<()> {
-        let reply =
-            self.async_execute(request(self.clone(), "/apis/pythonext/eval", Some(code)))?;
+    pub async fn eval(&self, code: String) -> Result<()> {
+        let reply = request(self.clone(), "/apis/pythonext/eval", Some(code)).await?;
 
         println!("{}", String::from_utf8(reply)?);
 
         Ok(())
     }
 
-    pub fn query(&self, q: Query) -> Result<DataFrame> {
+    pub async fn query(&self, q: Query) -> Result<DataFrame> {
         let request = Message::new(q);
         let q_str = serde_json::to_string(&request)?;
-        let reply = self.send_request("/query", &q_str)?;
-        let reply = serde_json::from_str::<Message<QueryDataFormat>>(&reply)?.payload;
+        let reply_str = self.send_request("/query", &q_str).await?; // Renamed reply variable
+        let reply = serde_json::from_str::<Message<QueryDataFormat>>(&reply_str)?.payload;
 
         match reply {
             QueryDataFormat::Error(err) => Err(anyhow::anyhow!("error: {}", err)),

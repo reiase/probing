@@ -123,7 +123,7 @@ fn query_json(_py: Python, sql: String) -> PyResult<String> {
         .enable_all()
         .build()
         .unwrap()
-        .block_on(async { ENGINE.read().await.query(sql.as_str()) })
+        .block_on(async { ENGINE.read().await.async_query(sql.as_str()).await })
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
     serde_json::to_string(&result)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
