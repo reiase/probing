@@ -59,30 +59,64 @@ PROBE 环境变量作为激活和配置探针功能的主要机制，支持以�
 
 ### 命令行
 
-`probing`通过一系列指令控制探针来获取数据或是执行特定操作，以下为`probing`的命令行：
+`probing` 提供了一个命令行界面（CLI）来与探针交互、控制目标进程以及查询数据。
+
+**基本用法:**
 
 ```
-Probing CLI - A performance and stability diagnostic tool for AI applications
+probing [OPTIONS] [TARGET] [QUERY_STRING] [COMMAND]
+```
 
-Usage: probing [OPTIONS] [TARGET] [COMMAND]
+**参数说明:**
 
-Commands:
-  inject     Inject into the target process [aliases: inj, i]
-  config     Display or modify the configuration
-  backtrace  Show the backtrace of the target process or thread [aliases: bt]
-  eval       Evaluate Python code in the target process
-  query      Query data from the target process
-  launch     Launch new Python process
-  help       Print this message or the help of the given subcommand(s)
+*   `OPTIONS`:
+    *   `-v, --verbose`: 启用详细输出模式。
+*   `TARGET`: 目标进程。可以是本地进程的 PID (例如 `1234`)，或者是远程进程的地址 (例如 `192.168.1.100:9988`)。如果省略，某些命令可能无法执行或需要其他方式指定目标。
+*   `QUERY_STRING`: 一个可选的查询字符串，作为 `query` 命令的快捷方式。例如 `probing <pid> "select * from some_table"` 等同于 `probing <pid> query "select * from some_table"`。
+*   `COMMAND`: 要执行的具体子命令。
 
-Arguments:
-  [TARGET]  target process, PID (e.g., 1234) for local process, and <ip>:<port> for remote process
+**主要命令:**
 
-Options:
-  -v, --verbose  Enable verbose mode
-  -h, --help     Print help
-  -V, --version  Print version
+*   `inject [-D <KEY=VALUE>...]`: 向目标进程注入探针。可以使用 `-D` 或 `--define` 来设置探针配置项（例如 `-D probing.log_level=debug`）。如果探针已注入，此命令可用于更新配置。
+*   `list [-v] [-t]`: 列出所有已注入探针的进程。
+    *   `-v, --verbose`: 显示更详细的信息（包括探针通信socket）。
+    *   `-t, --tree`: 以树状结构显示进程关系。
+*   `config [SETTING]`: 显示或修改目标进程中的探针配置。
+    *   不带参数: 显示所有 `probing.` 开头的配置项。
+    *   带参数 (例如 `probing.log_level=info`): 设置指定的配置项。
+*   `backtrace [TID]`: 显示目标进程或指定线程 (`TID`) 的调用栈。
+*   `eval <CODE>`: 在目标进程中执行指定的 Python 代码片段。
+*   `query <QUERY>`: 向目标进程发送查询语句（类似 SQL）并获取数据。
+*   `launch [-r] <ARGS...>`: 启动一个新的 Python 进程，并自动注入探针。
+    *   `-r, --recursive`: 同时为启动的进程及其所有子进程注入探针。
+    *   `<ARGS...>`: 要执行的命令及其参数 (例如 `python my_script.py --arg1 value1`)。
 
+**示例:**
+
+```bash
+# 注入探针到 PID 为 1234 的进程，并设置日志级别
+probing 1234 inject -D probing.log_level=debug
+
+# 列出所有被探测的进程（树状视图）
+probing list -t
+
+# 查询 PID 为 1234 进程中的某个表
+probing 1234 query "select * from torch_modules"
+
+# 获取 PID 为 1234 进程的配置
+probing 1234 config
+
+# 设置 PID 为 1234 进程的采样间隔
+probing 1234 config probing.sample_interval_ms=50
+
+# 查看 PID 为 1234 进程的主线程调用栈
+probing 1234 backtrace
+
+# 在 PID 为 1234 的进程中执行 Python 代码
+probing 1234 eval "print(1 + 2)"
+
+# 启动一个脚本并自动注入探针（包括子进程）
+probing launch -r python train.py --epochs 10
 ```
 
 ## 开发与构建
