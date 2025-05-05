@@ -11,7 +11,7 @@ use http_body_util::BodyExt;
 
 use probing_core::core::EngineExtensionManager;
 use probing_proto::prelude::*;
-use probing_python::pprof::PPROF_HOLDER;
+use probing_python::{flamegraph::flamegraph, pprof::PPROF_HOLDER};
 
 use crate::server::services::ENGINE;
 
@@ -57,22 +57,16 @@ async fn api_get_overview() -> Result<String, ApiError> {
     Ok(serde_json::to_string(&overview()?)?)
 }
 
-// async fn api_get_flamegraph_torch() -> Result<impl IntoResponse, ApiError> {
-//     let probe = PROBE.lock().unwrap();
-//     let retval = probe.ask(ProbeCall::CallFlamegraph);
-
-//     match retval {
-//         ProbeCall::ReturnFlamegraph(flamegraph) => Ok((
-//             AppendHeaders([
-//                 ("Content-Type", "image/svg+xml"),
-//                 ("Content-Disposition", "attachment; filename=flamegraph.svg"),
-//             ]),
-//             flamegraph,
-//         )),
-//         ProbeCall::Err(err) => Err(anyhow::anyhow!(err).into()),
-//         _ => Err(anyhow::anyhow!("unexpected response from probe: {:?}", retval).into()),
-//     }
-// }
+async fn api_get_flamegraph_torch() -> Result<impl IntoResponse, ApiError> {
+    let graph = flamegraph();
+    Ok((
+        AppendHeaders([
+            ("Content-Type", "image/svg+xml"),
+            ("Content-Disposition", "attachment; filename=flamegraph.svg"),
+        ]),
+        graph,
+    ))
+}
 
 async fn api_get_flamegraph_pprof() -> Result<impl IntoResponse, ApiError> {
     match PPROF_HOLDER.flamegraph() {
@@ -165,10 +159,10 @@ pub fn apis_route() -> axum::Router {
         .route("/overview", axum::routing::get(api_get_overview))
         .route("/files", axum::routing::get(api_get_files))
         .route("/nodes", axum::routing::get(get_nodes).put(put_nodes))
-        // .route(
-        //     "/flamegraph/torch",
-        //     axum::routing::get(api_get_flamegraph_torch),
-        // )
+        .route(
+            "/flamegraph/torch",
+            axum::routing::get(api_get_flamegraph_torch),
+        )
         .route(
             "/flamegraph/pprof",
             axum::routing::get(api_get_flamegraph_pprof),

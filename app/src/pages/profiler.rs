@@ -63,6 +63,21 @@ pub fn Profiler() -> impl IntoView {
                     <NavItem icon=icondata::SiPytorch value="torch">
                         "Torch Profiling"
                     </NavItem>
+                    <NavCategory value="setting">
+                        <NavCategoryItem slot icon=icondata::AiSettingOutlined>
+                            "Settings"
+                        </NavCategoryItem>
+                        <NavSubItem value="pprof_settings">
+                            <Field label="Pprof" orientation=FieldOrientation::Horizontal>
+                                <Switch checked=pprof_enabled />
+                            </Field>
+                        </NavSubItem>
+                        <NavSubItem value="torch_settings">
+                            <Field label="Torch" orientation=FieldOrientation::Horizontal>
+                                <Switch checked=torch_enabled />
+                            </Field>
+                        </NavSubItem>
+                    </NavCategory>
                     <NavItem
                         icon=icondata::AiGithubOutlined
                         value="github"
@@ -72,38 +87,6 @@ pub fn Profiler() -> impl IntoView {
                         "Github"
                     </NavItem>
                 </NavDrawer>
-
-                // <Flex align=FlexAlign::Start vertical=false class="doc-content" style="width: 100%">
-                // <Field label="PProf Sample Frequency" orientation=FieldOrientation::Horizontal>
-                // <Input value=pprof_freq />
-                // </Field>
-                // <Field label="PProf Profiler" orientation=FieldOrientation::Horizontal>
-                // <Switch checked=pprof_enabled />
-                // </Field>
-                // <Divider vertical=true />
-                // <Field label="Torch Sample Ratio" orientation=FieldOrientation::Horizontal>
-                // <Input value=torch_ratio />
-                // </Field>
-                // <Field label="Torch Profiler" orientation=FieldOrientation::Horizontal>
-                // <Switch checked=torch_enabled />
-                // </Field>
-                // </Flex>
-                // <TabList selected_value=selected_tab>
-                // {move || {
-                // if pprof_enabled.get() {
-                // view! { <Tab value="pprof">"PProf"</Tab> }.into_any()
-                // } else {
-                // view! { <></> }.into_any()
-                // }
-                // }}
-                // {move || {
-                // if torch_enabled.get() {
-                // view! { <Tab value="torch">"Torch"</Tab> }.into_any()
-                // } else {
-                // view! { <></> }.into_any()
-                // }
-                // }}
-                // </TabList>
                 <Flex align=FlexAlign::Center vertical=true class="doc-content" style="width: 100%">
                     {move || {
                         if !pprof_enabled.get() && !torch_enabled.get() {
@@ -119,17 +102,7 @@ pub fn Profiler() -> impl IntoView {
                         let active_profiler = match selected.as_str() {
                             "pprof" if pprof_enabled.get() => "pprof",
                             "torch" if torch_enabled.get() => "torch",
-                            _ => {
-                                if pprof_enabled.get() {
-                                    selected_tab.set("pprof".to_string());
-                                    "pprof"
-                                } else if torch_enabled.get() {
-                                    selected_tab.set("torch".to_string());
-                                    "torch"
-                                } else {
-                                    ""
-                                }
-                            }
+                            _ => "",
                         };
                         if active_profiler.is_empty() {
                             return // 确保选中的 profiler 是已启用的，否则自动选择另一个
@@ -142,55 +115,8 @@ pub fn Profiler() -> impl IntoView {
                             "torch" => "/apis/flamegraph/torch",
                             _ => "",
                         };
-                        log::info!("Profiler URL: {}", url);
-                        let setting_view = match active_profiler {
-                            "pprof" => {
 
-                                view! {
-                                    <Flex align=FlexAlign::Center>
-                                        <Field
-                                            label="PProf Sample Frequency"
-                                            orientation=FieldOrientation::Horizontal
-                                        >
-                                            <Input value=pprof_freq />
-                                        </Field>
-                                        <Field
-                                            label="PProf Profiler"
-                                            orientation=FieldOrientation::Horizontal
-                                        >
-                                            <Switch checked=pprof_enabled />
-                                        </Field>
-                                    </Flex>
-                                }
-                                    .into_any()
-                            }
-                            "torch" => {
-
-                                view! {
-                                    <Flex align=FlexAlign::Center>
-                                        <Field
-                                            label="Torch Sample Ratio"
-                                            orientation=FieldOrientation::Horizontal
-                                        >
-                                            <Input value=torch_ratio />
-                                        </Field>
-                                        <Field
-                                            label="Torch Profiler"
-                                            orientation=FieldOrientation::Horizontal
-                                        >
-                                            <Switch checked=torch_enabled />
-                                        </Field>
-                                    </Flex>
-                                }
-                                    .into_any()
-                            }
-                            _ => view! { <></> }.into_any(),
-                        };
-
-                        view! {
-                            {setting_view}
-                            <object data=url style="width: 100%; border: none;"></object>
-                        }
+                        view! { <object data=url style="width: 100%; border: none;"></object> }
                             .into_any()
                     }}
                 </Flex>

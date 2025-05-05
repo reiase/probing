@@ -44,7 +44,7 @@ where
                     .get()
                     .map(|result| match result.take() {
                         Ok(data) => view_fn(data).into_view(),
-                        Err(e) => view_fn(T::default()).into_view(),
+                        Err(_) => view_fn(T::default()).into_view(),
                     })
             }}
         </Suspense>
