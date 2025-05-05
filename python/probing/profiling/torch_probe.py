@@ -130,7 +130,10 @@ class Sampler:
     def register_mod(self, mod) -> None:
         if self.finalized:
             return
-        self.mod_names[id(mod)] = module_name(mod) or mod.__class__.__name__
+        
+        import torch
+        
+        self.mod_names[id(mod)] = module_name(mod) or (mod.__class__.__name__ if isinstance(mod, torch.optim.Optimizer) else "None")
 
     def finalize_discovery(self):
         self.finalized = True
@@ -327,6 +330,7 @@ class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer, VariableTracer):
             self.pending.append(DelayedRecord(record, events))
 
     def post_step_hook(self, opt, args, kwargs):
+        super().post_step_hook(opt, args, kwargs)
         if not self.finalized:
             self.finalize_discovery()
         else:
@@ -345,7 +349,6 @@ class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer, VariableTracer):
         
         # reset the step start time
         self.step_start = 0
-        return super().post_step_hook(opt, args, kwargs)
 
 
 def _cuda_sync():

@@ -18,8 +18,9 @@ pub fn query_profiling() -> Result<Vec<String>> {
             .build()?;
 
         let query = r#"
-        select module, stage, avg(duration)
-            from python.torch_trace
+        select module, stage, median(duration)
+            from python.torch_trace 
+            where module <> 'None'
             group by module, stage
             order by (stage, module);
         "#;
@@ -78,7 +79,7 @@ pub fn query_profiling() -> Result<Vec<String>> {
 
             let duration = if *duration < 0. { 0. } else { *duration };
 
-            line.push_str(&format!(" {}", (duration * 1000.) as isize));
+            line.push_str(&format!(" {}", (duration * 100000.) as isize));
 
             line
         })
