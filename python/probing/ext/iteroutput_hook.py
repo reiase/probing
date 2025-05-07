@@ -45,9 +45,9 @@ class IterOutputTracer:
         # 全局变量
         # global _GLOBAL_ARGS, _GLOBAL_NUM_MICROBATCHES_CALCULATOR, _GLOBAL_TIMERS
     
-        from megatron.training.global_vars import get_args, get_num_microbatches_calculator, get_timers
+        from megatron.training.global_vars import get_args, get_timers, _GLOBAL_NUM_MICROBATCHES_CALCULATOR
         args = get_args()
-        num_microbatches = get_num_microbatches_calculator().get()
+        num_microbatches = _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()
         timers = get_timers()
 
         batch_size = args.micro_batch_size * args.data_parallel_size * \
