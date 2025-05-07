@@ -23,17 +23,17 @@ class IterOutputTracer:
         self.throughput = 0
 
     def step_post_hook(self, module, input):
-
+        print("step_post_hook triggered!", flush=True)
         import sys
         f = sys._getframe()
         while f and f.f_code.co_name != 'train':
             f = f.f_back
         if not f:
             f = sys._getframe().f_back 
-            print("target frame not found") 
+            print("target frame not found", flush=True) 
 
         # 从train()中提取局部变量
-        print(f.f_code.co_name)
+        print(f"Found frame: {f.f_code.co_name}", flush=True)
         local_vars = f.f_locals
         total_loss_dict = local_vars.get('total_loss_dict')
         iteration = local_vars.get('iteration')
@@ -69,6 +69,7 @@ class IterOutputTracer:
 
 def optimizer_step_post_hook(optimizer, *args, **kwargs):
     global hooks
+    print(f"optimizer_step_post_hook called with {optimizer}", flush=True)
     if optimizer not in hooks:
         tracer = IterOutputTracer()
         optimizer.register_step_post_hook(tracer.step_post_hook)
@@ -77,9 +78,10 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
 
 
 def init():
+    print("iteroutput_hook.init() called!", flush=True)
     from torch.optim.optimizer import register_optimizer_step_post_hook
-
     register_optimizer_step_post_hook(optimizer_step_post_hook)
+    print("register_optimizer_step_post_hook done!", flush=True)
 
 
 def deinit():
