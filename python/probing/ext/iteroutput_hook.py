@@ -22,7 +22,7 @@ class IterOutputTracer:
         self.time_per_iter = 0
         self.throughput = 0
 
-    def step_post_hook(self, module, input):
+    def post_step_hook(self, module, input):
         print("step_post_hook triggered!", flush=True)
         import sys
         f = sys._getframe()
@@ -72,7 +72,7 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
     print(f"optimizer_step_post_hook called with {optimizer}", flush=True)
     if optimizer not in hooks:
         tracer = IterOutputTracer()
-        optimizer.register_step_post_hook(tracer.step_post_hook)
+        optimizer.register_step_post_hook(tracer.post_step_hook)
         hooks[optimizer] = True
 
 
@@ -80,7 +80,9 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
 def init():
     print("iteroutput_hook.init() called!", flush=True)
     from torch.optim.optimizer import register_optimizer_step_post_hook
+
     register_optimizer_step_post_hook(optimizer_step_post_hook)
+
     print("register_optimizer_step_post_hook done!", flush=True)
 
 
