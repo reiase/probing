@@ -33,6 +33,7 @@ class IterOutputTracer:
             print("target frame not found") 
 
         # 从train()中提取局部变量
+        print(f.f_code.co_name)
         local_vars = f.f_locals
         total_loss_dict = local_vars.get('total_loss_dict')
         iteration = local_vars.get('iteration')
