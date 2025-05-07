@@ -43,11 +43,11 @@ class IterOutputTracer:
                        total_loss_dict[skipped_iters_key]
         
         # 全局变量
-        global _GLOBAL_ARGS, _GLOBAL_NUM_MICROBATCHES_CALCULATOR, _GLOBAL_TIMERS
-
-        args = _GLOBAL_ARGS
-        num_microbatches = _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()
-        timers = _GLOBAL_TIMERS
+        # global _GLOBAL_ARGS, _GLOBAL_NUM_MICROBATCHES_CALCULATOR, _GLOBAL_TIMERS
+        from megatron import get_args, get_num_microbatches_calculator, get_timers
+        args = get_args()
+        num_microbatches = get_num_microbatches_calculator().get()
+        timers = get_timers()
 
         batch_size = args.micro_batch_size * args.data_parallel_size * \
         num_microbatches
