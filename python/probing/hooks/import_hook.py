@@ -6,7 +6,7 @@ from probing.ext.iteroutput_hook import init as iteroutput_init
 
 # Mapping from module names to callback functions
 register = {
-    "iteroutput": iteroutput_init,
+    "torch": iteroutput_init,
 }
 
 # Record modules that have been triggered
