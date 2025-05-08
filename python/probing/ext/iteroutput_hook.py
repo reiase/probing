@@ -35,6 +35,7 @@ class IterOutputTracer:
         # 从train()中提取局部变量
         print(f"Found frame: {f.f_code.co_name}", flush=True)
         local_vars = f.f_locals
+     
         total_loss_dict = local_vars.get('total_loss_dict')
         iteration = local_vars.get('iteration')
         advanced_iters_key = 'advanced iterations'
@@ -42,12 +43,20 @@ class IterOutputTracer:
         total_iterations = total_loss_dict[advanced_iters_key] + \
                        total_loss_dict[skipped_iters_key]
         
+        print(f"total_loss_dict: {total_loss_dict}", flush=True)
+        print(f"iteration: {iteration}", flush=True)
+        print(f"advanced_iters_key: {advanced_iters_key}", flush=True)
+        print(f"skipped_iters_key: {skipped_iters_key}", flush=True)
+        print(f"total_iterations: {total_iterations}", flush=True)
+
         # 全局变量
         # global _GLOBAL_ARGS, _GLOBAL_NUM_MICROBATCHES_CALCULATOR, _GLOBAL_TIMERS
     
         from megatron.training.global_vars import get_args, get_timers, _GLOBAL_NUM_MICROBATCHES_CALCULATOR
         args = get_args()
+        print(f"args: {args}", flush=True)
         num_microbatches = _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()
+        print(f"num_microbatches: {num_microbatches}", flush=True)
         timers = get_timers()
 
         batch_size = args.micro_batch_size * args.data_parallel_size * \
