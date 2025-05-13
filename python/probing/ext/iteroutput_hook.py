@@ -26,9 +26,8 @@ class IterOutputTracer:
         print("step_post_hook triggered!", flush=True)
         import sys
         f = sys._getframe() 
-        update_successful =f.f_locals.get('update_successful')
-        print(f"update_successful: {update_successful}", flush=True)
-
+        print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
+        print(f"f.f_locals: {f.f_locals}", flush=True)
         while f and f.f_code.co_name != 'train':
             if f.f_code.co_name == 'train_step':
                 update_successful =f.f_locals.get('update_successful')
