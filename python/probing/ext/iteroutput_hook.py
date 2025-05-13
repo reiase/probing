@@ -25,7 +25,10 @@ class IterOutputTracer:
     def step_post_hook(self, optimizer, args, kwargs):
         print("step_post_hook triggered!", flush=True)
         import sys
-        f = sys._getframe()
+        f = sys._getframe() 
+        update_successful =f.f_locals.get('update_successful')
+        print(f"update_successful: {update_successful}", flush=True)
+
         while f and f.f_code.co_name != 'train':
             f = f.f_back
         if not f:
@@ -40,6 +43,12 @@ class IterOutputTracer:
         iteration = local_vars.get('iteration')
         advanced_iters_key = 'advanced iterations'
         skipped_iters_key = 'skipped iterations'
+        if update_successful:
+            total_loss_dict[advanced_iters_key] = total_loss_dict.get(
+            advanced_iters_key, 0) + 1
+        else:
+            if advanced_iters_key not in total_loss_dict:
+                total_loss_dict[advanced_iters_key] = 0
         total_iterations = total_loss_dict[advanced_iters_key] + \
                        total_loss_dict[skipped_iters_key]
         
@@ -58,11 +67,12 @@ class IterOutputTracer:
         num_microbatches = _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()
         print(f"num_microbatches: {num_microbatches}", flush=True)
         timers = get_timers()
-
+        
         batch_size = args.micro_batch_size * args.data_parallel_size * \
         num_microbatches
 
         elapsed_time = timers('interval-time').elapsed(barrier=True)
+        print(f"elapsed_time: {elapsed_time}", flush=True)
         elapsed_time_per_iteration = elapsed_time / total_iterations
 
         throughput = num_floating_point_operations(args, batch_size) / (
