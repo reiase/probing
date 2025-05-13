@@ -29,10 +29,12 @@ class IterOutputTracer:
         print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
         print(f"f.f_locals: {f.f_locals}", flush=True)
         while f and f.f_code.co_name != 'train':
-            if f.f_code.co_name == 'train_step':
-                update_successful =f.f_locals.get('update_successful')
-                print(f"update_successful: {update_successful}", flush=True)
+            # if f.f_code.co_name == 'train_step':
+            #     update_successful =f.f_locals.get('update_successful')
+            #     print(f"update_successful: {update_successful}", flush=True)
             f = f.f_back
+            print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
+            print(f"f.f_locals: {f.f_locals}", flush=True)
         if not f:
             f = sys._getframe().f_back 
             print("target frame not found", flush=True) 
