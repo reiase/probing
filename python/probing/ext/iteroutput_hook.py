@@ -26,15 +26,15 @@ class IterOutputTracer:
         print("step_post_hook triggered!", flush=True)
         import sys
         f = sys._getframe() 
-        print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
-        print(f"f.f_locals: {f.f_locals}", flush=True)
+        # print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
+        # print(f"f.f_locals: {f.f_locals}", flush=True)
         while f and f.f_code.co_name != 'train':
             # if f.f_code.co_name == 'train_step':
             #     update_successful =f.f_locals.get('update_successful')
             #     print(f"update_successful: {update_successful}", flush=True)
             f = f.f_back
-            print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
-            print(f"f.f_locals: {f.f_locals}", flush=True)
+            # print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
+            # print(f"f.f_locals: {f.f_locals}", flush=True)
         if not f:
             f = sys._getframe().f_back 
             print("target frame not found", flush=True) 
@@ -42,25 +42,24 @@ class IterOutputTracer:
         # 从train()中提取局部变量
         print(f"Found frame: {f.f_code.co_name}", flush=True)
         local_vars = f.f_locals
-     
         total_loss_dict = local_vars.get('total_loss_dict')
         iteration = local_vars.get('iteration')
         advanced_iters_key = 'advanced iterations'
         skipped_iters_key = 'skipped iterations'
-        if update_successful:
-            total_loss_dict[advanced_iters_key] = total_loss_dict.get(
-            advanced_iters_key, 0) + 1
-        else:
-            if advanced_iters_key not in total_loss_dict:
-                total_loss_dict[advanced_iters_key] = 0
-        total_iterations = total_loss_dict[advanced_iters_key] + \
-                       total_loss_dict[skipped_iters_key]
-        
-        print(f"total_loss_dict: {total_loss_dict}", flush=True)
-        print(f"iteration: {iteration}", flush=True)
-        print(f"advanced_iters_key: {advanced_iters_key}", flush=True)
-        print(f"skipped_iters_key: {skipped_iters_key}", flush=True)
-        print(f"total_iterations: {total_iterations}", flush=True)
+        # if update_successful:
+        #     total_loss_dict[advanced_iters_key] = total_loss_dict.get(
+        #     advanced_iters_key, 0) + 1
+        # else:
+        #     if advanced_iters_key not in total_loss_dict:
+        #         total_loss_dict[advanced_iters_key] = 0
+        # total_iterations = total_loss_dict[advanced_iters_key] + \
+        #                total_loss_dict[skipped_iters_key]
+        total_iterations = 1
+        # print(f"total_loss_dict: {total_loss_dict}", flush=True)
+        # print(f"iteration: {iteration}", flush=True)
+        # print(f"advanced_iters_key: {advanced_iters_key}", flush=True)
+        # print(f"skipped_iters_key: {skipped_iters_key}", flush=True)
+        # print(f"total_iterations: {total_iterations}", flush=True)
 
         # 全局变量
         # global _GLOBAL_ARGS, _GLOBAL_NUM_MICROBATCHES_CALCULATOR, _GLOBAL_TIMERS
