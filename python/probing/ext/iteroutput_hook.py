@@ -225,7 +225,7 @@ def num_floating_point_operations(args, batch_size):
             mtp_num_layers = 0
             num_layers = args.num_layers
 
-        moe_ffn_hidden_size = args.moe_ffn_hidden_size if args.moe_ffn_hidden_size is not None else args.ffn_hidden_size
+        moe_ffn_hidden_size = args.ffn_hidden_size if not hasattr(args, 'moe_ffn_hidden_size') else args.moe_ffn_hidden_size if args.moe_ffn_hidden_size is not None else args.ffn_hidden_size
         shared_expert_ffn_hidden_size = (
             0
             if args.moe_shared_expert_intermediate_size is None
@@ -244,8 +244,8 @@ def num_floating_point_operations(args, batch_size):
         # - 2x: A GEMM of a m*n tensor with a n*k tensor requires 2mnk floating-point operations.
         expansion_factor = 3 * 2 * 2
 
-        if args.multi_latent_attention:
-            assert not args.group_query_attention
+        if hasattr(args, 'multi_latent_attention') and args.multi_latent_attention:
+            assert not hasattr(args, 'group_query_attention') or not args.group_query_attention
             '''
             Basic arithmetic
             let B is batch size, s is seq_len, h is embedding dim,
@@ -260,7 +260,7 @@ def num_floating_point_operations(args, batch_size):
             https://arxiv.org/abs/2205.05198
             '''
             ## MLA
-            if args.q_lora_rank is None:
+            if not hasattr(args, 'q_lora_rank') or args.q_lora_rank is None:
                 q_term = args.hidden_size * args.num_attention_heads * (args.qk_head_dim + args.qk_pos_emb_head_dim)
             else:
                 q_term = args.q_lora_rank * (args.hidden_size + args.num_attention_heads * (args.qk_head_dim + args.qk_pos_emb_head_dim) + 1) 
