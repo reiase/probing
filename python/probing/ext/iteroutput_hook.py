@@ -228,7 +228,7 @@ def num_floating_point_operations(args, batch_size):
         moe_ffn_hidden_size = args.ffn_hidden_size if not hasattr(args, 'moe_ffn_hidden_size') else args.moe_ffn_hidden_size if args.moe_ffn_hidden_size is not None else args.ffn_hidden_size
         shared_expert_ffn_hidden_size = (
             0
-            if args.moe_shared_expert_intermediate_size is None
+            if not hasattr(args, 'moe_shared_expert_intermediate_size') or args.moe_shared_expert_intermediate_size is None
             else args.moe_shared_expert_intermediate_size
         )
         # SwiGLU.
