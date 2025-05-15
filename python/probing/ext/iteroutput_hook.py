@@ -40,7 +40,7 @@ class IterOutputTracer:
             print("target frame not found", flush=True) 
 
         # 从train()中提取局部变量
-        print(f"Found frame: {f.f_code.co_name}", flush=True)
+        # print(f"Found frame: {f.f_code.co_name}", flush=True)
         local_vars = f.f_locals
         total_loss_dict = local_vars.get('total_loss_dict')
         iteration = local_vars.get('iteration')
@@ -92,7 +92,7 @@ class IterOutputTracer:
 
 def optimizer_step_post_hook(optimizer, *args, **kwargs):
     global hooks
-    print(f"optimizer_step_post_hook called with {optimizer}", flush=True)
+    # print(f"optimizer_step_post_hook called with {optimizer}", flush=True)
     if optimizer not in hooks:
         tracer = IterOutputTracer()
         optimizer.register_step_post_hook(tracer.step_post_hook)
