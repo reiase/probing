@@ -74,7 +74,7 @@ class IterOutputTracer:
         batch_size = args.micro_batch_size * args.data_parallel_size * \
         num_microbatches
 
-        elapsed_time = timers('interval-time').elapsed(barrier=True)
+        elapsed_time = timers('interval-time').elapsed(reset=False, barrier=True)
         print(f"elapsed_time: {elapsed_time}", flush=True)
         elapsed_time_per_iteration = elapsed_time / total_iterations
 
