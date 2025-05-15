@@ -346,31 +346,31 @@ def num_floating_point_operations(args, batch_size):
 
 
     # Main entrypoint for FLOPs calculation.
-    if args.is_hybrid_model:
-        # Calculate the number of each type of layer.
-        num_attn_layers, num_mamba_layers, num_mlp_layers = calculate_layer_counts()
+    # if args.is_hybrid_model:
+    #     # Calculate the number of each type of layer.
+    #     num_attn_layers, num_mamba_layers, num_mlp_layers = calculate_layer_counts()
 
-        # Compute hybrid model FLOPs.
-        return hybrid_flops(
-            batch_size=batch_size,
-            seq_len=args.seq_length,
-            hidden_size=args.hidden_size,
-            num_attn_layers=num_attn_layers,
-            num_mamba_layers=num_mamba_layers,
-            num_mlp_layers=num_mlp_layers,
-            mamba_state_dim=args.mamba_state_dim,
-            mamba_head_dim=args.mamba_head_dim,
-            mamba_num_groups=args.mamba_num_groups,
-            mamba_num_heads=args.mamba_num_heads,
-            num_attn_heads=args.num_attention_heads,
-            gqa=args.group_query_attention,
-            gqa_groups=args.num_query_groups,
-            kv_channels=args.kv_channels,
-            mlp_expansion=args.ffn_hidden_size / args.hidden_size,
-            swiglu=args.swiglu,
-            vocab_size=args.padded_vocab_size
-        )
-    else:
-        # Compute standard Transformer model FLOPs.
-        return transformer_flops()
-    
+    #     # Compute hybrid model FLOPs.
+    #     return hybrid_flops(
+    #         batch_size=batch_size,
+    #         seq_len=args.seq_length,
+    #         hidden_size=args.hidden_size,
+    #         num_attn_layers=num_attn_layers,
+    #         num_mamba_layers=num_mamba_layers,
+    #         num_mlp_layers=num_mlp_layers,
+    #         mamba_state_dim=args.mamba_state_dim,
+    #         mamba_head_dim=args.mamba_head_dim,
+    #         mamba_num_groups=args.mamba_num_groups,
+    #         mamba_num_heads=args.mamba_num_heads,
+    #         num_attn_heads=args.num_attention_heads,
+    #         gqa=args.group_query_attention,
+    #         gqa_groups=args.num_query_groups,
+    #         kv_channels=args.kv_channels,
+    #         mlp_expansion=args.ffn_hidden_size / args.hidden_size,
+    #         swiglu=args.swiglu,
+    #         vocab_size=args.padded_vocab_size
+    #     )
+    # else:
+    #     # Compute standard Transformer model FLOPs.
+    #     return transformer_flops()
+    return transformer_flops()
