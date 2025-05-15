@@ -1,9 +1,11 @@
 hooks = {}
 
+
 def is_true(value):
     if value in ["TRUE", "True", "true", "1", "YES", "Yes", "yes", "ON", "On", "on"]:
         return True
     return False
+
 
 def optimizer_step_post_hook(optimizer, *args, **kwargs):
     global hooks
@@ -13,6 +15,7 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
         from probing.profiling.torch.module_utils import get_toplevel_module
 
         import os
+
         mode = os.getenv("PROBE_TORCH_MODE", "ordered")
         rate = float(os.getenv("PROBE_TORCH_RATE", "0.05"))
         tracepy = is_true(os.getenv("PROBE_TORCH_TRACEPY", "False"))
