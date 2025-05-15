@@ -66,7 +66,7 @@ class IterOutputTracer:
     
         from megatron.training.global_vars import get_args, get_timers, _GLOBAL_NUM_MICROBATCHES_CALCULATOR
         args = get_args()
-        print(f"args: {args}", flush=True)
+        # print(f"args: {args}", flush=True)
         num_microbatches = _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()
         print(f"num_microbatches: {num_microbatches}", flush=True)
         timers = get_timers()
@@ -80,7 +80,7 @@ class IterOutputTracer:
 
         throughput = num_floating_point_operations(args, batch_size) / (
             elapsed_time_per_iteration * 10**12 * args.world_size)
-        
+        print(f"throughput: {throughput}", flush=True)
         IterOutputTrace(
         iteration=iteration,
         time_per_iter=elapsed_time_per_iteration,
