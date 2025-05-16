@@ -60,6 +60,7 @@ def mem_stats() -> TorchTrace:
         max_cached=torch.cuda.max_memory_reserved() / MB,
     )
 
+
 STAGEMAP = {
     "pre forward": "forward",
     "post forward": "forward",
@@ -68,6 +69,7 @@ STAGEMAP = {
     "pre step": "step",
     "post step": "step",
 }
+
 
 class Timer:
     def __init__(self, sync: bool = False, **kwargs):
@@ -124,16 +126,18 @@ class Sampler:
         # Discovery state
         self.finalized = False
         self.sampled_step = True
-        
+
         super().__init__(**kwargs)
 
     def register_mod(self, mod) -> None:
         if self.finalized:
             return
-        
+
         import torch
-        
-        self.mod_names[id(mod)] = module_name(mod) or (mod.__class__.__name__ if isinstance(mod, torch.optim.Optimizer) else "None")
+
+        self.mod_names[id(mod)] = module_name(mod) or (
+            mod.__class__.__name__ if isinstance(mod, torch.optim.Optimizer) else "None"
+        )
 
     def finalize_discovery(self):
         self.finalized = True
@@ -165,28 +169,28 @@ class Sampler:
             idx = (self.curr_idx + 1) % len(self.mod_queue)
             self.curr_idx = idx
             self.curr_mod = self.mod_queue[idx]
-            
+
     def set_sampling_mode(self, expr):
-        """ Set the sampling mode and rate based on the provided expression.
-        
+        """Set the sampling mode and rate based on the provided expression.
+
         The expression should be in the format "mode:rate", where mode can be
         "ordered" or "random", and rate is a float between 0 and 1.
-        
+
         Examples
         --------
-        
+
         >>> tracer = TorchProbe()
         >>> tracer.mode, tracer.rate
         ('ordered', 1.0)
-        
+
         >>> tracer.set_sampling("random:0.1")
         >>> tracer.mode, tracer.rate
         ('random', 0.1)
-        
+
         >>> tracer.set_sampling("ordered:0.5")
         >>> tracer.mode, tracer.rate
         ('ordered', 0.5)
-        
+
         >>> tracer.set_sampling("invalid:1.5")
         >>> tracer.mode, tracer.rate
         ('ordered', 1.0)
@@ -197,13 +201,14 @@ class Sampler:
             return
         try:
             mode, rate = expr.split(":")
-            
+
             self.mode = mode if mode in ["ordered", "random"] else "ordered"
             self.rate = float(rate) if 0 < float(rate) <= 1 else 1.0
         except ValueError:
             print(f"Invalid sampling expression: {expr}. Using default settings.")
             self.mode = "ordered"
             self.rate = 1.0
+
 
 class PythonTracer:
     def __init__(self, tracepy=False, **kwargs):
@@ -226,22 +231,22 @@ class PythonTracer:
 class VariableTracer:
     """
     Traces specified variables within functions during execution.
-    
+
     This class allows you to monitor variables in specific functions by providing
     expressions in the format "variable@function". When the traced functions are
     executed, the class captures the variable values and saves them.
-    
+
     Parameters:
         exprs (str): Comma-separated list of expressions in format "var@func"
                     where 'var' is the variable name and 'func' is the function name.
         **kwargs: Additional keyword arguments passed to parent classes.
-    
+
     Examples:
         >>> # Simple initialization with one variable in one function
         >>> tracer = VariableTracer("x@calculate")
         >>> tracer.variabls
         {'calculate': ['x']}
-        
+
         >>> # Multiple variables in different functions
         >>> tracer = VariableTracer("x@calculate,y@process,z@calculate")
         >>> sorted(tracer.variabls.keys())
@@ -250,17 +255,18 @@ class VariableTracer:
         ['x', 'z']
         >>> tracer.variabls['process']
         ['y']
-        
+
         >>> # Empty string initialization
         >>> tracer = VariableTracer("")
         >>> tracer.variabls
         {}
-        
+
         >>> # Handling whitespace
         >>> tracer = VariableTracer(" a@func1 , b@func2 ")
         >>> tracer.variabls
         {'func1': ['a'], 'func2': ['b']}
     """
+
     def __init__(self, exprs="", **kwargs):
         self.variabls = {}
         for expr in exprs.split(","):  # Fixed: using exprs instead of expr
@@ -274,17 +280,17 @@ class VariableTracer:
     def trace_variables(self):
         """
         Traces variables specified during initialization in the current execution stack.
-        
+
         This method inspects the call stack, looking for functions specified during
         initialization. When found, it retrieves the values of the specified variables
         and saves them using the Variables dataclass.
-        
+
         Note: This method requires access to self.curr_step which should be set by
         a parent class.
         """
         if not self.variabls:
             return
-        
+
         import inspect
 
         stacks = inspect.stack()[1:]
@@ -341,12 +347,12 @@ class TorchProbe(BaseTracer, Timer, Sampler, PythonTracer, VariableTracer):
         if self.has_cuda and self.pending:
             _cuda_sync()
 
-       # process pending records
+        # process pending records
         self.pending = [x for x in self.pending if x.save()]
-        
+
         # trace Python variables
         self.trace_variables()
-        
+
         # reset the step start time
         self.step_start = 0
 
@@ -364,9 +370,10 @@ def _cuda_event():
     event.record()
     return event
 
+
 def set_sampling_mode(mode):
     import gc
-    
+
     objs = [obj for obj in gc.get_objects() if isinstance(obj, TorchProbe)]
     try:
         for obj in objs:
