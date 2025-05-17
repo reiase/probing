@@ -223,44 +223,6 @@ pub fn backtrace_signal_handler() {
     }
 }
 
-pub fn backtrace_signal_handler2() {
-    let frames = Python::with_gil(|py| {
-        let global = PyDict::new(py);
-        if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
-            error!("error extract call stacks {}", err);
-            return None;
-        }
-        match global.get_item("retval") {
-            Ok(frames) => {
-                if let Some(frames) = frames {
-                    frames.extract::<String>().ok()
-                } else {
-                    error!("error extract call stacks");
-                    None
-                }
-            }
-            Err(err) => {
-                error!("error extract call stacks {}", err);
-                None
-            }
-        }
-    });
-
-    if let Some(frames) = frames {
-        match serde_json::from_str::<Vec<CallFrame>>(frames.as_str()) {
-            Ok(frames) => {
-                let mut callstacks = CALLSTACKS.lock().unwrap();
-                *callstacks = Some(frames);
-            }
-            Err(err) => {
-                error!("error deserializing dump stack result: {}", err);
-            }
-        }
-    } else {
-        error!("error running dump stack code");
-    }
-}
-
 #[pyfunction]
 fn query_json(_py: Python, sql: String) -> PyResult<String> {
     let result = tokio::runtime::Builder::new_multi_thread()
