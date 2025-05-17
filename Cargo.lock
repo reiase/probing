@@ -2896,9 +2896,11 @@ name = "probing-python"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "backtrace",
  "ctor",
  "include_dir",
  "inferno 0.12.2",
+ "lazy_static",
  "log",
  "nix 0.29.0",
  "once_cell",

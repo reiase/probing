@@ -21,6 +21,7 @@ tokio = { workspace = true }
 
 ctor = { version = "0.4.1", features = [] }
 include_dir = "=0.7.4"
+backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
 pyo3 = { version = "0.24.1", features = [
     "abi3",
     "abi3-py37",
@@ -36,6 +37,7 @@ pprof = { version = "0.14.0", features = [
     "flamegraph",
     "frame-pointer",
 ] }
+lazy_static = "1.4.0"
 signal-hook-registry = "1.4.2"
 
 [dev-dependencies]

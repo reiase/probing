@@ -54,10 +54,14 @@ pub fn Activity() -> impl IntoView {
 #[component]
 fn CallStackView(#[prop(into)] callstack: CallFrame) -> impl IntoView {
     match callstack {
-        CallFrame::CFrame { .. } => {
+        CallFrame::CFrame { ip, file, func, lineno } => {
+            let key = format!("{ip}: {func} @ {file}: {lineno}");
             view! {
-                <AccordionItem value="C/C++">
-                    <AccordionHeader slot>"C/C++ Call Stack"</AccordionHeader>
+                <AccordionItem value=key.clone()>
+                    <AccordionHeader slot>
+                        <Icon icon=icondata::SiCplusplus />
+                        <span style="margin-left: 8px;">{key.clone()}</span>
+                    </AccordionHeader>
                     <pre>{"..."}</pre>
                 </AccordionItem>
             }
@@ -73,7 +77,10 @@ fn CallStackView(#[prop(into)] callstack: CallFrame) -> impl IntoView {
             let key = format!("{func} @ {file}: {lineno}");
             view! {
                 <AccordionItem value=key.clone()>
-                    <AccordionHeader slot>{key.clone()}</AccordionHeader>
+                    <AccordionHeader slot>
+                        <Icon icon=icondata::SiPython />
+                        <span style="margin-left: 8px;">{key.clone()}</span>
+                    </AccordionHeader>
                     <b>"local:"</b>
                     <span style="padding: 5px">
                         {func} "@" <a href=url target="_blank">
