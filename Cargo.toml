@@ -62,11 +62,9 @@ keywords = ["debug", "performance", "python"]
 crate-type = ["cdylib"]
 
 [dependencies]
-probing-proto = { path = "probing/proto" }
 probing-core = { path = "probing/core" }
 probing-server = { path = "probing/server" }
 probing-python = { path = "probing/extensions/python" }
-probing-macros = { path = "probing/macros" }
 
 anyhow = { workspace = true }
 log = { workspace = true }
