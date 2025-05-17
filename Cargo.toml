@@ -21,17 +21,16 @@ description = "Performance and Stability Diagnostic Tool for AI Applications"
 
 [workspace.dependencies]
 anyhow = "1.0"
-arrow = { version = "55.0.0", default-features = false, features = ["csv"] }
+arrow = { version = "55.1.0", default-features = false, features = ["csv"] }
 chrono = "0.4"
 log = "0.4"
-nix = { version = "0.29.0", default-features = false, features = [
+nix = { version = "0.30.1", default-features = false, features = [
     "ptrace",
     "signal",
     "fs",
     "net",
-    "hostname",
     "feature",
-    "socket",
+    # "socket",
     "term",
     "ioctl",
 ] }
@@ -40,12 +39,12 @@ procfs = { version = "0.17.0", default-features = false, features = ["chrono"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
-tokio = { version = "1.44.2", default-features = false, features = [
+tokio = { version = "1.45.0", default-features = false, features = [
     "net",
     "io-util",
     "rt-multi-thread",
 ] }
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [package]
 name = "probing"
@@ -82,10 +81,11 @@ nix = { workspace = true }
 
 anyhow = { workspace = true }
 arrow = { workspace = true }
-pyo3 = { version = "0.24.1", features = [
+pyo3 = { version = "0.25.0", default-features = false, features = [
     "abi3",
     "abi3-py37",
     "auto-initialize",
+    "macros"
 ] }
 tokio = { workspace = true }
 
