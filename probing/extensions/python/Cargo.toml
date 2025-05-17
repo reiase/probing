@@ -21,11 +21,13 @@ tokio = { workspace = true }
 
 ctor = { version = "0.4.1", features = [] }
 include_dir = "=0.7.4"
-pyo3 = { version = "0.24.1", features = [
+backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
+pyo3 = { version = "0.25.0", default-features = false, features = [
     "abi3",
     "abi3-py37",
     "extension-module",
     "auto-initialize",
+    "macros"
 ] }
 inferno = { version = "0.12.1", default-features = false, features = [
     "nameattr",
@@ -36,10 +38,11 @@ pprof = { version = "0.14.0", features = [
     "flamegraph",
     "frame-pointer",
 ] }
+lazy_static = "1.4.0"
 signal-hook-registry = "1.4.2"
 
 [dev-dependencies]
 tokio = { workspace = true }
 
 [build-dependencies]
-pyo3-build-config = "0.24.1"
+pyo3-build-config = "0.25.0"

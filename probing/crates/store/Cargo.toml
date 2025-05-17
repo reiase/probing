@@ -9,12 +9,5 @@ license.workspace = true
 crate-type = ["rlib"]
 
 [dependencies]
-anyhow = { workspace = true }
-arrow = { workspace = true }
-log = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 thiserror = { workspace = true }
-
-futures = "0.3.31"

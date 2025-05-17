@@ -12,9 +12,11 @@ pub mod repl;
 
 mod setup;
 
+use std::collections::HashSet;
 use std::ffi::CStr;
 use std::sync::Mutex;
 
+use lazy_static::lazy_static;
 use log::error;
 use pkg::TCPStore;
 use pyo3::ffi::c_str;
@@ -76,7 +78,152 @@ retval = json.dumps(stacks)
 
 pub static CALLSTACKS: Mutex<Option<Vec<CallFrame>>> = Mutex::new(None);
 
+fn get_python_stacks() -> Option<Vec<CallFrame>> {
+    let frames = Python::with_gil(|py| {
+        let global = PyDict::new(py);
+        if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
+            error!("error extract call stacks {}", err);
+            return None;
+        }
+        match global.get_item("retval") {
+            Ok(frames) => {
+                if let Some(frames) = frames {
+                    frames.extract::<String>().ok()
+                } else {
+                    error!("error extract call stacks");
+                    None
+                }
+            }
+            Err(err) => {
+                error!("error extract call stacks {}", err);
+                None
+            }
+        }
+    });
+
+    if let Some(frames) = frames {
+        serde_json::from_str::<Vec<CallFrame>>(frames.as_str()).ok()
+    } else {
+        None
+    }
+}
+
+fn get_native_stacks() -> Option<Vec<CallFrame>> {
+    let mut frames = vec![];
+    backtrace::trace(|frame| {
+        let ip = frame.ip();
+        let symbol_address = frame.symbol_address() as usize;
+        backtrace::resolve_frame(frame, |symbol| {
+            let func = symbol.name().and_then(|name| name.as_str());
+            let func = func
+                .map(|x| x.to_string())
+                .unwrap_or(format!("unknown@{:#x}", symbol_address));
+
+            let file = symbol.filename();
+            let file = file
+                .map(|x| x.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            frames.push(CallFrame::CFrame {
+                ip: format!("{:#x}", ip as usize),
+                file,
+                func,
+                lineno: symbol.lineno().unwrap_or_default() as i64,
+            });
+        });
+        true
+    });
+    Some(frames)
+}
+
+fn merge_python_native_stacks(
+    python_stacks: Vec<CallFrame>,
+    native_stacks: Vec<CallFrame>,
+) -> Vec<CallFrame> {
+    let mut merged = vec![];
+    let mut python_frame_index = 0;
+
+    enum MergeType {
+        Ignore,
+        MergeNativeFrame,
+        MergePythonFrame,
+    }
+
+    fn get_merge_strategy(frame: &CallFrame) -> MergeType {
+        lazy_static! {
+            static ref WHITELISTED_PREFIXES: HashSet<&'static str> = {
+                let mut prefixes = HashSet::new();
+                prefixes.insert("time");
+                prefixes.insert("sys");
+                prefixes.insert("gc");
+                prefixes.insert("os");
+                prefixes.insert("unicode");
+                prefixes.insert("thread");
+                prefixes.insert("stringio");
+                prefixes.insert("sre");
+                // likewise reasoning about lock contention inside python is also useful
+                prefixes.insert("PyGilState");
+                prefixes.insert("PyThread");
+                prefixes.insert("lock");
+                prefixes
+            };
+        }
+        let symbol = match frame {
+            CallFrame::CFrame {
+                ip: _,
+                file: _,
+                func,
+                lineno: _,
+            } => func,
+            CallFrame::PyFrame {
+                file: _,
+                func,
+                lineno: _,
+                locals: _,
+            } => func,
+        };
+        let mut tokens = symbol.split(&['_', '.'][..]).filter(|&x| !x.is_empty());
+        match tokens.next() {
+            Some("PyEval") => match tokens.next() {
+                Some("EvalFrameDefault") => MergeType::MergePythonFrame,
+                Some("EvalFrameEx") => MergeType::MergePythonFrame,
+                _ => MergeType::Ignore,
+            },
+            Some(prefix) if WHITELISTED_PREFIXES.contains(prefix) => MergeType::MergeNativeFrame,
+            _ => MergeType::MergeNativeFrame,
+        }
+    }
+
+    for frame in native_stacks {
+        match get_merge_strategy(&frame) {
+            MergeType::Ignore => {}
+            MergeType::MergeNativeFrame => merged.push(frame),
+            MergeType::MergePythonFrame => {
+                #[allow(clippy::never_loop)]
+                while python_frame_index < python_stacks.len() {
+                    merged.push(python_stacks[python_frame_index].clone());
+                    break;
+                }
+                python_frame_index += 1;
+            }
+        }
+    }
+    merged
+}
+
 pub fn backtrace_signal_handler() {
+    let python_stacks = get_python_stacks().unwrap_or_default();
+    let native_stacks = get_native_stacks().unwrap_or_default();
+
+    let merged_stacks = merge_python_native_stacks(python_stacks, native_stacks);
+    if let Ok(mut callstacks) = CALLSTACKS.lock() {
+        *callstacks = Some(merged_stacks);
+    } else {
+        error!("Failed to lock CALLSTACKS mutex");
+    }
+}
+
+pub fn backtrace_signal_handler2() {
     let frames = Python::with_gil(|py| {
         let global = PyDict::new(py);
         if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
