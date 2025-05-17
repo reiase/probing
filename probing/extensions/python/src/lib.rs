@@ -147,7 +147,7 @@ fn merge_python_native_stacks(
         Ignore,
         MergeNativeFrame,
         MergePythonFrame,
-    };
+    }
 
     fn get_merge_strategy(frame: &CallFrame) -> MergeType {
         lazy_static! {

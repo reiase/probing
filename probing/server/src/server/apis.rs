@@ -125,7 +125,9 @@ async fn extension_call(req: axum::extract::Request) -> Result<axum::response::R
     let params: HashMap<String, String> =
         serde_urlencoded::from_str(params_str).unwrap_or_default();
     let body = body.collect().await?.to_bytes().clone();
-    println!("path: {}, params: {:?}, body: {:?}", path, params, body);
+    
+    log::info!("API Call[{}]: params = {:?}, body = {:?}", path, params, body);
+
     let engine = ENGINE.write().await;
     let state = engine.context.state();
     let eem = state

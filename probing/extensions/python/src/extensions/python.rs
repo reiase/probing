@@ -69,8 +69,8 @@ impl EngineCall for PythonExt {
         params: &HashMap<String, String>,
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
-        println!(
-            "PythonExt::call: path = {}, params = {:?}, body = {:?}",
+        log::debug!(
+            "Engine Extension Call[PythonExt]: path = {}, params = {:?}, body = {:?}",
             path, params, body
         );
         if path == "callstack" {
