@@ -26,33 +26,8 @@ use pyo3::Python;
 #[derive(Default, Debug)]
 pub struct PythonNamespace {}
 
-impl CustomNamespace for PythonNamespace {
-    fn name() -> &'static str {
-        "python"
-    }
-
-    fn list() -> Vec<String> {
-        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-        binding.keys().cloned().collect()
-    }
-
-    fn data(expr: &str) -> Vec<RecordBatch> {
-        if Self::list().contains(&expr.to_string()) {
-            {
-                let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-                let table = binding.get(expr).unwrap();
-                let names = table.lock().unwrap().names.clone();
-                let ts = &table.lock().unwrap();
-
-                let batches = Self::time_series_to_recordbatch(names, ts);
-                if let Ok(batches) = batches {
-                    return batches;
-                } else {
-                    error!("error convert time series to table: {:?}", batches.err());
-                    return vec![];
-                }
-            }
-        }
+impl PythonNamespace {
+    fn data_from_python(expr: &str) -> Vec<RecordBatch> {
         Python::with_gil(|py| {
             let parts: Vec<&str> = expr.split(".").collect();
             let pkg = py.import(parts[0]);
@@ -93,11 +68,81 @@ impl CustomNamespace for PythonNamespace {
             Self::object_to_recordbatch(ret).unwrap()
         })
     }
+}
 
-    fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>> {
+impl CustomNamespace for PythonNamespace {
+    fn name() -> &'static str {
+        "python"
+    }
+
+    fn list() -> Vec<String> {
+        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
+        binding.keys().cloned().collect()
+    }
+
+    fn data(expr: &str) -> Vec<RecordBatch> {
+        if Self::list().contains(&expr.to_string()) {
+            {
+                let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
+                let table = binding.get(expr).unwrap();
+                let names = table.lock().unwrap().names.clone();
+                let ts = &table.lock().unwrap();
+
+                let batches = Self::time_series_to_recordbatch(names, ts);
+                if let Ok(batches) = batches {
+                    return batches;
+                } else {
+                    error!("error convert time series to table: {:?}", batches.err());
+                    return vec![];
+                }
+            }
+        }
+        // Python::with_gil(|py| {
+        //     let parts: Vec<&str> = expr.split(".").collect();
+        //     let pkg = py.import(parts[0]);
+
+        //     if pkg.is_err() {
+        //         println!("import error: {:?}", pkg.err());
+        //         return vec![];
+        //     }
+        //     let pkg = pkg.unwrap();
+
+        //     let locals = PyDict::new(py);
+        //     locals.set_item(parts[0], pkg).unwrap();
+
+        //     let ret = (|| {
+        //         let expr = CString::new(expr)?;
+        //         py.eval(&expr, None, Some(&locals))
+        //     })();
+
+        //     if ret.is_err() {
+        //         println!("eval error: {:?}", ret.err());
+        //         return vec![];
+        //     }
+
+        //     let ret = ret.unwrap();
+        //     if ret.is_instance_of::<PyList>() {
+        //         if let Ok(_list) = ret.downcast::<PyList>() {
+        //             return Self::list_to_recordbatch(_list).unwrap_or(vec![]);
+        //         }
+        //         return vec![];
+        //     }
+
+        //     if ret.is_instance_of::<PyDict>() {
+        //         if let Ok(_dict) = ret.downcast::<PyDict>() {
+        //             return Self::dict_to_recordbatch(_dict).unwrap_or(vec![]);
+        //         }
+        //         return vec![];
+        //     }
+        //     Self::object_to_recordbatch(ret).unwrap()
+        // })
+        Self::data_from_python(expr)
+    }
+
+    fn make_lazy(expr: &str) -> Arc<LazyTableSource> {
         let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
 
-        let schema = if binding.contains_key(expr) {
+        if binding.contains_key(expr) {
             let table = binding.get(expr).unwrap();
             let names = table.lock().unwrap().names.clone();
             let dtypes = table
@@ -123,16 +168,26 @@ impl CustomNamespace for PythonNamespace {
                 ));
             }
 
-            Some(SchemaRef::new(Schema::new(fields)))
-        } else {
-            None
-        };
+            let schema = Some(SchemaRef::new(Schema::new(fields)));
 
-        Arc::new(LazyTableSource::<Self> {
-            name: expr.to_string(),
-            schema,
-            data: Default::default(),
-        })
+            Arc::new(LazyTableSource {
+                name: expr.to_string(),
+                schema,
+                data: Default::default(),
+            })
+        } else {
+            let data: Vec<RecordBatch> = Self::data_from_python(expr);
+            let schema = if data.is_empty() {
+                None
+            } else {
+                Some(data[0].schema().clone())
+            };
+            Arc::new(LazyTableSource {
+                name: expr.to_string(),
+                schema,
+                data,
+            })
+        }
     }
 }
 

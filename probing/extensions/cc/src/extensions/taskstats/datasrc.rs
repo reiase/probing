@@ -145,12 +145,12 @@ impl CustomNamespace for TaskStatsSchema {
         vec!["cpu".to_string(), "memory".to_string(), "io".to_string()]
     }
 
-    fn make_lazy(expr: &str) -> Arc<probing_core::core::LazyTableSource<Self>>
+    fn make_lazy(expr: &str) -> Arc<probing_core::core::LazyTableSource>
     where
         Self: Sized,
     {
         match expr {
-            "cpu" => Arc::new(probing_core::core::LazyTableSource::<Self> {
+            "cpu" => Arc::new(probing_core::core::LazyTableSource {
                 name: expr.to_string(),
                 schema: Some(SchemaRef::new(Schema::new(vec![
                     Field::new("timestamp", DataType::Int64, true),
@@ -159,7 +159,7 @@ impl CustomNamespace for TaskStatsSchema {
                 ]))),
                 data: Default::default(),
             }),
-            _ => Arc::new(probing_core::core::LazyTableSource::<Self> {
+            _ => Arc::new(probing_core::core::LazyTableSource {
                 name: expr.to_string(),
                 schema: None,
                 data: Default::default(),

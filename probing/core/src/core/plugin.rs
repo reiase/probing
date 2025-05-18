@@ -136,16 +136,14 @@ impl<T: CustomTable + Default + Debug + Send + Sync + 'static> TableProvider
 }
 
 #[derive(Default, Debug)]
-pub struct LazyTableSource<T: CustomNamespace> {
+pub struct LazyTableSource {
     pub name: String,
     pub schema: Option<SchemaRef>,
-    pub data: PhantomData<T>,
+    pub data: Vec<RecordBatch>,
 }
 
 #[async_trait]
-impl<T: CustomNamespace + Default + Debug + Send + Sync + 'static> TableProvider
-    for LazyTableSource<T>
-{
+impl TableProvider for LazyTableSource {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -173,14 +171,14 @@ impl<T: CustomNamespace + Default + Debug + Send + Sync + 'static> TableProvider
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let data = T::data(self.name.as_str());
+        let data = &self.data;
         if data.is_empty() {
             return Err(DataFusionError::Execution(
                 "no data found for lazy table".to_string(),
             ));
         }
         let schema = data[0].schema();
-        let srccfg = MemorySourceConfig::try_new(&[data], schema, projection.cloned())?;
+        let srccfg = MemorySourceConfig::try_new(&[data.clone()], schema, projection.cloned())?;
         let exec = DataSourceExec::new(Arc::new(srccfg));
         Ok(Arc::new(exec))
     }
@@ -204,11 +202,11 @@ pub trait CustomNamespace: Sync + Send {
     }
 
     /// Creates a LazyTableSource for this namespace with the given expression
-    fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>>
+    fn make_lazy(expr: &str) -> Arc<LazyTableSource>
     where
         Self: Sized,
     {
-        Arc::new(LazyTableSource::<Self> {
+        Arc::new(LazyTableSource {
             name: expr.to_string(),
             schema: None,
             data: Default::default(),
