@@ -2,7 +2,7 @@
 Probing Hook - Conditionally activates the probing library based on environment variables.
 
 This module intercepts process startup and conditionally imports the probing library
-based on the PROBE environment variable:
+based on the PROBING environment variable:
 - '0': Disabled (default)
 - '1' or 'followed': Enable only in current process
 - '2' or 'nested': Enable in current and all child processes
@@ -23,8 +23,8 @@ def get_current_script_name():
         return "<unknown>"
 
 
-# Get the PROBE environment variable
-probe_value = os.environ.get("PROBE", "0")
+# Get the PROBING environment variable
+probe_value = os.environ.get("PROBING", "0")
 current_script = get_current_script_name()
 script_init = None
 
@@ -41,8 +41,8 @@ def execute_init_script():
 def init_probing():
     try:
         # Remove the variable by default - we'll set it back if needed
-        if "PROBE" in os.environ:
-            del os.environ["PROBE"]
+        if "PROBING" in os.environ:
+            del os.environ["PROBING"]
 
         if probe_value.lower() in ["1", "followed"]:
             print(
@@ -61,7 +61,7 @@ def init_probing():
             import probing
 
             # Preserve for child processes
-            os.environ["PROBE"] = probe_value
+            os.environ["PROBING"] = probe_value
             execute_init_script()
 
         elif probe_value.lower().startswith("regex:"):
@@ -77,7 +77,7 @@ def init_probing():
                     import probing
                     execute_init_script()
                 # Always preserve valid regex patterns for child processes
-                os.environ["PROBE"] = probe_value
+                os.environ["PROBING"] = probe_value
             except Exception as e:
                 print(f"Error in regex pattern '{pattern}': {e}", file=sys.stderr)
                 # Don't preserve invalid regex patterns
@@ -92,7 +92,7 @@ def init_probing():
                 import probing
                 execute_init_script()
             # Always preserve the script name filter for child processes
-            os.environ["PROBE"] = probe_value
+            os.environ["PROBING"] = probe_value
 
     except ImportError as e:
         print(f"Error loading probing library: {e}", file=sys.stderr)

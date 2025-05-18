@@ -26,7 +26,10 @@ impl TorchExtension {
                 profiling_mode.clone().into(),
             )),
             Maybe::Just(ref mode) => {
-                match execute_python_code(&format!("probing.profiling.torch_probe.set_sampling_mode('{}')", mode)) {
+                match execute_python_code(&format!(
+                    "probing.profiling.torch_probe.set_sampling_mode('{}')",
+                    mode
+                )) {
                     Ok(_) => {
                         self.profiling_mode = profiling_mode.clone();
                         Ok(())

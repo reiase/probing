@@ -71,7 +71,9 @@ impl EngineCall for PythonExt {
     ) -> Result<Vec<u8>, EngineError> {
         log::debug!(
             "Engine Extension Call[PythonExt]: path = {}, params = {:?}, body = {:?}",
-            path, params, body
+            path,
+            params,
+            body
         );
         if path == "callstack" {
             let frames = if params.contains_key("tid") {

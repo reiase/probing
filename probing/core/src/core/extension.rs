@@ -140,9 +140,9 @@ pub trait EngineDatasource: Debug + Send + Sync {
 /// struct MyExtension {
 ///     some_option: String
 /// }
-/// 
+///
 /// impl EngineCall for MyExtension {}
-/// 
+///
 /// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {
@@ -223,9 +223,9 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 /// struct MyExtension {
 ///     some_option: String
 /// }
-/// 
+///
 /// impl EngineCall for MyExtension {}
-/// 
+///
 /// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {

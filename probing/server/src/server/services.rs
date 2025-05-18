@@ -1,4 +1,5 @@
 use anyhow::Result;
+use axum::http::header;
 use axum::http::StatusCode;
 use axum::http::Uri;
 use axum::response::AppendHeaders;
@@ -148,8 +149,8 @@ pub async fn static_files(filename: Uri) -> Result<impl IntoResponse, StatusCode
     }
     log::debug!("serving file: {}", filename);
     Ok((
-        AppendHeaders([(
-            "Content-Type",
+        [(
+            header::CONTENT_TYPE,
             match &filename {
                 p if p.ends_with(".html") => "text/html",
                 p if p.ends_with(".js") => "application/javascript",
@@ -158,7 +159,7 @@ pub async fn static_files(filename: Uri) -> Result<impl IntoResponse, StatusCode
                 p if p.ends_with(".wasm") => "application/wasm",
                 _ => "text/html",
             },
-        )]),
+        )],
         asset::get(filename),
     ))
 }

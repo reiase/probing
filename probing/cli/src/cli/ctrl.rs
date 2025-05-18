@@ -69,7 +69,7 @@ impl ProbeEndpoint {
         match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
             Ok(msg) => {
                 for f in msg {
-                    println!("{:?}", f)
+                    println!("{}", f)
                 }
                 Ok(())
             }
