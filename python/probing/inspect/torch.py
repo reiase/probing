@@ -1,13 +1,13 @@
 import weakref
 
-import torch
-
 tensor_cache = {}
 module_cache = {}
 optim_cache = {}
 
 
 def update_cache(x):
+    import torch
+
     idx = id(x)
     if isinstance(x, torch.Tensor):
         if idx not in tensor_cache:
@@ -28,3 +28,14 @@ def refresh_cache():
 
     for obj in gc.get_objects():
         update_cache(obj)
+
+def get_torch_modules():
+    refresh_cache()
+    return [
+        {
+            "id": k,
+            "type": type(v()),
+            "value": v(),
+        }
+        for k,v in module_cache.items()
+    ]

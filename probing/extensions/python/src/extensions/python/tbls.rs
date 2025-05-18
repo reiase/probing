@@ -78,21 +78,18 @@ impl CustomNamespace for PythonNamespace {
 
             let ret = ret.unwrap();
             if ret.is_instance_of::<PyList>() {
-                println!("list: {ret}");
                 if let Ok(_list) = ret.downcast::<PyList>() {
-                    return vec![];
+                    return Self::list_to_recordbatch(_list).unwrap_or(vec![]);
                 }
                 return vec![];
             }
 
             if ret.is_instance_of::<PyDict>() {
-                println!("dict: {ret}");
                 if let Ok(_dict) = ret.downcast::<PyDict>() {
-                    return vec![];
+                    return Self::dict_to_recordbatch(_dict).unwrap_or(vec![]);
                 }
                 return vec![];
             }
-            println!("object: {ret}");
             Self::object_to_recordbatch(ret).unwrap()
         })
     }
@@ -291,7 +288,38 @@ impl PythonNamespace {
         Ok(batches)
     }
 
-    pub fn list_to_recordbatch(&self, list: Bound<'_, PyList>) -> Result<Vec<RecordBatch>> {
+    pub fn dict_to_recordbatch(dict: &Bound<'_, PyDict>) -> Result<Vec<RecordBatch>> {
+        let mut fields: Vec<Field> = vec![];
+        let mut columns: Vec<ArrayRef> = vec![];
+
+        for (key, value) in dict.iter() {
+            let key_str = key.extract::<String>()?;
+            if value.is_instance_of::<PyInt>() {
+                let array = Int64Array::from(vec![value.extract::<i64>()?]);
+                columns.push(Arc::new(array));
+                fields.push(Field::new(key_str, DataType::Int64, true));
+            } else if value.is_instance_of::<PyFloat>() {
+                let array = Float64Array::from(vec![value.extract::<f64>()?]);
+                columns.push(Arc::new(array));
+                fields.push(Field::new(key_str, DataType::Float64, true));
+            } else if value.is_instance_of::<PyString>() {
+                let array = StringArray::from(vec![value.extract::<String>()?]);
+                columns.push(Arc::new(array));
+                fields.push(Field::new(key_str, DataType::Utf8, true));
+            } else {
+                let array = StringArray::from(vec![value.to_string()]);
+                columns.push(Arc::new(array));
+                fields.push(Field::new(key_str, DataType::Utf8, true));
+            }
+        }
+
+        let schema = SchemaRef::new(Schema::new(fields));
+        let batches = vec![RecordBatch::try_new(schema, columns).unwrap()];
+
+        Ok(batches)
+    }
+
+    pub fn list_to_recordbatch(list: &Bound<'_, PyList>) -> Result<Vec<RecordBatch>> {
         let mut names: Vec<String> = vec![];
         let mut datas: HashMap<String, Vec<Option<Bound<'_, PyAny>>>> = Default::default();
 
