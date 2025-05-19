@@ -76,8 +76,13 @@ impl CustomNamespace for PythonNamespace {
     }
 
     fn list() -> Vec<String> {
-        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-        binding.keys().cloned().collect()
+        super::exttbls::EXTERN_TABLES.lock().map_or_else(
+            |e| {
+                log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
+                vec![]
+            },
+            |binding| binding.keys().cloned().collect(),
+        )
     }
 
     fn data(expr: &str) -> Vec<RecordBatch> {
@@ -140,7 +145,13 @@ impl CustomNamespace for PythonNamespace {
     }
 
     fn make_lazy(expr: &str) -> Arc<LazyTableSource> {
-        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
+        let binding = super::exttbls::EXTERN_TABLES.lock().map_or_else(
+            |e| {
+                log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
+                Default::default()
+            },
+            |binding| binding.clone(),
+        );
 
         if binding.contains_key(expr) {
             let table = binding.get(expr).unwrap();
@@ -385,7 +396,11 @@ impl PythonNamespace {
             } else {
                 match item.getattr("__dict__") {
                     Ok(dict) => Some(dict.downcast::<PyDict>().unwrap().clone()),
-                    Err(_) => None,
+                    Err(_) => {
+                        let dict = PyDict::new(item.py());
+                        dict.set_item("value", item).unwrap();
+                        Some(dict)
+                    }
                 }
             };
             if let Some(ref item) = item {
@@ -425,7 +440,10 @@ impl PythonNamespace {
                     .iter()
                     .map(|x| {
                         if let Some(x) = x {
-                            x.extract::<String>().ok()
+                            match x.extract::<String>() {
+                                Ok(val) => Some(val),
+                                Err(_) => Some(x.to_string()),
+                            }
                         } else {
                             None
                         }
