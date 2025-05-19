@@ -37,6 +37,5 @@ pete = "0.12.0"
 tabled = { version = "0.17.0", default-features = false, features = ["macros"] }
 
 [dependencies.clap]
-version = "4.5.31"
-default-features = false
-features = ["derive", "std", "help", "usage"]
+version = "4.5.38"
+features = ["derive", "env", "unicode", "unstable-markdown"]

@@ -35,47 +35,55 @@ impl PythonNamespace {
             }
 
             // Import the package
-            let pkg = py.import(parts[0])
+            let pkg = py
+                .import(parts[0])
                 .map_err(|e| anyhow::anyhow!("Failed to import {}: {:?}", parts[0], e))?;
 
             // Set up locals dict with the imported package
             let locals = PyDict::new(py);
-            locals.set_item(parts[0], pkg)
+            locals
+                .set_item(parts[0], pkg)
                 .map_err(|e| anyhow::anyhow!("Failed to set up Python locals: {:?}", e))?;
 
             // Evaluate the expression
             let expr = CString::new(expr)
                 .map_err(|e| anyhow::anyhow!("Failed to convert expression to CString: {:?}", e))?;
-            
-            let result = py.eval(&expr, None, Some(&locals))
+
+            let result = py
+                .eval(&expr, None, Some(&locals))
                 .map_err(|e| anyhow::anyhow!("Failed to evaluate Python expression: {:?}", e))?;
 
             // Handle different Python types
             if let Ok(list) = result.downcast::<PyList>() {
                 return Self::list_to_recordbatch(list);
             }
-            
+
             if let Ok(dict) = result.downcast::<PyDict>() {
                 return Self::dict_to_recordbatch(dict);
             }
-            
+
             // Handle other Python objects
             Self::object_to_recordbatch(result)
         })
     }
 
     fn data_from_extern(expr: &str) -> Result<Vec<RecordBatch>> {
-        let binding = super::exttbls::EXTERN_TABLES.lock()
+        let binding = super::exttbls::EXTERN_TABLES
+            .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock EXTERN_TABLES: {:?}", e))?;
-            
-        let table = binding.get(expr)
+
+        let table = binding
+            .get(expr)
             .ok_or_else(|| anyhow::anyhow!("Table '{}' not found", expr))?;
-            
-        let names = table.lock()
+
+        let names = table
+            .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock table: {:?}", e))?
-            .names.clone();
-            
-        let ts = table.lock()
+            .names
+            .clone();
+
+        let ts = table
+            .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock table: {:?}", e))?;
 
         Self::time_series_to_recordbatch(names, &ts)
@@ -300,10 +308,10 @@ impl PythonNamespace {
 
     // Helper function to handle Python value conversion and add appropriate field
     fn add_field_and_array(
-        fields: &mut Vec<Field>, 
+        fields: &mut Vec<Field>,
         columns: &mut Vec<ArrayRef>,
-        name: String, 
-        value: Bound<'_, PyAny>
+        name: String,
+        value: Bound<'_, PyAny>,
     ) -> Result<()> {
         if value.is_instance_of::<PyInt>() {
             let array = Int64Array::from(vec![value.extract::<i64>()?]);

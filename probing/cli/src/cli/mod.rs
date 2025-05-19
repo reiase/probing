@@ -55,31 +55,49 @@ impl Cli {
         let command = self.command.as_ref().unwrap();
         match command {
             Commands::Inject(cmd) => cmd.run(ctrl).await,
-            Commands::Config { setting } => {
-                match *setting {
-                    Some(ref setting) => {
-                        let setting = if !setting.starts_with("set ") & !setting.starts_with("SET ") {
-                            format!("set {}", setting)
+            Commands::Config { options, setting } => {
+                let options_cfg = options.to_cfg();
+
+                let query_expr = match (setting, options_cfg) {
+                    (Some(setting_str), Some(opts_str)) => {
+                        let setting = if !setting_str.starts_with("set ")
+                            && !setting_str.starts_with("SET ")
+                        {
+                            format!("set {}", setting_str)
                         } else {
-                            setting.clone()
+                            setting_str.clone()
                         };
-                        ctrl::query(ctrl, Query {
-                            expr: setting,
-                            opts: None,
-                        }).await
+                        format!("{}; {}", setting, opts_str)
+                    }
+                    (Some(setting_str), None) => {
+                        if !setting_str.starts_with("set ") && !setting_str.starts_with("SET ") {
+                            format!("set {}", setting_str)
+                        } else {
+                            setting_str.clone()
+                        }
+                    }
+                    (None, Some(opts_str)) => opts_str,
+                    (None, None) => {
+                        "select * from information_schema.df_settings where name like 'probing.%';"
+                            .to_string()
+                    }
+                };
+
+                ctrl::query(
+                    ctrl,
+                    Query {
+                        expr: query_expr,
+                        opts: None,
                     },
-                    None => {
-                        ctrl::query(ctrl, Query {
-                            expr: "select * from information_schema.df_settings where name like 'probing.%';".to_string(),
-                            opts: None,
-                        }).await
-                    },
-                }
-            },
-            Commands::Backtrace{tid} => ctrl.backtrace(*tid).await,
+                )
+                .await
+            }
+            Commands::Backtrace { tid } => ctrl.backtrace(*tid).await,
             Commands::Eval { code } => ctrl.eval(code.clone()).await,
             Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())).await,
-            Commands::Launch { recursive, args } => ProcessMonitor::new(args, *recursive)?.monitor().await,
+            Commands::Launch { recursive, args } => {
+                ProcessMonitor::new(args, *recursive)?.monitor().await
+            }
             Commands::List { verbose, tree } => {
                 match ptree::collect_probe_processes() {
                     Ok(processes) => {
@@ -98,9 +116,14 @@ impl Cli {
                             println!("Processes with injected probes:");
                             for process in processes {
                                 if *verbose {
-                                    println!("PID {} ({}): {}",
+                                    println!(
+                                        "PID {} ({}): {}",
                                         process.pid,
-                                        if let Some(socket) = &process.socket_name { socket } else { "-" },
+                                        if let Some(socket) = &process.socket_name {
+                                            socket
+                                        } else {
+                                            "-"
+                                        },
                                         process.cmd
                                     );
                                 } else {
@@ -114,8 +137,8 @@ impl Cli {
                     }
                 }
                 Ok(())
-            },
-            Commands::Store(cmd) => cmd.run().await
+            }
+            Commands::Store(cmd) => cmd.run().await,
         }
     }
 }
