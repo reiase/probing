@@ -68,6 +68,21 @@ impl PythonNamespace {
             Self::object_to_recordbatch(ret).unwrap()
         })
     }
+
+    fn data_from_extern(expr: &str) -> Vec<RecordBatch> {
+        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
+        let table = binding.get(expr).unwrap();
+        let names = table.lock().unwrap().names.clone();
+        let ts = &table.lock().unwrap();
+
+        let batches = Self::time_series_to_recordbatch(names, ts);
+        if let Ok(batches) = batches {
+            return batches;
+        } else {
+            error!("error convert time series to table: {:?}", batches.err());
+            return vec![];
+        }
+    }
 }
 
 impl CustomNamespace for PythonNamespace {
@@ -87,60 +102,8 @@ impl CustomNamespace for PythonNamespace {
 
     fn data(expr: &str) -> Vec<RecordBatch> {
         if Self::list().contains(&expr.to_string()) {
-            {
-                let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-                let table = binding.get(expr).unwrap();
-                let names = table.lock().unwrap().names.clone();
-                let ts = &table.lock().unwrap();
-
-                let batches = Self::time_series_to_recordbatch(names, ts);
-                if let Ok(batches) = batches {
-                    return batches;
-                } else {
-                    error!("error convert time series to table: {:?}", batches.err());
-                    return vec![];
-                }
-            }
+            return Self::data_from_extern(expr);
         }
-        // Python::with_gil(|py| {
-        //     let parts: Vec<&str> = expr.split(".").collect();
-        //     let pkg = py.import(parts[0]);
-
-        //     if pkg.is_err() {
-        //         println!("import error: {:?}", pkg.err());
-        //         return vec![];
-        //     }
-        //     let pkg = pkg.unwrap();
-
-        //     let locals = PyDict::new(py);
-        //     locals.set_item(parts[0], pkg).unwrap();
-
-        //     let ret = (|| {
-        //         let expr = CString::new(expr)?;
-        //         py.eval(&expr, None, Some(&locals))
-        //     })();
-
-        //     if ret.is_err() {
-        //         println!("eval error: {:?}", ret.err());
-        //         return vec![];
-        //     }
-
-        //     let ret = ret.unwrap();
-        //     if ret.is_instance_of::<PyList>() {
-        //         if let Ok(_list) = ret.downcast::<PyList>() {
-        //             return Self::list_to_recordbatch(_list).unwrap_or(vec![]);
-        //         }
-        //         return vec![];
-        //     }
-
-        //     if ret.is_instance_of::<PyDict>() {
-        //         if let Ok(_dict) = ret.downcast::<PyDict>() {
-        //             return Self::dict_to_recordbatch(_dict).unwrap_or(vec![]);
-        //         }
-        //         return vec![];
-        //     }
-        //     Self::object_to_recordbatch(ret).unwrap()
-        // })
         Self::data_from_python(expr)
     }
 
@@ -184,7 +147,7 @@ impl CustomNamespace for PythonNamespace {
             Arc::new(LazyTableSource {
                 name: expr.to_string(),
                 schema,
-                data: Default::default(),
+                data: Self::data_from_extern(expr),
             })
         } else {
             let data: Vec<RecordBatch> = Self::data_from_python(expr);
