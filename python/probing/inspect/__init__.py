@@ -1,4 +1,6 @@
 from .torch import get_torch_modules
+from .torch import get_torch_tensors
+from .torch import get_torch_optimizers
 
 def get_dict():
     return {

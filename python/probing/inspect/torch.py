@@ -34,8 +34,30 @@ def get_torch_modules():
     return [
         {
             "id": k,
-            "type": type(v()),
+            "type": type(v()).__name__,
             "value": v(),
         }
         for k,v in module_cache.items()
+    ]
+    
+def get_torch_tensors():
+    refresh_cache()
+    return [
+        {
+            "id": k,
+            "type": type(v()).__name__,
+            "value": v(),
+        }
+        for k,v in tensor_cache.items()
+    ]
+
+def get_torch_optimizers():
+    refresh_cache()
+    return [
+        {
+            "id": k,
+            "type": type(v()).__name__,
+            "value": v(),
+        }
+        for k,v in optim_cache.items()
     ]
