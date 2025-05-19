@@ -280,51 +280,49 @@ impl PythonNamespace {
             let item = obj.downcast::<PyDict>().unwrap();
             for (key, value) in item.iter() {
                 let key_str = key.extract::<String>()?;
-                if value.is_instance_of::<PyInt>() {
-                    let array = Int64Array::from(vec![value.extract::<i64>()?]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::Int64, true));
-                } else if value.is_instance_of::<PyFloat>() {
-                    let array = Float64Array::from(vec![value.extract::<f64>()?]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::Float64, true));
-                } else if value.is_instance_of::<PyString>() {
-                    let array = StringArray::from(vec![value.extract::<String>()?]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::UInt8, true));
-                } else {
-                    let array = StringArray::from(vec![value.to_string()]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::UInt8, true));
-                }
+                Self::add_field_and_array(&mut fields, &mut columns, key_str, value)?;
             }
-        } else if obj.is_instance_of::<PyInt>() {
-            let array = Int64Array::from(vec![obj.extract::<i64>()?]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Int64, true));
-        } else if obj.is_instance_of::<PyFloat>() {
-            let array = Float64Array::from(vec![obj.extract::<f64>()?]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Float64, true));
-        } else if obj.is_instance_of::<PyString>() {
-            let array = StringArray::from(vec![obj.extract::<String>()?]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Utf8, true));
+        } else if obj.hasattr("_asdict")? {
+            // Handle namedtuple or any object with _asdict method
+            let dict = obj.call_method0("_asdict")?;
+            return Self::object_to_recordbatch(dict);
         } else {
-            if obj.hasattr("_asdict")? {
-                let dict = obj.call_method0("_asdict").unwrap();
-                return Self::object_to_recordbatch(dict);
-            }
-
-            let array = StringArray::from(vec![obj.to_string()]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Utf8, true));
+            // Handle primitive types or fallback to string representation
+            let field_name = "value";
+            Self::add_field_and_array(&mut fields, &mut columns, field_name.to_string(), obj)?;
         }
 
         let schema = SchemaRef::new(Schema::new(fields));
-        let batches = vec![RecordBatch::try_new(schema, columns).unwrap()];
+        let batches = vec![RecordBatch::try_new(schema, columns)?];
 
         Ok(batches)
+    }
+
+    // Helper function to handle Python value conversion and add appropriate field
+    fn add_field_and_array(
+        fields: &mut Vec<Field>, 
+        columns: &mut Vec<ArrayRef>,
+        name: String, 
+        value: Bound<'_, PyAny>
+    ) -> Result<()> {
+        if value.is_instance_of::<PyInt>() {
+            let array = Int64Array::from(vec![value.extract::<i64>()?]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Int64, true));
+        } else if value.is_instance_of::<PyFloat>() {
+            let array = Float64Array::from(vec![value.extract::<f64>()?]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Float64, true));
+        } else if value.is_instance_of::<PyString>() {
+            let array = StringArray::from(vec![value.extract::<String>()?]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Utf8, true));
+        } else {
+            let array = StringArray::from(vec![value.to_string()]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Utf8, true));
+        }
+        Ok(())
     }
 
     pub fn dict_to_recordbatch(dict: &Bound<'_, PyDict>) -> Result<Vec<RecordBatch>> {
@@ -333,27 +331,11 @@ impl PythonNamespace {
 
         for (key, value) in dict.iter() {
             let key_str = key.extract::<String>()?;
-            if value.is_instance_of::<PyInt>() {
-                let array = Int64Array::from(vec![value.extract::<i64>()?]);
-                columns.push(Arc::new(array));
-                fields.push(Field::new(key_str, DataType::Int64, true));
-            } else if value.is_instance_of::<PyFloat>() {
-                let array = Float64Array::from(vec![value.extract::<f64>()?]);
-                columns.push(Arc::new(array));
-                fields.push(Field::new(key_str, DataType::Float64, true));
-            } else if value.is_instance_of::<PyString>() {
-                let array = StringArray::from(vec![value.extract::<String>()?]);
-                columns.push(Arc::new(array));
-                fields.push(Field::new(key_str, DataType::Utf8, true));
-            } else {
-                let array = StringArray::from(vec![value.to_string()]);
-                columns.push(Arc::new(array));
-                fields.push(Field::new(key_str, DataType::Utf8, true));
-            }
+            Self::add_field_and_array(&mut fields, &mut columns, key_str, value)?;
         }
 
         let schema = SchemaRef::new(Schema::new(fields));
-        let batches = vec![RecordBatch::try_new(schema, columns).unwrap()];
+        let batches = vec![RecordBatch::try_new(schema, columns)?];
 
         Ok(batches)
     }
