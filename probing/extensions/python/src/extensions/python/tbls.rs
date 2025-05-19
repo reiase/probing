@@ -27,61 +27,58 @@ use pyo3::Python;
 pub struct PythonNamespace {}
 
 impl PythonNamespace {
-    fn data_from_python(expr: &str) -> Vec<RecordBatch> {
+    fn data_from_python(expr: &str) -> Result<Vec<RecordBatch>> {
         Python::with_gil(|py| {
-            let parts: Vec<&str> = expr.split(".").collect();
-            let pkg = py.import(parts[0]);
-
-            if pkg.is_err() {
-                println!("import error: {:?}", pkg.err());
-                return vec![];
+            let parts: Vec<&str> = expr.split('.').collect();
+            if parts.is_empty() {
+                return Err(anyhow::anyhow!("Invalid Python expression: {}", expr));
             }
-            let pkg = pkg.unwrap();
 
+            // Import the package
+            let pkg = py.import(parts[0])
+                .map_err(|e| anyhow::anyhow!("Failed to import {}: {:?}", parts[0], e))?;
+
+            // Set up locals dict with the imported package
             let locals = PyDict::new(py);
-            locals.set_item(parts[0], pkg).unwrap();
+            locals.set_item(parts[0], pkg)
+                .map_err(|e| anyhow::anyhow!("Failed to set up Python locals: {:?}", e))?;
 
-            let ret = (|| {
-                let expr = CString::new(expr)?;
-                py.eval(&expr, None, Some(&locals))
-            })();
+            // Evaluate the expression
+            let expr = CString::new(expr)
+                .map_err(|e| anyhow::anyhow!("Failed to convert expression to CString: {:?}", e))?;
+            
+            let result = py.eval(&expr, None, Some(&locals))
+                .map_err(|e| anyhow::anyhow!("Failed to evaluate Python expression: {:?}", e))?;
 
-            if ret.is_err() {
-                println!("eval error: {:?}", ret.err());
-                return vec![];
+            // Handle different Python types
+            if let Ok(list) = result.downcast::<PyList>() {
+                return Self::list_to_recordbatch(list);
             }
-
-            let ret = ret.unwrap();
-            if ret.is_instance_of::<PyList>() {
-                if let Ok(_list) = ret.downcast::<PyList>() {
-                    return Self::list_to_recordbatch(_list).unwrap_or(vec![]);
-                }
-                return vec![];
+            
+            if let Ok(dict) = result.downcast::<PyDict>() {
+                return Self::dict_to_recordbatch(dict);
             }
-
-            if ret.is_instance_of::<PyDict>() {
-                if let Ok(_dict) = ret.downcast::<PyDict>() {
-                    return Self::dict_to_recordbatch(_dict).unwrap_or(vec![]);
-                }
-                return vec![];
-            }
-            Self::object_to_recordbatch(ret).unwrap()
+            
+            // Handle other Python objects
+            Self::object_to_recordbatch(result)
         })
     }
 
-    fn data_from_extern(expr: &str) -> Vec<RecordBatch> {
-        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-        let table = binding.get(expr).unwrap();
-        let names = table.lock().unwrap().names.clone();
-        let ts = &table.lock().unwrap();
+    fn data_from_extern(expr: &str) -> Result<Vec<RecordBatch>> {
+        let binding = super::exttbls::EXTERN_TABLES.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock EXTERN_TABLES: {:?}", e))?;
+            
+        let table = binding.get(expr)
+            .ok_or_else(|| anyhow::anyhow!("Table '{}' not found", expr))?;
+            
+        let names = table.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock table: {:?}", e))?
+            .names.clone();
+            
+        let ts = table.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock table: {:?}", e))?;
 
-        let batches = Self::time_series_to_recordbatch(names, ts);
-        if let Ok(batches) = batches {
-            return batches;
-        } else {
-            error!("error convert time series to table: {:?}", batches.err());
-            return vec![];
-        }
+        Self::time_series_to_recordbatch(names, &ts)
     }
 }
 
@@ -102,9 +99,22 @@ impl CustomNamespace for PythonNamespace {
 
     fn data(expr: &str) -> Vec<RecordBatch> {
         if Self::list().contains(&expr.to_string()) {
-            return Self::data_from_extern(expr);
+            match Self::data_from_extern(expr) {
+                Ok(batches) => batches,
+                Err(e) => {
+                    error!("Error getting data from extern: {:?}", e);
+                    vec![]
+                }
+            }
+        } else {
+            match Self::data_from_python(expr) {
+                Ok(batches) => batches,
+                Err(e) => {
+                    error!("Error getting data from Python: {:?}", e);
+                    vec![]
+                }
+            }
         }
-        Self::data_from_python(expr)
     }
 
     fn make_lazy(expr: &str) -> Arc<LazyTableSource> {
@@ -147,10 +157,10 @@ impl CustomNamespace for PythonNamespace {
             Arc::new(LazyTableSource {
                 name: expr.to_string(),
                 schema,
-                data: Self::data_from_extern(expr),
+                data: Self::data_from_extern(expr).unwrap_or_default(),
             })
         } else {
-            let data: Vec<RecordBatch> = Self::data_from_python(expr);
+            let data: Vec<RecordBatch> = Self::data_from_python(expr).unwrap_or_default();
             let schema = if data.is_empty() {
                 None
             } else {
