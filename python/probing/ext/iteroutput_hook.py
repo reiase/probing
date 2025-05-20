@@ -54,7 +54,7 @@ class IterOutputTracer:
         #         total_loss_dict[advanced_iters_key] = 0
         # total_iterations = total_loss_dict[advanced_iters_key] + \
         #                total_loss_dict[skipped_iters_key]
-        total_iterations = args.log_interval
+        total_iterations = 1
         # print(f"total_loss_dict: {total_loss_dict}", flush=True)
         # print(f"iteration: {iteration}", flush=True)
         # print(f"advanced_iters_key: {advanced_iters_key}", flush=True)

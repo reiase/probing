@@ -28,9 +28,10 @@ probe_value = os.environ.get("PROBE", "0")
 current_script = get_current_script_name()
 
 # Generate an unique identifier for the current process
-if os.environ.get("RANKk") == 0:
+if os.environ.get("RANK") == 0:
     process_id = str(uuid.uuid4())
     os.environ["START_ID"] = process_id
+    print(f"Starting process with START_ID: {process_id}", file=sys.stderr)
 
 try:
     # Remove the variable by default - we'll set it back if needed
