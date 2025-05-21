@@ -11,7 +11,12 @@ class CheckpointLog:
 
 
 def init():
-    print("CheckpointLog init!", flush=True)
+    print("==========================CheckpointLog init!============================", flush=True)
+    try:
+        from megatron.core import Timers
+    except ImportError:
+        print("Timers not found, skip patch.")
+        return
     _original_log = Timers.log
     def new_log(self, names, rank=None, normalizer=1.0, reset=True, barrier=False):
 
@@ -32,4 +37,5 @@ def init():
                 ).save()
         return result
     Timers.log = new_log
+    print("==========================CheckpointLog init done!============================", flush=True)
 
