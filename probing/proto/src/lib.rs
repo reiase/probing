@@ -33,10 +33,6 @@ pub mod prelude {
     pub use crate::types::DataFrame;
     pub use crate::types::Table;
 
-    pub use crate::protocol::probe::Probe;
-    pub use crate::protocol::probe::ProbeCall;
-    pub use crate::protocol::probe::ProbeFactory;
-
     pub use crate::protocol::message::Message;
     pub use crate::protocol::version::ProtocolVersion;
 }

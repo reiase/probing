@@ -11,9 +11,9 @@ use http_body_util::BodyExt;
 
 use probing_core::core::EngineExtensionManager;
 use probing_proto::prelude::*;
-use probing_python::pprof::PPROF_HOLDER;
+use probing_python::{flamegraph::flamegraph, pprof::PPROF_HOLDER};
 
-use crate::server::services::{ENGINE, PROBE};
+use crate::server::services::ENGINE;
 
 pub fn overview() -> Result<Process> {
     let current = procfs::process::Process::myself()?;
@@ -58,20 +58,14 @@ async fn api_get_overview() -> Result<String, ApiError> {
 }
 
 async fn api_get_flamegraph_torch() -> Result<impl IntoResponse, ApiError> {
-    let probe = PROBE.lock().unwrap();
-    let retval = probe.ask(ProbeCall::CallFlamegraph);
-
-    match retval {
-        ProbeCall::ReturnFlamegraph(flamegraph) => Ok((
-            AppendHeaders([
-                ("Content-Type", "image/svg+xml"),
-                ("Content-Disposition", "attachment; filename=flamegraph.svg"),
-            ]),
-            flamegraph,
-        )),
-        ProbeCall::Err(err) => Err(anyhow::anyhow!(err).into()),
-        _ => Err(anyhow::anyhow!("unexpected response from probe: {:?}", retval).into()),
-    }
+    let graph = flamegraph();
+    Ok((
+        AppendHeaders([
+            ("Content-Type", "image/svg+xml"),
+            ("Content-Disposition", "attachment; filename=flamegraph.svg"),
+        ]),
+        graph,
+    ))
 }
 
 async fn api_get_flamegraph_pprof() -> Result<impl IntoResponse, ApiError> {
@@ -87,15 +81,18 @@ async fn api_get_flamegraph_pprof() -> Result<impl IntoResponse, ApiError> {
     }
 }
 
-async fn api_get_callstack(
-    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
-) -> Result<String, ApiError> {
-    let tid: Option<i32> = params.get("tid").map(|x| x.parse().unwrap_or_default());
-    let probe = PROBE.lock().unwrap();
+// async fn api_get_callstack(
+//     axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+// ) -> Result<String, ApiError> {
+//     let tid: Option<i32> = params.get("tid").map(|x| x.parse().unwrap_or_default());
+//     let probe = PROBE.lock().map_err(|e| {
+//         log::error!("error locking probe: {}", e);
+//         anyhow::anyhow!("error locking probe: {}", e)
+//     })?;
 
-    let reply = probe.ask(ProbeCall::CallBacktrace(tid));
-    Ok(serde_json::to_string(&reply)?)
-}
+//     let reply = probe.ask(ProbeCall::CallBacktrace(tid));
+//     Ok(serde_json::to_string(&reply)?)
+// }
 
 async fn api_get_files(
     axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
@@ -124,9 +121,18 @@ async fn get_nodes() -> Result<String, ApiError> {
 async fn extension_call(req: axum::extract::Request) -> Result<axum::response::Response, ApiError> {
     let (parts, body) = req.into_parts();
     let path = parts.uri.path();
-    let params = parts.uri.query().unwrap_or_default();
+    let params_str = parts.uri.query().unwrap_or_default();
+    let params: HashMap<String, String> =
+        serde_urlencoded::from_str(params_str).unwrap_or_default();
     let body = body.collect().await?.to_bytes().clone();
-    println!("path: {}, params: {}, body: {:?}", path, params, body);
+
+    log::info!(
+        "API Call[{}]: params = {:?}, body = {:?}",
+        path,
+        params,
+        body
+    );
+
     let engine = ENGINE.write().await;
     let state = engine.context.state();
     let eem = state
@@ -135,7 +141,7 @@ async fn extension_call(req: axum::extract::Request) -> Result<axum::response::R
         .extensions
         .get::<EngineExtensionManager>();
     if let Some(eem) = eem {
-        match eem.call(path, params, body.to_vec().as_slice()) {
+        match eem.call(path, &params, body.to_vec().as_slice()) {
             Ok(response) => {
                 // If response is a string, return it as plain text
                 return Ok((
@@ -158,7 +164,6 @@ async fn extension_call(req: axum::extract::Request) -> Result<axum::response::R
 pub fn apis_route() -> axum::Router {
     Router::new()
         .route("/overview", axum::routing::get(api_get_overview))
-        .route("/callback", axum::routing::get(api_get_callstack))
         .route("/files", axum::routing::get(api_get_files))
         .route("/nodes", axum::routing::get(get_nodes).put(put_nodes))
         .route(

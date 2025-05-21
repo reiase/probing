@@ -3,19 +3,12 @@ use anyhow::Result;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
 
-use probing_proto::prelude::ProbeCall;
-use probing_proto::prelude::*;
+use probing_proto::{prelude::*, protocol::process::CallFrame};
 
 use crate::table::render_dataframe;
 
-pub fn probe(ctrl: ProbeEndpoint, cmd: ProbeCall) -> Result<()> {
-    let reply = ctrl.probe(cmd)?;
-    println!("{reply}");
-    Ok(())
-}
-
-pub fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
-    let reply = ctrl.query(query)?;
+pub async fn query(ctrl: ProbeEndpoint, query: Query) -> Result<()> {
+    let reply = ctrl.query(query).await?;
     render_dataframe(&reply);
     Ok(())
 }
@@ -61,37 +54,46 @@ impl From<ProbeEndpoint> for String {
 }
 
 impl ProbeEndpoint {
-    fn run_in_runtime<F, T>(&self, fut: F) -> T
-    where
-        F: std::future::Future<Output = T>,
-    {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(fut)
-    }
-
-    fn send_request(&self, url: &str, body: &str) -> Result<String> {
-        let bytes = self.run_in_runtime(request(self.clone(), url, Some(body.to_string())))?;
+    async fn send_request(&self, url: &str, body: &str) -> Result<String> {
+        // Await request directly
+        let bytes = request(self.clone(), url, Some(body.to_string())).await?;
         Ok(String::from_utf8(bytes)?)
     }
 
-    pub fn probe(&self, cmd: ProbeCall) -> Result<ProbeCall> {
-        let cmd_str = serde_json::to_string(&cmd)?;
-        let reply = self.send_request("/probe", &cmd_str)?;
-        Ok(serde_json::from_str::<ProbeCall>(&reply)?)
+    pub async fn backtrace(&self, tid: Option<i32>) -> Result<()> {
+        let mut url = "/apis/pythonext/callstack".to_string();
+        if let Some(tid) = tid {
+            url = format!("/apis/pythonext/callstack?tid={}", tid);
+        }
+        let reply = request(self.clone(), &url, None).await?;
+        match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
+            Ok(msg) => {
+                for f in msg {
+                    println!("{}", f)
+                }
+                Ok(())
+            }
+            Err(err) => Err(anyhow::anyhow!("error: {}", err)),
+        }
     }
 
-    pub fn query(&self, q: Query) -> Result<DataFrame> {
+    pub async fn eval(&self, code: String) -> Result<()> {
+        let reply = request(self.clone(), "/apis/pythonext/eval", Some(code)).await?;
+
+        println!("{}", String::from_utf8(reply)?);
+
+        Ok(())
+    }
+
+    pub async fn query(&self, q: Query) -> Result<DataFrame> {
         let request = Message::new(q);
         let q_str = serde_json::to_string(&request)?;
-        let reply = self.send_request("/query", &q_str)?;
-        let reply = serde_json::from_str::<Message<QueryDataFormat>>(&reply)?.payload;
+        let reply_str = self.send_request("/query", &q_str).await?; // Renamed reply variable
+        let reply = serde_json::from_str::<Message<QueryDataFormat>>(&reply_str)?.payload;
 
         match reply {
             QueryDataFormat::Error(err) => Err(anyhow::anyhow!("error: {}", err)),
-            QueryDataFormat::Nil => Err(anyhow::anyhow!("error: nil")),
+            QueryDataFormat::Nil => Ok(Default::default()),
             QueryDataFormat::DataFrame(df) => Ok(df),
             QueryDataFormat::TimeSeries(_) => todo!(),
         }
@@ -125,7 +127,12 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
 
             let (sender, connection) = conn::http1::handshake(io).await?;
             tokio::spawn(async move {
-                connection.await.unwrap();
+                connection
+                    .await
+                    .map_err(|err| {
+                        eprintln!("error: {}", err);
+                    })
+                    .unwrap();
             });
             sender
         }

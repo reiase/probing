@@ -59,7 +59,7 @@ mod tests {
     async fn build_engine() {
         let engine = Engine::builder().build().unwrap();
 
-        let result = engine.query("show tables");
+        let result = engine.async_query("show tables").await;
         assert!(result.is_ok(), "Should execute SHOW TABLES query");
     }
 
@@ -78,11 +78,11 @@ mod tests {
         let engine = Engine::builder().build().unwrap();
 
         // Test SHOW TABLES
-        let show_tables = engine.query("show tables");
+        let show_tables = engine.async_query("show tables").await;
         assert!(show_tables.is_ok(), "SHOW TABLES should succeed");
 
         // Test SELECT
-        let select_query = engine.query("SELECT 1 as val");
+        let select_query = engine.async_query("SELECT 1 as val").await;
         assert!(select_query.is_ok(), "SELECT should return results");
 
         // Verify result schema

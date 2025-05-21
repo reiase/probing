@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +19,7 @@ pub struct Process {
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum CallFrame {
     CFrame {
-        ip: usize,
+        ip: String,
         file: String,
         func: String,
         lineno: i64,
@@ -29,6 +32,34 @@ pub enum CallFrame {
     },
 }
 
+impl Display for CallFrame {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CallFrame::CFrame {
+                ip,
+                file,
+                func,
+                lineno,
+            } => {
+                write!(f, "[C/C++] {ip}, file: {file}:{lineno}\n\t{func}\n")
+            }
+            CallFrame::PyFrame {
+                file,
+                func,
+                lineno,
+                locals,
+            } => {
+                write!(f, "[Python] file: {file}:{lineno} func: {func}\n")?;
+                write!(f, "\tlocals:\n")?;
+                for (k, v) in locals {
+                    write!(f, "\t\t{}: {}\n", k, v)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Value {
     pub id: u64,
@@ -37,4 +68,10 @@ pub struct Value {
     pub dtype: Option<String>,
     pub device: Option<String>,
     pub value: Option<String>,
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "value: {:?}", self.value)
+    }
 }

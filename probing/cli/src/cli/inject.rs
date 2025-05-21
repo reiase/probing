@@ -57,7 +57,7 @@ impl InjectCommand {
             .map_err(|e| anyhow!("Failed to inject probing: {}\n\t{}", e, e.root_cause()))
     }
 
-    pub fn run(&self, ctrl: ProbeEndpoint) -> Result<()> {
+    pub async fn run(&self, ctrl: ProbeEndpoint) -> Result<()> {
         match ctrl {
             ProbeEndpoint::Ptrace { pid } | ProbeEndpoint::Local { pid } => {
                 if !self.check_library(pid, "libprobing.so")? {
@@ -77,6 +77,7 @@ impl InjectCommand {
                             opts: None,
                         },
                     )
+                    .await
                 }
             }
             _ => Ok(()),

@@ -12,9 +12,11 @@ use pyo3::types::PyAnyMethods;
 use pyo3::Python;
 pub use tbls::PythonPlugin;
 
+use crate::flamegraph;
 use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
+use crate::repl::PythonRepl;
 
 mod exttbls;
 mod tbls;
@@ -42,7 +44,7 @@ impl Display for PyExtList {
 
 /// Python integration with the probing system
 #[derive(Debug, Default, EngineExtension)]
-pub struct PythonExtension {
+pub struct PythonExt {
     /// Path to Python crash handler script (executed when interpreter crashes)
     #[option(name="python.crash_handler", aliases=["python.crash.handler"])]
     crash_handler: Maybe<String>,
@@ -60,9 +62,54 @@ pub struct PythonExtension {
     disabled: Maybe<String>,
 }
 
-impl EngineCall for PythonExtension {}
+impl EngineCall for PythonExt {
+    fn call(
+        &self,
+        path: &str,
+        params: &HashMap<String, String>,
+        body: &[u8],
+    ) -> Result<Vec<u8>, EngineError> {
+        log::debug!(
+            "Engine Extension Call[PythonExt]: path = {}, params = {:?}, body = {:?}",
+            path,
+            params,
+            body
+        );
+        if path == "callstack" {
+            let frames = if params.contains_key("tid") {
+                let tid = params.get("tid").unwrap().parse::<i32>().unwrap();
+                backtrace(Some(tid))
+            } else {
+                backtrace(None)
+            }
+            .map_err(|e| {
+                log::error!("error getting call stack: {}", e);
+                EngineError::PluginError(format!("error getting call stack: {}", e))
+            })?;
+            return serde_json::to_vec(&frames).map_err(|e| {
+                log::error!("error serializing call stack: {}", e);
+                EngineError::PluginError(format!("error serializing call stack: {}", e))
+            });
+        }
+        if path == "eval" {
+            let code = String::from_utf8(body.to_vec()).map_err(|e| {
+                log::error!("error converting body to string: {}", e);
+                EngineError::PluginError(format!("error converting body to string: {}", e))
+            })?;
 
-impl EngineDatasource for PythonExtension {
+            log::debug!("PythonExt::call: eval code = {}", code);
+
+            let mut repl = PythonRepl::default();
+            return Ok(repl.process(code.as_str()).unwrap_or_default().into_bytes());
+        }
+        if path == "flamegraph" {
+            return Ok(flamegraph::flamegraph().into_bytes());
+        }
+        Ok("".as_bytes().to_vec())
+    }
+}
+
+impl EngineDatasource for PythonExt {
     /// Create a plugin instance for the specified namespace
     fn datasrc(
         &self,
@@ -73,7 +120,7 @@ impl EngineDatasource for PythonExtension {
     }
 }
 
-impl PythonExtension {
+impl PythonExt {
     /// Set up a Python crash handler
     fn set_crash_handler(&mut self, crash_handler: Maybe<String>) -> Result<(), EngineError> {
         match self.crash_handler {
@@ -193,7 +240,7 @@ impl PythonExtension {
 
 /// Execute Python code and return the resulting object
 /// The code should return an object with init/deinit methods
-fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> {
+pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> {
     Python::with_gil(|py| {
         let pkg = py.import("probing");
 
@@ -222,4 +269,26 @@ fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> {
         log::info!("Successfully loaded Python plugin: {}", code);
         Ok(result.unbind())
     })
+}
+
+use crate::CALLSTACKS;
+use anyhow::Result;
+use probing_proto::protocol::process::CallFrame;
+
+fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
+    {
+        CALLSTACKS.lock().unwrap().take();
+    }
+    let tid = tid.unwrap_or(std::process::id() as i32);
+    nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2).map_err(
+        |e| {
+            log::error!("error sending signal to process {}: {}", tid, e);
+            anyhow::anyhow!("error sending signal to process {}: {}", tid, e)
+        },
+    )?;
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    match CALLSTACKS.lock().unwrap().take() {
+        Some(frames) => Ok(frames),
+        None => Err(anyhow::anyhow!("no call stack")),
+    }
 }

@@ -26,81 +26,107 @@ use pyo3::Python;
 #[derive(Default, Debug)]
 pub struct PythonNamespace {}
 
+impl PythonNamespace {
+    fn data_from_python(expr: &str) -> Result<Vec<RecordBatch>> {
+        Python::with_gil(|py| {
+            let parts: Vec<&str> = expr.split('.').collect();
+            if parts.is_empty() {
+                return Err(anyhow::anyhow!("Invalid Python expression: {}", expr));
+            }
+
+            // Import the package
+            let pkg = py.import(parts[0])
+                .map_err(|e| anyhow::anyhow!("Failed to import {}: {:?}", parts[0], e))?;
+
+            // Set up locals dict with the imported package
+            let locals = PyDict::new(py);
+            locals.set_item(parts[0], pkg)
+                .map_err(|e| anyhow::anyhow!("Failed to set up Python locals: {:?}", e))?;
+
+            // Evaluate the expression
+            let expr = CString::new(expr)
+                .map_err(|e| anyhow::anyhow!("Failed to convert expression to CString: {:?}", e))?;
+            
+            let result = py.eval(&expr, None, Some(&locals))
+                .map_err(|e| anyhow::anyhow!("Failed to evaluate Python expression: {:?}", e))?;
+
+            // Handle different Python types
+            if let Ok(list) = result.downcast::<PyList>() {
+                return Self::list_to_recordbatch(list);
+            }
+            
+            if let Ok(dict) = result.downcast::<PyDict>() {
+                return Self::dict_to_recordbatch(dict);
+            }
+            
+            // Handle other Python objects
+            Self::object_to_recordbatch(result)
+        })
+    }
+
+    fn data_from_extern(expr: &str) -> Result<Vec<RecordBatch>> {
+        let binding = super::exttbls::EXTERN_TABLES.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock EXTERN_TABLES: {:?}", e))?;
+            
+        let table = binding.get(expr)
+            .ok_or_else(|| anyhow::anyhow!("Table '{}' not found", expr))?;
+            
+        let names = table.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock table: {:?}", e))?
+            .names.clone();
+            
+        let ts = table.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock table: {:?}", e))?;
+
+        Self::time_series_to_recordbatch(names, &ts)
+    }
+}
+
 impl CustomNamespace for PythonNamespace {
     fn name() -> &'static str {
         "python"
     }
 
     fn list() -> Vec<String> {
-        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-        binding.keys().cloned().collect()
+        super::exttbls::EXTERN_TABLES.lock().map_or_else(
+            |e| {
+                log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
+                vec![]
+            },
+            |binding| binding.keys().cloned().collect(),
+        )
     }
 
     fn data(expr: &str) -> Vec<RecordBatch> {
         if Self::list().contains(&expr.to_string()) {
-            {
-                let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
-                let table = binding.get(expr).unwrap();
-                let names = table.lock().unwrap().names.clone();
-                let ts = &table.lock().unwrap();
-
-                let batches = Self::time_series_to_recordbatch(names, ts);
-                if let Ok(batches) = batches {
-                    return batches;
-                } else {
-                    error!("error convert time series to table: {:?}", batches.err());
-                    return vec![];
+            match Self::data_from_extern(expr) {
+                Ok(batches) => batches,
+                Err(e) => {
+                    error!("Error getting data from extern: {:?}", e);
+                    vec![]
+                }
+            }
+        } else {
+            match Self::data_from_python(expr) {
+                Ok(batches) => batches,
+                Err(e) => {
+                    error!("Error getting data from Python: {:?}", e);
+                    vec![]
                 }
             }
         }
-        Python::with_gil(|py| {
-            let parts: Vec<&str> = expr.split(".").collect();
-            let pkg = py.import(parts[0]);
-
-            if pkg.is_err() {
-                println!("import error: {:?}", pkg.err());
-                return vec![];
-            }
-            let pkg = pkg.unwrap();
-
-            let locals = PyDict::new(py);
-            locals.set_item(parts[0], pkg).unwrap();
-
-            let ret = (|| {
-                let expr = CString::new(expr)?;
-                py.eval(&expr, None, Some(&locals))
-            })();
-
-            if ret.is_err() {
-                println!("eval error: {:?}", ret.err());
-                return vec![];
-            }
-
-            let ret = ret.unwrap();
-            if ret.is_instance_of::<PyList>() {
-                println!("list: {ret}");
-                if let Ok(_list) = ret.downcast::<PyList>() {
-                    return vec![];
-                }
-                return vec![];
-            }
-
-            if ret.is_instance_of::<PyDict>() {
-                println!("dict: {ret}");
-                if let Ok(_dict) = ret.downcast::<PyDict>() {
-                    return vec![];
-                }
-                return vec![];
-            }
-            println!("object: {ret}");
-            Self::object_to_recordbatch(ret).unwrap()
-        })
     }
 
-    fn make_lazy(expr: &str) -> Arc<LazyTableSource<Self>> {
-        let binding = super::exttbls::EXTERN_TABLES.lock().unwrap();
+    fn make_lazy(expr: &str) -> Arc<LazyTableSource> {
+        let binding = super::exttbls::EXTERN_TABLES.lock().map_or_else(
+            |e| {
+                log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
+                Default::default()
+            },
+            |binding| binding.clone(),
+        );
 
-        let schema = if binding.contains_key(expr) {
+        if binding.contains_key(expr) {
             let table = binding.get(expr).unwrap();
             let names = table.lock().unwrap().names.clone();
             let dtypes = table
@@ -126,16 +152,26 @@ impl CustomNamespace for PythonNamespace {
                 ));
             }
 
-            Some(SchemaRef::new(Schema::new(fields)))
-        } else {
-            None
-        };
+            let schema = Some(SchemaRef::new(Schema::new(fields)));
 
-        Arc::new(LazyTableSource::<Self> {
-            name: expr.to_string(),
-            schema,
-            data: Default::default(),
-        })
+            Arc::new(LazyTableSource {
+                name: expr.to_string(),
+                schema,
+                data: Self::data_from_extern(expr).unwrap_or_default(),
+            })
+        } else {
+            let data: Vec<RecordBatch> = Self::data_from_python(expr).unwrap_or_default();
+            let schema = if data.is_empty() {
+                None
+            } else {
+                Some(data[0].schema().clone())
+            };
+            Arc::new(LazyTableSource {
+                name: expr.to_string(),
+                schema,
+                data,
+            })
+        }
     }
 }
 
@@ -244,54 +280,67 @@ impl PythonNamespace {
             let item = obj.downcast::<PyDict>().unwrap();
             for (key, value) in item.iter() {
                 let key_str = key.extract::<String>()?;
-                if value.is_instance_of::<PyInt>() {
-                    let array = Int64Array::from(vec![value.extract::<i64>()?]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::Int64, true));
-                } else if value.is_instance_of::<PyFloat>() {
-                    let array = Float64Array::from(vec![value.extract::<f64>()?]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::Float64, true));
-                } else if value.is_instance_of::<PyString>() {
-                    let array = StringArray::from(vec![value.extract::<String>()?]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::UInt8, true));
-                } else {
-                    let array = StringArray::from(vec![value.to_string()]);
-                    columns.push(Arc::new(array));
-                    fields.push(Field::new(key_str, DataType::UInt8, true));
-                }
+                Self::add_field_and_array(&mut fields, &mut columns, key_str, value)?;
             }
-        } else if obj.is_instance_of::<PyInt>() {
-            let array = Int64Array::from(vec![obj.extract::<i64>()?]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Int64, true));
-        } else if obj.is_instance_of::<PyFloat>() {
-            let array = Float64Array::from(vec![obj.extract::<f64>()?]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Float64, true));
-        } else if obj.is_instance_of::<PyString>() {
-            let array = StringArray::from(vec![obj.extract::<String>()?]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Utf8, true));
+        } else if obj.hasattr("_asdict")? {
+            // Handle namedtuple or any object with _asdict method
+            let dict = obj.call_method0("_asdict")?;
+            return Self::object_to_recordbatch(dict);
         } else {
-            if obj.hasattr("_asdict")? {
-                let dict = obj.call_method0("_asdict").unwrap();
-                return Self::object_to_recordbatch(dict);
-            }
-
-            let array = StringArray::from(vec![obj.to_string()]);
-            columns.push(Arc::new(array));
-            fields.push(Field::new("value", DataType::Utf8, true));
+            // Handle primitive types or fallback to string representation
+            let field_name = "value";
+            Self::add_field_and_array(&mut fields, &mut columns, field_name.to_string(), obj)?;
         }
 
         let schema = SchemaRef::new(Schema::new(fields));
-        let batches = vec![RecordBatch::try_new(schema, columns).unwrap()];
+        let batches = vec![RecordBatch::try_new(schema, columns)?];
 
         Ok(batches)
     }
 
-    pub fn list_to_recordbatch(&self, list: Bound<'_, PyList>) -> Result<Vec<RecordBatch>> {
+    // Helper function to handle Python value conversion and add appropriate field
+    fn add_field_and_array(
+        fields: &mut Vec<Field>, 
+        columns: &mut Vec<ArrayRef>,
+        name: String, 
+        value: Bound<'_, PyAny>
+    ) -> Result<()> {
+        if value.is_instance_of::<PyInt>() {
+            let array = Int64Array::from(vec![value.extract::<i64>()?]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Int64, true));
+        } else if value.is_instance_of::<PyFloat>() {
+            let array = Float64Array::from(vec![value.extract::<f64>()?]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Float64, true));
+        } else if value.is_instance_of::<PyString>() {
+            let array = StringArray::from(vec![value.extract::<String>()?]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Utf8, true));
+        } else {
+            let array = StringArray::from(vec![value.to_string()]);
+            columns.push(Arc::new(array));
+            fields.push(Field::new(name, DataType::Utf8, true));
+        }
+        Ok(())
+    }
+
+    pub fn dict_to_recordbatch(dict: &Bound<'_, PyDict>) -> Result<Vec<RecordBatch>> {
+        let mut fields: Vec<Field> = vec![];
+        let mut columns: Vec<ArrayRef> = vec![];
+
+        for (key, value) in dict.iter() {
+            let key_str = key.extract::<String>()?;
+            Self::add_field_and_array(&mut fields, &mut columns, key_str, value)?;
+        }
+
+        let schema = SchemaRef::new(Schema::new(fields));
+        let batches = vec![RecordBatch::try_new(schema, columns)?];
+
+        Ok(batches)
+    }
+
+    pub fn list_to_recordbatch(list: &Bound<'_, PyList>) -> Result<Vec<RecordBatch>> {
         let mut names: Vec<String> = vec![];
         let mut datas: HashMap<String, Vec<Option<Bound<'_, PyAny>>>> = Default::default();
 
@@ -302,7 +351,11 @@ impl PythonNamespace {
             } else {
                 match item.getattr("__dict__") {
                     Ok(dict) => Some(dict.downcast::<PyDict>().unwrap().clone()),
-                    Err(_) => None,
+                    Err(_) => {
+                        let dict = PyDict::new(item.py());
+                        dict.set_item("value", item).unwrap();
+                        Some(dict)
+                    }
                 }
             };
             if let Some(ref item) = item {
@@ -342,7 +395,10 @@ impl PythonNamespace {
                     .iter()
                     .map(|x| {
                         if let Some(x) = x {
-                            x.extract::<String>().ok()
+                            match x.extract::<String>() {
+                                Ok(val) => Some(val),
+                                Err(_) => Some(x.to_string()),
+                            }
                         } else {
                             None
                         }

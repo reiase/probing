@@ -18,10 +18,11 @@ pub fn query_profiling() -> Result<Vec<String>> {
             .build()?;
 
         let query = r#"
-        select module_name, stage, avg(duration)
-            from python.torch_profiling
-            group by module_name, stage
-            order by (stage, module_name);
+        select module, stage, median(duration)
+            from python.torch_trace 
+            where module <> 'None'
+            group by module, stage
+            order by (stage, module);
         "#;
 
         tokio::runtime::Builder::new_multi_thread()
@@ -29,7 +30,7 @@ pub fn query_profiling() -> Result<Vec<String>> {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(async { engine.query(query) })
+            .block_on(async { engine.async_query(query).await })
     })
     .join()
     .map_err(|_| anyhow::anyhow!("error joining thread"))??;
@@ -78,7 +79,7 @@ pub fn query_profiling() -> Result<Vec<String>> {
 
             let duration = if *duration < 0. { 0. } else { *duration };
 
-            line.push_str(&format!(" {}", (duration * 1000.) as isize));
+            line.push_str(&format!(" {}", (duration * 100000.) as isize));
 
             line
         })

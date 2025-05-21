@@ -1,15 +1,13 @@
 mod apis;
 mod services;
 
-use std::thread;
-
 use anyhow::Result;
 use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
 use probing_proto::prelude::Query;
-use services::{handle_query, index, initialize_engine, probe, query, static_files};
+use services::{handle_query, index, initialize_engine, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -40,7 +38,6 @@ fn build_app() -> axum::Router {
         .route("/timeseries", axum::routing::get(index))
         .route("/index.html", axum::routing::get(index))
         .route("/profiler", axum::routing::get(index))
-        .route("/probe", axum::routing::post(probe))
         .route("/query", axum::routing::post(query))
         .nest_service("/apis", apis_route())
         .fallback(static_files)
@@ -105,9 +102,10 @@ pub fn start_remote(addr: Option<String>) {
 }
 
 pub fn sync_env_settings() {
-    thread::spawn(|| {
-        std::env::vars().for_each(|(k, v)| {
-            if k.starts_with("PROBING_")
+    // Collect environment variables before spawning the async task
+    let env_vars: Vec<(String, String)> = std::env::vars()
+        .filter(|(k, _)| {
+            k.starts_with("PROBING_")
                 && ![
                     "PROBING_PORT",
                     "PROBING_LOG",
@@ -115,21 +113,30 @@ pub fn sync_env_settings() {
                     "PROBING_SERVER_ADDRPATTERN",
                 ]
                 .contains(&k.as_str())
+        })
+        .collect();
+
+    // Spawn the task onto the existing Tokio runtime
+    SERVER_RUNTIME.spawn(async move {
+        for (k, v) in env_vars {
+            let k = k.replace("_", ".").to_lowercase();
+            let setting = format!("set {}={}", k, v);
+            // Since handle_query might not be async itself, but interacts with
+            // components managed by the runtime, it's safer to run it within
+            // the runtime's context. If handle_query becomes async, add .await
+            match handle_query(Query {
+                expr: setting.clone(),
+                opts: None,
+            })
+            .await
             {
-                let k = k.replace("_", ".").to_lowercase();
-                let setting = format!("set {}={}", k, v);
-                match handle_query(Query {
-                    expr: setting.clone(),
-                    opts: None,
-                }) {
-                    Ok(_) => {
-                        log::debug!("Synced env setting: {}", setting);
-                    }
-                    Err(err) => {
-                        error!("Failed to sync env settings: {setting}, {err}");
-                    }
-                };
-            }
-        });
+                Ok(_) => {
+                    log::debug!("Synced env setting: {}", setting);
+                }
+                Err(err) => {
+                    error!("Failed to sync env settings: {setting}, {err}");
+                }
+            };
+        }
     });
 }

@@ -1,20 +1,17 @@
-use std::ffi::CStr;
-
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
-use pyo3::Python;
 
-use crate::get_code;
+use super::python::execute_python_code;
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct TorchExtension {
-    /// PyTorch profiler sampling ratio (0.0-1.0, where 1.0 profiles all operations)
-    #[option(name = "torch.sample_ratio", aliases=["torch_sample_ratio"])]
-    torch_sample_ratio: Maybe<f64>,
+    /// PyTorch profiler mode to be used, "ordered:1.0" by default.
+    #[option(name = "torch.profiling_mode", aliases=["torch_profiling_mode"])]
+    profiling_mode: Maybe<String>,
 }
 
 impl EngineCall for TorchExtension {}
@@ -22,55 +19,27 @@ impl EngineCall for TorchExtension {}
 impl EngineDatasource for TorchExtension {}
 
 impl TorchExtension {
-    fn set_torch_sample_ratio(
-        &mut self,
-        torch_sample_ratio: Maybe<f64>,
-    ) -> Result<(), EngineError> {
-        match self.torch_sample_ratio {
-            Maybe::Just(_) => Err(EngineError::InvalidOptionValue(
-                "torch.sample_ratio".to_string(),
-                torch_sample_ratio.clone().into(),
+    fn set_profiling_mode(&mut self, profiling_mode: Maybe<String>) -> Result<(), EngineError> {
+        match profiling_mode {
+            Maybe::Nothing => Err(EngineError::InvalidOptionValue(
+                "torch.profiling_mode".to_string(),
+                profiling_mode.clone().into(),
             )),
-            Maybe::Nothing => match torch_sample_ratio {
-                Maybe::Nothing => Err(EngineError::InvalidOptionValue(
-                    "torch.sample_ratio".to_string(),
-                    torch_sample_ratio.clone().into(),
-                )),
-                Maybe::Just(sample_ratio) => {
-                    if sample_ratio < 0.0 {
-                        return Err(EngineError::InvalidOptionValue(
-                            "torch.sample_ratio".to_string(),
-                            torch_sample_ratio.clone().into(),
-                        ));
+            Maybe::Just(ref mode) => {
+                match execute_python_code(&format!(
+                    "probing.profiling.torch_probe.set_sampling_mode('{}')",
+                    mode
+                )) {
+                    Ok(_) => {
+                        self.profiling_mode = profiling_mode.clone();
+                        Ok(())
                     }
-                    self.torch_sample_ratio = torch_sample_ratio.clone();
-
-                    let filename = format!("{}.py", "torch_profiling");
-                    let code = get_code(filename.as_str());
-                    let key = "torch.sample_ratio".to_string();
-                    let value = sample_ratio.to_string();
-                    match if let Some(code) = code {
-                        Python::with_gil(|py| {
-                            let code = format!("{}\0", code);
-                            let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-                            py.run(code, None, None).map_err(|err| {
-                                anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
-                            })?;
-
-                            let code = format!("torch_profiling({})\0", sample_ratio);
-                            let code = CStr::from_bytes_with_nul(code.as_bytes())?;
-                            py.run(code, None, None).map_err(|err| {
-                                anyhow::anyhow!("error apply setting {}={}: {}", key, value, err)
-                            })
-                        })
-                    } else {
-                        Err(anyhow::anyhow!("unsupported setting {}={}", key, value))
-                    } {
-                        Ok(_) => Ok(()),
-                        Err(_) => Err(EngineError::InvalidOptionValue(key, value)),
-                    }
+                    Err(_) => Err(EngineError::InvalidOptionValue(
+                        "torch.profiling_mode".to_string(),
+                        profiling_mode.clone().into(),
+                    )),
                 }
-            },
+            }
         }
     }
 }

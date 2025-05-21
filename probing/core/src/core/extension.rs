@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -84,7 +85,12 @@ pub trait EngineCall: Debug + Send + Sync {
     /// # Returns
     /// * `Ok(Vec<u8>)` - Response data on success
     /// * `Err(EngineError)` - Error information on failure
-    fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+    fn call(
+        &self,
+        path: &str,
+        params: &HashMap<String, String>,
+        body: &[u8],
+    ) -> Result<Vec<u8>, EngineError> {
         Err(EngineError::UnsupportedCall)
     }
 }
@@ -126,12 +132,18 @@ pub trait EngineDatasource: Debug + Send + Sync {
 ///
 /// ```
 /// use probing_core::core::{EngineExtension, EngineExtensionOption};
+/// use probing_core::core::EngineCall;
+/// use probing_core::core::EngineDatasource;
 /// use probing_core::core::EngineError;
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {
 ///     some_option: String
 /// }
+///
+/// impl EngineCall for MyExtension {}
+///
+/// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {
 ///     fn name(&self) -> String {
@@ -203,12 +215,18 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 /// use std::sync::{Arc, Mutex};
 /// use probing_core::core::EngineExtensionManager;
 /// use probing_core::core::{EngineExtension, EngineExtensionOption};
+/// use probing_core::core::EngineCall;
+/// use probing_core::core::EngineDatasource;
 /// use probing_core::core::EngineError;
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {
 ///     some_option: String
 /// }
+///
+/// impl EngineCall for MyExtension {}
+///
+/// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {
 ///     fn name(&self) -> String {
@@ -304,10 +322,16 @@ impl EngineExtensionManager {
         options
     }
 
-    pub fn call(&self, path: &str, params: &str, body: &[u8]) -> Result<Vec<u8>, EngineError> {
+    pub fn call(
+        &self,
+        path: &str,
+        params: &HashMap<String, String>,
+        body: &[u8],
+    ) -> Result<Vec<u8>, EngineError> {
         for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
                 let name = ext.name();
+                log::debug!("checking extension [{}]:{}", name, path);
                 if !path.starts_with(format!("/{}/", name).as_str()) {
                     continue;
                 }

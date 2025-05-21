@@ -101,7 +101,7 @@ ioctl_read!(get_winsize, libc::TIOCGWINSZ, 0, libc::winsize);
 
 fn terminal_size_of<Fd: AsFd>(fd: Fd) -> Option<u32> {
     use nix::unistd::isatty;
-    if isatty(fd.as_fd().as_raw_fd()).is_err() {
+    if isatty(fd.as_fd()).is_err() {
         return None;
     }
 

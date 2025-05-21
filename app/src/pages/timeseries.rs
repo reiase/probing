@@ -2,8 +2,9 @@ use leptos::prelude::*;
 use leptos_meta::Style;
 use thaw::*;
 
-use crate::components::dataframe_view::DataFrameView;
-use crate::{components::header_bar::HeaderBar, url_read::read_query_resource};
+use crate::components::dataframe_view::{DataFrameChartView, DataFrameView};
+use crate::components::page_layerout::PageLayout;
+use crate::url_read::read_query_resource;
 
 #[component]
 pub fn Timeseries() -> impl IntoView {
@@ -58,21 +59,24 @@ pub fn Timeseries() -> impl IntoView {
             }
             "
         </Style>
-        <HeaderBar />
-        <Layout
-            content_style="padding: 24px; display: flex; flex-direction: column;"
-            class="timeseries-page-content"
-        >
+        <PageLayout>
             <Space vertical=true>
                 <div class="section-container">
                     <h2>"数据表列表"</h2>
-                    <Suspense fallback=|| view! { <p class="loading-text">"加载数据中..."</p> }>
+                    <Suspense fallback=|| {
+                        view! { <p class="loading-text">"加载数据中..."</p> }
+                    }>
                         {move || Suspend::new(async move {
                             match table.await {
                                 Ok(df) => view! { <DataFrameView df /> }.into_any(),
-                                Err(e) => view! { 
-                                    <p class="error-text">{format!("加载表失败: {}", e)}</p> 
-                                }.into_any()
+                                Err(e) => {
+                                    view! {
+                                        <p class="error-text">
+                                            {format!("加载表失败: {}", e)}
+                                        </p>
+                                    }
+                                        .into_any()
+                                }
                             }
                         })}
                     </Suspense>
@@ -83,7 +87,7 @@ pub fn Timeseries() -> impl IntoView {
                     <SqlQueryPanel />
                 </div>
             </Space>
-        </Layout>
+        </PageLayout>
     }
 }
 
@@ -98,12 +102,12 @@ fn SqlQueryPanel() -> impl IntoView {
             if trigger_value == 0 {
                 return Err("请在上方输入 SQL 查询并点击执行".to_string());
             }
-            
+
             let query_text = sql.get();
             if query_text.trim().is_empty() {
                 return Err("请输入 SQL 查询".to_string());
             }
-            
+
             read_query_resource(&query_text)
                 .await
                 .map_err(|e| format!("查询执行失败: {}", e))
@@ -130,13 +134,24 @@ fn SqlQueryPanel() -> impl IntoView {
         <div style="margin-top: 16px;">
             <Suspense fallback=move || {
                 let is_loading = query_trigger.get() > 0;
-                let message = if is_loading { "执行查询中..." } else { "等待执行查询..." };
+                let message = if is_loading {
+                    "执行查询中..."
+                } else {
+                    "等待执行查询..."
+                };
                 view! { <p class="loading-text">{message}</p> }
             }>
                 {move || match query_resource.get() {
-                    Some(Ok(df)) => view! { <DataFrameView df /> }.into_any(),
+                    Some(Ok(df)) => {
+                        let df1 = df.clone();
+                        view! {
+                            <DataFrameChartView df=df1 />
+                            <DataFrameView df />
+                        }
+                            .into_any()
+                    }
                     Some(Err(e)) => view! { <p class="error-text">{e}</p> }.into_any(),
-                    None => view! { <p class="loading-text">"加载中..."</p> }.into_any()
+                    None => view! { <p class="loading-text">"加载中..."</p> }.into_any(),
                 }}
             </Suspense>
         </div>

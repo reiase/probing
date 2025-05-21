@@ -247,6 +247,7 @@ impl Engine {
         Ok(probing_proto::prelude::DataFrame::new(names, columns))
     }
 
+    #[deprecated]
     pub fn query<T: Into<String>>(&self, q: T) -> Result<probing_proto::prelude::DataFrame> {
         futures::executor::block_on(async { self.async_query(q).await })
     }
@@ -523,14 +524,18 @@ mod tests {
         engine.enable(plugin)?;
 
         // verify table registration
-        let result = engine.query("SELECT * FROM test_namespace.test_table")?;
+        let result = engine
+            .async_query("SELECT * FROM test_namespace.test_table")
+            .await?;
 
         assert_eq!(result.names.len(), 2);
         assert_eq!(result.names[0], "id");
         assert_eq!(result.names[1], "name");
 
         // verify data
-        let result = engine.query("SELECT * FROM test_namespace.test_table WHERE id > 1")?;
+        let result = engine
+            .async_query("SELECT * FROM test_namespace.test_table WHERE id > 1")
+            .await?;
         if let Seq::SeqI32(ids) = &result.cols[0] {
             assert_eq!(ids.len(), 2); // expect 2 rows
             assert!(ids.iter().all(|&id| id > 1)); // with id > 1
@@ -566,7 +571,9 @@ mod tests {
             .unwrap();
 
         // Verify the plugin is correctly registered
-        let result = engine.query("SELECT * FROM test_namespace.test_table");
+        let result = engine
+            .async_query("SELECT * FROM test_namespace.test_table")
+            .await;
         assert!(result.is_ok());
     }
 
@@ -588,13 +595,16 @@ mod tests {
         let engine = Engine::builder().build().unwrap();
 
         // testing basic SELECT query
-        let result = engine.query("SELECT 1 as num, 'test' as str").unwrap();
+        let result = engine
+            .async_query("SELECT 1 as num, 'test' as str")
+            .await
+            .unwrap();
         assert_eq!(result.names.len(), 2);
         assert_eq!(result.names[0], "num");
         assert_eq!(result.names[1], "str");
 
         // testing empty result set
-        let result = engine.query("SELECT 1 WHERE 1=0").unwrap();
+        let result = engine.async_query("SELECT 1 WHERE 1=0").await.unwrap();
         assert!(result.names.is_empty());
     }
 
@@ -603,11 +613,11 @@ mod tests {
         let engine = Engine::builder().build().unwrap();
 
         // testing invalid SQL syntax
-        let result = engine.query("SELECT invalid syntax");
+        let result = engine.async_query("SELECT invalid syntax").await;
         assert!(result.is_err());
 
         // testing nonexistent table
-        let result = engine.query("SELECT * FROM nonexistent_table");
+        let result = engine.async_query("SELECT * FROM nonexistent_table").await;
         assert!(result.is_err());
     }
 
@@ -644,7 +654,7 @@ mod tests {
                 'test' as string_val
         ";
 
-        let result = engine.query(query).unwrap();
+        let result = engine.async_query(query).await.unwrap();
         assert_eq!(result.names.len(), 3);
 
         // testing data types
@@ -653,8 +663,8 @@ mod tests {
         assert!(matches!(result.cols[2], Seq::SeqText(_)));
     }
 
-    #[test]
-    fn test_engine_builder_configuration() {
+    #[tokio::test]
+    async fn test_engine_builder_configuration() {
         let builder = Engine::builder().with_default_namespace("test_namespace");
 
         // testing default namespace
@@ -662,7 +672,7 @@ mod tests {
         assert_eq!(engine.default_namespace(), "test_namespace");
 
         // testing information schema
-        let result = engine.query("SHOW TABLES");
+        let result = engine.async_query("SHOW TABLES").await;
         assert!(result.is_ok());
     }
 }

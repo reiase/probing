@@ -49,6 +49,7 @@ def initialize_probing():
 initialize_probing()
 
 import probing.hooks.import_hook
+import probing.inspect
 
 from probing.core.engine import query
 from probing.core.engine import load_extension
