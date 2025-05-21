@@ -12,7 +12,6 @@ based on the PROBE environment variable:
 
 import os
 import sys
-import uuid
 
 def get_current_script_name():
     """Get the name of the current running script."""
@@ -27,11 +26,6 @@ def get_current_script_name():
 probe_value = os.environ.get("PROBE", "0")
 current_script = get_current_script_name()
 
-# Generate an unique identifier for the current process when RANK=0
-if os.environ.get("RANK") == "0":
-    process_id = str(uuid.uuid4())
-    os.environ["START_ID"] = process_id
-    print(f"Starting process with START_ID: {process_id}")
 
 try:
     # Remove the variable by default - we'll set it back if needed
