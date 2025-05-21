@@ -13,6 +13,7 @@ based on the PROBING environment variable:
 import os
 import sys
 
+
 def get_current_script_name():
     """Get the name of the current running script."""
     try:
@@ -42,12 +43,6 @@ def init_probing():
         # Remove the variable by default - we'll set it back if needed
         if "PROBING" in os.environ:
             del os.environ["PROBING"]
-
-
-try:
-    # Remove the variable by default - we'll set it back if needed
-    if "PROBE" in os.environ:
-        del os.environ["PROBE"]
 
         if probe_value.lower() in ["1", "followed"]:
             print(
