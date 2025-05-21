@@ -29,8 +29,8 @@ pub struct Settings {
     ///   - **info**: Enable info messages (default)
     ///   - **warn**: Show only warnings and errors
     ///   - **error**: Show only errors
-    #[arg(long, env = "PROBING_LOG")]
-    log_level: Option<String>,
+    #[arg(long, env = "PROBING_LOGLEVEL")]
+    loglevel: Option<String>,
 
     /// Root path for assets used by the probing UI dashboard
     ///
@@ -54,7 +54,7 @@ pub struct Settings {
     /// Supported values:
     ///   - **ordered**: Profiling with ordered sampling
     ///   - **random**: Profiling with random sampling
-    #[arg(long, env = "PROBING_TORCH_MODE")]
+    #[arg(long, env = "PROBING_TORCH_PROFILING_MODE")]
     torch_profiling_mode: Option<String>,
 
     /// PyTorch profiling sample rate (range: 0.0-1.0)
@@ -63,7 +63,7 @@ pub struct Settings {
     /// ```bash
     /// probing <endpoint> config --torch-sample-rate 0.01  # 1% sampling
     /// ```
-    #[arg(long, env = "PROBING_TORCH_RATE")]
+    #[arg(long, env = "PROBING_TORCH_SAMPLE_RATE")]
     torch_sample_rate: Option<f64>,
 
     /// Variables to capture during PyTorch profiling
@@ -75,7 +75,7 @@ pub struct Settings {
     /// probing <endpoint> config --torch-watch "x@forward,y@backward"
     /// ```
     #[arg(long, env = "PROBING_TORCH_WATCH_VARS")]
-    torch_watch_variables: Option<String>,
+    torch_watch_vars: Option<String>,
 }
 
 impl Settings {
@@ -84,7 +84,7 @@ impl Settings {
         if let Some(probing_mode) = &self.probing_mode {
             cfg.push_str(&format!("set probing={};", probing_mode));
         }
-        if let Some(log_level) = &self.log_level {
+        if let Some(log_level) = &self.loglevel {
             cfg.push_str(&format!("set log_level={};", log_level));
         }
         if let Some(assets_root) = &self.assets_root {
@@ -102,7 +102,7 @@ impl Settings {
         if let Some(torch_sample_rate) = &self.torch_sample_rate {
             cfg.push_str(&format!("set torch_sample_rate={};", torch_sample_rate));
         }
-        if let Some(torch_watch_variables) = &self.torch_watch_variables {
+        if let Some(torch_watch_variables) = &self.torch_watch_vars {
             cfg.push_str(&format!(
                 "set torch_watch_variables={};",
                 torch_watch_variables

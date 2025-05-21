@@ -6,7 +6,7 @@ use anyhow::Result;
 use probing_python::create_probing_module;
 use probing_server::sync_env_settings;
 
-const ENV_PROBING_LOG: &str = "PROBING_LOG";
+const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
 const DEFAULT_PORT: u16 = 9700;
@@ -47,7 +47,7 @@ fn setup() {
     eprintln!("Initializing libprobing for process {pid} ...",);
 
     // initialize logging
-    env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOG));
+    env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOGLEVEL));
 
     // initialize probing server
     probing_server::start_local();

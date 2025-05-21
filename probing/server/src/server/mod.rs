@@ -110,7 +110,7 @@ pub fn sync_env_settings() {
             k.starts_with("PROBING_")
                 && ![
                     "PROBING_PORT",
-                    "PROBING_LOG",
+                    "PROBING_LOGLEVEL",
                     "PROBING_ASSETS_ROOT",
                     "PROBING_SERVER_ADDRPATTERN",
                 ]
