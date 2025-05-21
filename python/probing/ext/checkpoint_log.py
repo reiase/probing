@@ -27,7 +27,6 @@ def init():
             if timer is not None:
                 # 获取 elapsed（本次累计耗时，单位秒）
                 elapsed = timer._elapsed
-                # 获取 _start_time（最近一次 start 的时间戳，单位秒，time.time()）
                 start_time = timer._start_time
                 print(f"[MonkeyPatch] {timer_name}: elapsed={elapsed:.4f}s, _start_time={start_time}")
                 CheckpointLog(
