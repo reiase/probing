@@ -59,7 +59,10 @@ stacks = []
 
 import sys
 
-curr = sys._getframe(1)
+try:
+    curr = sys._getframe(1)
+except:
+    curr = None
 while curr is not None:
     stack = {"PyFrame": {
         "file": curr.f_code.co_filename,

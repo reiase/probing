@@ -60,6 +60,9 @@ fn setup() {
             .parse()
             .unwrap_or(0);
 
+        let serving_port = port + local_rank;
+        log::debug!("serving on port {serving_port} for local rank {local_rank}.");
+
         // determine bind address
         let hostname = if std::env::var("RANK").unwrap_or("0".to_string()) == "0" {
             "0.0.0.0".to_string()
@@ -68,7 +71,7 @@ fn setup() {
         };
 
         // set server address
-        let server_address = format!("'{}:{}'", hostname, port + local_rank);
+        let server_address = format!("'{}:{}'", hostname, serving_port);
         std::env::set_var("PROBING_SERVER_ADDR", server_address);
 
         // set report address if master exists

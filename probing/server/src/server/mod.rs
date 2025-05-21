@@ -78,9 +78,11 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
                 let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
                 *probing_address = addr.to_string();
             }
+            use std::io::Write;
+            let mut stderr = std::io::stderr().lock(); // 获取锁
 
-            eprintln!("{}", Red.bold().paint("probing server is available on:"));
-            eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+            let _ = writeln!(stderr, "{}", Red.bold().paint("probing server is available on:"));
+            let _ = writeln!(stderr,"\t{}", Green.bold().underline().paint(addr.to_string()));
         }
         Err(err) => {
             eprintln!(
