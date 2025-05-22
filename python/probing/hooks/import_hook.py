@@ -7,10 +7,8 @@ from probing.ext.checkpoint_log import init as checkpoint_log_init
 # Mapping from module names to callback functions
 register = {
     # "torch": iteroutput_init, 
-    "torch": iteroutput_init,
-    "megatron.training": checkpoint_log_init,
+    "torch": [iteroutput_init, checkpoint_log_init],
 }
-print("megatron.training" in sys.modules)
 # Record modules that have been triggered
 triggered = {}
 
@@ -41,8 +39,15 @@ class ProbingLoader(importlib.abc.Loader):
         if self.fullname in register and self.fullname not in triggered:
             triggered[self.fullname] = True
             try:
-                register[self.fullname]()
-                print(f"Callback for {self.fullname} executed successfully!")
+                # register[self.fullname]()
+                # print(f"Callback for {self.fullname} executed successfully!")
+                callbacks = register[self.fullname]
+                if isinstance(callbacks, list):
+                    for cb in callbacks:
+                        cb()
+                else:
+                    callbacks()
+                print(f"Callback(s) for {self.fullname} executed successfully!")
             except Exception as e:
                 print(f"Error in callback for {self.fullname}: {e}")
 
