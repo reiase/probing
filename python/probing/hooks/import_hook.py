@@ -7,9 +7,7 @@ from probing.ext.checkpoint_log import init as checkpoint_log_init
 # Mapping from module names to callback functions
 register = {
     "torch": iteroutput_init, 
-    "megatron.core.timers.Timers": checkpoint_log_init, 
-    "Timers": checkpoint_log_init,
-    "megatron.training.get_timers": checkpoint_log_init,
+    "megatron.core.timers": checkpoint_log_init, 
 }
 
 # Record modules that have been triggered
@@ -43,6 +41,7 @@ class ProbingLoader(importlib.abc.Loader):
             triggered[self.fullname] = True
             try:
                 register[self.fullname]()
+                print(f"Callback for {self.fullname} executed successfully!")
             except Exception as e:
                 print(f"Error in callback for {self.fullname}: {e}")
 
@@ -97,7 +96,6 @@ def register_module_callback(module_name, callback):
         try:
             triggered[module_name] = True
             callback(sys.modules[module_name])
-            print(f"Callback executed for {module_name}")
         except Exception as e:
             print(f"Error executing callback for {module_name}: {e}")
 
