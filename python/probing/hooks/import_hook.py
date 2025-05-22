@@ -39,7 +39,13 @@ class ProbingLoader(importlib.abc.Loader):
         if self.fullname in register and self.fullname not in triggered:
             triggered[self.fullname] = True
             try:
-                register[self.fullname]()
+                # register[self.fullname]()
+                callbacks = register[self.fullname]
+                if isinstance(callbacks, list):
+                    for cb in callbacks:
+                        cb()
+                else:
+                    callbacks()
             except Exception as e:
                 print(f"Error in callback for {self.fullname}: {e}")
 
