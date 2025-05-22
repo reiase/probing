@@ -11,7 +11,6 @@ class CheckpointLog:
 
 
 def init():
-    print("==========================CheckpointLog init!============================", flush=True)
     try:
         from megatron.core import Timers
     except ImportError:

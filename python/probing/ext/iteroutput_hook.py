@@ -23,24 +23,15 @@ class IterOutputTracer:
         self.throughput = 0
 
     def step_post_hook(self, optimizer, args, kwargs):
-        print("step_post_hook triggered!", flush=True)
         import sys
         f = sys._getframe() 
-        # print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
-        # print(f"f.f_locals: {f.f_locals}", flush=True)
         while f and f.f_code.co_name != 'train':
-            # if f.f_code.co_name == 'train_step':
-            #     update_successful =f.f_locals.get('update_successful')
-            #     print(f"update_successful: {update_successful}", flush=True)
             f = f.f_back
-            # print(f"f.f_code.co_name: {f.f_code.co_name}", flush=True)
-            # print(f"f.f_locals: {f.f_locals}", flush=True)
         if not f:
             f = sys._getframe().f_back 
             print("target frame not found", flush=True) 
 
         # 从train()中提取局部变量
-        # print(f"Found frame: {f.f_code.co_name}", flush=True)
         local_vars = f.f_locals
         total_loss_dict = local_vars.get('total_loss_dict')
         iteration = local_vars.get('iteration')
@@ -62,8 +53,6 @@ class IterOutputTracer:
         # print(f"total_iterations: {total_iterations}", flush=True)
 
         # 全局变量
-        # global _GLOBAL_ARGS, _GLOBAL_NUM_MICROBATCHES_CALCULATOR, _GLOBAL_TIMERS
-    
         from megatron.training.global_vars import get_args, get_timers, _GLOBAL_NUM_MICROBATCHES_CALCULATOR
         args = get_args()
         # print(f"args: {args}", flush=True)
@@ -101,12 +90,9 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
 
 
 def init():
-    print("iteroutput_hook.init() called!", flush=True)
     from torch.optim.optimizer import register_optimizer_step_post_hook
-
     register_optimizer_step_post_hook(optimizer_step_post_hook)
-
-    print("register_optimizer_step_post_hook done!", flush=True)
+    print("==========================iteroutput_hook.init() done!============================", flush=True)
 
 
 def deinit():
