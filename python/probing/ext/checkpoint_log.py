@@ -27,13 +27,14 @@ def init():
             if timer is not None:
                 # 获取 elapsed（本次累计耗时，单位秒）
                 elapsed = timer._elapsed
-                start_time = timer._start_time
-                print(f"[MonkeyPatch] {timer_name}: elapsed={elapsed:.4f}s, _start_time={start_time}")
-                CheckpointLog(
-                    name=timer_name,
-                    elapsed=elapsed,
-                    start_time=start_time
-                ).save()
+                if elapsed >0:
+                    start_time = timer._start_time
+                    print(f"[MonkeyPatch] {timer_name}: elapsed={elapsed:.4f}s, _start_time={start_time}")
+                    CheckpointLog(
+                        name=timer_name,
+                        elapsed=elapsed,
+                        start_time=start_time
+                    ).save()
         result = _original_log(self, names, rank, normalizer, reset, barrier)        
         return result
     Timers.log = new_log
