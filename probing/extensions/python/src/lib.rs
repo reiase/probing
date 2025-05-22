@@ -108,6 +108,9 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
     }
 }
 
+
+use cpp_demangle::Symbol;
+
 fn get_native_stacks() -> Option<Vec<CallFrame>> {
     let mut frames = vec![];
     backtrace::trace(|frame| {
@@ -116,11 +119,16 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
         backtrace::resolve_frame(frame, |symbol| {
             let func = symbol.name().and_then(|name| name.as_str());
             let func = func
-                .map(|x| x.to_string())
+                .map(|raw_name| {
+                    // 尝试对 C++ 符号名称进行 demangle
+                    Symbol::new(raw_name)
+                        .ok()
+                        .map(|demangled| demangled.to_string())
+                        .unwrap_or_else(|| raw_name.to_string())
+                })
                 .unwrap_or(format!("unknown@{:#x}", symbol_address));
 
-            let file = symbol.filename();
-            let file = file
+            let file = symbol.filename()
                 .map(|x| x.to_string_lossy().to_string())
                 .unwrap_or_default();
 
@@ -135,6 +143,7 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
     });
     Some(frames)
 }
+
 
 fn merge_python_native_stacks(
     python_stacks: Vec<CallFrame>,
