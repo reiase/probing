@@ -7,10 +7,10 @@ from probing.ext.checkpoint_log import init as checkpoint_log_init
 # Mapping from module names to callback functions
 register = {
     # "torch": iteroutput_init, 
-    "os": iteroutput_init,
-    "torch": checkpoint_log_init,
+    "torch": iteroutput_init,
+    "megatron.training": checkpoint_log_init,
 }
-
+print("megatron.training" in sys.modules)
 # Record modules that have been triggered
 triggered = {}
 
