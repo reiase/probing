@@ -6,7 +6,7 @@ from probing.ext.iteroutput_hook import init as iteroutput_init
 from probing.ext.checkpoint_log import init as checkpoint_log_init
 # Mapping from module names to callback functions
 register = {
-    # "torch": iteroutput_init, 
+     "torch": iteroutput_init, 
     # "torch": [iteroutput_init, checkpoint_log_init],
     "megatron.training": checkpoint_log_init,
 }
