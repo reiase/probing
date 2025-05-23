@@ -446,7 +446,7 @@ checksum = "8d82cb332cdfaed17ae235a638438ac4d4839913cc2af585c3c6746e8f8bee1a"
 dependencies = [
  "addr2line",
  "cfg-if",
- "cpp_demangle",
+ "cpp_demangle 0.4.4",
  "libc",
  "miniz_oxide",
  "object",
@@ -742,6 +742,15 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
+
+[[package]]
+name = "cpp_demangle"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eeaa953eaad386a53111e47172c2fedba671e5684c8dd601a5f474f4f118710f"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "cpp_demangle"
@@ -2958,6 +2967,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "cpp_demangle 0.3.5",
  "ctor",
  "include_dir",
  "inferno 0.12.2",
@@ -3589,7 +3599,7 @@ version = "12.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "153faacda0d58dc1eb3e8bbd5dab998041e95bd7f4ab2caeeadc89410617f144"
 dependencies = [
- "cpp_demangle",
+ "cpp_demangle 0.4.4",
  "rustc-demangle",
  "symbolic-common",
 ]
