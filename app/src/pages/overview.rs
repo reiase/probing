@@ -5,7 +5,7 @@ use probing_proto::prelude::*;
 use crate::components::card_view::{ProcessCard, ThreadsCard};
 use crate::components::page_layerout::PageLayout;
 use crate::components::panel::Panel;
-use crate::components::tableview::TableView;
+use crate::components::tableview::{Table, TableView};
 use crate::errors::AppError;
 use crate::url_read::url_read_resource;
 
