@@ -1,4 +1,5 @@
 mod asset;
+mod auth;
 mod extensions;
 mod report;
 mod server;

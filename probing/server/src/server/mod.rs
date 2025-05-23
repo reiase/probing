@@ -29,7 +29,7 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
 });
 
 fn build_app() -> axum::Router {
-    axum::Router::new()
+    let mut app = axum::Router::new()
         .route("/", axum::routing::get(index))
         .route("/overview", axum::routing::get(index))
         .route("/cluster", axum::routing::get(index))
@@ -40,13 +40,28 @@ fn build_app() -> axum::Router {
         .route("/profiler", axum::routing::get(index))
         .route("/query", axum::routing::post(query))
         .nest_service("/apis", apis_route())
-        .fallback(static_files)
+        .fallback(static_files);
+
+    // Apply authentication middleware if auth token is configured
+    if crate::auth::is_auth_required() {
+        app = app.layer(axum::middleware::from_fn(crate::auth::auth_middleware));
+    }
+    
+    app
 }
 
 pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
     eprintln!("Starting local server at {}", socket_path);
+    
+    // Log authentication status
+    if crate::auth::is_auth_required() {
+        log::info!("Authentication is enabled. API endpoints will require a token.");
+    } else {
+        log::info!("Authentication is disabled. All endpoints are publicly accessible.");
+    }
+    
     let app = build_app();
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
     Ok(())
@@ -68,6 +83,13 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
 
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
     log::info!("Starting probe server at {}", addr);
+    
+    // Log authentication status
+    if crate::auth::is_auth_required() {
+        log::info!("Authentication is enabled. API endpoints will require a token.");
+    } else {
+        log::info!("Authentication is disabled. All endpoints are publicly accessible.");
+    }
 
     let app = build_app();
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -121,6 +143,7 @@ pub fn sync_env_settings() {
                     "PROBING_LOGLEVEL",
                     "PROBING_ASSETS_ROOT",
                     "PROBING_SERVER_ADDRPATTERN",
+                    "PROBING_AUTH_TOKEN", // Skip syncing the auth token for security reasons
                 ]
                 .contains(&k.as_str())
         })
