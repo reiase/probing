@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use leptos::prelude::*;
 use thaw::*;
 
-use probing_proto::{protocol::process::Value, Object};
+use probing_proto::{protocol::process::Value};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {
@@ -17,50 +17,6 @@ pub struct VariableView {
     id: u64,
     name: String,
     value: String,
-}
-
-#[component]
-pub fn VariablesList(#[prop(into)] variables: HashMap<String, Object>) -> impl IntoView {
-    let rows = variables
-        .iter()
-        .map(|kv| VariableView {
-            id: kv.1.id,
-            name: kv.0.clone(),
-            value: match &kv.1.value {
-                Some(v) => v.clone(),
-                None => "None".to_string(),
-            },
-        })
-        .map(|v| {
-            view! {
-                <TableRow>
-                    <TableCell>
-                        <TableCellLayout truncate=true>{v.id}</TableCellLayout>
-                    </TableCell>
-                    <TableCell>
-                        <TableCellLayout truncate=true>{v.name}</TableCellLayout>
-                    </TableCell>
-                    <TableCell>
-                        <TableCellLayout>{v.value}</TableCellLayout>
-                    </TableCell>
-                </TableRow>
-            }
-        })
-        .collect::<Vec<_>>();
-    view! {
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHeaderCell resizable=true min_width=10.0 max_width=40.0>
-                        "#"
-                    </TableHeaderCell>
-                    <TableHeaderCell resizable=true>"Name"</TableHeaderCell>
-                    <TableHeaderCell>"Value"</TableHeaderCell>
-                </TableRow>
-            </TableHeader>
-            <TableBody>{rows}</TableBody>
-        </Table>
-    }
 }
 
 #[component]
@@ -118,7 +74,7 @@ pub struct ObjectView {
 }
 
 #[component]
-pub fn ObjectList(#[prop(into)] objects: Vec<Object>) -> impl IntoView {
+pub fn ObjectList(#[prop(into)] objects: Vec<Value>) -> impl IntoView {
     let rows = objects
         .iter()
         .map(|obj| ObjectView {

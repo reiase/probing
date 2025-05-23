@@ -92,4 +92,9 @@ opt-level = "z"   # Optimize for size.
 panic = "unwind"
 strip = true      # Automatically strip symbols from the binary.
 lto = "thin"
-codegen-units = 1
+codegen-units = 16
+incremental = true
+
+[profile.dev]
+incremental = true
+debug = 1  # 设置为较小的调试信息，而不是完整信息
