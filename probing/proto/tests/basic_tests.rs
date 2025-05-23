@@ -5,7 +5,7 @@ mod tests {
     #[test]
     fn test_seq_append_from_nil() {
         let mut seq = Seq::Nil;
-        
+
         // Test creating different sequence types from Nil
         assert!(seq.append(42i32).is_ok());
         assert_eq!(seq, Seq::SeqI32(vec![42]));
@@ -22,7 +22,7 @@ mod tests {
     #[test]
     fn test_seq_append_type_mismatch() {
         let mut seq = Seq::SeqI32(vec![1, 2, 3]);
-        
+
         // Should fail when trying to append wrong type
         assert!(seq.append("string".to_string()).is_err());
         assert_eq!(seq, Seq::SeqI32(vec![1, 2, 3])); // unchanged

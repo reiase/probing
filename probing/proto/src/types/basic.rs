@@ -213,7 +213,7 @@ impl Seq {
             (Seq::Nil, Ele::F64(x)) => *self = Seq::SeqF64(vec![x]),
             (Seq::Nil, Ele::Text(x)) => *self = Seq::SeqText(vec![x]),
             (Seq::Nil, Ele::DataTime(x)) => *self = Seq::SeqDateTime(vec![x]),
-            (Seq::Nil, Ele::Nil) => {}, // Nil值不改变Nil序列
+            (Seq::Nil, Ele::Nil) => {} // Nil值不改变Nil序列
             (Seq::SeqI32(vec), Ele::I32(x)) => vec.push(x),
             (Seq::SeqI64(vec), Ele::I64(x)) => vec.push(x),
             (Seq::SeqF32(vec), Ele::F32(x)) => vec.push(x),
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_seq_append_from_nil() {
         let mut seq = Seq::Nil;
-        
+
         // Test creating different sequence types from Nil
         assert!(seq.append(42i32).is_ok());
         assert_eq!(seq, Seq::SeqI32(vec![42]));
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn test_seq_append_type_mismatch() {
         let mut seq = Seq::SeqI32(vec![1, 2, 3]);
-        
+
         // Should fail when trying to append wrong type
         assert!(seq.append("string".to_string()).is_err());
         assert_eq!(seq, Seq::SeqI32(vec![1, 2, 3])); // unchanged

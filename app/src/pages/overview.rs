@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::vec;
+
 use leptos::prelude::*;
 
 use probing_proto::prelude::*;
@@ -10,16 +13,14 @@ use crate::errors::AppError;
 use crate::url_read::url_read_resource;
 
 /// Helper function to parse environment variables string into a Table structure.
-fn parse_env_vars(env_str: &str) -> Table {
+fn parse_env_vars(envs: &HashMap<String, String>) -> Table {
     let names = vec!["name", "value"];
-    let rows = env_str
-        .lines() // Use lines() for better handling of line endings
-        .filter(|line| !line.is_empty()) // Filter out empty lines
-        .map(|kv| {
-            kv.split_once('=')
-                .map(|(name, value)| vec![name.to_string(), value.to_string()])
-                .unwrap_or_else(|| vec![String::new(), kv.to_string()]) // Use String::new() for empty name
-        })
+    let rows = envs.iter().map(|(name, value)| {
+        vec![
+            name.to_string(),
+            value.to_string(),
+        ]
+    })
         .collect::<Vec<_>>();
     Table::new(names, rows)
 }
@@ -54,7 +55,7 @@ where
 #[component]
 pub fn Overview() -> impl IntoView {
     // Fetch process data once
-    let resource = url_read_resource::<Process>("/apis/overview");
+    let resource: LocalResource<std::result::Result<Process, AppError>> = url_read_resource::<Process>("/apis/overview");
 
     view! {
         <PageLayout>

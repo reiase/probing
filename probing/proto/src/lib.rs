@@ -8,7 +8,7 @@ pub mod prelude {
     pub use crate::protocol::process::{CallFrame, Process};
 
     pub use crate::protocol::query::{Data as QueryDataFormat, Options as QueryOptions, Query};
-    pub use crate::protocol::query::{QueryError, ErrorCode};
+    pub use crate::protocol::query::{ErrorCode, QueryError};
     pub use crate::protocol::version::ProtocolVersion;
 
     // --- Core Data Types ---

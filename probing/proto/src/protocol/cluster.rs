@@ -47,19 +47,19 @@ impl Display for Node {
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Cluster {
-    pub nodes: HashMap<String, Node>, // 使用host:addr作为key
+    pub nodes: HashMap<String, Node>,     // 使用host:addr作为key
     pub rank_index: HashMap<i32, String>, // rank到节点key的映射
 }
 
 impl Cluster {
     pub fn put(&mut self, node: Node) {
         let key = format!("{}:{}", node.host, node.addr);
-        
+
         // 如果有rank，维护rank索引
         if let Some(rank) = node.rank {
             self.rank_index.insert(rank, key.clone());
         }
-        
+
         self.nodes.insert(key, node);
     }
 

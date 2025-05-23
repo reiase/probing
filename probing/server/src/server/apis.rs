@@ -27,7 +27,12 @@ pub fn overview() -> Result<Process> {
             .environ()
             .map(|m| {
                 m.iter()
-                    .map(|(k, v)| (k.to_string_lossy().to_string(), v.to_string_lossy().to_string()))
+                    .map(|(k, v)| {
+                        (
+                            k.to_string_lossy().to_string(),
+                            v.to_string_lossy().to_string(),
+                        )
+                    })
                     .collect()
             })
             .unwrap_or_default(),

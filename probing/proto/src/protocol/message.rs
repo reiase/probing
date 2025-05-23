@@ -56,9 +56,7 @@ impl<T> Message<T> {
             web_sys::window()
                 .and_then(|w| w.performance())
                 .map(|p| (p.now() * 1000.0) as u64)
-                .unwrap_or_else(|| {
-                    js_sys::Date::now() as u64 * 1000
-                })
+                .unwrap_or_else(|| js_sys::Date::now() as u64 * 1000)
         }
         #[cfg(not(feature = "web"))]
         {
