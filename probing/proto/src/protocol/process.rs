@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct Process {
     pub pid: i32,
     pub exe: String,
-    pub env: String,
+    pub env: HashMap<String, String>,
     pub cmd: String,
     pub cwd: String,
     pub main_thread: u64,

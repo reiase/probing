@@ -1,4 +1,4 @@
-mod basic;
+pub mod basic;
 mod compress;
 mod dataframe;
 mod error;

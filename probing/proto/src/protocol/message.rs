@@ -49,6 +49,21 @@ impl<T> Message<T> {
 
     #[cfg(target_arch = "wasm32")]
     fn now() -> u64 {
-        0 as u64
+        // 使用web-sys获取高精度时间戳
+        // 如果不可用则返回Date.now()的毫秒时间戳转换为微秒
+        #[cfg(feature = "web")]
+        {
+            web_sys::window()
+                .and_then(|w| w.performance())
+                .map(|p| (p.now() * 1000.0) as u64)
+                .unwrap_or_else(|| {
+                    js_sys::Date::now() as u64 * 1000
+                })
+        }
+        #[cfg(not(feature = "web"))]
+        {
+            // 对于非web环境的wasm32，返回固定值或使用其他方案
+            0
+        }
     }
 }

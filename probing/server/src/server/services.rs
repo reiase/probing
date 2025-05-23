@@ -121,7 +121,11 @@ pub async fn query(req: String) -> Result<String, AppError> {
         Ok(reply) => reply,
         Err(err) => {
             // Error already logged in handle_query if it originated there
-            QueryDataFormat::Error(err.to_string())
+            QueryDataFormat::Error(QueryError {
+                code: ErrorCode::Internal,
+                message: err.to_string(),
+                details: None,
+            })
         }
     };
 

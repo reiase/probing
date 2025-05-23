@@ -26,13 +26,11 @@ pub fn overview() -> Result<Process> {
         env: current
             .environ()
             .map(|m| {
-                let envs: Vec<String> = m
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy()))
-                    .collect();
-                envs.join("\n")
+                m.iter()
+                    .map(|(k, v)| (k.to_string_lossy().to_string(), v.to_string_lossy().to_string()))
+                    .collect()
             })
-            .unwrap_or("".to_string()),
+            .unwrap_or_default(),
         cmd: current
             .cmdline()
             .map(|cmds| cmds.join(" "))
