@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_meta::Style;
 use thaw::*;
 
-use probing_proto::types::Ele;
+use probing_proto::prelude::Ele;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Table {

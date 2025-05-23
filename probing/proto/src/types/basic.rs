@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
@@ -217,5 +217,21 @@ impl Seq {
             _ => return Err(ProtoError::WrongSequenceType),
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
+pub struct Value {
+    pub id: u64,
+    pub class: String,
+    pub shape: Option<String>,
+    pub dtype: Option<String>,
+    pub device: Option<String>,
+    pub value: Option<String>,
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "value: {:?}", self.value)
     }
 }

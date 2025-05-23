@@ -3,6 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
+use crate::types::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
@@ -57,21 +58,5 @@ impl Display for CallFrame {
                 Ok(())
             }
         }
-    }
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct Value {
-    pub id: u64,
-    pub class: String,
-    pub shape: Option<String>,
-    pub dtype: Option<String>,
-    pub device: Option<String>,
-    pub value: Option<String>,
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "value: {:?}", self.value)
     }
 }

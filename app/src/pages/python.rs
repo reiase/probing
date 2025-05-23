@@ -1,7 +1,8 @@
 use leptos::prelude::*;
-
-use probing_proto::protocol::process::Value;
 use thaw::*;
+
+use probing_proto::prelude::Value;
+
 
 use crate::components::page_layerout::PageLayout;
 use crate::{pages::common::ObjectList, url_read::url_read_resource};

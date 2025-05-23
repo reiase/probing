@@ -26,7 +26,7 @@ use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
 use probing_core::ENGINE;
-use probing_proto::protocol::process::CallFrame;
+use probing_proto::prelude::CallFrame;
 
 use extensions::python::ExternalTable;
 
@@ -111,7 +111,6 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
     }
 }
 
-
 use cpp_demangle::Symbol;
 
 fn get_native_stacks() -> Option<Vec<CallFrame>> {
@@ -131,7 +130,8 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
                 })
                 .unwrap_or(format!("unknown@{:#x}", symbol_address));
 
-            let file = symbol.filename()
+            let file = symbol
+                .filename()
                 .map(|x| x.to_string_lossy().to_string())
                 .unwrap_or_default();
 
@@ -146,7 +146,6 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
     });
     Some(frames)
 }
-
 
 fn merge_python_native_stacks(
     python_stacks: Vec<CallFrame>,

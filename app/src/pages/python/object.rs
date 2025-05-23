@@ -1,8 +1,8 @@
 use leptos::*;
-use probing_proto::protocol::process::Value;
 use thaw::*;
-
 use serde_json;
+
+use probing_proto::prelude::Value;
 
 use crate::pages::common::ObjectKind;
 

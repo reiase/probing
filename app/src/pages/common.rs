@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use leptos::prelude::*;
 use thaw::*;
 
-use probing_proto::{protocol::process::Value};
+use probing_proto::prelude::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectKind {

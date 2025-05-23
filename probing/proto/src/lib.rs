@@ -1,27 +1,23 @@
-use serde::{Deserialize, Serialize};
-
 pub mod protocol;
 pub mod types;
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct DebugState {
-    pub debugger_installed: bool,
-    pub debugger_address: Option<String>,
-}
-
 pub mod prelude {
-    pub use crate::protocol::query::Data as QueryDataFormat;
-    pub use crate::protocol::query::Query;
-    // pub use crate::protocol::query::QueryMessage as QueryMessage;
-    pub use crate::protocol::query::Options as QueryOptions;
-
-    pub use crate::protocol::cluster::Cluster;
-    pub use crate::protocol::cluster::Node;
-
-    pub use crate::protocol::process::Process;
-
-    pub use crate::types::DataFrame;
-
+    // --- Protocol Structures ---
+    pub use crate::protocol::cluster::{Cluster, Node};
     pub use crate::protocol::message::Message;
+    pub use crate::protocol::process::{CallFrame, Process};
+
+    pub use crate::protocol::query::{Data as QueryDataFormat, Options as QueryOptions, Query};
     pub use crate::protocol::version::ProtocolVersion;
+
+    // --- Core Data Types ---
+    pub use crate::types::DataFrame;
+    pub use crate::types::Ele;
+    pub use crate::types::Seq;
+    pub use crate::types::Series;
+    pub use crate::types::TimeSeries;
+    pub use crate::types::Value;
+
+    // --- Error Handling ---
+    pub use crate::types::ProtoError;
 }

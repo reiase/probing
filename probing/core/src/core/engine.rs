@@ -22,7 +22,7 @@ use futures;
 
 use super::extension::EngineExtension;
 use super::extension::EngineExtensionManager;
-use probing_proto::types::Seq;
+use probing_proto::prelude::Seq;
 
 /// Defines the types of plugins supported by the Probing query engine.
 /// These plugin types determine how data sources are registered with the engine.
