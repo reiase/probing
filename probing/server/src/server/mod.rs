@@ -181,16 +181,16 @@ pub fn sync_env_settings() {
             // components managed by the runtime, it's safer to run it within
             // the runtime's context. If handle_query becomes async, add .await
             match handle_query(Query {
-                expr: setting.clone(),
+                expr: setting,
                 opts: None,
             })
             .await
             {
                 Ok(_) => {
-                    log::debug!("Synced env setting: {}", setting);
+                    log::debug!("Synced env setting: {}", k);
                 }
                 Err(err) => {
-                    error!("Failed to sync env settings: {setting}, {err}");
+                    error!("Failed to sync env settings: set {}={}, {err}", k, v);
                 }
             };
         }

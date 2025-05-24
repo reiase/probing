@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProcessInfo {
     pub pid: i32,
     pub ppid: i32,
@@ -289,16 +289,5 @@ fn format_process(info: &ProcessInfo, verbose: bool) -> String {
         )
     } else {
         format!("{}: {}", info.pid, info.cmd)
-    }
-}
-
-impl Clone for ProcessInfo {
-    fn clone(&self) -> Self {
-        ProcessInfo {
-            pid: self.pid,
-            ppid: self.ppid,
-            cmd: self.cmd.clone(),
-            socket_name: self.socket_name.clone(),
-        }
     }
 }

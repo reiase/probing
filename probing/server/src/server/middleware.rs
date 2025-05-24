@@ -88,8 +88,8 @@ pub async fn request_logging_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    let method = request.method().clone();
-    let uri = request.uri().clone();
+    let method = request.method().to_string();
+    let uri = request.uri().to_string();
     let start = std::time::Instant::now();
 
     log::debug!("Incoming request: {} {}", method, uri);

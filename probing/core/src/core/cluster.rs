@@ -50,8 +50,7 @@ where
 
 pub static CLUSTER: LazyLock<RwLock<Cluster>> = LazyLock::new(|| RwLock::new(Cluster::default()));
 
-pub fn update_node(node: Node) {
-    let mut node = node.clone();
+pub fn update_node(mut node: Node) {
     node.timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()

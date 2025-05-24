@@ -36,23 +36,25 @@ impl Default for ServerExtension {
 
 impl ServerExtension {
     fn set_address(&mut self, address: Maybe<String>) -> Result<(), EngineError> {
-        self.address = address.clone();
-        let address: String = address.clone().into();
-        address.parse::<std::net::SocketAddr>().map_err(|_| {
-            EngineError::InvalidOptionValue("server.address".to_string(), address.to_string())
+        let address_string: String = address.clone().into();
+        address_string.parse::<std::net::SocketAddr>().map_err(|_| {
+            EngineError::InvalidOptionValue("server.address".to_string(), address_string.clone())
         })?;
-        start_remote(address.into());
+        self.address = address;
+        start_remote(address_string.into());
         Ok(())
     }
 
     fn set_unix_socket(&mut self, unix_socket: Maybe<String>) -> Result<(), EngineError> {
-        self.unix_socket = unix_socket.clone();
+        self.unix_socket = unix_socket;
         Ok(())
     }
 
     fn set_report_addr(&mut self, report_addr: Maybe<String>) -> Result<(), EngineError> {
-        self.report_addr = report_addr.clone();
-        start_report_worker(self.report_addr.clone().into(), self.address.clone().into());
+        let report_addr_str: String = report_addr.clone().into();
+        let address_str: String = self.address.clone().into();
+        start_report_worker(report_addr_str, address_str);
+        self.report_addr = report_addr;
         Ok(())
     }
 }
