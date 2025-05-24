@@ -7,7 +7,8 @@ use log::error;
 use once_cell::sync::Lazy;
 
 use probing_proto::prelude::Query;
-use services::{handle_query, index, initialize_engine, query, static_files};
+use services::{handle_query, initialize_engine, query};
+use crate::asset::{index, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")

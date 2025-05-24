@@ -91,7 +91,7 @@ fn get_token_from_request(headers: &HeaderMap) -> Option<String> {
 fn unauthorized_response() -> Response {
     let realm = format!("Basic realm=\"{}\"", AUTH_REALM.as_str());
     
-    let mut response = (
+    let response = (
         StatusCode::UNAUTHORIZED,
         [
             (header::WWW_AUTHENTICATE, HeaderValue::from_str(&realm).unwrap()),

@@ -1,14 +1,9 @@
 use anyhow::Result;
-use axum::http::header;
 use axum::http::StatusCode;
-use axum::http::Uri;
-use axum::response::AppendHeaders;
 use axum::response::IntoResponse;
 use axum::response::Response;
 
 use probing_proto::prelude::*;
-
-use crate::asset;
 
 pub use probing_core::ENGINE;
 
@@ -137,35 +132,6 @@ pub async fn query(req: String) -> Result<String, AppError> {
         log::error!("Failed to serialize query response: {}", e);
         anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to AppError
     })
-}
-
-pub async fn index() -> impl IntoResponse {
-    (
-        AppendHeaders([("Content-Type", "text/html")]),
-        asset::get("/index.html"),
-    )
-}
-
-pub async fn static_files(filename: Uri) -> Result<impl IntoResponse, StatusCode> {
-    let filename = filename.path();
-    if !asset::contains(filename) {
-        return Err(StatusCode::NOT_FOUND);
-    }
-    log::debug!("serving file: {}", filename);
-    Ok((
-        [(
-            header::CONTENT_TYPE,
-            match &filename {
-                p if p.ends_with(".html") => "text/html",
-                p if p.ends_with(".js") => "application/javascript",
-                p if p.ends_with(".css") => "text/css",
-                p if p.ends_with(".svg") => "image/svg+xml",
-                p if p.ends_with(".wasm") => "application/wasm",
-                _ => "text/html",
-            },
-        )],
-        asset::get(filename),
-    ))
 }
 
 // Make our own error that wraps `anyhow::Error`.
