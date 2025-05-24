@@ -1,8 +1,10 @@
 mod apis;
 pub mod cluster;
+pub mod config;
 pub mod error;
 pub mod extension_handler;
 pub mod file_api;
+pub mod middleware;
 pub mod profiling;
 pub mod system;
 
@@ -15,7 +17,8 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use probing_proto::prelude::Query;
 use crate::asset::{index, static_files};
-use crate::engine_handler::{handle_query, initialize_engine};
+use crate::engine::{handle_query, initialize_engine};
+use middleware::{request_size_limit_middleware, request_logging_middleware};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -48,7 +51,11 @@ fn build_app() -> axum::Router {
         .route("/profiler", axum::routing::get(index))
         .route("/query", axum::routing::post(query))
         .nest_service("/apis", apis_route())
-        .fallback(static_files);
+        .fallback(static_files)
+        // Apply request size limiting middleware
+        .layer(axum::middleware::from_fn(request_size_limit_middleware))
+        // Apply request logging middleware (optional, for debugging)
+        .layer(axum::middleware::from_fn(request_logging_middleware));
 
     // Apply authentication middleware if auth token is configured
     if crate::auth::is_auth_required() {
@@ -60,7 +67,7 @@ fn build_app() -> axum::Router {
 
 /// HTTP handler wrapper for query endpoint
 async fn query(body: String) -> impl IntoResponse {
-    match crate::engine_handler::query(body).await {
+    match crate::engine::query(body).await {
         Ok(response) => (StatusCode::OK, response).into_response(),
         Err(api_error) => api_error.into_response(),
     }
