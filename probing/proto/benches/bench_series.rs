@@ -4,7 +4,7 @@ use arrow::array::Int64Array;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use probing_proto::types::{Seq, Series};
+use probing_proto::prelude::{Seq, Series};
 
 fn vec_append(n: u64) -> u64 {
     let mut vec = Vec::new();

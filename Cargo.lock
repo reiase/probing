@@ -213,7 +213,7 @@ dependencies = [
  "arrow-schema",
  "arrow-select",
  "atoi",
- "base64",
+ "base64 0.22.1",
  "chrono",
  "comfy-table",
  "half",
@@ -453,6 +453,12 @@ dependencies = [
  "rustc-demangle",
  "windows-targets",
 ]
+
+[[package]]
+name = "base64"
+version = "0.21.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "base64"
@@ -991,7 +997,7 @@ dependencies = [
  "ahash",
  "arrow",
  "arrow-ipc",
- "base64",
+ "base64 0.22.1",
  "half",
  "hashbrown 0.14.5",
  "indexmap 2.9.0",
@@ -1159,7 +1165,7 @@ checksum = "2ddf0a0a2db5d2918349c978d42d80926c6aa2459cd8a3c533a84ec4bb63479e"
 dependencies = [
  "arrow",
  "arrow-buffer",
- "base64",
+ "base64 0.22.1",
  "chrono",
  "datafusion-common",
  "datafusion-doc",
@@ -2955,10 +2961,12 @@ dependencies = [
  "arrow",
  "chrono",
  "criterion",
+ "js-sys",
  "pco",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
+ "web-sys",
 ]
 
 [[package]]
@@ -2993,6 +3001,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
+ "base64 0.21.7",
  "bytes",
  "http-body-util",
  "include_dir",
@@ -3925,7 +3934,7 @@ version = "3.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7a3e9af6113ecd57b8c63d3cd76a385b2e3881365f1f489e54f49801d0c83ea"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "cookie_store",
  "log",
  "percent-encoding",
@@ -3941,7 +3950,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fadf18427d33828c311234884b7ba2afb57143e6e7e69fda7ee883b624661e36"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "http",
  "httparse",
  "log",

@@ -15,8 +15,7 @@ use tabled::settings::{
     Alignment, Settings, Style, Width,
 };
 
-use probing_proto::types::DataFrame;
-use probing_proto::types::Ele;
+use probing_proto::prelude::{DataFrame, Ele};
 
 pub struct Table {
     data: VecRecords<Text<String>>,

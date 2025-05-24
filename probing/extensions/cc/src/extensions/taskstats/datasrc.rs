@@ -16,7 +16,8 @@ use probing_core::core::{
     NamespacePluginHelper, RecordBatch, Schema, SchemaRef, StringArray,
 };
 
-use probing_proto::types::{self, Ele, TimeSeries};
+use probing_proto::prelude::{Ele, TimeSeries};
+use probing_proto::types; // Keep this for types::EleType
 
 #[allow(unused)]
 #[derive(Error, Debug)]

@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use thaw::*;
 
-use probing_proto::protocol::process::CallFrame;
+use probing_proto::prelude::CallFrame;
 
 use crate::components::page_layerout::PageLayout;
 use crate::url_read::url_read_resource;

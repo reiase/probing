@@ -1,13 +1,24 @@
 mod apis;
-mod services;
+pub mod cluster;
+pub mod config;
+pub mod error;
+pub mod extension_handler;
+pub mod file_api;
+pub mod middleware;
+pub mod profiling;
+pub mod system;
 
 use anyhow::Result;
 use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
+use crate::asset::{index, static_files};
+use crate::engine::{handle_query, initialize_engine};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use middleware::{request_logging_middleware, request_size_limit_middleware};
 use probing_proto::prelude::Query;
-use services::{handle_query, index, initialize_engine, query, static_files};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -29,7 +40,7 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
 });
 
 fn build_app() -> axum::Router {
-    axum::Router::new()
+    let mut app = axum::Router::new()
         .route("/", axum::routing::get(index))
         .route("/overview", axum::routing::get(index))
         .route("/cluster", axum::routing::get(index))
@@ -41,12 +52,41 @@ fn build_app() -> axum::Router {
         .route("/query", axum::routing::post(query))
         .nest_service("/apis", apis_route())
         .fallback(static_files)
+        // Apply request size limiting middleware
+        .layer(axum::middleware::from_fn(request_size_limit_middleware))
+        // Apply request logging middleware (optional, for debugging)
+        .layer(axum::middleware::from_fn(request_logging_middleware));
+
+    // Apply authentication middleware if auth token is configured
+    if crate::auth::is_auth_required() {
+        app = app.layer(axum::middleware::from_fn(
+            crate::auth::selective_auth_middleware,
+        ));
+    }
+
+    app
+}
+
+/// HTTP handler wrapper for query endpoint
+async fn query(body: String) -> impl IntoResponse {
+    match crate::engine::query(body).await {
+        Ok(response) => (StatusCode::OK, response).into_response(),
+        Err(api_error) => api_error.into_response(),
+    }
 }
 
 pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
     eprintln!("Starting local server at {}", socket_path);
+
+    // Log authentication status
+    if crate::auth::is_auth_required() {
+        log::info!("Authentication is enabled. API endpoints will require a token.");
+    } else {
+        log::info!("Authentication is disabled. All endpoints are publicly accessible.");
+    }
+
     let app = build_app();
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
     Ok(())
@@ -69,6 +109,13 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
     log::info!("Starting probe server at {}", addr);
 
+    // Log authentication status
+    if crate::auth::is_auth_required() {
+        log::info!("Authentication is enabled. API endpoints will require a token.");
+    } else {
+        log::info!("Authentication is disabled. All endpoints are publicly accessible.");
+    }
+
     let app = build_app();
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
@@ -81,8 +128,16 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
             use std::io::Write;
             let mut stderr = std::io::stderr().lock(); // 获取锁
 
-            let _ = writeln!(stderr, "{}", Red.bold().paint("probing server is available on:"));
-            let _ = writeln!(stderr,"\t{}", Green.bold().underline().paint(addr.to_string()));
+            let _ = writeln!(
+                stderr,
+                "{}",
+                Red.bold().paint("probing server is available on:")
+            );
+            let _ = writeln!(
+                stderr,
+                "\t{}",
+                Green.bold().underline().paint(addr.to_string())
+            );
         }
         Err(err) => {
             eprintln!(
@@ -113,6 +168,7 @@ pub fn sync_env_settings() {
                     "PROBING_LOGLEVEL",
                     "PROBING_ASSETS_ROOT",
                     "PROBING_SERVER_ADDRPATTERN",
+                    "PROBING_AUTH_TOKEN", // Skip syncing the auth token for security reasons
                 ]
                 .contains(&k.as_str())
         })
@@ -127,16 +183,16 @@ pub fn sync_env_settings() {
             // components managed by the runtime, it's safer to run it within
             // the runtime's context. If handle_query becomes async, add .await
             match handle_query(Query {
-                expr: setting.clone(),
+                expr: setting,
                 opts: None,
             })
             .await
             {
                 Ok(_) => {
-                    log::debug!("Synced env setting: {}", setting);
+                    log::debug!("Synced env setting: {}", k);
                 }
                 Err(err) => {
-                    error!("Failed to sync env settings: {setting}, {err}");
+                    error!("Failed to sync env settings: set {}={}, {err}", k, v);
                 }
             };
         }

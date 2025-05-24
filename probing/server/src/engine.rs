@@ -1,14 +1,8 @@
-use anyhow::Result;
-use axum::http::header;
-use axum::http::StatusCode;
-use axum::http::Uri;
-use axum::response::AppendHeaders;
-use axum::response::IntoResponse;
-use axum::response::Response;
-
+use anyhow::{self, Result};
+use log;
 use probing_proto::prelude::*;
 
-use crate::asset;
+use crate::server::error::ApiResult;
 
 pub use probing_core::ENGINE;
 
@@ -106,7 +100,8 @@ pub async fn handle_query(request: Query) -> Result<QueryDataFormat> {
     }
 }
 
-pub async fn query(req: String) -> Result<String, AppError> {
+// 处理Web API查询请求
+pub async fn query(req: String) -> ApiResult<String> {
     let request = serde_json::from_str::<Message<Query>>(&req);
     let request = match request {
         Ok(request) => request.payload,
@@ -121,7 +116,11 @@ pub async fn query(req: String) -> Result<String, AppError> {
         Ok(reply) => reply,
         Err(err) => {
             // Error already logged in handle_query if it originated there
-            QueryDataFormat::Error(err.to_string())
+            QueryDataFormat::Error(QueryError {
+                code: ErrorCode::Internal,
+                message: err.to_string(),
+                details: None,
+            })
         }
     };
 
@@ -131,60 +130,6 @@ pub async fn query(req: String) -> Result<String, AppError> {
     // Serialize the response message
     serde_json::to_string(&reply_message).map_err(|e| {
         log::error!("Failed to serialize query response: {}", e);
-        anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to AppError
+        anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to ApiError
     })
-}
-
-pub async fn index() -> impl IntoResponse {
-    (
-        AppendHeaders([("Content-Type", "text/html")]),
-        asset::get("/index.html"),
-    )
-}
-
-pub async fn static_files(filename: Uri) -> Result<impl IntoResponse, StatusCode> {
-    let filename = filename.path();
-    if !asset::contains(filename) {
-        return Err(StatusCode::NOT_FOUND);
-    }
-    log::debug!("serving file: {}", filename);
-    Ok((
-        [(
-            header::CONTENT_TYPE,
-            match &filename {
-                p if p.ends_with(".html") => "text/html",
-                p if p.ends_with(".js") => "application/javascript",
-                p if p.ends_with(".css") => "text/css",
-                p if p.ends_with(".svg") => "image/svg+xml",
-                p if p.ends_with(".wasm") => "application/wasm",
-                _ => "text/html",
-            },
-        )],
-        asset::get(filename),
-    ))
-}
-
-// Make our own error that wraps `anyhow::Error`.
-pub struct AppError(anyhow::Error);
-
-// Tell axum how to convert `AppError` into a response.
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
-
-// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
-// `Result<_, AppError>`. That way you don't need to do that manually.
-impl<E> From<E> for AppError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
 }

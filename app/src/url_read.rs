@@ -1,7 +1,6 @@
 use gloo_net::http::Request;
 use leptos::prelude::*;
-use probing_proto::prelude::{Message, Query, QueryDataFormat};
-use probing_proto::types::DataFrame;
+use probing_proto::prelude::{Message, Query, QueryDataFormat, DataFrame};
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 

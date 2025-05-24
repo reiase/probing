@@ -273,7 +273,7 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
 
 use crate::CALLSTACKS;
 use anyhow::Result;
-use probing_proto::protocol::process::CallFrame;
+use probing_proto::prelude::CallFrame;
 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     {

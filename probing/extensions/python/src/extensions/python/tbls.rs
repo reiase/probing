@@ -10,8 +10,8 @@ use probing_core::core::{
     RecordBatch, Schema, SchemaRef, StringArray,
 };
 use probing_core::core::{Float32Array, Int32Array, LazyTableSource};
-use probing_proto::types::Ele;
-use probing_proto::types::{self, TimeSeries};
+use probing_proto::prelude::{Ele, TimeSeries};
+use probing_proto::types; // Keep this for types::EleType
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyDict;
 use pyo3::types::PyDictMethods;
