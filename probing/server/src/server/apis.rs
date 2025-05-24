@@ -13,7 +13,7 @@ use probing_core::core::EngineExtensionManager;
 use probing_proto::prelude::*;
 use probing_python::{flamegraph::flamegraph, pprof::PPROF_HOLDER};
 
-use crate::server::services::ENGINE;
+use crate::engine_handler::ENGINE;
 
 pub fn overview() -> Result<Process> {
     let current = procfs::process::Process::myself()?;
