@@ -4,7 +4,6 @@ use probing_proto::prelude::*;
 
 use crate::server::error::ApiResult;
 
-// 导出 ENGINE 供其他模块使用
 pub use probing_core::ENGINE;
 
 pub async fn initialize_engine() -> Result<()> {
