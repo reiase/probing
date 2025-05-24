@@ -44,7 +44,7 @@ fn build_app() -> axum::Router {
 
     // Apply authentication middleware if auth token is configured
     if crate::auth::is_auth_required() {
-        app = app.layer(axum::middleware::from_fn(crate::auth::auth_middleware));
+        app = app.layer(axum::middleware::from_fn(crate::auth::selective_auth_middleware));
     }
     
     app
