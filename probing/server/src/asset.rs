@@ -49,10 +49,7 @@ fn get_content_type(path: &str) -> &'static str {
 
 /// Handler for index page
 pub async fn index() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/html")],
-        get("/index.html"),
-    )
+    ([(header::CONTENT_TYPE, "text/html")], get("/index.html"))
 }
 
 /// Handler for serving static files
@@ -61,10 +58,7 @@ pub async fn static_files(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
     if !contains(path) {
         return Err(StatusCode::NOT_FOUND);
     }
-    
+
     log::debug!("serving file: {}", path);
-    Ok((
-        [(header::CONTENT_TYPE, get_content_type(path))],
-        get(path),
-    ))
+    Ok(([(header::CONTENT_TYPE, get_content_type(path))], get(path)))
 }

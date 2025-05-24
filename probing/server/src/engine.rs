@@ -133,5 +133,3 @@ pub async fn query(req: String) -> ApiResult<String> {
         anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to ApiError
     })
 }
-
-

@@ -1,6 +1,4 @@
-use axum::{
-    response::{AppendHeaders, IntoResponse},
-};
+use axum::response::{AppendHeaders, IntoResponse};
 use probing_python::{flamegraph::flamegraph, pprof::PPROF_HOLDER};
 
 use super::error::ApiResult;

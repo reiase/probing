@@ -8,8 +8,8 @@ use http_body_util::BodyExt;
 
 use probing_core::core::EngineExtensionManager;
 
-use crate::engine::ENGINE;
 use super::error::ApiResult;
+use crate::engine::ENGINE;
 
 /// Handle extension API calls
 pub async fn handle_extension_call(req: axum::extract::Request) -> ApiResult<Response> {
@@ -18,7 +18,7 @@ pub async fn handle_extension_call(req: axum::extract::Request) -> ApiResult<Res
     let params_str = parts.uri.query().unwrap_or_default();
     let params: HashMap<String, String> =
         serde_urlencoded::from_str(params_str).unwrap_or_default();
-    
+
     // Body size is already limited by middleware, so we can safely collect it
     let body_bytes = body.collect().await?.to_bytes();
 
@@ -37,7 +37,7 @@ pub async fn handle_extension_call(req: axum::extract::Request) -> ApiResult<Res
         .options()
         .extensions
         .get::<EngineExtensionManager>();
-    
+
     if let Some(eem) = eem {
         match eem.call(path, &params, &body_bytes) {
             Ok(response) => {

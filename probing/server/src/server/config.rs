@@ -12,9 +12,7 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Allowed base directories for file access
 pub const ALLOWED_FILE_DIRS: &[&str] = &[
-    "./logs",
-    "./data", 
-    "./config",
+    "./logs", "./data", "./config",
     // Add more allowed directories as needed
 ];
 

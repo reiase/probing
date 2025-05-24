@@ -13,12 +13,12 @@ use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use probing_proto::prelude::Query;
 use crate::asset::{index, static_files};
 use crate::engine::{handle_query, initialize_engine};
-use middleware::{request_size_limit_middleware, request_logging_middleware};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use middleware::{request_logging_middleware, request_size_limit_middleware};
+use probing_proto::prelude::Query;
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -59,9 +59,11 @@ fn build_app() -> axum::Router {
 
     // Apply authentication middleware if auth token is configured
     if crate::auth::is_auth_required() {
-        app = app.layer(axum::middleware::from_fn(crate::auth::selective_auth_middleware));
+        app = app.layer(axum::middleware::from_fn(
+            crate::auth::selective_auth_middleware,
+        ));
     }
-    
+
     app
 }
 
@@ -77,14 +79,14 @@ pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
     eprintln!("Starting local server at {}", socket_path);
-    
+
     // Log authentication status
     if crate::auth::is_auth_required() {
         log::info!("Authentication is enabled. API endpoints will require a token.");
     } else {
         log::info!("Authentication is disabled. All endpoints are publicly accessible.");
     }
-    
+
     let app = build_app();
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
     Ok(())
@@ -106,7 +108,7 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
 
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
     log::info!("Starting probe server at {}", addr);
-    
+
     // Log authentication status
     if crate::auth::is_auth_required() {
         log::info!("Authentication is enabled. API endpoints will require a token.");

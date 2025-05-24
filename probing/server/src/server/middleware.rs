@@ -1,3 +1,4 @@
+use super::config::get_max_request_body_size;
 use axum::{
     body::Body,
     extract::Request,
@@ -5,9 +6,8 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use http_body_util::BodyExt;
 use bytes::Bytes;
-use super::config::get_max_request_body_size;
+use http_body_util::BodyExt;
 
 /// Middleware to limit request body size
 pub async fn request_size_limit_middleware(
@@ -15,7 +15,7 @@ pub async fn request_size_limit_middleware(
     next: Next,
 ) -> Result<Response, Response> {
     let max_size = get_max_request_body_size();
-    
+
     // Get the content-length header if present
     let content_length = request
         .headers()
@@ -42,7 +42,7 @@ pub async fn request_size_limit_middleware(
     // For requests without content-length or with acceptable content-length,
     // we need to check the actual body size
     let (parts, body) = request.into_parts();
-    
+
     // Collect body with size limit
     let body_bytes = match collect_body_with_limit(body, max_size).await {
         Ok(bytes) => bytes,
@@ -65,29 +65,22 @@ pub async fn request_size_limit_middleware(
 }
 
 /// Collect body bytes with a size limit using BodyExt::collect()
-async fn collect_body_with_limit(
-    body: Body,
-    limit: usize,
-) -> Result<Bytes, &'static str> {
+async fn collect_body_with_limit(body: Body, limit: usize) -> Result<Bytes, &'static str> {
     // Use BodyExt::collect() which is already available
-    let collected = body.collect().await
-        .map_err(|_| "Failed to collect body")?;
-    
+    let collected = body.collect().await.map_err(|_| "Failed to collect body")?;
+
     let bytes = collected.to_bytes();
-    
+
     // Check size limit
     if bytes.len() > limit {
         return Err("Request body size limit exceeded");
     }
-    
+
     Ok(bytes)
 }
 
 /// Middleware for logging requests (optional - for debugging)
-pub async fn request_logging_middleware(
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn request_logging_middleware(request: Request, next: Next) -> Response {
     let method = request.method().to_string();
     let uri = request.uri().to_string();
     let start = std::time::Instant::now();
