@@ -1,6 +1,8 @@
 use anyhow::Result;
 use probing_proto::prelude::*;
 
+use super::error::ApiResult;
+
 /// Get system overview information about the current process
 pub fn get_overview() -> Result<Process> {
     let current = procfs::process::Process::myself()?;
@@ -44,4 +46,10 @@ pub fn get_overview() -> Result<Process> {
             .unwrap_or_default(),
     };
     Ok(info)
+}
+
+/// Get system overview information and return as JSON string for API
+pub async fn get_overview_json() -> ApiResult<String> {
+    let overview = get_overview()?;
+    Ok(serde_json::to_string(&overview)?)
 }

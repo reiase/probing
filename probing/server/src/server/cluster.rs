@@ -3,8 +3,8 @@ use probing_proto::prelude::*;
 
 use super::error::ApiResult;
 
-/// Update a node in the cluster
-pub async fn put_node(node: Node) -> ApiResult<()> {
+/// Update a node in the cluster (HTTP handler)
+pub async fn put_node(axum::Json(node): axum::Json<Node>) -> ApiResult<()> {
     update_node(node);
     Ok(())
 }
