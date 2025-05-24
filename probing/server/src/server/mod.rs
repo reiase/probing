@@ -1,14 +1,22 @@
 mod apis;
+pub mod cluster;
+pub mod error;
+pub mod extension_handler;
+pub mod file_api;
+pub mod profiling;
 mod services;
+pub mod system;
 
 use anyhow::Result;
 use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use probing_proto::prelude::Query;
 use crate::asset::{index, static_files};
-use crate::engine_handler::{handle_query, initialize_engine, query};
+use crate::engine_handler::{handle_query, initialize_engine};
 
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
@@ -49,6 +57,14 @@ fn build_app() -> axum::Router {
     }
     
     app
+}
+
+/// HTTP handler wrapper for query endpoint
+async fn query(body: String) -> impl IntoResponse {
+    match crate::engine_handler::query(body).await {
+        Ok(response) => (StatusCode::OK, response).into_response(),
+        Err(api_error) => api_error.into_response(),
+    }
 }
 
 pub async fn local_server() -> Result<()> {

@@ -1,8 +1,8 @@
 use anyhow::{self, Result};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
 use log;
 use probing_proto::prelude::*;
+
+use crate::server::error::ApiResult;
 
 // 导出 ENGINE 供其他模块使用
 pub use probing_core::ENGINE;
@@ -102,7 +102,7 @@ pub async fn handle_query(request: Query) -> Result<QueryDataFormat> {
 }
 
 // 处理Web API查询请求
-pub async fn query(req: String) -> Result<String, AppError> {
+pub async fn query(req: String) -> ApiResult<String> {
     let request = serde_json::from_str::<Message<Query>>(&req);
     let request = match request {
         Ok(request) => request.payload,
@@ -131,31 +131,8 @@ pub async fn query(req: String) -> Result<String, AppError> {
     // Serialize the response message
     serde_json::to_string(&reply_message).map_err(|e| {
         log::error!("Failed to serialize query response: {}", e);
-        anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to AppError
+        anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to ApiError
     })
 }
 
-// Make our own error that wraps `anyhow::Error`.
-pub struct AppError(anyhow::Error);
 
-// Tell axum how to convert `AppError` into a response.
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
-
-// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
-// `Result<_, AppError>`. That way you don't need to do that manually.
-impl<E> From<E> for AppError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
