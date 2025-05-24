@@ -4,7 +4,6 @@ pub mod error;
 pub mod extension_handler;
 pub mod file_api;
 pub mod profiling;
-mod services;
 pub mod system;
 
 use anyhow::Result;

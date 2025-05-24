@@ -48,8 +48,8 @@ pub fn get_overview() -> Result<Process> {
     Ok(info)
 }
 
-/// Get system overview information and return as JSON string for API
-pub async fn get_overview_json() -> ApiResult<String> {
+/// Get system overview information as JSON for API
+pub async fn get_overview_json() -> ApiResult<axum::Json<Process>> {
     let overview = get_overview()?;
-    Ok(serde_json::to_string(&overview)?)
+    Ok(axum::Json(overview))
 }
