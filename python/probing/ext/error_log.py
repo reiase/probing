@@ -24,3 +24,4 @@ def init():
        
 
     sys.excepthook = global_exception_hook
+    print("==========================error_log.init() done!============================", flush=True)
