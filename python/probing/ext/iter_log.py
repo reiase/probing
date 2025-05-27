@@ -13,7 +13,7 @@ class IterOutputTrace:
 def init():
     from megatron.training import training
     from megatron.training.training import num_floating_point_operations
-    # from megatron.core.num_microbatches_calculator import get_num_microbatches
+    from megatron.core.num_microbatches_calculator import get_num_microbatches
     from megatron.training.global_vars import get_args, get_timers, _GLOBAL_NUM_MICROBATCHES_CALCULATOR
 
     # 保存原始的 training_log 函数
@@ -43,7 +43,7 @@ def init():
             total_iterations = current_advanced_iters + current_skipped_iters
             print(f"total_iterations: {total_iterations}", flush=True)
             if total_iterations > 0:
-                batch_size = args.micro_batch_size * args.data_parallel_size * _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()          
+                batch_size = args.micro_batch_size * args.data_parallel_size * get_num_microbatches()          
                 elapsed_time = timers('interval-time').elapsed(reset=False, barrier=True)
                 elapsed_time_per_iteration = elapsed_time / total_iterations
 

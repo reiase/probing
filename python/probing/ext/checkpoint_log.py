@@ -34,5 +34,6 @@ def init():
         result = _original_log(self, names, rank, normalizer, reset, barrier)        
         return result
     Timers.log = new_log
-    
+
+    print("==========================CheckpointLog init done!============================", flush=True)
 
