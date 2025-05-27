@@ -13,7 +13,7 @@ mod datasrc;
 #[derive(Debug, Default, EngineExtension)]
 pub struct TaskStatsExtension {
     /// Task statistics collection interval in milliseconds (0 to disable)
-    #[option(name = "taskstats.interval", aliases=["taskstats_interval"])]
+    #[option(aliases=["taskstats_interval"])]
     task_stats_interval: Maybe<i64>,
 }
 

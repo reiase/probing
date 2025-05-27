@@ -10,7 +10,7 @@ use super::python::execute_python_code;
 #[derive(Debug, Default, EngineExtension)]
 pub struct TorchExtension {
     /// PyTorch profiler mode to be used, "ordered:1.0" by default.
-    #[option(name = "torch.profiling_mode", aliases=["torch_profiling_mode"])]
+    #[option()]
     profiling_mode: Maybe<String>,
 }
 

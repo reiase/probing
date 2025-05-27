@@ -7,28 +7,28 @@ use crate::{start_remote, start_report_worker};
 #[derive(Debug, EngineExtension)]
 pub struct ServerExtension {
     /// Server bind address (e.g. 127.0.0.1:8080)
-    #[option(name = "address", aliases=["addr"])]
+    #[option(aliases=["addr"])]
     address: Maybe<String>,
 
     /// Unix domain socket path (e.g. /tmp/probing/<pid>)
     /// This option is readonly.
-    #[option(name = "unix_socket", aliases=["unixsocket"])]
+    #[option(aliases=["unixsocket"])]
     unix_socket: Maybe<String>,
 
     /// Report server address (e.g. 127.0.0.1:9922)
-    #[option(name = "report_addr", aliases=["report.addr"])]
+    #[option(aliases=["report.addr"])]
     report_addr: Maybe<String>,
 
     /// Authentication token for the server
-    #[option(name = "auth_token", aliases=["auth.token"])]
+    #[option(aliases=["auth.token"])]
     auth_token: Maybe<String>,
 
     /// Maximum number of connections allowed
-    #[option(name = "max_connections", aliases=["max_conns"])]
+    #[option(aliases=["max_conns"])]
     max_connections: Maybe<u32>,
 
     /// Connection timeout in seconds
-    #[option(name = "timeout", aliases=["conn_timeout"])]
+    #[option(aliases=["conn_timeout"])]
     timeout: Maybe<u64>,
 
     /// Enable debug mode
@@ -36,7 +36,7 @@ pub struct ServerExtension {
     debug: Maybe<bool>,
 
     /// Log level (trace, debug, info, warn, error)
-    #[option(name = "log_level", aliases=["loglevel"])]
+    #[option(aliases=["loglevel"])]
     log_level: Maybe<String>,
 }
 

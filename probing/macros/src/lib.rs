@@ -156,8 +156,8 @@ fn parse_field_metadata(field: &Field) -> OptionMetadata {
 
     for attr in &field.attrs {
         if attr.path().is_ident("option") {
+            metadata.managed = true;
             if let Meta::List(list) = &attr.meta {
-                metadata.managed = true;
                 for nested in list
                     .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
                     .unwrap()
@@ -197,6 +197,9 @@ fn parse_field_metadata(field: &Field) -> OptionMetadata {
                         }
                     }
                 }
+            } else if let Meta::Path(_) = &attr.meta {
+                // Handle #[option] without parameters - just use the field name
+                // No additional processing needed, already marked as managed
             } else {
                 panic!("Invalid attribute format");
             }

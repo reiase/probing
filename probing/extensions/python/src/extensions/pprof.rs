@@ -10,7 +10,7 @@ use crate::pprof::PPROF_HOLDER;
 #[derive(Debug, Default, EngineExtension)]
 pub struct PprofExtension {
     /// CPU profiling sample frequency in Hz (higher values increase overhead)
-    #[option(name = "sample_freq", aliases=["sample.freq"])]
+    #[option(aliases=["sample.freq"])]
     sample_freq: Maybe<i32>,
 }
 

@@ -53,7 +53,7 @@ fn test_macro() {
         managed_field_name2: String,
 
         /// describe managed_field_name3
-        #[option(name = "managed_field_name3")]
+        #[option]
         managed_field_name3: Maybe<String>,
 
         /// this is a unmanaged field

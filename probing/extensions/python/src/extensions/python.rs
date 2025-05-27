@@ -46,19 +46,19 @@ impl Display for PyExtList {
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExt {
     /// Path to Python crash handler script (executed when interpreter crashes)
-    #[option(name = "crash_handler", aliases = ["crash.handler"])]
+    #[option(aliases = ["crash.handler"])]
     crash_handler: Maybe<String>,
 
     /// Path to Python monitoring handler script
-    #[option(name = "monitoring")]
+    #[option()]
     monitoring: Maybe<String>,
 
     /// Enable Python extensions by setting `python.enabled=<extension_statement>`
-    #[option(name = "enabled")]
+    #[option()]
     enabled: PyExtList,
 
     /// Disable Python extension by setting `python.disabled=<extension_statement>`
-    #[option(name = "disabled")]
+    #[option()]
     disabled: Maybe<String>,
 }
 
