@@ -21,6 +21,10 @@ pub fn derive_engine_extension(input: TokenStream) -> TokenStream {
 
 fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let mut namespace = name.to_string();
+    if namespace.ends_with("extension") {
+        namespace = namespace.trim_end_matches("extension").to_string();
+    }
     let fields = match &ast.data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => &fields.named,
@@ -71,8 +75,13 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
     });
 
     let options = field_metadata.iter().map(|meta| {
-        let name = &meta.name;
-        let desc = &meta.description;
+        let name = format!("{}.{}", namespace.to_lowercase(), meta.name); //&meta.name;
+        let desc = format!(
+            "{}.\nENV[PROBING_{}_{}]",
+            meta.description,
+            namespace.to_uppercase(),
+            name.to_string().to_uppercase().replace(".", "_")
+        ); //&meta.description;
         let field_ident = format_ident!("{}", meta.field);
 
         quote! {

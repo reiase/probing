@@ -276,22 +276,34 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 #[derive(Debug, Default)]
 pub struct EngineExtensionManager {
     extensions: BTreeMap<String, Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
-    // extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
 }
 
 impl EngineExtensionManager {
     pub fn register(&mut self, extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>) {
         let name = extension.lock().unwrap().name();
         self.extensions.insert(name, extension);
-        // self.extensions.push(extension);
+    }
+
+    /// Extract namespace from extension name by removing "extension" suffix and converting to lowercase
+    fn extract_namespace(extension_name: &str) -> String {
+        let mut namespace = extension_name.to_lowercase();
+        if namespace.ends_with("extension") {
+            namespace.truncate(namespace.len() - "extension".len());
+        }
+        format!("{}.", namespace)
     }
 
     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
         for extension in self.extensions.values() {
             if let Ok(mut ext) = extension.lock() {
-                match ext.set(key, value) {
+                let namespace = Self::extract_namespace(&ext.name());
+                if !key.starts_with(&namespace) {
+                    continue;
+                }
+                let local_key = key.trim_start_matches(&namespace);
+                match ext.set(local_key, value) {
                     Ok(old) => {
-                        log::info!("setting update [{}]:{key}={value} <= {old}", ext.name());
+                        log::info!("setting update [{}]:{local_key}={value} <= {old}", ext.name());
                         return Ok(());
                     }
                     Err(EngineError::UnsupportedOption(_)) => continue,
@@ -305,8 +317,13 @@ impl EngineExtensionManager {
     pub fn get_option(&self, key: &str) -> Result<String, EngineError> {
         for extension in self.extensions.values() {
             if let Ok(ext) = extension.lock() {
-                if let Ok(value) = ext.get(key) {
-                    log::info!("setting read [{}]:{key}={value}", ext.name());
+                let namespace = Self::extract_namespace(&ext.name());
+                if !key.starts_with(&namespace) {
+                    continue;
+                }
+                let local_key = key.trim_start_matches(&namespace);
+                if let Ok(value) = ext.get(local_key) {
+                    log::info!("setting read [{}]:{local_key}={value}", ext.name());
                     return Ok(value);
                 }
             }
@@ -315,11 +332,11 @@ impl EngineExtensionManager {
     }
 
     pub fn options(&self) -> Vec<EngineExtensionOption> {
-        let mut options = Vec::new();
-        for extension in self.extensions.values() {
-            options.extend(extension.lock().unwrap().options());
-        }
-        options
+        self.extensions
+            .values()
+            .filter_map(|extension| extension.lock().ok())
+            .flat_map(|ext| ext.options())
+            .collect()
     }
 
     pub fn call(
@@ -332,11 +349,14 @@ impl EngineExtensionManager {
             if let Ok(ext) = extension.lock() {
                 let name = ext.name();
                 log::debug!("checking extension [{}]:{}", name, path);
-                if !path.starts_with(format!("/{}/", name).as_str()) {
+                
+                let expected_prefix = format!("/{}/", name);
+                if !path.starts_with(&expected_prefix) {
                     continue;
                 }
-                let path = path.split('/').skip(2).collect::<Vec<&str>>().join("/");
-                match ext.call(path.as_str(), params, body) {
+                
+                let local_path = path[expected_prefix.len()..].to_string();
+                match ext.call(&local_path, params, body) {
                     Ok(value) => return Ok(value),
                     Err(EngineError::UnsupportedCall) => continue,
                     Err(e) => return Err(e),
