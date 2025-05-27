@@ -1,5 +1,5 @@
-pub mod core;
 pub mod config;
+pub mod core;
 
 use self::core::Engine;
 use self::core::EngineBuilder;

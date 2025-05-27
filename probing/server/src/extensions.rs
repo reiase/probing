@@ -62,7 +62,7 @@ impl Default for ServerExtension {
 impl ServerExtension {
     fn set_address(&mut self, address: Maybe<String>) -> Result<(), EngineError> {
         let address_string: String = address.clone().into();
-        
+
         // Validate address format before assignment
         address_string
             .parse::<std::net::SocketAddr>()
@@ -72,7 +72,7 @@ impl ServerExtension {
                     address_string.clone(),
                 )
             })?;
-        
+
         self.address = address;
         start_remote(address_string.into());
         Ok(())

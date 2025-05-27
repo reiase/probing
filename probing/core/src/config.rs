@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::core::{EngineExtensionManager, EngineError};
+use crate::core::{EngineError, EngineExtensionManager};
 use crate::ENGINE;
 
 /// Global configuration management interface that provides unified access
@@ -59,11 +59,16 @@ pub mod config {
     pub async fn set(key: &str, value: &str) -> Result<(), EngineError> {
         let engine_guard = ENGINE.write().await;
         let mut state = engine_guard.context.state();
-        
+
         // Get a mutable reference to the extension manager
-        if let Some(eem) = state.config_mut().options_mut().extensions.get_mut::<EngineExtensionManager>() {
+        if let Some(eem) = state
+            .config_mut()
+            .options_mut()
+            .extensions
+            .get_mut::<EngineExtensionManager>()
+        {
             eem.set_option(key, value)?;
-            
+
             // Note: In a real implementation, we would need to update the engine's configuration
             // For now, we'll just perform the validation and log the change
             log::info!("Configuration would be updated: {} = {}", key, value);
@@ -96,8 +101,13 @@ pub mod config {
     pub async fn get(key: &str) -> Result<String, EngineError> {
         let engine = ENGINE.read().await;
         let state = engine.context.state();
-        
-        if let Some(eem) = state.config().options().extensions.get::<EngineExtensionManager>() {
+
+        if let Some(eem) = state
+            .config()
+            .options()
+            .extensions
+            .get::<EngineExtensionManager>()
+        {
             eem.get_option(key)
         } else {
             Err(EngineError::EngineNotInitialized)
@@ -116,15 +126,20 @@ pub mod config {
     /// ```rust
     /// let options = config::list_options().await;
     /// for option in options {
-    ///     println!("{}: {} ({})", option.key, 
+    ///     println!("{}: {} ({})", option.key,
     ///              option.value.unwrap_or_default(), option.help);
     /// }
     /// ```
     pub async fn list_options() -> Vec<crate::core::EngineExtensionOption> {
         let engine = ENGINE.read().await;
         let state = engine.context.state();
-        
-        if let Some(eem) = state.config().options().extensions.get::<EngineExtensionManager>() {
+
+        if let Some(eem) = state
+            .config()
+            .options()
+            .extensions
+            .get::<EngineExtensionManager>()
+        {
             eem.options()
         } else {
             Vec::new()
@@ -149,13 +164,13 @@ pub mod config {
     pub async fn get_all() -> HashMap<String, String> {
         let mut config_map = HashMap::new();
         let options = list_options().await;
-        
+
         for option in options {
             if let Some(value) = option.value {
                 config_map.insert(option.key, value);
             }
         }
-        
+
         config_map
     }
 
@@ -179,7 +194,12 @@ pub mod config {
     pub async fn is_engine_initialized() -> bool {
         let engine = ENGINE.read().await;
         let state = engine.context.state();
-        state.config().options().extensions.get::<EngineExtensionManager>().is_some()
+        state
+            .config()
+            .options()
+            .extensions
+            .get::<EngineExtensionManager>()
+            .is_some()
     }
 
     /// Make an API call to a specific extension.
@@ -209,8 +229,13 @@ pub mod config {
     ) -> Result<Vec<u8>, EngineError> {
         let engine = ENGINE.read().await;
         let state = engine.context.state();
-        
-        if let Some(eem) = state.config().options().extensions.get::<EngineExtensionManager>() {
+
+        if let Some(eem) = state
+            .config()
+            .options()
+            .extensions
+            .get::<EngineExtensionManager>()
+        {
             eem.call(path, params, body)
         } else {
             Err(EngineError::EngineNotInitialized)
@@ -262,13 +287,13 @@ pub mod config {
     /// ```
     pub async fn get_multiple(keys: &[&str]) -> HashMap<String, String> {
         let mut result = HashMap::new();
-        
+
         for key in keys {
             if let Ok(value) = get(key).await {
                 result.insert(key.to_string(), value);
             }
         }
-        
+
         result
     }
 }
@@ -360,12 +385,14 @@ pub mod env {
         mappings: &HashMap<String, String>,
     ) -> HashMap<String, bool> {
         let mut results = HashMap::new();
-        
+
         for (env_var, config_key) in mappings {
-            let success = sync_env_to_config(env_var, config_key).await.unwrap_or(false);
+            let success = sync_env_to_config(env_var, config_key)
+                .await
+                .unwrap_or(false);
             results.insert(env_var.clone(), success);
         }
-        
+
         results
     }
 

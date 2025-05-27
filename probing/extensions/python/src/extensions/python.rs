@@ -46,19 +46,19 @@ impl Display for PyExtList {
 #[derive(Debug, Default, EngineExtension)]
 pub struct PythonExt {
     /// Path to Python crash handler script (executed when interpreter crashes)
-    #[option(name="python.crash_handler", aliases=["python.crash.handler"])]
+    #[option(name = "crash_handler", aliases = ["crash.handler"])]
     crash_handler: Maybe<String>,
 
-    /// Path to Python Monitoring Handler
-    #[option(name = "python.monitoring")]
+    /// Path to Python monitoring handler script
+    #[option(name = "monitoring")]
     monitoring: Maybe<String>,
 
-    /// List of enabled Python extensions, enable additional Python extensions by setting `python.enabled=<extension_statement>`
-    #[option(name = "python.enabled")]
+    /// Enable Python extensions by setting `python.enabled=<extension_statement>`
+    #[option(name = "enabled")]
     enabled: PyExtList,
 
     /// Disable Python extension by setting `python.disabled=<extension_statement>`
-    #[option(name = "python.disabled")]
+    #[option(name = "disabled")]
     disabled: Maybe<String>,
 }
 
@@ -70,10 +70,10 @@ impl EngineCall for PythonExt {
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
         log::debug!(
-            "Engine Extension Call[PythonExt]: path = {}, params = {:?}, body = {:?}",
+            "Python extension call - path: {}, params: {:?}, body_size: {}",
             path,
             params,
-            body
+            body.len()
         );
         if path == "callstack" {
             let frames = if params.contains_key("tid") {
@@ -83,21 +83,21 @@ impl EngineCall for PythonExt {
                 backtrace(None)
             }
             .map_err(|e| {
-                log::error!("error getting call stack: {}", e);
-                EngineError::PluginError(format!("error getting call stack: {}", e))
+                log::error!("Failed to get call stack: {}", e);
+                EngineError::PluginError(format!("Failed to get call stack: {}", e))
             })?;
             return serde_json::to_vec(&frames).map_err(|e| {
-                log::error!("error serializing call stack: {}", e);
-                EngineError::PluginError(format!("error serializing call stack: {}", e))
+                log::error!("Failed to serialize call stack: {}", e);
+                EngineError::PluginError(format!("Failed to serialize call stack: {}", e))
             });
         }
         if path == "eval" {
             let code = String::from_utf8(body.to_vec()).map_err(|e| {
-                log::error!("error converting body to string: {}", e);
-                EngineError::PluginError(format!("error converting body to string: {}", e))
+                log::error!("Failed to convert body to UTF-8 string: {}", e);
+                EngineError::PluginError(format!("Failed to convert body to UTF-8 string: {}", e))
             })?;
 
-            log::debug!("PythonExt::call: eval code = {}", code);
+            log::debug!("Python eval code: {}", code);
 
             let mut repl = PythonRepl::default();
             return Ok(repl.process(code.as_str()).unwrap_or_default().into_bytes());
@@ -125,22 +125,28 @@ impl PythonExt {
     fn set_crash_handler(&mut self, crash_handler: Maybe<String>) -> Result<(), EngineError> {
         match self.crash_handler {
             Maybe::Just(_) => Err(EngineError::ReadOnlyOption(
-                "python.crash_handler".to_string(),
+                Self::OPTION_CRASH_HANDLER.to_string(),
             )),
             Maybe::Nothing => match &crash_handler {
                 Maybe::Nothing => Err(EngineError::InvalidOptionValue(
-                    "python.crash_handler".to_string(),
+                    Self::OPTION_CRASH_HANDLER.to_string(),
                     crash_handler.clone().into(),
                 )),
                 Maybe::Just(handler) => {
                     self.crash_handler = crash_handler.clone();
                     CRASH_HANDLER.lock().unwrap().replace(handler.to_string());
                     match enable_crash_handler() {
-                        Ok(_) => Ok(()),
-                        Err(_) => Err(EngineError::InvalidOptionValue(
-                            "python.crash_handler".to_string(),
-                            handler.to_string(),
-                        )),
+                        Ok(_) => {
+                            log::info!("Python crash handler enabled: {}", handler);
+                            Ok(())
+                        }
+                        Err(e) => {
+                            log::error!("Failed to enable crash handler '{}': {}", handler, e);
+                            Err(EngineError::InvalidOptionValue(
+                                Self::OPTION_CRASH_HANDLER.to_string(),
+                                handler.to_string(),
+                            ))
+                        }
                     }
                 }
             },
@@ -149,22 +155,30 @@ impl PythonExt {
 
     /// Set up Python monitoring
     fn set_monitoring(&mut self, monitoring: Maybe<String>) -> Result<(), EngineError> {
-        log::debug!("setting python.monitoring = {}", monitoring);
+        log::debug!("Setting Python monitoring: {}", monitoring);
         match self.monitoring {
-            Maybe::Just(_) => Err(EngineError::ReadOnlyOption("python.monitoring".to_string())),
+            Maybe::Just(_) => Err(EngineError::ReadOnlyOption(
+                Self::OPTION_MONITORING.to_string(),
+            )),
             Maybe::Nothing => match &monitoring {
                 Maybe::Nothing => Err(EngineError::InvalidOptionValue(
-                    "python.monitoring".to_string(),
+                    Self::OPTION_MONITORING.to_string(),
                     monitoring.clone().into(),
                 )),
                 Maybe::Just(handler) => {
                     self.monitoring = monitoring.clone();
                     match enable_monitoring(handler) {
-                        Ok(_) => Ok(()),
-                        Err(_) => Err(EngineError::InvalidOptionValue(
-                            "python.monitoring".to_string(),
-                            handler.to_string(),
-                        )),
+                        Ok(_) => {
+                            log::info!("Python monitoring enabled: {}", handler);
+                            Ok(())
+                        }
+                        Err(e) => {
+                            log::error!("Failed to enable monitoring '{}': {}", handler, e);
+                            Err(EngineError::InvalidOptionValue(
+                                Self::OPTION_MONITORING.to_string(),
+                                handler.to_string(),
+                            ))
+                        }
                     }
                 }
             },
@@ -177,7 +191,7 @@ impl PythonExt {
         let ext = match &enabled {
             Maybe::Nothing => {
                 return Err(EngineError::InvalidOptionValue(
-                    "python.enabled".to_string(),
+                    Self::OPTION_ENABLED.to_string(),
                     enabled.clone().into(),
                 ));
             }
@@ -187,18 +201,19 @@ impl PythonExt {
         // Check if extension is already loaded
         if self.enabled.0.contains_key(ext) {
             return Err(EngineError::PluginError(format!(
-                "Python extension {} already loaded",
+                "Python extension '{}' is already enabled",
                 ext
             )));
         }
 
         // Execute Python code and get the extension object
         let pyext = execute_python_code(ext)
-            .map_err(|e| EngineError::InvalidOptionValue("python.enabled".to_string(), e))?;
+            .map_err(|e| EngineError::InvalidOptionValue(Self::OPTION_ENABLED.to_string(), e))?;
 
         // Store the extension
         self.enabled.0.insert(ext.clone(), pyext);
-        log::debug!("setting python.enabled = {}", self.enabled);
+        log::info!("Python extension enabled: {}", ext);
+        log::debug!("Current enabled extensions: {}", self.enabled);
 
         Ok(())
     }
@@ -209,7 +224,7 @@ impl PythonExt {
         let ext = match &disabled {
             Maybe::Nothing => {
                 return Err(EngineError::InvalidOptionValue(
-                    "python.disabled".to_string(),
+                    Self::OPTION_DISABLED.to_string(),
                     disabled.clone().into(),
                 ));
             }
@@ -218,20 +233,28 @@ impl PythonExt {
 
         // Remove extension if it exists
         if let Some(pyext) = self.enabled.0.remove(ext) {
-            log::debug!("removing python extension {}", ext);
+            log::info!("Disabling Python extension: {}", ext);
 
             // Call deinit method on extension object
             Python::with_gil(|py| {
                 // Call the Python object's deinit method
                 match pyext.call_method0(py, "deinit") {
-                    Ok(_) => Ok(()),
+                    Ok(_) => {
+                        log::debug!("Extension '{}' deinitialized successfully", ext);
+                        Ok(())
+                    }
                     Err(e) => {
-                        let error_msg = format!("error calling `deinit` method: {}", e);
+                        let error_msg = format!("Failed to call deinit method on '{}': {}", ext, e);
+                        log::error!("{}", error_msg);
                         Err(EngineError::PluginError(error_msg))
                     }
                 }
             })
         } else {
+            log::debug!(
+                "Python extension '{}' was not enabled, nothing to disable",
+                ext
+            );
             // Extension wasn't found, not an error
             Ok(())
         }
@@ -266,7 +289,7 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
             .call_method0("init")
             .map_err(|e| format!("Error calling `init` method: {}", e))?;
 
-        log::info!("Successfully loaded Python plugin: {}", code);
+        log::info!("Python extension loaded successfully: {}", code);
         Ok(result.unbind())
     })
 }
@@ -282,13 +305,13 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     let tid = tid.unwrap_or(std::process::id() as i32);
     nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2).map_err(
         |e| {
-            log::error!("error sending signal to process {}: {}", tid, e);
-            anyhow::anyhow!("error sending signal to process {}: {}", tid, e)
+            log::error!("Failed to send SIGUSR2 signal to process {}: {}", tid, e);
+            anyhow::anyhow!("Failed to send signal to process {}: {}", tid, e)
         },
     )?;
     std::thread::sleep(std::time::Duration::from_secs(1));
     match CALLSTACKS.lock().unwrap().take() {
         Some(frames) => Ok(frames),
-        None => Err(anyhow::anyhow!("no call stack")),
+        None => Err(anyhow::anyhow!("No call stack available")),
     }
 }

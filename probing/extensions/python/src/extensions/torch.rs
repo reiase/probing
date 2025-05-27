@@ -22,7 +22,7 @@ impl TorchExtension {
     fn set_profiling_mode(&mut self, profiling_mode: Maybe<String>) -> Result<(), EngineError> {
         match profiling_mode {
             Maybe::Nothing => Err(EngineError::InvalidOptionValue(
-                "torch.profiling_mode".to_string(),
+                Self::OPTION_PROFILING_MODE.to_string(),
                 profiling_mode.clone().into(),
             )),
             Maybe::Just(ref mode) => {
@@ -35,7 +35,7 @@ impl TorchExtension {
                         Ok(())
                     }
                     Err(_) => Err(EngineError::InvalidOptionValue(
-                        "torch.profiling_mode".to_string(),
+                        Self::OPTION_PROFILING_MODE.to_string(),
                         profiling_mode.clone().into(),
                     )),
                 }

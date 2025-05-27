@@ -93,6 +93,16 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
         }
     });
 
+    // Generate option name constants for consistent usage
+    let option_constants = field_metadata.iter().map(|meta| {
+        let const_name = format_ident!("OPTION_{}", meta.field.to_uppercase());
+        let option_name = format!("{}.{}", namespace.to_lowercase(), meta.name);
+
+        quote! {
+            pub const #const_name: &'static str = #option_name;
+        }
+    });
+
     let expanded = quote! {
         impl EngineExtension for #name {
             fn name(&self) -> String {
@@ -122,6 +132,11 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
             // fn datasrc(&self, namespace: &str, name: Option<&str>) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
             //     self.plugin(namespace, name)
             // }
+        }
+
+        // Auto-generated option name constants to ensure naming consistency
+        impl #name {
+            #(#option_constants)*
         }
     };
 

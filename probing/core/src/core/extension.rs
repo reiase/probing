@@ -303,7 +303,10 @@ impl EngineExtensionManager {
                 let local_key = key.trim_start_matches(&namespace);
                 match ext.set(local_key, value) {
                     Ok(old) => {
-                        log::info!("setting update [{}]:{local_key}={value} <= {old}", ext.name());
+                        log::info!(
+                            "setting update [{}]:{local_key}={value} <= {old}",
+                            ext.name()
+                        );
                         return Ok(());
                     }
                     Err(EngineError::UnsupportedOption(_)) => continue,
@@ -349,12 +352,12 @@ impl EngineExtensionManager {
             if let Ok(ext) = extension.lock() {
                 let name = ext.name();
                 log::debug!("checking extension [{}]:{}", name, path);
-                
+
                 let expected_prefix = format!("/{}/", name);
                 if !path.starts_with(&expected_prefix) {
                     continue;
                 }
-                
+
                 let local_path = path[expected_prefix.len()..].to_string();
                 match ext.call(&local_path, params, body) {
                     Ok(value) => return Ok(value),
