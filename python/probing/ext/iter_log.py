@@ -26,12 +26,21 @@ def init():
         # 获取必要的参数
         args = get_args()
         timers = get_timers()
+        advanced_iters_key = 'advanced iterations'
+        skipped_iters_key = 'skipped iterations'
+        nan_iters_key = 'nan iterations'
+        
+        # 计算当前迭代后的值（模拟原函数的逻辑）
+        current_advanced_iters = total_loss_dict.get(advanced_iters_key, 0)
+        current_skipped_iters = total_loss_dict.get(skipped_iters_key, 0)
+        
+        # 更新计数（模拟原函数会做的事情）
+        if not skipped_iter:
+            current_advanced_iters += 1
+        current_skipped_iters += skipped_iter
         if iteration % args.log_interval == 0:
             # 计算总迭代数
-            advanced_iters_key = 'advanced iterations'
-            skipped_iters_key = 'skipped iterations'
-            total_iterations = total_loss_dict.get(advanced_iters_key, 0) + \
-                            total_loss_dict.get(skipped_iters_key, 0)
+            total_iterations = current_advanced_iters + current_skipped_iters
             print(f"total_iterations: {total_iterations}", flush=True)
             if total_iterations > 0:
                 batch_size = args.micro_batch_size * args.data_parallel_size * _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()          
