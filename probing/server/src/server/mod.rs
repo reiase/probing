@@ -39,7 +39,7 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
         .unwrap()
 });
 
-fn build_app() -> axum::Router {
+fn build_app(auth: bool) -> axum::Router {
     let mut app = axum::Router::new()
         .route("/", axum::routing::get(index))
         .route("/overview", axum::routing::get(index))
@@ -58,7 +58,7 @@ fn build_app() -> axum::Router {
         .layer(axum::middleware::from_fn(request_logging_middleware));
 
     // Apply authentication middleware if auth token is configured
-    if crate::auth::is_auth_required() {
+    if auth {
         app = app.layer(axum::middleware::from_fn(
             crate::auth::selective_auth_middleware,
         ));
@@ -80,14 +80,7 @@ pub async fn local_server() -> Result<()> {
 
     eprintln!("Starting local server at {}", socket_path);
 
-    // Log authentication status
-    if crate::auth::is_auth_required() {
-        log::info!("Authentication is enabled. API endpoints will require a token.");
-    } else {
-        log::info!("Authentication is disabled. All endpoints are publicly accessible.");
-    }
-
-    let app = build_app();
+    let app = build_app(false);
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
     Ok(())
 }
@@ -109,14 +102,7 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
     log::info!("Starting probe server at {}", addr);
 
-    // Log authentication status
-    if crate::auth::is_auth_required() {
-        log::info!("Authentication is enabled. API endpoints will require a token.");
-    } else {
-        log::info!("Authentication is disabled. All endpoints are publicly accessible.");
-    }
-
-    let app = build_app();
+    let app = build_app(true);
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     match listener.local_addr() {

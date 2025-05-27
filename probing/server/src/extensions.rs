@@ -19,6 +19,10 @@ pub struct ServerExtension {
     #[option(name = "server.report_addr", aliases=["server_report_addr", "server.report.addr"])]
     report_addr: Maybe<String>,
 
+    /// Authentication token for the server
+    #[option(name = "server.auth_token", aliases=["server_auth_token", "server.auth.token"])]
+    auth_token: Maybe<String>,
+
     /// Maximum number of connections allowed
     #[option(name = "server.max_connections", aliases=["server_max_connections", "server.max_conns"])]
     max_connections: Maybe<u32>,
@@ -46,6 +50,7 @@ impl Default for ServerExtension {
             address: Maybe::Nothing,
             unix_socket: Maybe::Nothing,
             report_addr: Maybe::Nothing,
+            auth_token: Maybe::Nothing,
             max_connections: Maybe::Just(20), // Default to 100 connections
             timeout: Maybe::Just(30),         // Default timeout of 30 seconds
             debug: Maybe::Just(false),        // Debug mode off by default
@@ -80,6 +85,11 @@ impl ServerExtension {
         let address_str: String = self.address.clone().into();
         start_report_worker(report_addr_str, address_str);
         self.report_addr = report_addr;
+        Ok(())
+    }
+
+    fn set_auth_token(&mut self, auth_token: Maybe<String>) -> Result<(), EngineError> {
+        self.auth_token = auth_token;
         Ok(())
     }
 
