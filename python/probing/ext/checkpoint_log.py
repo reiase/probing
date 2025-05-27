@@ -18,9 +18,6 @@ def init():
         return
     _original_log = Timers.log
     def new_log(self, names, rank=None, normalizer=1.0, reset=True, barrier=False):
-
-        
-        
         for timer_name in ['save-checkpoint','save-checkpoint-non-persistent', 'load-checkpoint']:
             timer = self._timers.get(timer_name)
             if timer is not None:
