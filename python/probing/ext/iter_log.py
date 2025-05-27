@@ -23,7 +23,7 @@ def init():
                         loss_scale, report_memory_flag, skipped_iter,
                         grad_norm, params_norm, num_zeros_in_grad):
         from megatron.training.global_vars import _GLOBAL_NUM_MICROBATCHES_CALCULATOR
-        print(f"iteration: {iteration}", flush=True)
+        # print(f"iteration: {iteration}", flush=True)
         # 获取必要的参数
         args = get_args()
         timers = get_timers()
@@ -42,7 +42,7 @@ def init():
         if iteration % args.log_interval == 0:
             # 计算总迭代数
             total_iterations = current_advanced_iters + current_skipped_iters
-            print(f"total_iterations: {total_iterations}", flush=True)
+            # print(f"total_iterations: {total_iterations}", flush=True)
             if total_iterations > 0:
                 batch_size = args.micro_batch_size * args.data_parallel_size * _GLOBAL_NUM_MICROBATCHES_CALCULATOR.get()          
                 elapsed_time = timers('interval-time').elapsed(reset=False, barrier=True)
@@ -51,7 +51,7 @@ def init():
                 # 计算 throughput (TFLOP/s/GPU)
                 throughput = num_floating_point_operations(args, batch_size) / (
                     elapsed_time_per_iteration * 10**12 * args.world_size)
-                print(f"throughput: {throughput}", flush=True)
+                # print(f"throughput: {throughput}", flush=True)
                 # 创建并保存 IterOutputTrace
                 IterOutputTrace(
                     iteration=iteration,
