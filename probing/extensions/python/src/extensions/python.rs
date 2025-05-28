@@ -337,7 +337,7 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
         libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2)
     };
     if ret != 0 {
-        log::error!("Failed to send SIGUSR2 to process {pid}(tid {:?})", tid);
+        log::error!("Failed to send SIGUSR2 to process {} (tid: {:?})", pid, tid);
 
         return Err(anyhow::anyhow!(
             "Failed to send signal to process {pid}(tid {:?})",
