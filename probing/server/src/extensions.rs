@@ -38,6 +38,10 @@ pub struct ServerExtension {
     /// Log level (trace, debug, info, warn, error)
     #[option(aliases=["loglevel"])]
     log_level: Maybe<String>,
+
+    /// Root path for assets used by the probing UI dashboard
+    #[option(aliases=["assets.root"])]
+    assets_root: Maybe<String>,
 }
 
 impl EngineCall for ServerExtension {}
@@ -55,6 +59,7 @@ impl Default for ServerExtension {
             timeout: Maybe::Just(30),         // Default timeout of 30 seconds
             debug: Maybe::Just(false),        // Debug mode off by default
             log_level: Maybe::Just("info".to_string()), // Default log level
+            assets_root: Maybe::Nothing,
         }
     }
 }
@@ -137,6 +142,11 @@ impl ServerExtension {
         }
     }
 
+    fn set_assets_root(&mut self, assets_root: Maybe<String>) -> Result<(), EngineError> {
+        self.assets_root = assets_root;
+        Ok(())
+    }
+
     // Public getters for Config integration
     pub fn get_address(&self) -> &Maybe<String> {
         &self.address
@@ -164,6 +174,10 @@ impl ServerExtension {
 
     pub fn get_log_level(&self) -> &Maybe<String> {
         &self.log_level
+    }
+
+    pub fn get_assets_root(&self) -> &Maybe<String> {
+        &self.assets_root
     }
 }
 

@@ -85,28 +85,26 @@ impl Settings {
             cfg.push_str(&format!("set probing={};", probing_mode));
         }
         if let Some(log_level) = &self.loglevel {
-            cfg.push_str(&format!("set log_level={};", log_level));
+            cfg.push_str(&format!("set server.log_level={};", log_level));
         }
         if let Some(assets_root) = &self.assets_root {
-            cfg.push_str(&format!("set assets_root={};", assets_root));
+            cfg.push_str(&format!("set server.assets_root={};", assets_root));
         }
         if let Some(server_port) = &self.server_port {
-            cfg.push_str(&format!("set server_port={};", server_port));
+            // Convert port to full address format
+            cfg.push_str(&format!("set server.address=0.0.0.0:{};", server_port));
         }
         if let Some(torch_profiling_mode) = &self.torch_profiling_mode {
             cfg.push_str(&format!(
-                "set torch_profiling_mode={};",
+                "set torch.profiling_mode={};",
                 torch_profiling_mode
             ));
         }
         if let Some(torch_sample_rate) = &self.torch_sample_rate {
-            cfg.push_str(&format!("set torch_sample_rate={};", torch_sample_rate));
+            cfg.push_str(&format!("set torch.sample_rate={};", torch_sample_rate));
         }
         if let Some(torch_watch_variables) = &self.torch_watch_vars {
-            cfg.push_str(&format!(
-                "set torch_watch_variables={};",
-                torch_watch_variables
-            ));
+            cfg.push_str(&format!("set torch.watch_vars={};", torch_watch_variables));
         }
 
         if cfg.is_empty() {

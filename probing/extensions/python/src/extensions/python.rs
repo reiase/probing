@@ -1,15 +1,25 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::mpsc;
+use std::time::Duration;
 
-pub use exttbls::ExternalTable;
+use anyhow::Result;
+use async_trait::async_trait;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+use nix::libc;
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+use probing_proto::prelude::CallFrame;
 use pyo3::types::PyAnyMethods;
 use pyo3::Python;
+
+pub use exttbls::ExternalTable;
 pub use tbls::PythonPlugin;
 
 use crate::flamegraph;
@@ -18,6 +28,10 @@ use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
+use crate::CALLSTACK_SENDER_SLOT;
+
+/// Define a static Mutex for the backtrace function
+static BACKTRACE_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 mod exttbls;
 mod tbls;
 
@@ -62,8 +76,9 @@ pub struct PythonExt {
     disabled: Maybe<String>,
 }
 
+#[async_trait]
 impl EngineCall for PythonExt {
-    fn call(
+    async fn call(
         &self,
         path: &str,
         params: &HashMap<String, String>,
@@ -294,24 +309,56 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
     })
 }
 
-use crate::CALLSTACKS;
-use anyhow::Result;
-use probing_proto::prelude::CallFrame;
-
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
-    {
-        CALLSTACKS.lock().unwrap().take();
+    // Acquire the lock at the beginning of the function
+    let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
+        log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
+        anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
+    })?;
+
+    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+    match CALLSTACK_SENDER_SLOT.try_lock() {
+        Ok(mut sender_slot) => sender_slot.replace(tx),
+        Err(err) => {
+            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
+            return Err(anyhow::anyhow!("Failed to lock call stack sender slot"));
+        }
+    };
+
+    let pid = tid
+        .map(|t| nix::unistd::Pid::from_raw(t))
+        .unwrap_or_else(|| nix::unistd::getpid());
+
+    let ret = unsafe {
+        let pid = libc::getpid();
+        let tid = tid.unwrap_or_else(|| libc::getpid());
+        log::debug!("Sending SIGUSR2 signal to process {} (tid: {:?})", pid, tid);
+
+        libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2)
+    };
+    if ret != 0 {
+        log::error!("Failed to send SIGUSR2 to process {} (tid: {:?})", pid, tid);
+
+        return Err(anyhow::anyhow!(
+            "Failed to send signal to process {pid}(tid {:?})",
+            tid
+        ));
     }
-    let tid = tid.unwrap_or(std::process::id() as i32);
-    nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2).map_err(
-        |e| {
-            log::error!("Failed to send SIGUSR2 signal to process {}: {}", tid, e);
-            anyhow::anyhow!("Failed to send signal to process {}: {}", tid, e)
-        },
-    )?;
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    match CALLSTACKS.lock().unwrap().take() {
-        Some(frames) => Ok(frames),
-        None => Err(anyhow::anyhow!("No call stack available")),
-    }
+
+    let frames_result = match rx.recv_timeout(Duration::from_secs(5)) {
+        // Increased timeout slightly
+        Ok(frames) => Ok(frames),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            log::warn!("Timeout waiting for call stack from signal handler after SIGUSR2");
+            Err(anyhow::anyhow!("No call stack received: timeout"))
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            log::error!("Call stack channel disconnected. Signal handler might have failed or sender was not properly used.");
+            Err(anyhow::anyhow!(
+                "No call stack received: channel disconnected"
+            ))
+        }
+    };
+
+    frames_result
 }

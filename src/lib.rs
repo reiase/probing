@@ -11,6 +11,11 @@ const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
 const DEFAULT_PORT: u16 = 9700;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 pub fn get_hostname() -> Result<String> {
     let ips = nix::ifaddrs::getifaddrs()?
         .filter_map(|addr| addr.address)
