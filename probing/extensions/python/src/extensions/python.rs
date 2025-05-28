@@ -300,15 +300,27 @@ use probing_proto::prelude::CallFrame;
 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     {
-        CALLSTACKS.lock().unwrap().take();
+        // CALLSTACKS.lock().unwrap().take();
+        match CALLSTACKS.lock() {
+            Ok(mut callstacks) => {
+                let frames = callstacks.take();
+                log::debug!(
+                    "call stack cleared, {} frames in total",
+                    frames.unwrap_or_default().len()
+                );
+            }
+            Err(err) => log::error!("Failed to lock CALLSTACKS mutex: {}", err),
+        }
     }
-    let tid = tid.unwrap_or(std::process::id() as i32);
-    nix::sys::signal::kill(nix::unistd::Pid::from_raw(tid), nix::sys::signal::SIGUSR2).map_err(
-        |e| {
-            log::error!("Failed to send SIGUSR2 signal to process {}: {}", tid, e);
-            anyhow::anyhow!("Failed to send signal to process {}: {}", tid, e)
-        },
-    )?;
+    // let tid = tid.unwrap_or(std::process::id() as i32);
+    let pid = tid
+        .map(|t| nix::unistd::Pid::from_raw(t))
+        .unwrap_or_else(|| nix::unistd::getpid());
+    log::debug!("Sending SIGUSR2 signal to process {} (tid: {:?})", pid, tid);
+    nix::sys::signal::kill(pid, nix::sys::signal::SIGUSR2).map_err(|e| {
+        log::error!("Failed to send SIGUSR2 to process {pid}(tid {:?}):{e}", tid);
+        anyhow::anyhow!("Failed to send signal to process {pid}(tid {:?}):{e}", tid,)
+    })?;
     std::thread::sleep(std::time::Duration::from_secs(1));
     match CALLSTACKS.lock().unwrap().take() {
         Some(frames) => Ok(frames),
