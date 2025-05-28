@@ -5,7 +5,10 @@ use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
+use nix::libc;
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
@@ -27,6 +30,8 @@ use crate::repl::PythonRepl;
 
 use crate::CALLSTACK_SENDER_SLOT;
 
+/// Define a static Mutex for the backtrace function
+static BACKTRACE_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 mod exttbls;
 mod tbls;
 
@@ -305,32 +310,42 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
 }
 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
-    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-    let previous_sender = CALLSTACK_SENDER_SLOT.lock().unwrap().replace(tx);
+    // Acquire the lock at the beginning of the function
+    let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
+        log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
+        anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
+    })?;
 
-    if previous_sender.is_some() {
-        log::warn!("Replaced an existing callstack sender. A previous request might have been interrupted.");
-    }
+    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+    match CALLSTACK_SENDER_SLOT.try_lock() {
+        Ok(mut sender_slot) => sender_slot.replace(tx),
+        Err(err) => {
+            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
+            return Err(anyhow::anyhow!("Failed to lock call stack sender slot"));
+        }
+    };
 
     let pid = tid
         .map(|t| nix::unistd::Pid::from_raw(t))
         .unwrap_or_else(|| nix::unistd::getpid());
 
-    log::debug!("Sending SIGUSR2 signal to process {} (tid: {:?})", pid, tid);
-    if let Err(e) = nix::sys::signal::kill(pid, nix::sys::signal::SIGUSR2) {
-        log::error!(
-            "Failed to send SIGUSR2 to process {pid}(tid {:?}): {e}",
-            tid
-        );
+    let ret = unsafe {
+        let pid = libc::getpid();
+        let tid = tid.unwrap_or_else(|| libc::getpid());
+        log::debug!("Sending SIGUSR2 signal to process {} (tid: {:?})", pid, tid);
 
-        CALLSTACK_SENDER_SLOT.lock().unwrap().take();
+        libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2)
+    };
+    if ret != 0 {
+        log::error!("Failed to send SIGUSR2 to process {pid}(tid {:?})", tid);
+
         return Err(anyhow::anyhow!(
-            "Failed to send signal to process {pid}(tid {:?}): {e}",
+            "Failed to send signal to process {pid}(tid {:?})",
             tid
         ));
     }
 
-    let frames_result = match rx.recv_timeout(Duration::from_secs(2)) {
+    let frames_result = match rx.recv_timeout(Duration::from_secs(5)) {
         // Increased timeout slightly
         Ok(frames) => Ok(frames),
         Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -344,8 +359,6 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
             ))
         }
     };
-
-    CALLSTACK_SENDER_SLOT.lock().unwrap().take();
 
     frames_result
 }

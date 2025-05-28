@@ -82,7 +82,24 @@ retval = json.dumps(stacks)
 "#
 );
 
+unsafe extern "C" {
+    pub unsafe fn PyThreadState_GetFrame(
+        arg1: *mut pyo3::ffi::PyThreadState,
+    ) -> *mut pyo3::ffi::PyFrameObject;
+    pub unsafe fn PyFrame_GetCode(
+        frame: *mut pyo3::ffi::PyFrameObject,
+    ) -> *mut pyo3::ffi::PyCodeObject;
+    pub unsafe fn PyFrame_GetLineNumber(frame: *mut pyo3::ffi::PyFrameObject) -> i32;
+    pub unsafe fn PyFrame_GetBack(
+        frame: *mut pyo3::ffi::PyFrameObject,
+    ) -> *mut pyo3::ffi::PyFrameObject;
+    pub unsafe fn PyFrame_GetLocals(
+        frame: *mut pyo3::ffi::PyFrameObject,
+    ) -> *mut pyo3::ffi::PyObject;
+}
+
 fn get_python_stacks() -> Option<Vec<CallFrame>> {
+    let stat = unsafe { pyo3::ffi::PyGILState_Ensure() };
     let frames = Python::with_gil(|py| {
         let global = PyDict::new(py);
         if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
@@ -105,12 +122,17 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
         }
     });
 
-    if let Some(frames) = frames {
+    let ret = if let Some(frames) = frames {
         serde_json::from_str::<Vec<CallFrame>>(frames.as_str()).ok()
     } else {
         log::error!("Failed to decode Python call stacks");
         None
+    };
+
+    unsafe {
+        pyo3::ffi::PyGILState_Release(stat);
     }
+    ret
 }
 
 use cpp_demangle::Symbol;
@@ -226,12 +248,24 @@ fn merge_python_native_stacks(
 }
 
 pub fn backtrace_signal_handler() {
+    log::debug!("Signal handler: Starting to collect call stacks...");
     let python_stacks = get_python_stacks().unwrap_or_default();
+    log::debug!(
+        "Signal handler: Collected {} Python call stacks",
+        python_stacks.len()
+    );
     let native_stacks = get_native_stacks().unwrap_or_default();
+    log::debug!(
+        "Signal handler: Collected {} native call stacks",
+        native_stacks.len()
+    );
 
     let merged_stacks = merge_python_native_stacks(python_stacks, native_stacks);
-
-    if let Ok(guard) = CALLSTACK_SENDER_SLOT.lock() {
+    log::debug!(
+        "Signal handler: Merged call stacks, total {} frames",
+        merged_stacks.len()
+    );
+    if let Ok(guard) = CALLSTACK_SENDER_SLOT.try_lock() {
         if let Some(sender) = guard.as_ref() {
             if let Err(e) = sender.send(merged_stacks) {
                 error!("Signal handler: Failed to send callstack data: {}", e);
