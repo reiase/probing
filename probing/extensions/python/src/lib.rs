@@ -83,7 +83,6 @@ retval = json.dumps(stacks)
 );
 
 fn get_python_stacks() -> Option<Vec<CallFrame>> {
-    let stat = unsafe { pyo3::ffi::PyGILState_Ensure() };
     let frames = Python::with_gil(|py| {
         let global = PyDict::new(py);
         if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
@@ -106,17 +105,12 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
         }
     });
 
-    let ret = if let Some(frames) = frames {
+    if let Some(frames) = frames {
         serde_json::from_str::<Vec<CallFrame>>(frames.as_str()).ok()
     } else {
         log::error!("Failed to decode Python call stacks");
         None
-    };
-
-    unsafe {
-        pyo3::ffi::PyGILState_Release(stat);
     }
-    ret
 }
 
 use cpp_demangle::Symbol;
@@ -231,34 +225,41 @@ fn merge_python_native_stacks(
     merged
 }
 
-pub fn backtrace_signal_handler() {
-    log::debug!("Signal handler: Starting to collect call stacks...");
+extern "C" fn py_pending_call_wrapper(_arg: *mut std::ffi::c_void) -> i32 {
+    log::debug!("Pending call: Starting to collect call stacks...");
     let python_stacks = get_python_stacks().unwrap_or_default();
     log::debug!(
-        "Signal handler: Collected {} Python call stacks",
+        "Pending call: Collected {} Python call stacks",
         python_stacks.len()
     );
     let native_stacks = get_native_stacks().unwrap_or_default();
     log::debug!(
-        "Signal handler: Collected {} native call stacks",
+        "Pending call: Collected {} native call stacks",
         native_stacks.len()
     );
 
     let merged_stacks = merge_python_native_stacks(python_stacks, native_stacks);
     log::debug!(
-        "Signal handler: Merged call stacks, total {} frames",
+        "Pending call: Merged call stacks, total {} frames",
         merged_stacks.len()
     );
     if let Ok(guard) = CALLSTACK_SENDER_SLOT.try_lock() {
         if let Some(sender) = guard.as_ref() {
             if let Err(e) = sender.send(merged_stacks) {
-                error!("Signal handler: Failed to send callstack data: {}", e);
+                error!("Pending call: Failed to send callstack data: {}", e);
             }
         } else {
-            error!("Signal handler: No active callstack sender found in CALLSTACK_SENDER_SLOT.");
+            error!("Pending call: No active callstack sender found in CALLSTACK_SENDER_SLOT.");
         }
     } else {
-        error!("Signal handler: Failed to lock CALLSTACK_SENDER_SLOT mutex.");
+        error!("Pending call: Failed to lock CALLSTACK_SENDER_SLOT mutex for pending call.");
+    }
+    0 // Return 0 for success, as Py_AddPendingCall expects
+}
+
+pub fn backtrace_signal_handler() {
+    unsafe {
+        pyo3::ffi::Py_AddPendingCall(Some(py_pending_call_wrapper), std::ptr::null_mut());
     }
 }
 
