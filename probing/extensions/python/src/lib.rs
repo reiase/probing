@@ -93,12 +93,12 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
                 if let Some(frames) = frames {
                     frames.extract::<String>().ok()
                 } else {
-                    error!("error extract call stacks");
+                    error!("error extract python call stacks");
                     None
                 }
             }
             Err(err) => {
-                error!("error extract call stacks {}", err);
+                error!("error extract python call stacks {}", err);
                 None
             }
         }
@@ -107,6 +107,7 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
     if let Some(frames) = frames {
         serde_json::from_str::<Vec<CallFrame>>(frames.as_str()).ok()
     } else {
+        log::error!("Failed to decode Python call stacks");
         None
     }
 }
@@ -206,6 +207,7 @@ fn merge_python_native_stacks(
     }
 
     for frame in native_stacks {
+        log::debug!("Processing native frame: {:?}", frame);
         match get_merge_strategy(&frame) {
             MergeType::Ignore => {}
             MergeType::MergeNativeFrame => merged.push(frame),
