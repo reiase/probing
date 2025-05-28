@@ -1,16 +1,22 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::mpsc;
+use std::time::Duration;
 
+use anyhow::Result;
 use async_trait::async_trait;
-pub use exttbls::ExternalTable;
+
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+use probing_proto::prelude::CallFrame;
 use pyo3::types::PyAnyMethods;
 use pyo3::Python;
+
+pub use exttbls::ExternalTable;
 pub use tbls::PythonPlugin;
 
 use crate::flamegraph;
@@ -18,6 +24,8 @@ use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
+
+use crate::CALLSTACK_SENDER_SLOT;
 
 mod exttbls;
 mod tbls;
@@ -296,36 +304,48 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
     })
 }
 
-use crate::CALLSTACKS;
-use anyhow::Result;
-use probing_proto::prelude::CallFrame;
-
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
-    {
-        // CALLSTACKS.lock().unwrap().take();
-        match CALLSTACKS.lock() {
-            Ok(mut callstacks) => {
-                let frames = callstacks.take();
-                log::debug!(
-                    "call stack cleared, {} frames in total",
-                    frames.unwrap_or_default().len()
-                );
-            }
-            Err(err) => log::error!("Failed to lock CALLSTACKS mutex: {}", err),
-        }
+    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+    let previous_sender = CALLSTACK_SENDER_SLOT.lock().unwrap().replace(tx);
+
+    if previous_sender.is_some() {
+        log::warn!("Replaced an existing callstack sender. A previous request might have been interrupted.");
     }
-    // let tid = tid.unwrap_or(std::process::id() as i32);
+
     let pid = tid
         .map(|t| nix::unistd::Pid::from_raw(t))
         .unwrap_or_else(|| nix::unistd::getpid());
+
     log::debug!("Sending SIGUSR2 signal to process {} (tid: {:?})", pid, tid);
-    nix::sys::signal::kill(pid, nix::sys::signal::SIGUSR2).map_err(|e| {
-        log::error!("Failed to send SIGUSR2 to process {pid}(tid {:?}):{e}", tid);
-        anyhow::anyhow!("Failed to send signal to process {pid}(tid {:?}):{e}", tid,)
-    })?;
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    match CALLSTACKS.lock().unwrap().take() {
-        Some(frames) => Ok(frames),
-        None => Err(anyhow::anyhow!("No call stack available")),
+    if let Err(e) = nix::sys::signal::kill(pid, nix::sys::signal::SIGUSR2) {
+        log::error!(
+            "Failed to send SIGUSR2 to process {pid}(tid {:?}): {e}",
+            tid
+        );
+
+        CALLSTACK_SENDER_SLOT.lock().unwrap().take();
+        return Err(anyhow::anyhow!(
+            "Failed to send signal to process {pid}(tid {:?}): {e}",
+            tid
+        ));
     }
+
+    let frames_result = match rx.recv_timeout(Duration::from_secs(2)) {
+        // Increased timeout slightly
+        Ok(frames) => Ok(frames),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            log::warn!("Timeout waiting for call stack from signal handler after SIGUSR2");
+            Err(anyhow::anyhow!("No call stack received: timeout"))
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            log::error!("Call stack channel disconnected. Signal handler might have failed or sender was not properly used.");
+            Err(anyhow::anyhow!(
+                "No call stack received: channel disconnected"
+            ))
+        }
+    };
+
+    CALLSTACK_SENDER_SLOT.lock().unwrap().take();
+
+    frames_result
 }

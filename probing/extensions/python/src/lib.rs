@@ -14,10 +14,12 @@ mod setup;
 
 use std::collections::HashSet;
 use std::ffi::CStr;
+use std::sync::mpsc;
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 use log::error;
+use once_cell::sync::Lazy;
 use pkg::TCPStore;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
@@ -28,7 +30,8 @@ use pyo3::types::PyModuleMethods;
 use probing_core::ENGINE;
 use probing_proto::prelude::CallFrame;
 
-use extensions::python::ExternalTable;
+pub static CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
+    Lazy::new(|| Mutex::new(None));
 
 const DUMP_STACK: &CStr = c_str!(
     r#"
@@ -78,8 +81,6 @@ import json
 retval = json.dumps(stacks)
 "#
 );
-
-pub static CALLSTACKS: Mutex<Option<Vec<CallFrame>>> = Mutex::new(None);
 
 fn get_python_stacks() -> Option<Vec<CallFrame>> {
     let frames = Python::with_gil(|py| {
@@ -229,10 +230,17 @@ pub fn backtrace_signal_handler() {
     let native_stacks = get_native_stacks().unwrap_or_default();
 
     let merged_stacks = merge_python_native_stacks(python_stacks, native_stacks);
-    if let Ok(mut callstacks) = CALLSTACKS.lock() {
-        *callstacks = Some(merged_stacks);
+
+    if let Ok(guard) = CALLSTACK_SENDER_SLOT.lock() {
+        if let Some(sender) = guard.as_ref() {
+            if let Err(e) = sender.send(merged_stacks) {
+                error!("Signal handler: Failed to send callstack data: {}", e);
+            }
+        } else {
+            error!("Signal handler: No active callstack sender found in CALLSTACK_SENDER_SLOT.");
+        }
     } else {
-        error!("Failed to lock CALLSTACKS mutex");
+        error!("Signal handler: Failed to lock CALLSTACK_SENDER_SLOT mutex.");
     }
 }
 
@@ -264,7 +272,7 @@ pub fn create_probing_module() -> PyResult<()> {
             return Ok(());
         }
         m.setattr(pyo3::intern!(py, "_C"), 42)?;
-        m.add_class::<ExternalTable>()?;
+        m.add_class::<crate::extensions::python::ExternalTable>()?;
         m.add_class::<TCPStore>()?;
         m.add_function(wrap_pyfunction!(query_json, py)?)?;
 
