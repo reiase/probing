@@ -31,6 +31,7 @@ nix = { version = "0.30.1", default-features = false, features = [
     "net",
     "feature",
     # "socket",
+    "pthread",
     "term",
     "ioctl",
 ] }
@@ -73,6 +74,7 @@ env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
 ] }
 nix = { workspace = true }
+mimalloc = "0.1.46"
 
 [dev-dependencies]
 # probing-cli = { path = "probing/cli" }

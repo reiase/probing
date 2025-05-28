@@ -2329,6 +2329,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9627da5196e5d8ed0b0495e61e518847578da83483c37288316d9b2e03a7f72"
 
 [[package]]
+name = "libmimalloc-sys"
+version = "0.1.42"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec9d6fac27761dabcd4ee73571cdb06b7022dc99089acbe5435691edffaac0f4"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2423,6 +2433,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "mimalloc"
+version = "0.1.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "995942f432bbb4822a7e9c3faa87a695185b0d09273ba85f097b54f4e458f2af"
+dependencies = [
+ "libmimalloc-sys",
 ]
 
 [[package]]
@@ -2893,6 +2912,7 @@ dependencies = [
  "ctor",
  "env_logger",
  "log",
+ "mimalloc",
  "nix 0.30.1",
  "probing-core",
  "probing-python",

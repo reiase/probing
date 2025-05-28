@@ -82,22 +82,6 @@ retval = json.dumps(stacks)
 "#
 );
 
-unsafe extern "C" {
-    pub unsafe fn PyThreadState_GetFrame(
-        arg1: *mut pyo3::ffi::PyThreadState,
-    ) -> *mut pyo3::ffi::PyFrameObject;
-    pub unsafe fn PyFrame_GetCode(
-        frame: *mut pyo3::ffi::PyFrameObject,
-    ) -> *mut pyo3::ffi::PyCodeObject;
-    pub unsafe fn PyFrame_GetLineNumber(frame: *mut pyo3::ffi::PyFrameObject) -> i32;
-    pub unsafe fn PyFrame_GetBack(
-        frame: *mut pyo3::ffi::PyFrameObject,
-    ) -> *mut pyo3::ffi::PyFrameObject;
-    pub unsafe fn PyFrame_GetLocals(
-        frame: *mut pyo3::ffi::PyFrameObject,
-    ) -> *mut pyo3::ffi::PyObject;
-}
-
 fn get_python_stacks() -> Option<Vec<CallFrame>> {
     let stat = unsafe { pyo3::ffi::PyGILState_Ensure() };
     let frames = Python::with_gil(|py| {
