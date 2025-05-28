@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use async_trait::async_trait;
 pub use exttbls::ExternalTable;
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
@@ -62,8 +63,9 @@ pub struct PythonExt {
     disabled: Maybe<String>,
 }
 
+#[async_trait]
 impl EngineCall for PythonExt {
-    fn call(
+    async fn call(
         &self,
         path: &str,
         params: &HashMap<String, String>,

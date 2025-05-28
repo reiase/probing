@@ -30,6 +30,7 @@ axum = { version = "0.8.1", default-features = false, features = [
     "http1",
     "query",
     "json",
+    "macros",
     "tower-log",
 ] }
 http-body-util = { version = "0.1" }

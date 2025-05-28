@@ -12,6 +12,7 @@ use super::error::ApiResult;
 use crate::engine::ENGINE;
 
 /// Handle extension API calls
+#[axum::debug_handler]
 pub async fn handle_extension_call(req: axum::extract::Request) -> ApiResult<Response> {
     let (parts, body) = req.into_parts();
     let path = parts.uri.path();
@@ -30,16 +31,19 @@ pub async fn handle_extension_call(req: axum::extract::Request) -> ApiResult<Res
         body_bytes.len()
     );
 
-    let engine = ENGINE.write().await;
-    let state = engine.context.state();
-    let eem = state
-        .config()
-        .options()
-        .extensions
-        .get::<EngineExtensionManager>();
+    let eem = {
+        let engine = ENGINE.write().await;
+        let state = engine.context.state();
+        state
+            .config()
+            .options()
+            .extensions
+            .get::<EngineExtensionManager>()
+            .cloned()
+    };
 
     if let Some(eem) = eem {
-        match eem.call(path, &params, &body_bytes) {
+        match eem.call(path, &params, &body_bytes).await {
             Ok(response) => {
                 // If response is a string, return it as plain text
                 return Ok((

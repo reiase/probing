@@ -67,7 +67,7 @@ pub mod config {
             .extensions
             .get_mut::<EngineExtensionManager>()
         {
-            eem.set_option(key, value)?;
+            eem.set_option(key, value).await?;
 
             // Note: In a real implementation, we would need to update the engine's configuration
             // For now, we'll just perform the validation and log the change
@@ -108,7 +108,7 @@ pub mod config {
             .extensions
             .get::<EngineExtensionManager>()
         {
-            eem.get_option(key)
+            eem.get_option(key).await
         } else {
             Err(EngineError::EngineNotInitialized)
         }
@@ -140,7 +140,7 @@ pub mod config {
             .extensions
             .get::<EngineExtensionManager>()
         {
-            eem.options()
+            eem.options().await
         } else {
             Vec::new()
         }
@@ -236,7 +236,7 @@ pub mod config {
             .extensions
             .get::<EngineExtensionManager>()
         {
-            eem.call(path, params, body)
+            eem.call(path, params, body).await
         } else {
             Err(EngineError::EngineNotInitialized)
         }

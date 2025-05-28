@@ -104,10 +104,7 @@ impl Settings {
             cfg.push_str(&format!("set torch.sample_rate={};", torch_sample_rate));
         }
         if let Some(torch_watch_variables) = &self.torch_watch_vars {
-            cfg.push_str(&format!(
-                "set torch.watch_vars={};",
-                torch_watch_variables
-            ));
+            cfg.push_str(&format!("set torch.watch_vars={};", torch_watch_variables));
         }
 
         if cfg.is_empty() {

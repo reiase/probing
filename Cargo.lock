@@ -393,6 +393,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de45108900e1f9b9242f7f2e254aa3e2c029c921c258fe9e6b4217eeebd54288"
 dependencies = [
  "axum-core",
+ "axum-macros",
  "bytes",
  "form_urlencoded",
  "futures-util",
@@ -436,6 +437,17 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "604fde5e028fea851ce1d8570bbdc034bec850d157f7569d10f347d06808c05c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
 ]
 
 [[package]]
@@ -2974,6 +2986,7 @@ name = "probing-python"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "backtrace",
  "cpp_demangle 0.3.5",
  "ctor",
