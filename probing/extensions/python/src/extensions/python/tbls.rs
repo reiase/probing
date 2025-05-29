@@ -39,6 +39,7 @@ impl PythonNamespace {
         let mut funcs: Vec<Option<String>> = Vec::new();
         let mut linenos: Vec<Option<i64>> = Vec::new();
         let mut depth: Vec<Option<i64>> = Vec::new(); // Renamed from depths
+        let mut frame_types: Vec<Option<String>> = Vec::new(); // Added for frame type
         let mut current_depth_val: i64 = 0; // Renamed from current_depth to avoid conflict if depth was a scalar
 
         for frame in frames {
@@ -54,6 +55,7 @@ impl PythonNamespace {
                     funcs.push(Some(func));
                     linenos.push(Some(lineno));
                     depth.push(Some(current_depth_val)); // Use new variable name
+                    frame_types.push(Some("Native".to_string())); // Add frame type
                     current_depth_val += 1;
                 }
                 CallFrame::PyFrame {
@@ -67,6 +69,7 @@ impl PythonNamespace {
                     funcs.push(Some(func));
                     linenos.push(Some(lineno));
                     depth.push(Some(current_depth_val)); // Use new variable name
+                    frame_types.push(Some("Python".to_string())); // Add frame type
                     current_depth_val += 1;
                 }
             }
@@ -78,6 +81,7 @@ impl PythonNamespace {
             Field::new("func", DataType::Utf8, true),
             Field::new("lineno", DataType::Int64, true),
             Field::new("depth", DataType::Int64, true),
+            Field::new("frame_type", DataType::Utf8, true), // Added frame_type field
         ]));
 
         let columns: Vec<ArrayRef> = vec![
@@ -86,6 +90,7 @@ impl PythonNamespace {
             Arc::new(StringArray::from(funcs)),
             Arc::new(Int64Array::from(linenos)),
             Arc::new(Int64Array::from(depth)), // Use new variable name
+            Arc::new(StringArray::from(frame_types)), // Added frame_type array
         ];
 
         Ok(vec![RecordBatch::try_new(schema, columns)?])

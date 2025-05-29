@@ -74,7 +74,7 @@ env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
 ] }
 nix = { workspace = true }
-mimalloc = "0.1.46"
+mimalloc = { version = "0.1.46", optional = true }
 
 [dev-dependencies]
 # probing-cli = { path = "probing/cli" }
@@ -100,3 +100,7 @@ incremental = true
 [profile.dev]
 incremental = true
 debug = 1  # 设置为较小的调试信息，而不是完整信息
+
+[features]
+default = ["use-mimalloc"]
+use-mimalloc = ["dep:mimalloc"]
