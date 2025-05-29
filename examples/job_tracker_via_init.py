@@ -4,7 +4,7 @@ import atexit
 import sys
 
 JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
-JOB_ID = os.getenv('JOB_ID', 'unknown_job') # Use a default if not set
+JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
 
 def start_job_hook():
     """
