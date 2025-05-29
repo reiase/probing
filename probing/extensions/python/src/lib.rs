@@ -230,9 +230,7 @@ fn does_native_stack_contain_python_eval_frames(native_frames: &Vec<CallFrame>) 
     for frame in native_frames {
         if let CallFrame::CFrame { func, .. } = frame {
             // These function names are strong indicators of Python bytecode execution.
-            if func.contains("PyEval_EvalFrameDefault")
-                || func.contains("PyEval_EvalFrameEx")
-            {
+            if func.contains("PyEval_EvalFrameDefault") || func.contains("PyEval_EvalFrameEx") {
                 return true;
             }
         }
