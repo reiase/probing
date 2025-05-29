@@ -25,16 +25,16 @@ async fn report_worker(report_addr: String, local_addr: String) {
 
         let report_addr = format!("http://{}/apis/nodes", report_addr);
         let hostname = get_hostname().unwrap_or("localhost".to_string());
-        let mut address = local_addr.clone();
-        {
+        let address = {
             let probing_address = PROBING_ADDRESS.read().unwrap();
-            let probing_address: String = (*probing_address).clone();
             if !probing_address.is_empty() {
-                address = probing_address;
+                probing_address.clone()
+            } else {
+                local_addr.clone()
             }
-        }
+        };
         let node = Node {
-            host: hostname.clone(),
+            host: hostname,
             addr: address,
             local_rank: get_i32_env("LOCAL_RANK"),
             rank: get_i32_env("RANK"),
@@ -50,14 +50,15 @@ async fn report_worker(report_addr: String, local_addr: String) {
 
         log::debug!("reporting node status to {report_addr}: {:?}", node);
         if node.rank == Some(0) {
-            probing_core::core::cluster::update_node(node.clone());
+            probing_core::core::cluster::update_node(node);
         } else {
-            match request_remote(&report_addr, node.clone()).await {
+            let node_display = format!("{}", node);
+            match request_remote(&report_addr, node).await {
                 Ok(reply) => {
                     log::debug!("node status reported to {report_addr}: {:?}", reply);
                 }
                 Err(err) => {
-                    log::error!("failed to report {node} to {report_addr}, {err}");
+                    log::error!("failed to report {node_display} to {report_addr}, {err}");
                 }
             }
         }

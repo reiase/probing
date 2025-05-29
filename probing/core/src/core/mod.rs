@@ -1,7 +1,7 @@
 pub mod cluster;
 mod engine;
 mod error;
-mod extension;
+pub mod extension;
 mod plugin;
 
 pub use engine::Engine;

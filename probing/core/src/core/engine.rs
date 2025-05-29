@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::RwLock;
 
 use arrow::array::Float32Array;
@@ -22,7 +21,7 @@ use futures;
 
 use super::extension::EngineExtension;
 use super::extension::EngineExtensionManager;
-use probing_proto::types::Seq;
+use probing_proto::prelude::Seq;
 
 /// Defines the types of plugins supported by the Probing query engine.
 /// These plugin types determine how data sources are registered with the engine.
@@ -309,7 +308,7 @@ pub struct EngineBuilder {
     config: SessionConfig,
     default_namespace: Option<String>,
     plugins: Vec<Arc<dyn Plugin + Sync + Send>>,
-    extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
+    extensions: HashMap<String, Arc<tokio::sync::Mutex<dyn EngineExtension + Send + Sync>>>,
 }
 
 impl EngineBuilder {
@@ -319,7 +318,7 @@ impl EngineBuilder {
             config: SessionConfig::default(),
             default_namespace: None,
             plugins: Vec::new(),
-            extensions: Vec::new(),
+            extensions: Default::default(),
         }
     }
 
@@ -339,19 +338,21 @@ impl EngineBuilder {
     where
         T: EngineExtension + Send + Sync + 'static,
     {
-        let ext = Arc::new(Mutex::new(ext));
-        if let Some(datasrc) = ext.lock().unwrap().datasrc(namespace, name) {
+        if let Some(datasrc) = ext.datasrc(namespace, name) {
             self.plugins.push(datasrc)
         };
-        self.extensions.push(ext);
+        let name = ext.name();
+        let ext = Arc::new(tokio::sync::Mutex::new(ext));
+
+        self.extensions.insert(name, ext);
         self
     }
 
     // Build the Engine with the specified configurations
     pub fn build(mut self) -> Result<Engine> {
         let mut eem = EngineExtensionManager::default();
-        for extension in self.extensions {
-            eem.register(extension);
+        for (name, extension) in self.extensions.iter() {
+            eem.register(name.clone(), extension.clone());
         }
         self.config.options_mut().extensions.insert(eem);
         if let Some(namespace) = self.default_namespace {

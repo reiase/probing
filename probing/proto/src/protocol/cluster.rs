@@ -47,20 +47,52 @@ impl Display for Node {
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Cluster {
-    pub nodes: HashMap<i32, Node>,
+    pub nodes: HashMap<String, Node>,     // 使用host:addr作为key
+    pub rank_index: HashMap<i32, String>, // rank到节点key的映射
 }
 
 impl Cluster {
     pub fn put(&mut self, node: Node) {
-        self.nodes.insert(node.rank.unwrap_or(-1), node);
+        let key = format!("{}:{}", node.host, node.addr);
+
+        // 如果有rank，维护rank索引
+        if let Some(rank) = node.rank {
+            self.rank_index.insert(rank, key.clone());
+        }
+
+        self.nodes.insert(key, node);
     }
 
     pub fn get(&self, rank: i32) -> Option<&Node> {
-        self.nodes.get(&rank)
+        self.rank_index
+            .get(&rank)
+            .and_then(|key| self.nodes.get(key))
+    }
+
+    pub fn get_by_addr(&self, host: &str, addr: &str) -> Option<&Node> {
+        let key = format!("{}:{}", host, addr);
+        self.nodes.get(&key)
     }
 
     pub fn remove(&mut self, rank: i32) -> Option<Node> {
-        self.nodes.remove(&rank)
+        if let Some(key) = self.rank_index.remove(&rank) {
+            self.nodes.remove(&key)
+        } else {
+            None
+        }
+    }
+
+    pub fn remove_by_addr(&mut self, host: &str, addr: &str) -> Option<Node> {
+        let key = format!("{}:{}", host, addr);
+        if let Some(node) = self.nodes.remove(&key) {
+            // 同时移除rank索引
+            if let Some(rank) = node.rank {
+                self.rank_index.remove(&rank);
+            }
+            Some(node)
+        } else {
+            None
+        }
     }
 
     pub fn list(&self) -> Vec<Node> {

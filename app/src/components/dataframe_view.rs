@@ -2,8 +2,7 @@ use leptos::prelude::*;
 use leptos_chartistry::*;
 use thaw::*;
 
-use probing_proto::types::DataFrame;
-use probing_proto::types::Ele;
+use probing_proto::prelude::{DataFrame, Ele};
 use web_sys::MouseEvent;
 
 #[component]

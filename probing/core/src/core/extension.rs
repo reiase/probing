@@ -4,9 +4,11 @@ use std::convert::Infallible;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use async_trait::async_trait;
 use datafusion::config::{ConfigExtension, ExtensionOptions};
+use tokio::sync::Mutex;
 
 use super::error::EngineError;
 use super::Plugin;
@@ -74,6 +76,7 @@ pub struct EngineExtensionOption {
 
 /// Extension trait for handling API calls
 #[allow(unused)]
+#[async_trait]
 pub trait EngineCall: Debug + Send + Sync {
     /// Handle API calls to the extension
     ///
@@ -85,7 +88,7 @@ pub trait EngineCall: Debug + Send + Sync {
     /// # Returns
     /// * `Ok(Vec<u8>)` - Response data on success
     /// * `Err(EngineError)` - Error information on failure
-    fn call(
+    async fn call(
         &self,
         path: &str,
         params: &HashMap<String, String>,
@@ -273,74 +276,98 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 /// // List all available options
 /// let options = manager.options();
 /// ```
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct EngineExtensionManager {
     extensions: BTreeMap<String, Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
-    // extensions: Vec<Arc<Mutex<dyn EngineExtension + Send + Sync>>>,
 }
 
 impl EngineExtensionManager {
-    pub fn register(&mut self, extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>) {
-        let name = extension.lock().unwrap().name();
+    pub fn register(
+        &mut self,
+        name: String,
+        extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>,
+    ) {
         self.extensions.insert(name, extension);
-        // self.extensions.push(extension);
     }
 
-    pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
+    /// Extract namespace from extension name by removing "extension" suffix and converting to lowercase
+    fn extract_namespace(extension_name: &str) -> String {
+        let mut namespace = extension_name.to_lowercase();
+        if namespace.ends_with("extension") {
+            namespace.truncate(namespace.len() - "extension".len());
+        }
+        format!("{}.", namespace)
+    }
+
+    pub async fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
         for extension in self.extensions.values() {
-            if let Ok(mut ext) = extension.lock() {
-                match ext.set(key, value) {
-                    Ok(old) => {
-                        log::info!("setting update [{}]:{key}={value} <= {old}", ext.name());
-                        return Ok(());
-                    }
-                    Err(EngineError::UnsupportedOption(_)) => continue,
-                    Err(e) => return Err(e),
+            let mut ext = extension.lock().await;
+            let namespace = Self::extract_namespace(&ext.name());
+            if !key.starts_with(&namespace) {
+                continue;
+            }
+            let local_key = key.trim_start_matches(&namespace);
+            match ext.set(local_key, value) {
+                Ok(old) => {
+                    log::info!(
+                        "setting update [{}]:{local_key}={value} <= {old}",
+                        ext.name()
+                    );
+                    return Ok(());
                 }
+                Err(EngineError::UnsupportedOption(_)) => continue,
+                Err(e) => return Err(e),
             }
         }
         Err(EngineError::UnsupportedOption(key.to_string()))
     }
 
-    pub fn get_option(&self, key: &str) -> Result<String, EngineError> {
+    pub async fn get_option(&self, key: &str) -> Result<String, EngineError> {
         for extension in self.extensions.values() {
-            if let Ok(ext) = extension.lock() {
-                if let Ok(value) = ext.get(key) {
-                    log::info!("setting read [{}]:{key}={value}", ext.name());
-                    return Ok(value);
-                }
+            let ext = extension.lock().await;
+            let namespace = Self::extract_namespace(&ext.name());
+            if !key.starts_with(&namespace) {
+                continue;
+            }
+            let local_key = key.trim_start_matches(&namespace);
+            if let Ok(value) = ext.get(local_key) {
+                log::info!("setting read [{}]:{local_key}={value}", ext.name());
+                return Ok(value);
             }
         }
         Err(EngineError::UnsupportedOption(key.to_string()))
     }
 
-    pub fn options(&self) -> Vec<EngineExtensionOption> {
-        let mut options = Vec::new();
-        for extension in self.extensions.values() {
-            options.extend(extension.lock().unwrap().options());
+    pub async fn options(&self) -> Vec<EngineExtensionOption> {
+        let mut all_options = Vec::new();
+        for extension_arc in self.extensions.values() {
+            let ext_guard = extension_arc.lock().await;
+            all_options.extend(ext_guard.options());
         }
-        options
+        all_options
     }
 
-    pub fn call(
+    pub async fn call(
         &self,
         path: &str,
         params: &HashMap<String, String>,
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
         for extension in self.extensions.values() {
-            if let Ok(ext) = extension.lock() {
-                let name = ext.name();
-                log::debug!("checking extension [{}]:{}", name, path);
-                if !path.starts_with(format!("/{}/", name).as_str()) {
-                    continue;
-                }
-                let path = path.split('/').skip(2).collect::<Vec<&str>>().join("/");
-                match ext.call(path.as_str(), params, body) {
-                    Ok(value) => return Ok(value),
-                    Err(EngineError::UnsupportedCall) => continue,
-                    Err(e) => return Err(e),
-                }
+            let ext = extension.lock().await;
+            let name = ext.name();
+            log::debug!("checking extension [{}]:{}", name, path);
+
+            let expected_prefix = format!("/{}/", name);
+            if !path.starts_with(&expected_prefix) {
+                continue;
+            }
+
+            let local_path = path[expected_prefix.len()..].to_string();
+            match ext.call(&local_path, params, body).await {
+                Ok(value) => return Ok(value),
+                Err(EngineError::UnsupportedCall) => continue,
+                Err(e) => return Err(e),
             }
         }
         Err(EngineError::CallError(path.to_string()))
@@ -371,20 +398,28 @@ impl ExtensionOptions for EngineExtensionManager {
     }
 
     fn set(&mut self, key: &str, value: &str) -> datafusion::error::Result<()> {
-        match self.set_option(key, value) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(datafusion::error::DataFusionError::Execution(e.to_string())),
-        }
+        let key_owned = key.to_string();
+        let value_owned = value.to_string();
+
+        use futures::executor::block_on;
+
+        block_on(async { self.set_option(&key_owned, &value_owned).await })
+            .map_err(|e| datafusion::error::DataFusionError::Execution(e.to_string()))
     }
 
     fn entries(&self) -> Vec<datafusion::config::ConfigEntry> {
-        self.options()
-            .iter()
-            .map(|option| datafusion::config::ConfigEntry {
-                key: format!("{}.{}", Self::PREFIX, option.key),
-                value: option.value.clone(),
-                description: option.help,
-            })
-            .collect()
+        use futures::executor::block_on;
+
+        block_on(async {
+            self.options()
+                .await
+                .iter()
+                .map(|option| datafusion::config::ConfigEntry {
+                    key: format!("{}.{}", Self::PREFIX, option.key),
+                    value: option.value.clone(),
+                    description: option.help,
+                })
+                .collect()
+        })
     }
 }

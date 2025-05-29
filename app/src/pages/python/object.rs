@@ -1,9 +1,8 @@
 use leptos::*;
 use thaw::*;
-
-use probing_proto::Object;
-
 use serde_json;
+
+use probing_proto::prelude::Value;
 
 use crate::pages::common::ObjectKind;
 
@@ -13,7 +12,7 @@ pub fn ObjectList(
     #[prop(into)] kind: ObjectKind,
 ) -> impl IntoView {
     let rows: Vec<_> = text
-        .map(|text| serde_json::from_str::<Vec<Object>>(text.as_str()).unwrap_or_default())
+        .map(|text| serde_json::from_str::<Vec<Value>>(text.as_str()).unwrap_or_default())
         .unwrap_or_default()
         .iter()
         .map(|obj| {

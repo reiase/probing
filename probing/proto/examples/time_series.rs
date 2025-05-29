@@ -1,4 +1,4 @@
-use probing_proto::types::Series;
+use probing_proto::prelude::Series;
 
 fn main() {
     for dtype in ["i64", "i32", "f64", "f32"] {

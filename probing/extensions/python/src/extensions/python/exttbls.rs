@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
-use probing_proto::types::{Ele, TimeSeries};
+use probing_proto::prelude::{Ele, TimeSeries};
 use pyo3::types::PyType;
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
 

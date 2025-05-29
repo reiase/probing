@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
@@ -206,8 +206,14 @@ impl Seq {
 
     pub fn append(&mut self, value: impl Into<Ele>) -> Result<(), ProtoError> {
         let value = value.into();
-        match (self, value) {
-            (Seq::Nil, _value) => {}
+        match (&mut *self, value) {
+            (Seq::Nil, Ele::I32(x)) => *self = Seq::SeqI32(vec![x]),
+            (Seq::Nil, Ele::I64(x)) => *self = Seq::SeqI64(vec![x]),
+            (Seq::Nil, Ele::F32(x)) => *self = Seq::SeqF32(vec![x]),
+            (Seq::Nil, Ele::F64(x)) => *self = Seq::SeqF64(vec![x]),
+            (Seq::Nil, Ele::Text(x)) => *self = Seq::SeqText(vec![x]),
+            (Seq::Nil, Ele::DataTime(x)) => *self = Seq::SeqDateTime(vec![x]),
+            (Seq::Nil, Ele::Nil) => {} // Nil值不改变Nil序列
             (Seq::SeqI32(vec), Ele::I32(x)) => vec.push(x),
             (Seq::SeqI64(vec), Ele::I64(x)) => vec.push(x),
             (Seq::SeqF32(vec), Ele::F32(x)) => vec.push(x),
@@ -217,5 +223,74 @@ impl Seq {
             _ => return Err(ProtoError::WrongSequenceType),
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Clone)]
+pub struct Value {
+    pub id: u64,
+    pub class: String,
+    pub shape: Option<String>,
+    pub dtype: Option<String>,
+    pub device: Option<String>,
+    pub value: Option<String>,
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "value: {:?}", self.value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_seq_append_from_nil() {
+        let mut seq = Seq::Nil;
+
+        // Test creating different sequence types from Nil
+        assert!(seq.append(42i32).is_ok());
+        assert_eq!(seq, Seq::SeqI32(vec![42]));
+
+        let mut seq = Seq::Nil;
+        assert!(seq.append("hello".to_string()).is_ok());
+        assert_eq!(seq, Seq::SeqText(vec!["hello".to_string()]));
+
+        let mut seq = Seq::Nil;
+        assert!(seq.append(3.14f64).is_ok());
+        assert_eq!(seq, Seq::SeqF64(vec![3.14]));
+    }
+
+    #[test]
+    fn test_seq_append_type_mismatch() {
+        let mut seq = Seq::SeqI32(vec![1, 2, 3]);
+
+        // Should fail when trying to append wrong type
+        assert!(seq.append("string".to_string()).is_err());
+        assert_eq!(seq, Seq::SeqI32(vec![1, 2, 3])); // unchanged
+    }
+
+    #[test]
+    fn test_seq_append_nil_to_nil() {
+        let mut seq = Seq::Nil;
+        assert!(seq.append(Ele::Nil).is_ok());
+        assert_eq!(seq, Seq::Nil); // Should remain Nil
+    }
+
+    #[test]
+    fn test_seq_len_and_empty() {
+        let seq = Seq::Nil;
+        assert_eq!(seq.len(), 0);
+        assert!(seq.is_empty());
+
+        let seq = Seq::SeqI32(vec![1, 2, 3]);
+        assert_eq!(seq.len(), 3);
+        assert!(!seq.is_empty());
+
+        let seq = Seq::SeqText(vec![]);
+        assert_eq!(seq.len(), 0);
+        assert!(seq.is_empty());
     }
 }

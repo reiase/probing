@@ -16,11 +16,11 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
 
         import os
 
-        mode = os.getenv("PROBING_TORCH_MODE", "ordered")
-        rate = float(os.getenv("PROBING_TORCH_RATE", "0.05"))
+        mode = os.getenv("PROBING_TORCH_PROFILING_MODE", "ordered")
+        rate = float(os.getenv("PROBING_TORCH_SAMPLE_RATE", "0.05"))
         tracepy = is_true(os.getenv("PROBING_TORCH_TRACEPY", "False"))
         sync = is_true(os.getenv("PROBING_TORCH_SYNC", "False"))
-        exprs = os.getenv("PROBING_TORCH_EXPRS", "")
+        exprs = os.getenv("PROBING_TORCH_WATCH_VARS", "")
 
         tracer = TorchProbe(exprs=exprs)
 

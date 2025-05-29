@@ -79,6 +79,10 @@ pub enum EngineError {
     /// Attempt to modify read-only option
     #[error("Read-only option: {0}")]
     ReadOnlyOption(String),
+
+    /// Engine not initialized error
+    #[error("Engine not initialized")]
+    EngineNotInitialized,
 }
 
 impl EngineError {
@@ -121,7 +125,8 @@ impl EngineError {
             e @ (EngineError::UnsupportedCall
             | EngineError::ArrowError(_)
             | EngineError::DataFusionError(_)
-            | EngineError::InvalidOptionValue(_, _)) => e,
+            | EngineError::InvalidOptionValue(_, _)
+            | EngineError::EngineNotInitialized) => e,
         }
     }
 }

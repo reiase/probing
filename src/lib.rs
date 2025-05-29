@@ -6,10 +6,15 @@ use anyhow::Result;
 use probing_python::create_probing_module;
 use probing_server::sync_env_settings;
 
-const ENV_PROBING_LOG: &str = "PROBING_LOG";
+const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
 const DEFAULT_PORT: u16 = 9700;
+
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 pub fn get_hostname() -> Result<String> {
     let ips = nix::ifaddrs::getifaddrs()?
@@ -47,7 +52,7 @@ fn setup() {
     eprintln!("Initializing libprobing for process {pid} ...",);
 
     // initialize logging
-    env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOG));
+    env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOGLEVEL));
 
     // initialize probing server
     probing_server::start_local();
@@ -60,6 +65,9 @@ fn setup() {
             .parse()
             .unwrap_or(0);
 
+        let serving_port = port + local_rank;
+        log::debug!("serving on port {serving_port} for local rank {local_rank}.");
+
         // determine bind address
         let hostname = if std::env::var("RANK").unwrap_or("0".to_string()) == "0" {
             "0.0.0.0".to_string()
@@ -68,7 +76,7 @@ fn setup() {
         };
 
         // set server address
-        let server_address = format!("'{}:{}'", hostname, port + local_rank);
+        let server_address = format!("'{}:{}'", hostname, serving_port);
         std::env::set_var("PROBING_SERVER_ADDR", server_address);
 
         // set report address if master exists

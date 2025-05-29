@@ -1,3 +1,4 @@
+pub mod config;
 pub mod core;
 
 use self::core::Engine;

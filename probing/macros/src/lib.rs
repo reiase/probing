@@ -21,6 +21,10 @@ pub fn derive_engine_extension(input: TokenStream) -> TokenStream {
 
 fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let mut namespace = name.to_string().to_lowercase();
+    if namespace.ends_with("extension") {
+        namespace = namespace.trim_end_matches("extension").to_string();
+    }
     let fields = match &ast.data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => &fields.named,
@@ -71,8 +75,13 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
     });
 
     let options = field_metadata.iter().map(|meta| {
-        let name = &meta.name;
-        let desc = &meta.description;
+        let name = format!("{}.{}", namespace.to_lowercase(), meta.name);
+        let desc = format!(
+            "{}.\nENV[PROBING_{}_{}]",
+            meta.description,
+            namespace.to_uppercase(),
+            name.to_string().to_uppercase().replace(".", "_")
+        );
         let field_ident = format_ident!("{}", meta.field);
 
         quote! {
@@ -81,6 +90,16 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
                 value: Some(self.#field_ident.to_string()),
                 help: #desc,
             }
+        }
+    });
+
+    // Generate option name constants for consistent usage
+    let option_constants = field_metadata.iter().map(|meta| {
+        let const_name = format_ident!("OPTION_{}", meta.field.to_uppercase());
+        let option_name = format!("{}.{}", namespace.to_lowercase(), meta.name);
+
+        quote! {
+            pub const #const_name: &'static str = #option_name;
         }
     });
 
@@ -114,6 +133,11 @@ fn impl_engine_extension(ast: &DeriveInput) -> TokenStream {
             //     self.plugin(namespace, name)
             // }
         }
+
+        // Auto-generated option name constants to ensure naming consistency
+        impl #name {
+            #(#option_constants)*
+        }
     };
 
     TokenStream::from(expanded)
@@ -132,8 +156,8 @@ fn parse_field_metadata(field: &Field) -> OptionMetadata {
 
     for attr in &field.attrs {
         if attr.path().is_ident("option") {
+            metadata.managed = true;
             if let Meta::List(list) = &attr.meta {
-                metadata.managed = true;
                 for nested in list
                     .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
                     .unwrap()
@@ -173,6 +197,9 @@ fn parse_field_metadata(field: &Field) -> OptionMetadata {
                         }
                     }
                 }
+            } else if let Meta::Path(_) = &attr.meta {
+                // Handle #[option] without parameters - just use the field name
+                // No additional processing needed, already marked as managed
             } else {
                 panic!("Invalid attribute format");
             }

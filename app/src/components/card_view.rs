@@ -1,9 +1,8 @@
 use leptos::prelude::*;
 use probing_proto::prelude::Process;
-use probing_proto::types::Table;
 use thaw::*;
 
-use crate::components::tableview::TableView;
+use crate::components::tableview::{Table, TableView};
 
 #[component]
 pub fn ProcessCard(process: Process) -> impl IntoView {

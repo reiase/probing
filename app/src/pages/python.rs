@@ -1,7 +1,8 @@
 use leptos::prelude::*;
-use probing_proto::Object;
-
 use thaw::*;
+
+use probing_proto::prelude::Value;
+
 
 use crate::components::page_layerout::PageLayout;
 use crate::{pages::common::ObjectList, url_read::url_read_resource};
@@ -26,7 +27,7 @@ pub fn SelectedObjectList(
     } else {
         path.to_string()
     };
-    let objects = url_read_resource::<Vec<Object>>(path.as_str());
+    let objects = url_read_resource::<Vec<Value>>(path.as_str());
     view! {
         <Suspense fallback=move || {
             view! { <p>"Loading..."</p> }

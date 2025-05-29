@@ -8,6 +8,9 @@ based on the PROBING environment variable:
 - '2' or 'nested': Enable in current and all child processes
 - 'regex:PATTERN': Enable if current script name matches the regex pattern
 - 'SCRIPTNAME': Enable if current script name matches exactly
+- 'init:SCRIPT_PATH[+PROBE_SETTING]': Execute SCRIPT_PATH for initialization, then apply PROBE_SETTING.
+                                      PROBE_SETTING can be any of the above values (e.g., 'init:./my_setup.py+1').
+                                      If PROBE_SETTING is omitted, it defaults to '0' (disabled after init).
 """
 
 import os
@@ -28,9 +31,9 @@ probe_value = os.environ.get("PROBING", "0")
 current_script = get_current_script_name()
 script_init = None
 
-if probe_value.startswith("script:"):
+if probe_value.startswith("init:"):
     parts = probe_value.split("+", 1)
-    script_init = parts[0][7:]
+    script_init = parts[0][5:]
     probe_value = parts[1] if len(parts) > 1 else "0"
     
 def execute_init_script():

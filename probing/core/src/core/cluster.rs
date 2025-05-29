@@ -1,7 +1,7 @@
 use std::sync::{Arc, LazyLock, RwLock};
 
 use arrow::array::{ArrayRef, Int32Array, StringArray, TimestampMicrosecondArray};
-use probing_proto::protocol::cluster;
+use probing_proto::prelude::{Cluster, Node};
 
 pub trait IntoArrow {
     fn into_arrow_array(values: Vec<Self>) -> ArrayRef
@@ -48,11 +48,9 @@ where
     V::into_arrow_array(values)
 }
 
-pub static CLUSTER: LazyLock<RwLock<cluster::Cluster>> =
-    LazyLock::new(|| RwLock::new(cluster::Cluster::default()));
+pub static CLUSTER: LazyLock<RwLock<Cluster>> = LazyLock::new(|| RwLock::new(Cluster::default()));
 
-pub fn update_node(node: cluster::Node) {
-    let mut node = node.clone();
+pub fn update_node(mut node: Node) {
     node.timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -60,7 +58,7 @@ pub fn update_node(node: cluster::Node) {
     CLUSTER.write().unwrap().put(node);
 }
 
-pub fn update_nodes(nodes: Vec<cluster::Node>) {
+pub fn update_nodes(nodes: Vec<Node>) {
     let mut cluster = CLUSTER.write().unwrap();
 
     for node in nodes {
@@ -68,6 +66,6 @@ pub fn update_nodes(nodes: Vec<cluster::Node>) {
     }
 }
 
-pub fn get_nodes() -> Vec<cluster::Node> {
+pub fn get_nodes() -> Vec<Node> {
     CLUSTER.read().unwrap().list()
 }
