@@ -7,7 +7,7 @@ import requests
 # API基础URL - 需要根据实际情况修改
 API_BASE_URL = "http://logi-core.hecp:32245/api"
 JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
-JOB_ID = os.getenv('JOB_ID', 'unknown_job') # Use a default if not set
+JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
 
 def start_job_hook():
     """
