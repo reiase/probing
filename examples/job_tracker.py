@@ -15,13 +15,15 @@ def start_job_hook():
     """
     print("Job tracker: start_job_hook called.")
     world_size = os.getenv('WORLD_SIZE', 'N/A')
+    tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
     pod_ip = os.getenv('POD_IP', 'N/A')
-    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}")
+    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num}")
     data = {
             "jobId": JOB_ID,
             "timestamp": datetime.now().isoformat(),
-            "pod_ip": pod_ip,
+            "podIp": pod_ip,
             "worldSize": world_size,
+            "tqGpuNum": tq_gpu_num,
             "uuid": JOB_UNIQUE_ID
         }
 
