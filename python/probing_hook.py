@@ -33,7 +33,7 @@ script_init = None
 
 if probe_value.startswith("init:"):
     parts = probe_value.split("+", 1)
-    script_init = parts[0][7:]
+    script_init = parts[0][5:]
     probe_value = parts[1] if len(parts) > 1 else "0"
     
 def execute_init_script():
