@@ -20,7 +20,7 @@ def start_job_hook():
     print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num}")
     data = {
             "jobId": JOB_ID,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now().timestamp(),
             "podIp": pod_ip,
             "worldSize": world_size,
             "tqGpuNum": tq_gpu_num,
@@ -38,7 +38,7 @@ def end_job_hook():
     print(f"Job ended: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}")
     data = {
             "jobId": JOB_ID,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now().timestamp(),
             "uuid": JOB_UNIQUE_ID
     }
 
@@ -56,7 +56,7 @@ def record_error_hook(exc_type, exc_value, exc_traceback):
 
     data = {
         "jobId": JOB_ID,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now().timestamp(),
         "errorMessage": str(exc_value),
         "uuid": JOB_UNIQUE_ID
     }
