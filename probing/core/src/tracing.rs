@@ -48,13 +48,17 @@ impl Timestamp {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attribute(String, Ele);
 
+pub fn attr<K: Into<String>, V: Into<Ele>>(key: K, value: V) -> Attribute {
+    Attribute(key.into(), value.into())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Location {
     KnownLocation(u64),
     UnknownLocation(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Event {
     pub name: Option<String>,
     pub location: Option<Location>,
@@ -132,13 +136,16 @@ impl LocalTracer {
     }
 
     // --- Core Span Operations ---
-    pub fn start_span(
+    pub fn start_span<N: Into<String>>(
         &mut self,
-        name: String,
-        kind: Option<String>,
-        code_path: Option<String>,
+        name: N,
+        kind: Option<&str>,
+        code_path: Option<&str>,
         initial_attributes: Option<Vec<Attribute>>,
     ) -> (SpanId, TraceId) {
+        let name = name.into();
+        let kind = kind.map(|k_val| k_val.into());
+
         let start_time = Timestamp::now();
         let current_span_sequence = self.next_span_seq;
         self.next_span_seq = self.next_span_seq.wrapping_add(1);
@@ -166,7 +173,7 @@ impl LocalTracer {
                 (TraceId(new_trace_id_val), None)
             };
 
-        let location = code_path.map(Location::UnknownLocation);
+        let location = code_path.map(|cp_val| Location::UnknownLocation(cp_val.into()));
 
         let span = Span {
             trace_id: trace_id_to_use,
@@ -191,14 +198,14 @@ impl LocalTracer {
         self.span_stack.last().copied()
     }
 
-    pub fn add_attr(&mut self, key: String, value: Ele) {
+    pub fn add_attr<S: Into<String>, V: Into<Ele>>(&mut self, key: S, value: V) {
         if let Some(active_span_id) = self.span_stack.last() {
             if let Some(span) = self.spans.get_mut(active_span_id) {
                 if span.end_time.is_none() {
                     // Only add attributes to open spans
                     span.attributes
                         .get_or_insert_with(Vec::new)
-                        .push(Attribute(key, value));
+                        .push(attr(key, value));
                 }
             } else {
                 eprintln!(
@@ -211,7 +218,8 @@ impl LocalTracer {
         }
     }
 
-    pub fn add_event(&mut self, name: String, attributes: Option<Vec<Attribute>>) {
+    pub fn add_event<S: Into<String>>(&mut self, name: S, attributes: Option<Vec<Attribute>>) {
+        let name = name.into();
         if let Some(active_span_id) = self.span_stack.last() {
             if let Some(span) = self.spans.get_mut(active_span_id) {
                 if span.end_time.is_none() {
@@ -360,3 +368,318 @@ impl GlobalTracer {
 }
 
 pub static GLOBAL_TRACER: Lazy<GlobalTracer> = Lazy::new(GlobalTracer::new);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+    use std::time::Duration as StdDuration; // Renamed to avoid conflict with super::Duration
+
+    fn setup_tracer() -> LocalTracer {
+        LocalTracer {
+            thread_id: std::thread::current().id(),
+            tracer_id: 0,
+            next_trace_seq: 0,
+            next_span_seq: 0,
+            span_stack: vec![],
+            spans: Default::default(),
+        }
+    }
+
+    // --- 1. Basic Span Functionality ---
+
+    #[test]
+    fn test_start_root_span() {
+        let mut tracer = setup_tracer();
+        // Store tracer_id before any spans are created to correctly predict trace_id
+        let current_tracer_id = tracer.tracer_id;
+
+        let (span_id, trace_id) = tracer.start_span("root_span", None, None, None);
+
+        assert_eq!(tracer.next_span_seq, 1);
+
+        let span = tracer.spans.get(&span_id).expect("Span not found");
+        assert_eq!(span.name, "root_span");
+        assert_eq!(span.kind, None);
+        assert_eq!(span.parent_span_id, None);
+        assert_eq!(span.status, SpanStatus::Running);
+
+        // TraceId should have the tracer_id as prefix and sequence number 0
+        assert_eq!(
+            trace_id.0,
+            (current_tracer_id as u128) << TRACE_ID_PREFIX_SHIFT
+        );
+    }
+
+    #[test]
+    fn test_start_child_span() {
+        let mut tracer = setup_tracer();
+        let (root_span_id, root_trace_id) = tracer.start_span("root_span", None, None, None);
+
+        let (child_span_id, child_trace_id) = tracer.start_span("child_span", None, None, None);
+
+        assert_eq!(tracer.next_span_seq, 2); // Span seq 0 for root, 1 for child
+
+        let child_span = tracer
+            .spans
+            .get(&child_span_id)
+            .expect("Child span not found");
+        assert_eq!(child_span.name, "child_span");
+        assert_eq!(child_span.parent_span_id, Some(root_span_id));
+        assert_eq!(child_span.status, SpanStatus::Running);
+
+        // Child span should have the same trace_id as the root span
+        assert_eq!(child_trace_id, root_trace_id);
+    }
+
+    #[test]
+    fn test_end_span_behavior() {
+        let mut tracer = setup_tracer();
+
+        // 1. End a single root span
+        let (root_span_id, _) = tracer.start_span("root_to_end", None, None, None);
+        assert_eq!(tracer.span_stack.len(), 1);
+        assert_eq!(tracer.active_id(), Some(root_span_id));
+
+        tracer.end_span(SpanStatus::Close);
+        assert!(tracer.span_stack.is_empty(), "Span stack should be empty after ending root span");
+        assert_eq!(tracer.active_id(), None);
+
+        let ended_root_span = tracer.spans.get(&root_span_id).expect("Root span not found");
+        assert!(ended_root_span.end_time.is_some(), "End time should be set for root span");
+        assert_eq!(ended_root_span.status, SpanStatus::Close, "Status should be Close for root span");
+
+        // 2. End a child span, check parent status update
+        let (parent_id, _) = tracer.start_span("parent", None, None, None);
+        let (child_id, _) = tracer.start_span("child", None, None, None);
+
+        assert_eq!(tracer.span_stack.len(), 2);
+        let parent_span_before_child_end = tracer.spans.get(&parent_id).expect("Parent span not found");
+        assert_eq!(parent_span_before_child_end.status, SpanStatus::Open, "Parent should be Open when child is Running");
+
+        tracer.end_span(SpanStatus::Error(Some("Test error".to_string())));
+        assert_eq!(tracer.span_stack.len(), 1, "Span stack should have 1 (parent) after ending child");
+        assert_eq!(tracer.active_id(), Some(parent_id));
+
+        let ended_child_span = tracer.spans.get(&child_id).expect("Child span not found");
+        assert!(ended_child_span.end_time.is_some(), "End time should be set for child span");
+        assert_eq!(ended_child_span.status, SpanStatus::Error(Some("Test error".to_string())), "Status should be Error for child span");
+
+        let parent_span_after_child_end = tracer.spans.get(&parent_id).expect("Parent span not found");
+        assert_eq!(parent_span_after_child_end.status, SpanStatus::Running, "Parent should be Running after child ends");
+
+        // 3. End the parent span
+        tracer.end_span(SpanStatus::Close);
+        assert!(tracer.span_stack.is_empty(), "Span stack should be empty after ending parent span");
+        let ended_parent_span = tracer.spans.get(&parent_id).expect("Parent span not found");
+        assert!(ended_parent_span.end_time.is_some(), "End time should be set for parent span");
+        assert_eq!(ended_parent_span.status, SpanStatus::Close, "Status should be Close for parent span");
+
+
+        // 4. Attempt to end span when stack is empty (should not panic, logs error)
+        // Reset tracer to ensure clean state for this part of the test
+        let mut tracer_empty_stack = setup_tracer();
+        assert!(tracer_empty_stack.span_stack.is_empty());
+        tracer_empty_stack.end_span(SpanStatus::Close); // This should print an error but not panic
+        // No direct assert here other than it doesn\'t panic, as the behavior is an eprintln.
+    }
+
+    #[test]
+    fn test_location_unknown() {
+        let mut tracer = setup_tracer();
+        let code_path_str = "my_module::my_function";
+        let (span_id, _) = tracer.start_span("span_with_location", None, Some(code_path_str), None);
+
+        let span = tracer.spans.get(&span_id).unwrap();
+        match &span.location {
+            Some(Location::UnknownLocation(path)) => {
+                assert_eq!(path, code_path_str, "Location path mismatch")
+            }
+            _ => panic!("Expected Some(Location::UnknownLocation)"),
+        }
+        tracer.end_span(SpanStatus::Close);
+    }
+
+    #[test]
+    fn test_trace_id_generation_and_rollover() {
+        let mut tracer = setup_tracer();
+        let tracer_id_val = tracer.tracer_id as u128;
+
+        // First trace
+        let (_, trace_id1) = tracer.start_span("span1", None, None, None);
+        assert_eq!(
+            trace_id1.0,
+            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | 0,
+            "Trace ID for first trace"
+        );
+        tracer.end_span(SpanStatus::Close);
+
+        // Second trace
+        let (_, trace_id2) = tracer.start_span("span2", None, None, None);
+        assert_eq!(
+            trace_id2.0,
+            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | 1,
+            "Trace ID for second trace"
+        );
+        tracer.end_span(SpanStatus::Close);
+
+        // Force next_trace_seq to max value
+        tracer.next_trace_seq = u64::MAX - 1;
+
+        let (_, trace_id_before_wrap) = tracer.start_span("span_before_u64_wrap", None, None, None);
+        // The sequence part of trace_id is (self.next_trace_seq as u128 & MAX_TRACE_SEQ)
+        assert_eq!(
+            trace_id_before_wrap.0,
+            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | (u64::MAX as u128 & MAX_TRACE_SEQ),
+            "Trace ID before u64 wrap"
+        );
+        tracer.end_span(SpanStatus::Close);
+
+        let (_, trace_id_wrap) = tracer.start_span("span_u64_wrap", None, None, None);
+        assert_eq!(
+            trace_id_wrap.0,
+            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | (u64::MAX as u128 & MAX_TRACE_SEQ),
+            "Trace ID at u64 wrap"
+        );
+        tracer.end_span(SpanStatus::Close);
+
+        // next_trace_seq (u64) has now wrapped to 0.
+        let (_, trace_id_after_wrap) = tracer.start_span("span_after_u64_wrap", None, None, None);
+        assert_eq!(
+            trace_id_after_wrap.0,
+            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | (0u128 & MAX_TRACE_SEQ),
+            "Trace ID after u64 wrap"
+        );
+        tracer.end_span(SpanStatus::Close);
+    }
+
+    #[test]
+    fn test_span_id_generation_wrapping() {
+        let mut tracer = setup_tracer();
+        tracer.next_span_seq = u64::MAX; // Set next_span_seq to its maximum
+
+        let (span_id1, _) = tracer.start_span("span_max_seq", None, None, None);
+        assert_eq!(span_id1.0, u64::MAX, "Span ID should be u64::MAX");
+
+        let (span_id2, _) = tracer.start_span("span_after_wrap", None, None, None);
+        assert_eq!(span_id2.0, 0, "Span ID should be 0 after wrap");
+    }
+
+    // --- 2. Attribute and Event Functionality ---
+
+    #[test]
+    fn test_add_attribute_and_event() {
+        let mut tracer = setup_tracer();
+        let (span_id, _) = tracer.start_span("attr_event_span", None, None, None);
+
+        // Test adding various types as attribute values
+        tracer.add_attr("key_str_literal", "value1");
+        tracer.add_attr("key_string_obj", "value1_string".to_string());
+        tracer.add_attr("key_i32", 123i32);
+        tracer.add_attr("key_i64", 456i64);
+        tracer.add_attr("key_f32", 3.14f32);
+        tracer.add_attr("key_f64", 2.718f64);
+        tracer.add_attr("key_ele_explicit", Ele::Text("explicit_ele".to_string())); // Still works
+
+        tracer.add_event("event1", Some(vec![attr("attr_key_in_event", 789i32)]));
+
+        let span = tracer.spans.get(&span_id).expect("Span not found");
+        let attributes = span.attributes.as_ref().expect("Attributes should exist");
+        assert_eq!(attributes.len(), 7, "Expected 7 attributes");
+
+        assert_eq!(attributes[0], attr("key_str_literal", "value1"));
+        assert_eq!(
+            attributes[1],
+            attr("key_string_obj", "value1_string".to_string())
+        );
+        assert_eq!(attributes[2], attr("key_i32", 123i32));
+        assert_eq!(attributes[3], attr("key_i64", 456i64));
+        assert_eq!(attributes[4], attr("key_f32", 3.14f32));
+        assert_eq!(attributes[5], attr("key_f64", 2.718f64));
+        assert_eq!(
+            attributes[6],
+            attr("key_ele_explicit", Ele::Text("explicit_ele".to_string()))
+        );
+
+        assert_eq!(span.events.len(), 1);
+        assert_eq!(span.events[0].name, Some("event1".to_string()));
+        assert!(span.events[0].timestamp.0 > 0); // Event timestamp should be set
+        assert_eq!(
+            span.events[0].attributes.as_ref().unwrap()[0],
+            attr("attr_key_in_event", 789i32)
+        );
+
+        // Ending the span
+        tracer.end_span(SpanStatus::Close);
+
+        // After ending the span, new attributes and events should not be added
+        let span_state_before_add_after_close =
+            tracer.spans.get(&span_id).expect("Span not found").clone();
+        let attributes_count_before_add_after_close = span_state_before_add_after_close
+            .attributes
+            .as_ref()
+            .map_or(0, |a| a.len());
+        let events_len_before_add_after_close = span_state_before_add_after_close.events.len();
+
+        tracer.add_attr("key_after_close_str", "value_after_close");
+        tracer.add_attr("key_after_close_int", 999i32);
+
+        let span_after_close_attempt = tracer.spans.get(&span_id).expect("Span not found");
+        assert_eq!(
+            span_after_close_attempt
+                .attributes
+                .as_ref()
+                .map_or(0, |a| a.len()),
+            attributes_count_before_add_after_close,
+            "Attributes should not be added to a closed span"
+        );
+        assert_eq!(
+            span_after_close_attempt.events.len(),
+            events_len_before_add_after_close,
+            "Events should not change for a closed span on add_attr"
+        );
+    }
+
+    #[test]
+    fn test_add_attribute_and_event_no_active_span() {
+        let mut tracer = setup_tracer();
+        // No active span
+        tracer.add_attr("key_no_span_str", "val_no_span_str");
+        tracer.add_attr("key_no_span_int", 0i32);
+        tracer.add_event("event_no_span", None);
+        // These operations print to stderr in the current code, test ensures no panic
+    }
+    
+    // --- 3. Span Management Functionality ---
+
+    #[test]
+    fn test_active_spans_and_all_spans() {
+        let mut tracer = setup_tracer();
+
+        assert!(
+            tracer.active_spans().is_empty(),
+            "Active spans should be empty initially"
+        );
+        assert!(
+            tracer.all_spans().is_empty(),
+            "All spans should be empty initially"
+        );
+
+        let (s1_id, _) = tracer.start_span("s1", None, None, None);
+        let (s2_id, _) = tracer.start_span("s2", None, None, None);
+
+        let active = tracer.active_spans();
+        assert_eq!(active.len(), 2, "There should be 2 active spans");
+        assert!(
+            active.iter().any(|s| s.span_id == s1_id),
+            "s1 should be active"
+        );
+        assert!(
+            active.iter().any(|s| s.span_id == s2_id),
+            "s2 should be active"
+        );
+
+        let all = tracer.all_spans();
+        assert_eq!(all.len(), 2, "There should be 2 total spans");
+    }
+}

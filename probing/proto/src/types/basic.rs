@@ -57,7 +57,7 @@ impl From<&str> for Ele {
 
 impl From<String> for Ele {
     fn from(val: String) -> Self {
-        Ele::Text(val.to_string())
+        Ele::Text(val) // Optimized: directly move the String
     }
 }
 
