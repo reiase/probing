@@ -6,7 +6,7 @@ use std::thread::{self, ThreadId}; // For thread-local storage
 
 use std::time::{Duration, SystemTime};
 
-use probing_proto::types::Ele;
+pub use probing_proto::types::Ele;
 
 // --- Identifiers ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -269,11 +269,16 @@ impl LocalSpanManager {
     }
 
     // --- Methods for GlobalTracer Access ---
-    pub fn active_spans(&self) -> Vec<Span> {
+    pub fn list_spans(&self) -> Vec<Span> {
         self.span_stack
             .iter()
             .filter_map(|id| self.spans.get(id).cloned())
             .collect()
+    }
+
+    pub fn current_span(&self) -> Option<Span> {
+        self.active_id()
+            .and_then(|id| self.spans.get(&id).cloned())
     }
 
     pub fn all_spans(&self) -> Vec<Span> {
@@ -283,7 +288,7 @@ impl LocalSpanManager {
 
 // --- Thread-Local Storage Initialization ---
 thread_local! {
-    static LOCAL_TRACER: Arc<RwLock<LocalSpanManager>> = {
+    pub(crate) static LOCAL_TRACER: Arc<RwLock<LocalSpanManager>> = {
         let tracer = Arc::new(RwLock::new(LocalSpanManager::new()));
         GLOBAL_TRACER.register_tracer(thread::current().id(), Arc::downgrade(&tracer));
         tracer
@@ -339,7 +344,7 @@ impl GlobalSpanManager {
             if let Some(tracer_arc) = weak_tracer.upgrade() {
                 // Lock individual LocalTracer; this lock is fine as it's per-tracer.
                 let tracer_lock = tracer_arc.read().unwrap();
-                result.insert(tid, tracer_lock.active_spans()); // active_spans() involves cloning
+                result.insert(tid, tracer_lock.list_spans()); // active_spans() involves cloning
             }
         }
         result
@@ -362,7 +367,7 @@ impl GlobalSpanManager {
             .map(|tracer_arc| {
                 // Lock individual LocalTracer.
                 let tracer_lock = tracer_arc.read().unwrap();
-                tracer_lock.active_spans() // active_spans() involves cloning
+                tracer_lock.list_spans() // active_spans() involves cloning
             })
     }
 }
@@ -769,7 +774,7 @@ mod tests {
         let mut tracer = setup_tracer();
 
         assert!(
-            tracer.active_spans().is_empty(),
+            tracer.list_spans().is_empty(),
             "No active spans initially."
         );
         assert!(
@@ -786,7 +791,7 @@ mod tests {
         tracer.end_span(SpanStatus::Close); // End s3, so it's not active but is in 'all_spans'
 
         // Check active spans (s1 and s2 should be on the stack, s2 being the most recent)
-        let active = tracer.active_spans();
+        let active = tracer.list_spans();
         assert_eq!(
             active.len(),
             2,
