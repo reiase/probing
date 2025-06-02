@@ -143,10 +143,11 @@ impl LocalSpanManager {
         name: N,
         kind: Option<&str>,
         code_path: Option<&str>,
-        initial_attributes: Option<Vec<Attribute>>,
+        // initial_attributes: Option<Vec<Attribute>>, // Removed
     ) -> (SpanId, TraceId) {
         let name = name.into();
         let kind = kind.map(|k_val| k_val.into());
+        // let attributes = initial_attributes; // Removed
 
         let start_time = Timestamp::now();
         let current_span_sequence = self.next_span_seq;
@@ -186,7 +187,7 @@ impl LocalSpanManager {
             location,
             start_time,
             end_time: None,
-            attributes: initial_attributes,
+            attributes: None, // Changed from initial_attributes
             events: vec![],
             status: SpanStatus::Running,
         };
@@ -397,7 +398,7 @@ mod tests {
             "process_incoming_request",      // A descriptive name for the span
             Some("server_op"),               // Optional: kind of operation (e.g., server, client)
             Some("my_app::request_handler"), // Optional: code path or function name
-            None,                            // Optional: initial attributes
+            // None,                            // initial_attributes removed
         );
 
         assert_eq!(
@@ -444,14 +445,14 @@ mod tests {
         // Example: Creating a child span within an existing trace.
         // This is used to trace sub-operations of a larger task.
         let mut tracer = setup_tracer();
-        let (root_span_id, root_trace_id) = tracer.start_span("root_operation", None, None, None);
+        let (root_span_id, root_trace_id) = tracer.start_span("root_operation", None, None); // Removed None for attributes
 
         // Start a child span for a sub-task
         let (child_span_id, child_trace_id) = tracer.start_span(
             "database_query",
             Some("db_client"),
             Some("my_app::db_service::query"),
-            Some(vec![attr("db.statement", "SELECT * FROM users")]),
+            // None, // Removed None for attributes
         );
 
         assert_eq!(
@@ -480,11 +481,8 @@ mod tests {
             child_trace_id, root_trace_id,
             "Child span must share the same TraceId as its root"
         );
-        assert_eq!(child_span.attributes.as_ref().unwrap().len(), 1);
-        assert_eq!(
-            child_span.attributes.as_ref().unwrap()[0],
-            attr("db.statement", "SELECT * FROM users")
-        );
+        assert!(child_span.attributes.is_none(), "Initial attributes should now be None");
+
 
         let root_span_after_child_start = tracer
             .spans
@@ -506,7 +504,7 @@ mod tests {
         let mut tracer = setup_tracer();
 
         // Scenario 1: Start and end a single root span successfully.
-        let (root_span_id, _) = tracer.start_span("single_task", None, None, None);
+        let (root_span_id, _) = tracer.start_span("single_task", None, None); // Removed None for attributes
         assert_eq!(tracer.active_id(), Some(root_span_id));
         tracer.end_span(SpanStatus::Close); // Mark as successfully closed
         assert!(
@@ -518,8 +516,8 @@ mod tests {
         assert_eq!(ended_root_span.status, SpanStatus::Close);
 
         // Scenario 2: End a child span with an error, and observe parent's status change.
-        let (parent_id, _) = tracer.start_span("main_operation", None, None, None);
-        let (child_id, _) = tracer.start_span("sub_operation_fails", None, None, None);
+        let (parent_id, _) = tracer.start_span("main_operation", None, None); // Removed None for attributes
+        let (child_id, _) = tracer.start_span("sub_operation_fails", None, None); // Removed None for attributes
 
         let parent_span_while_child_active =
             tracer.spans.get(&parent_id).expect("Parent span missing");
@@ -574,7 +572,7 @@ mod tests {
         // Example: Starting a span with a specified code path (location).
         let mut tracer = setup_tracer();
         let module_path = "my_app::services::user_service::create_user";
-        let (span_id, _) = tracer.start_span("create_user_call", None, Some(module_path), None);
+        let (span_id, _) = tracer.start_span("create_user_call", None, Some(module_path)); // Removed None for attributes
 
         let span = tracer.spans.get(&span_id).unwrap();
         match &span.location {
@@ -596,7 +594,7 @@ mod tests {
         let tracer_id_val = tracer.tracer_id as u128;
 
         // First trace
-        let (_, trace_id1) = tracer.start_span("span1", None, None, None);
+        let (_, trace_id1) = tracer.start_span("span1", None, None); // Removed None for attributes
         assert_eq!(
             trace_id1.0,
             (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | 0,
@@ -605,7 +603,7 @@ mod tests {
         tracer.end_span(SpanStatus::Close);
 
         // Second trace
-        let (_, trace_id2) = tracer.start_span("span2", None, None, None);
+        let (_, trace_id2) = tracer.start_span("span2", None, None); // Removed None for attributes
         assert_eq!(
             trace_id2.0,
             (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | 1,
@@ -616,7 +614,7 @@ mod tests {
         // Force next_trace_seq to max value
         tracer.next_trace_seq = u64::MAX-1;
 
-        let (_, trace_id_before_wrap) = tracer.start_span("span_before_u64_wrap", None, None, None);
+        let (_, trace_id_before_wrap) = tracer.start_span("span_before_u64_wrap", None, None); // Removed None for attributes
         // The sequence part of trace_id is (self.next_trace_seq as u128 & MAX_TRACE_SEQ)
         assert_eq!(
             trace_id_before_wrap.0,
@@ -625,7 +623,7 @@ mod tests {
         );
         tracer.end_span(SpanStatus::Close);
 
-        let (_, trace_id_wrap) = tracer.start_span("span_u64_wrap", None, None, None);
+        let (_, trace_id_wrap) = tracer.start_span("span_u64_wrap", None, None); // Removed None for attributes
         assert_eq!(
             trace_id_wrap.0,
             (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | (u64::MAX as u128 & MAX_TRACE_SEQ),
@@ -634,7 +632,7 @@ mod tests {
         tracer.end_span(SpanStatus::Close);
 
         // next_trace_seq (u64) has now wrapped to 0.
-        let (_, trace_id_after_wrap) = tracer.start_span("span_after_u64_wrap", None, None, None);
+        let (_, trace_id_after_wrap) = tracer.start_span("span_after_u64_wrap", None, None); // Removed None for attributes
         assert_eq!(
             trace_id_after_wrap.0,
             (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | (0u128 & MAX_TRACE_SEQ),
@@ -648,10 +646,10 @@ mod tests {
         let mut tracer = setup_tracer();
         tracer.next_span_seq = u64::MAX; // Set next_span_seq to its maximum
 
-        let (span_id1, _) = tracer.start_span("span_max_seq", None, None, None);
+        let (span_id1, _) = tracer.start_span("span_max_seq", None, None); // Removed None for attributes
         assert_eq!(span_id1.0, u64::MAX, "Span ID should be u64::MAX");
 
-        let (span_id2, _) = tracer.start_span("span_after_wrap", None, None, None);
+        let (span_id2, _) = tracer.start_span("span_after_wrap", None, None); // Removed None for attributes
         assert_eq!(span_id2.0, 0, "Span ID should be 0 after wrap");
     }
 
@@ -661,7 +659,7 @@ mod tests {
     fn test_add_attributes_and_events_example() {
         // Example: Adding attributes and events to a span to record contextual information.
         let mut tracer = setup_tracer();
-        let (span_id, _) = tracer.start_span("user_request_processing", None, None, None);
+        let (span_id, _) = tracer.start_span("user_request_processing", None, None); // Removed None for attributes
 
         // Add attributes with various data types. Attributes provide key-value details about the span.
         tracer.add_attr("http.method", "GET");
@@ -776,11 +774,11 @@ mod tests {
         );
 
         // Create a hierarchy: s1 -> s2 (active), s3 (ended)
-        let (s1_id, _) = tracer.start_span("service_call", None, None, None);
-        let (s2_id, _) = tracer.start_span("internal_processing", None, None, None);
+        let (s1_id, _) = tracer.start_span("service_call", None, None); // Removed None for attributes
+        let (s2_id, _) = tracer.start_span("internal_processing", None, None); // Removed None for attributes
         // s2 is now active, s1 is open
 
-        let (s3_id, _) = tracer.start_span("another_root_task", None, None, None);
+        let (s3_id, _) = tracer.start_span("another_root_task", None, None); // Removed None for attributes
         tracer.end_span(SpanStatus::Close); // End s3, so it's not active but is in 'all_spans'
 
         // Check active spans (s1 and s2 should be on the stack, s2 being the most recent)
