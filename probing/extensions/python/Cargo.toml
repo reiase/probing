@@ -6,6 +6,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
+
 [dependencies]
 probing-cc = { path = "../cc" }
 probing-core = { path = "../../core" }
@@ -26,7 +30,7 @@ cpp_demangle = "0.3"
 pyo3 = { version = "0.25.0", default-features = false, features = [
     "abi3",
     "abi3-py37",
-    "extension-module",
+    # "extension-module",
     "auto-initialize",
     "macros"
 ] }

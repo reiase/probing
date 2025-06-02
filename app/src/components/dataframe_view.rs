@@ -28,6 +28,7 @@ pub fn DataFrameView(df: DataFrame) -> impl IntoView {
                 .iter()
                 .map(move |col| match col.get(i) {
                     Ele::Nil => view! { <TableCell>{"nil".to_string()}</TableCell> },
+                    Ele::BOOL(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                     Ele::I32(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                     Ele::I64(x) => view! { <TableCell>{x.to_string()}</TableCell> },
                     Ele::F32(x) => view! { <TableCell>{x.to_string()}</TableCell> },

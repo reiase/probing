@@ -40,3 +40,7 @@ ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
 ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist
 	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
+
+.PHONY: test
+test:
+	cargo nextest run --workspace --no-default-features --nff
