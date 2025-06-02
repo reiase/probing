@@ -13,21 +13,31 @@ use crate::ENGINE;
 /// # Usage Examples
 ///
 /// ```rust
-/// use probing_core::config;
+/// # async fn usage_example() -> Result<(), probing_core::core::EngineError> {
+/// // Note: These examples assume the probing engine is initialized appropriately.
+/// // In a test environment without full engine setup, operations requiring
+/// // an initialized engine might return `EngineError::EngineNotInitialized`.
 ///
 /// // Set a configuration option
-/// config::set("server.address", "127.0.0.1:8080").await.unwrap();
+/// probing_core::config::config::set("server.address", "127.0.0.1:8080").await?;
 ///
 /// // Get a configuration option
-/// let addr = config::get("server.address").await.unwrap();
+/// let addr = probing_core::config::config::get("server.address").await?;
+/// // For a test, you might assert the value:
+/// // assert_eq!(addr, "127.0.0.1:8080");
 ///
 /// // List all available configuration options
-/// let options = config::list_options().await;
+/// let options = probing_core::config::config::list_options().await;
+/// // `options` will be empty if the engine is not initialized or has no config.
 ///
 /// // Check if engine is initialized
-/// if config::is_engine_initialized().await {
+/// if probing_core::config::config::is_engine_initialized().await {
 ///     println!("Engine is ready for configuration");
+/// } else {
+///     println!("Engine is not initialized.");
 /// }
+/// # Ok(())
+/// # }
 /// ```
 pub mod config {
     use super::*;
@@ -47,14 +57,20 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// // These calls assume the probing engine is initialized.
+    /// // If not, they may return `EngineError::EngineNotInitialized`.
+    ///
     /// // Set server address
-    /// config::set("server.address", "0.0.0.0:8080").await?;
+    /// probing_core::config::config::set("server.address", "0.0.0.0:8080").await?;
     ///
     /// // Set profiling interval
-    /// config::set("taskstats.interval", "1000").await?;
+    /// probing_core::config::config::set("taskstats.interval", "1000").await?;
     ///
     /// // Enable debug mode
-    /// config::set("server.debug", "true").await?;
+    /// probing_core::config::config::set("server.debug", "true").await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn set(key: &str, value: &str) -> Result<(), EngineError> {
         let engine_guard = ENGINE.write().await;
@@ -67,11 +83,12 @@ pub mod config {
             .extensions
             .get_mut::<EngineExtensionManager>()
         {
-            eem.set_option(key, value).await?;
+            eem.set_option(key, value).await?; // The EngineExtensionManager handles the option setting.
 
-            // Note: In a real implementation, we would need to update the engine's configuration
-            // For now, we'll just perform the validation and log the change
-            log::info!("Configuration would be updated: {} = {}", key, value);
+            // Note: The EngineExtensionManager is responsible for applying this specific option.
+            // Broader engine re-configuration, if necessary based on this change,
+            // would be handled by the engine's internal logic after this call.
+            log::info!("Configuration option processed via EngineExtensionManager: {} = {}", key, value);
             Ok(())
         } else {
             Err(EngineError::EngineNotInitialized)
@@ -92,11 +109,14 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
     /// // Get server address
-    /// let addr = config::get("server.address").await?;
+    /// let addr = probing_core::config::config::get("server.address").await?;
     ///
     /// // Get current profiling mode
-    /// let mode = config::get("torch.profiling_mode").await?;
+    /// let mode = probing_core::config::config::get("torch.profiling_mode").await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn get(key: &str) -> Result<String, EngineError> {
         let engine = ENGINE.read().await;
@@ -124,11 +144,14 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
-    /// let options = config::list_options().await;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// let options = probing_core::config::config::list_options().await;
     /// for option in options {
     ///     println!("{}: {} ({})", option.key,
     ///              option.value.unwrap_or_default(), option.help);
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn list_options() -> Vec<crate::core::EngineExtensionOption> {
         let engine = ENGINE.read().await;
@@ -156,10 +179,14 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
-    /// let config_map = config::get_all().await;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// use probing_core::config::config::get_all;
+    /// let config_map = get_all().await;
     /// for (key, value) in config_map {
     ///     println!("{} = {}", key, value);
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn get_all() -> HashMap<String, String> {
         let mut config_map = HashMap::new();
@@ -185,11 +212,15 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
-    /// if config::is_engine_initialized().await {
-    ///     config::set("server.address", "0.0.0.0:8080").await?;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// if probing_core::config::config::is_engine_initialized().await {
+    ///     probing_core::config::config::set("server.address", "0.0.0.0:8080").await?;
+    ///     println!("Engine initialized and config set.");
     /// } else {
     ///     println!("Engine not yet initialized");
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn is_engine_initialized() -> bool {
         let engine = ENGINE.read().await;
@@ -218,9 +249,15 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
+    /// # use std::collections::HashMap;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let params = HashMap::new();
-    /// let response = config::call_extension("/server/status", &params, &[]).await?;
+    /// // This call assumes the engine and relevant extension are initialized.
+    /// let response = probing_core::config::config::call_extension("/server/status", &params, &[]).await?;
     /// let status = String::from_utf8(response)?;
+    /// println!("Status: {}", status);
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn call_extension(
         path: &str,
@@ -256,10 +293,14 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
+    /// # use std::collections::HashMap;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
     /// let mut options = HashMap::new();
     /// options.insert("server.address".to_string(), "0.0.0.0:8080".to_string());
     /// options.insert("server.debug".to_string(), "true".to_string());
-    /// config::set_multiple(&options).await?;
+    /// probing_core::config::config::set_multiple(&options).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn set_multiple(options: &HashMap<String, String>) -> Result<(), EngineError> {
         for (key, value) in options {
@@ -282,8 +323,13 @@ pub mod config {
     ///
     /// # Examples
     /// ```rust
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// use probing_core::config::config::get_multiple;
     /// let keys = vec!["server.address", "server.debug"];
-    /// let values = config::get_multiple(&keys).await;
+    /// let values = get_multiple(&keys).await;
+    /// // Process `values` HashMap...
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn get_multiple(keys: &[&str]) -> HashMap<String, String> {
         let mut result = HashMap::new();
@@ -321,8 +367,18 @@ pub mod env {
     ///
     /// # Examples
     /// ```rust
-    /// // Sync SERVER_ADDRESS environment variable to server.address config
-    /// config::env::sync_env_to_config("SERVER_ADDRESS", "server.address").await?;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// // Ensure the "SERVER_ADDRESS" env var is set for this example to have an effect.
+    /// // std::env::set_var("SERVER_ADDRESS", "127.0.0.1_from_env");
+    /// let synced = probing_core::config::env::sync_env_to_config("SERVER_ADDRESS", "server.address").await?;
+    /// if synced {
+    ///     println!("Synced SERVER_ADDRESS to config");
+    /// } else {
+    ///     println!("SERVER_ADDRESS not found in environment.");
+    /// }
+    /// // std::env::remove_var("SERVER_ADDRESS"); // Clean up
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn sync_env_to_config(env_var: &str, config_key: &str) -> Result<bool, EngineError> {
         if let Ok(value) = std::env::var(env_var) {
@@ -349,8 +405,18 @@ pub mod env {
     ///
     /// # Examples
     /// ```rust
-    /// // Sync server.address config to SERVER_ADDRESS environment variable
-    /// config::env::sync_config_to_env("server.address", "SERVER_ADDRESS").await?;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
+    /// // First, ensure the config "server.address" has a value if testing actual sync.
+    /// // probing_core::config::set("server.address", "example.com:8080").await?;
+    /// let synced = probing_core::config::env::sync_config_to_env("server.address", "SERVER_ADDRESS_OUT").await?;
+    /// if synced {
+    ///     // In a test: assert_eq!(std::env::var("SERVER_ADDRESS_OUT").unwrap(), "example.com:8080");
+    ///     println!("Synced server.address to SERVER_ADDRESS_OUT env var");
+    /// } else {
+    ///     println!("Config server.address not found or other issue.");
+    /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn sync_config_to_env(config_key: &str, env_var: &str) -> Result<bool, EngineError> {
         match super::config::get(config_key).await {
@@ -376,10 +442,18 @@ pub mod env {
     ///
     /// # Examples
     /// ```rust
+    /// # use std::collections::HashMap;
+    /// # async fn example() -> Result<(), probing_core::core::EngineError> {
     /// let mut mappings = HashMap::new();
-    /// mappings.insert("SERVER_ADDRESS".to_string(), "server.address".to_string());
-    /// mappings.insert("SERVER_DEBUG".to_string(), "server.debug".to_string());
-    /// let results = config::env::sync_multiple_env_to_config(&mappings).await;
+    /// mappings.insert("SERVER_ADDRESS_ENV".to_string(), "server.address.conf".to_string());
+    /// mappings.insert("SERVER_DEBUG_ENV".to_string(), "server.debug.conf".to_string());
+    /// // For testing, you might set these env vars:
+    /// // std::env::set_var("SERVER_ADDRESS_ENV", "env_addr");
+    /// // std::env::set_var("SERVER_DEBUG_ENV", "true_from_env");
+    /// let results = probing_core::config::env::sync_multiple_env_to_config(&mappings).await;
+    /// // Process `results` HashMap, e.g., check `results.get("SERVER_ADDRESS_ENV")`
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn sync_multiple_env_to_config(
         mappings: &HashMap<String, String>,
@@ -409,8 +483,19 @@ pub mod env {
     ///
     /// # Examples
     /// ```rust
-    /// // Get all PROBING_ environment variables
-    /// let probing_vars = config::env::get_env_vars_with_prefix("PROBING_");
+    /// # use std::collections::HashMap;
+    /// # fn example() { // This function is not async
+    /// // For testing, you might set these env vars:
+    /// // std::env::set_var("PROBING_VAR1", "val1");
+    /// // std::env::set_var("PROBING_ANOTHER", "val2");
+    /// let probing_vars = probing_core::config::env::get_env_vars_with_prefix("PROBING_");
+    /// // for (key, value) in probing_vars {
+    /// //     println!("Env: {}={}", key, value);
+    /// // }
+    /// // assert!(probing_vars.contains_key("PROBING_VAR1"));
+    /// // std::env::remove_var("PROBING_VAR1"); // Clean up
+    /// // std::env::remove_var("PROBING_ANOTHER"); // Clean up
+    /// # }
     /// ```
     pub fn get_env_vars_with_prefix(prefix: &str) -> HashMap<String, String> {
         std::env::vars()
