@@ -1,8 +1,10 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU16, Ordering}; // For unique tracer ID generation
-use std::sync::{Arc, Mutex, RwLock, Weak}; // Weak for GlobalTracer's ref to LocalTracer
+use std::sync::{Arc, Mutex, RwLock, Weak, PoisonError}; // Ensure PoisonError is imported
 use std::thread::{self, ThreadId}; // For thread-local storage
+
+use super::TraceError; // Import TraceError from parent module
 
 use std::time::{Duration, SystemTime};
 
@@ -299,7 +301,7 @@ thread_local! {
 #[derive(Debug, Default)]
 pub struct GlobalSpanManager {
     local_tracers: Mutex<HashMap<ThreadId, Weak<RwLock<LocalSpanManager>>>>,
-    // TODO: completed_span_exporter: Mutex<Option<Box<dyn SpanExporter + Send + Sync>>>,
+    // TODO: completed_span_exporter: Mutex<Option<Box<dyn SpanExporter + Send + Sync>>>;,
 }
 
 impl GlobalSpanManager {
@@ -317,58 +319,50 @@ impl GlobalSpanManager {
                 tracers.insert(thread_id, tracer);
             }
             Err(e) => {
-                log::error!("Error acquiring lock on local_tracers: {}", e);
+                log::error!("Failed to lock local_tracers for registration: {}", e);
             }
         }
     }
 
-    // Private helper function to cleanup tracers when the map is already locked.
     fn cleanup_locked_tracers(tracers_map: &mut HashMap<ThreadId, Weak<RwLock<LocalSpanManager>>>) {
         tracers_map.retain(|_tid, weak_tracer| weak_tracer.strong_count() > 0);
     }
 
-    pub fn all_thread_spans(&self) -> HashMap<ThreadId, Vec<Span>> {
-        let weak_tracers_to_process = match self.local_tracers.lock() {
-            Ok(mut tracers_map) => {
-                GlobalSpanManager::cleanup_locked_tracers(&mut *tracers_map);
-                tracers_map.clone()
-            }
-            Err(e) => {
-                log::error!("Error acquiring lock on local_tracers: {}", e);
-                return HashMap::new(); // Return empty map on error
-            }
-        };
+    pub fn all_thread_spans(&self) -> Result<HashMap<ThreadId, Vec<Span>>, TraceError> {
+        let mut tracers_map_guard = self.local_tracers.lock()?;
+        GlobalSpanManager::cleanup_locked_tracers(&mut *tracers_map_guard);
 
         let mut result = HashMap::new();
-        for (tid, weak_tracer) in weak_tracers_to_process {
+        let mut local_tracer_arcs = Vec::new();
+        for (tid, weak_tracer) in tracers_map_guard.iter() {
             if let Some(tracer_arc) = weak_tracer.upgrade() {
-                // Lock individual LocalTracer; this lock is fine as it's per-tracer.
-                let tracer_lock = tracer_arc.read().unwrap();
-                result.insert(tid, tracer_lock.list_spans()); // active_spans() involves cloning
+                local_tracer_arcs.push((*tid, tracer_arc));
             }
         }
-        result
+        
+        drop(tracers_map_guard); 
+
+        for (tid, tracer_arc) in local_tracer_arcs {
+            let tracer_lock = tracer_arc.read()?; // This will now correctly use From<PoisonError<T>> for TraceError
+            result.insert(tid, tracer_lock.list_spans()); 
+        }
+        Ok(result)
     }
 
-    pub fn thread_spans(&self, thread_id: ThreadId) -> Option<Vec<Span>> {
-        let weak_tracer_option = match self.local_tracers.lock() {
-            Ok(mut tracers_map) => {
-                GlobalSpanManager::cleanup_locked_tracers(&mut *tracers_map);
-                tracers_map.get(&thread_id).cloned()
-            }
-            Err(e) => {
-                log::error!("Error acquiring lock on local_tracers: {}", e);
-                return None; // Return empty map on error
-            }
-        };
+    pub fn thread_spans(&self, thread_id: ThreadId) -> Result<Option<Vec<Span>>, TraceError> {
+        let mut tracers_map_guard = self.local_tracers.lock()?;
+        GlobalSpanManager::cleanup_locked_tracers(&mut *tracers_map_guard);
 
-        weak_tracer_option
-            .and_then(|weak_tracer| weak_tracer.upgrade())
-            .map(|tracer_arc| {
-                // Lock individual LocalTracer.
-                let tracer_lock = tracer_arc.read().unwrap();
-                tracer_lock.list_spans() // active_spans() involves cloning
-            })
+        let weak_tracer_option = tracers_map_guard.get(&thread_id).cloned();
+        drop(tracers_map_guard);
+
+        if let Some(weak_tracer) = weak_tracer_option {
+            if let Some(tracer_arc) = weak_tracer.upgrade() {
+                let tracer_lock = tracer_arc.read()?; // This will now correctly use From<PoisonError<T>> for TraceError
+                return Ok(Some(tracer_lock.list_spans()));
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -377,7 +371,6 @@ pub static GLOBAL_TRACER: Lazy<GlobalSpanManager> = Lazy::new(GlobalSpanManager:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
     use std::time::Duration as StdDuration; // Renamed to avoid conflict with super::Duration
 
     fn setup_tracer() -> LocalSpanManager {

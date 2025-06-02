@@ -98,11 +98,13 @@ pub fn list_spans() -> Result<Vec<span::Span>, TraceError> {
 // --- 获取全局信息的API ---
 
 /// Retrieves clones of all spans from all registered threads.
-pub fn all_thread_spans() -> HashMap<ThreadId, Vec<span::Span>> {
-    GLOBAL_TRACER.all_thread_spans()
+/// Returns a TraceError if the global tracer lock is poisoned.
+pub fn all_thread_spans() -> Result<HashMap<ThreadId, Vec<span::Span>>, TraceError> {
+    GLOBAL_TRACER.all_thread_spans() // No longer needs map_err as GLOBAL_TRACER methods now return Result<_, TraceError>
 }
 
 /// Retrieves clones of all spans for a specific thread.
-pub fn thread_spans(thread_id: ThreadId) -> Option<Vec<span::Span>> {
-    GLOBAL_TRACER.thread_spans(thread_id)
+/// Returns a TraceError if the global tracer lock is poisoned.
+pub fn thread_spans(thread_id: ThreadId) -> Result<Option<Vec<span::Span>>, TraceError> {
+    GLOBAL_TRACER.thread_spans(thread_id) // No longer needs map_err
 }
