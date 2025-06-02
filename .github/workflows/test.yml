@@ -53,12 +53,11 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
         key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
-
-    # Run Tests
-    - name: Run make test
-      run: make test
-
+    
     # Build the package
     - name: Build package
       run: |
         make ZIG=1 wheel
+    # Run Tests
+    - name: Run make test
+      run: make test
