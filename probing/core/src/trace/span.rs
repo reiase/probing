@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher}; // Added for SpanStatus hashing
 use std::sync::atomic::{AtomicU16, Ordering}; // For unique tracer ID generation
-use std::sync::{Arc, Mutex, RwLock, Weak, PoisonError}; // Ensure PoisonError is imported
+use std::sync::{Arc, Mutex, PoisonError, RwLock, Weak}; // Ensure PoisonError is imported
 use std::thread::{self, ThreadId}; // For thread-local storage
 
 use super::TraceError; // Import TraceError from parent module
@@ -306,8 +306,7 @@ impl LocalSpanManager {
     }
 
     pub fn current_span(&self) -> Option<Span> {
-        self.active_id()
-            .and_then(|id| self.spans.get(&id).cloned())
+        self.active_id().and_then(|id| self.spans.get(&id).cloned())
     }
 
     pub fn all_spans(&self) -> Vec<Span> {
@@ -389,12 +388,12 @@ impl GlobalSpanManager {
                 local_tracer_arcs.push((*tid, tracer_arc));
             }
         }
-        
-        drop(tracers_map_guard); 
+
+        drop(tracers_map_guard);
 
         for (tid, tracer_arc) in local_tracer_arcs {
             let tracer_lock = tracer_arc.read()?; // This will now correctly use From<PoisonError<T>> for TraceError
-            result.insert(tid, tracer_lock.list_spans()); 
+            result.insert(tid, tracer_lock.list_spans());
         }
         Ok(result)
     }
@@ -445,10 +444,10 @@ mod tests {
         let tracer_id_for_assertion = tracer.tracer_id; // For assertion clarity
 
         let (span_id, trace_id) = tracer.start_span(
-            "process_incoming_request",      // A descriptive name for the span
-            Some("server_op"),               // Optional: kind of operation (e.g., server, client)
+            "process_incoming_request", // A descriptive name for the span
+            Some("server_op"),          // Optional: kind of operation (e.g., server, client)
             Some("my_app::request_handler"), // Optional: code path or function name
-            // None,                            // initial_attributes removed
+                                        // None,                            // initial_attributes removed
         );
 
         assert_eq!(
@@ -531,8 +530,10 @@ mod tests {
             child_trace_id, root_trace_id,
             "Child span must share the same TraceId as its root"
         );
-        assert!(child_span.attributes.is_none(), "Initial attributes should now be None");
-
+        assert!(
+            child_span.attributes.is_none(),
+            "Initial attributes should now be None"
+        );
 
         let root_span_after_child_start = tracer
             .spans
@@ -662,13 +663,13 @@ mod tests {
         tracer.end_span(SpanStatus::Close);
 
         // Force next_trace_seq to max value
-        tracer.next_trace_seq = u64::MAX-1;
+        tracer.next_trace_seq = u64::MAX - 1;
 
         let (_, trace_id_before_wrap) = tracer.start_span("span_before_u64_wrap", None, None); // Removed None for attributes
-        // The sequence part of trace_id is (self.next_trace_seq as u128 & MAX_TRACE_SEQ)
+                                                                                               // The sequence part of trace_id is (self.next_trace_seq as u128 & MAX_TRACE_SEQ)
         assert_eq!(
             trace_id_before_wrap.0,
-            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | ((u64::MAX-1) as u128 & MAX_TRACE_SEQ),
+            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | ((u64::MAX - 1) as u128 & MAX_TRACE_SEQ),
             "Trace ID before u64 wrap"
         );
         tracer.end_span(SpanStatus::Close);
@@ -813,7 +814,10 @@ mod tests {
     fn test_get_statistics_empty() {
         let tracer = setup_tracer();
         let stats = tracer.get_statistics();
-        assert!(stats.is_empty(), "Statistics should be empty for a new tracer");
+        assert!(
+            stats.is_empty(),
+            "Statistics should be empty for a new tracer"
+        );
     }
 
     #[test]
@@ -839,14 +843,26 @@ mod tests {
 
         assert_eq!(stats.len(), 2, "Expected 2 groups of statistics");
 
-        let key_task_a_closed = (Some("type1".to_string()), "task_a".to_string(), SpanStatus::Close);
-        let task_a_stats = stats.get(&key_task_a_closed).expect("Stats for task_a/type1/Close not found");
+        let key_task_a_closed = (
+            Some("type1".to_string()),
+            "task_a".to_string(),
+            SpanStatus::Close,
+        );
+        let task_a_stats = stats
+            .get(&key_task_a_closed)
+            .expect("Stats for task_a/type1/Close not found");
         assert_eq!(task_a_stats.count, 2);
         assert!(task_a_stats.total_duration >= StdDuration::from_millis(10 + 20));
         assert!(task_a_stats.total_duration < StdDuration::from_millis(10 + 20 + 5)); // Allow for slight overhead
 
-        let key_task_b_error = (Some("type2".to_string()), "task_b".to_string(), SpanStatus::Error(Some("failed".to_string())));
-        let task_b_stats = stats.get(&key_task_b_error).expect("Stats for task_b/type2/Error not found");
+        let key_task_b_error = (
+            Some("type2".to_string()),
+            "task_b".to_string(),
+            SpanStatus::Error(Some("failed".to_string())),
+        );
+        let task_b_stats = stats
+            .get(&key_task_b_error)
+            .expect("Stats for task_b/type2/Error not found");
         assert_eq!(task_b_stats.count, 1);
         assert!(task_b_stats.total_duration >= StdDuration::from_millis(30));
         assert!(task_b_stats.total_duration < StdDuration::from_millis(30 + 5));
@@ -866,40 +882,90 @@ mod tests {
         let stats = tracer.get_statistics();
         assert_eq!(stats.len(), 3, "Expected 3 groups for active spans");
 
-        let key_active_1 = (Some("type_active".to_string()), "active_task_1".to_string(), SpanStatus::Open);
-        let active_1_stats: &SpanStats = stats.get(&key_active_1).expect("Stats for active_task_1 not found");
-        assert_eq!(active_1_stats.count, 1, "Count for active_task_1 should be 1");
-        assert_eq!(active_1_stats.total_duration, StdDuration::from_nanos(0), "Duration for active_task_1 should be 0");
+        let key_active_1 = (
+            Some("type_active".to_string()),
+            "active_task_1".to_string(),
+            SpanStatus::Open,
+        );
+        let active_1_stats: &SpanStats = stats
+            .get(&key_active_1)
+            .expect("Stats for active_task_1 not found");
+        assert_eq!(
+            active_1_stats.count, 1,
+            "Count for active_task_1 should be 1"
+        );
+        assert_eq!(
+            active_1_stats.total_duration,
+            StdDuration::from_nanos(0),
+            "Duration for active_task_1 should be 0"
+        );
 
-        let key_active_2_parent = (Some("type_parent_active".to_string()), "active_task_2_parent".to_string(), SpanStatus::Open);
-        let active_2_parent_stats = stats.get(&key_active_2_parent).expect("Stats for active_task_2_parent not found");
-        assert_eq!(active_2_parent_stats.count, 1, "Count for active_task_2_parent should be 1");
-        assert_eq!(active_2_parent_stats.total_duration, StdDuration::from_nanos(0), "Duration for active_task_2_parent should be 0");
-        
-        let key_active_2_child = (Some("type_child_active".to_string()), "active_task_2_child".to_string(), SpanStatus::Running);
-        let active_2_child_stats = stats.get(&key_active_2_child).expect("Stats for active_task_2_child not found");
-        assert_eq!(active_2_child_stats.count, 1, "Count for active_task_2_child should be 1");
-        assert_eq!(active_2_child_stats.total_duration, StdDuration::from_nanos(0), "Duration for active_task_2_child should be 0");
+        let key_active_2_parent = (
+            Some("type_parent_active".to_string()),
+            "active_task_2_parent".to_string(),
+            SpanStatus::Open,
+        );
+        let active_2_parent_stats = stats
+            .get(&key_active_2_parent)
+            .expect("Stats for active_task_2_parent not found");
+        assert_eq!(
+            active_2_parent_stats.count, 1,
+            "Count for active_task_2_parent should be 1"
+        );
+        assert_eq!(
+            active_2_parent_stats.total_duration,
+            StdDuration::from_nanos(0),
+            "Duration for active_task_2_parent should be 0"
+        );
 
+        let key_active_2_child = (
+            Some("type_child_active".to_string()),
+            "active_task_2_child".to_string(),
+            SpanStatus::Running,
+        );
+        let active_2_child_stats = stats
+            .get(&key_active_2_child)
+            .expect("Stats for active_task_2_child not found");
+        assert_eq!(
+            active_2_child_stats.count, 1,
+            "Count for active_task_2_child should be 1"
+        );
+        assert_eq!(
+            active_2_child_stats.total_duration,
+            StdDuration::from_nanos(0),
+            "Duration for active_task_2_child should be 0"
+        );
 
         // End the child, parent becomes Running
-        tracer.end_span(SpanStatus::Close); 
+        tracer.end_span(SpanStatus::Close);
         let stats_after_child_end = tracer.get_statistics();
-        
+
         // active_task_2_child is now completed
-        let key_active_2_child_closed = (Some("type_child_active".to_string()), "active_task_2_child".to_string(), SpanStatus::Close);
-        let active_2_child_closed_stats = stats_after_child_end.get(&key_active_2_child_closed).expect("Stats for active_task_2_child (closed) not found");
+        let key_active_2_child_closed = (
+            Some("type_child_active".to_string()),
+            "active_task_2_child".to_string(),
+            SpanStatus::Close,
+        );
+        let active_2_child_closed_stats = stats_after_child_end
+            .get(&key_active_2_child_closed)
+            .expect("Stats for active_task_2_child (closed) not found");
         assert_eq!(active_2_child_closed_stats.count, 1);
         assert!(active_2_child_closed_stats.total_duration > StdDuration::from_nanos(0));
 
-
         // active_task_2_parent is now Running
-        let key_active_2_parent_running = (Some("type_parent_active".to_string()), "active_task_2_parent".to_string(), SpanStatus::Running);
-        let active_2_parent_running_stats = stats_after_child_end.get(&key_active_2_parent_running).expect("Stats for active_task_2_parent (running) not found");
+        let key_active_2_parent_running = (
+            Some("type_parent_active".to_string()),
+            "active_task_2_parent".to_string(),
+            SpanStatus::Running,
+        );
+        let active_2_parent_running_stats = stats_after_child_end
+            .get(&key_active_2_parent_running)
+            .expect("Stats for active_task_2_parent (running) not found");
         assert_eq!(active_2_parent_running_stats.count, 1);
-        assert_eq!(active_2_parent_running_stats.total_duration, StdDuration::from_nanos(0));
-
-
+        assert_eq!(
+            active_2_parent_running_stats.total_duration,
+            StdDuration::from_nanos(0)
+        );
     }
 
     #[test]
@@ -913,34 +979,60 @@ mod tests {
 
         // Active Span 1
         tracer.start_span("active_task", Some("type_a"), None);
-        
+
         // Completed Span 2 (same as active one's key, but will be completed)
         tracer.start_span("active_task", Some("type_a"), None);
         std::thread::sleep(StdDuration::from_millis(25));
         tracer.end_span(SpanStatus::Error(None));
 
-
         let stats = tracer.get_statistics();
-        assert_eq!(stats.len(), 3, "Expected 3 groups of statistics (1 completed, 1 active, 1 completed with error)");
+        assert_eq!(
+            stats.len(),
+            3,
+            "Expected 3 groups of statistics (1 completed, 1 active, 1 completed with error)"
+        );
 
-        let key_completed = (Some("type_c".to_string()), "completed_task".to_string(), SpanStatus::Close);
-        let completed_stats = stats.get(&key_completed).expect("Stats for completed_task not found");
+        let key_completed = (
+            Some("type_c".to_string()),
+            "completed_task".to_string(),
+            SpanStatus::Close,
+        );
+        let completed_stats = stats
+            .get(&key_completed)
+            .expect("Stats for completed_task not found");
         assert_eq!(completed_stats.count, 1);
         assert!(completed_stats.total_duration >= StdDuration::from_millis(15));
 
-        let key_active = (Some("type_a".to_string()), "active_task".to_string(), SpanStatus::Running);
-        let active_stats = stats.get(&key_active).expect("Stats for active_task not found");
+        let key_active = (
+            Some("type_a".to_string()),
+            "active_task".to_string(),
+            SpanStatus::Running,
+        );
+        let active_stats = stats
+            .get(&key_active)
+            .expect("Stats for active_task not found");
         assert_eq!(active_stats.count, 1, "Active span count mismatch"); // Only the truly active one
-        assert_eq!(active_stats.total_duration, StdDuration::from_nanos(0), "Active span duration should be 0");
-        
-        let key_active_errored = (Some("type_a".to_string()), "active_task".to_string(), SpanStatus::Error(None));
-        let active_errored_stats = stats.get(&key_active_errored).expect("Stats for active_task (errored) not found");
+        assert_eq!(
+            active_stats.total_duration,
+            StdDuration::from_nanos(0),
+            "Active span duration should be 0"
+        );
+
+        let key_active_errored = (
+            Some("type_a".to_string()),
+            "active_task".to_string(),
+            SpanStatus::Error(None),
+        );
+        let active_errored_stats = stats
+            .get(&key_active_errored)
+            .expect("Stats for active_task (errored) not found");
         assert_eq!(active_errored_stats.count, 1, "Errored span count mismatch");
-        assert!(active_errored_stats.total_duration >= StdDuration::from_millis(25), "Errored span duration mismatch");
-
-
+        assert!(
+            active_errored_stats.total_duration >= StdDuration::from_millis(25),
+            "Errored span duration mismatch"
+        );
     }
-    
+
     #[test]
     fn test_get_statistics_multiple_statuses_for_same_span_name_kind() {
         let mut tracer = setup_tracer();
@@ -956,7 +1048,7 @@ mod tests {
         tracer.start_span(span_name.clone(), span_kind.as_deref(), None);
         std::thread::sleep(StdDuration::from_millis(8));
         tracer.end_span(SpanStatus::Error(Some("network issue".to_string())));
-        
+
         // Instance 3: Close (again)
         tracer.start_span(span_name.clone(), span_kind.as_deref(), None);
         std::thread::sleep(StdDuration::from_millis(6));
@@ -969,17 +1061,27 @@ mod tests {
         assert_eq!(stats.len(), 3, "Expected 3 distinct groups based on status");
 
         let key_closed = (span_kind.clone(), span_name.clone(), SpanStatus::Close);
-        let closed_stats = stats.get(&key_closed).expect("Stats for task_x/Close not found");
+        let closed_stats = stats
+            .get(&key_closed)
+            .expect("Stats for task_x/Close not found");
         assert_eq!(closed_stats.count, 2); // Two closed instances
         assert!(closed_stats.total_duration >= StdDuration::from_millis(5 + 6));
 
-        let key_error = (span_kind.clone(), span_name.clone(), SpanStatus::Error(Some("network issue".to_string())));
-        let error_stats = stats.get(&key_error).expect("Stats for task_x/Error not found");
+        let key_error = (
+            span_kind.clone(),
+            span_name.clone(),
+            SpanStatus::Error(Some("network issue".to_string())),
+        );
+        let error_stats = stats
+            .get(&key_error)
+            .expect("Stats for task_x/Error not found");
         assert_eq!(error_stats.count, 1);
         assert!(error_stats.total_duration >= StdDuration::from_millis(8));
-        
+
         let key_running = (span_kind.clone(), span_name.clone(), SpanStatus::Running);
-        let running_stats = stats.get(&key_running).expect("Stats for task_x/Running not found");
+        let running_stats = stats
+            .get(&key_running)
+            .expect("Stats for task_x/Running not found");
         assert_eq!(running_stats.count, 1); // The one active span
         assert_eq!(running_stats.total_duration, StdDuration::from_nanos(0));
     }

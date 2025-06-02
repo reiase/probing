@@ -25,7 +25,7 @@ impl Compressable for Seq {
             Seq::SeqBOOL(vec) => {
                 let data: Vec<i32> = vec.iter().map(|&x| if x { 1 } else { 0 }).collect();
                 Ok((EleType::BOOL, sample_compress(&data)?, None))
-            },
+            }
             Seq::SeqI32(vec) => Ok((EleType::I32, sample_compress(vec)?, None)),
             Seq::SeqI64(vec) => Ok((EleType::I64, sample_compress(vec)?, None)),
             Seq::SeqF32(vec) => Ok((EleType::F32, sample_compress(vec)?, None)),
@@ -79,8 +79,12 @@ impl Decompressable for Seq {
             EleType::BOOL => {
                 let data = simple_decompress::<i32>(data)
                     .map_err(|e| ProtoError::CompressError(e.to_string()))?;
-                Seq::SeqBOOL(data.iter().map(|&x| if x != 0 { true } else { false }).collect())
-            },
+                Seq::SeqBOOL(
+                    data.iter()
+                        .map(|&x| if x != 0 { true } else { false })
+                        .collect(),
+                )
+            }
             EleType::I32 => Seq::SeqI32(
                 simple_decompress::<i32>(data)
                     .map_err(|e| ProtoError::CompressError(e.to_string()))?,
