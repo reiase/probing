@@ -110,7 +110,7 @@ impl Span {
 
 // --- ThreadLocal Span Manager ---
 #[derive(Debug)]
-pub struct LocalTracer {
+pub struct LocalSpanManager {
     thread_id: ThreadId,
     tracer_id: u16, // Unique numeric ID for this tracer, used in TraceId generation.
 
@@ -121,11 +121,11 @@ pub struct LocalTracer {
     spans: HashMap<SpanId, Span>,
 }
 
-impl LocalTracer {
+impl LocalSpanManager {
     fn new() -> Self {
         let short_tracer_id = NEXT_TRACER_NUM.fetch_add(1, Ordering::Relaxed);
 
-        LocalTracer {
+        LocalSpanManager {
             thread_id: thread::current().id(),
             tracer_id: short_tracer_id,
             next_trace_seq: 0,
@@ -283,8 +283,8 @@ impl LocalTracer {
 
 // --- Thread-Local Storage Initialization ---
 thread_local! {
-    static LOCAL_TRACER: Arc<RwLock<LocalTracer>> = {
-        let tracer = Arc::new(RwLock::new(LocalTracer::new()));
+    static LOCAL_TRACER: Arc<RwLock<LocalSpanManager>> = {
+        let tracer = Arc::new(RwLock::new(LocalSpanManager::new()));
         GLOBAL_TRACER.register_tracer(thread::current().id(), Arc::downgrade(&tracer));
         tracer
     };
@@ -292,23 +292,23 @@ thread_local! {
 
 // --- Global Span Manager ---
 #[derive(Debug, Default)]
-pub struct GlobalTracer {
-    local_tracers: Mutex<HashMap<ThreadId, Weak<RwLock<LocalTracer>>>>,
+pub struct GlobalSpanManager {
+    local_tracers: Mutex<HashMap<ThreadId, Weak<RwLock<LocalSpanManager>>>>,
     // TODO: completed_span_exporter: Mutex<Option<Box<dyn SpanExporter + Send + Sync>>>,
 }
 
-impl GlobalTracer {
+impl GlobalSpanManager {
     pub fn new(/* exporter: Box<dyn SpanExporter + Send + Sync> */) -> Self {
-        GlobalTracer {
+        GlobalSpanManager {
             local_tracers: Mutex::new(HashMap::new()),
             // completed_span_exporter: Mutex::new(Some(exporter)),
         }
     }
 
-    fn register_tracer(&self, thread_id: ThreadId, tracer: Weak<RwLock<LocalTracer>>) {
+    fn register_tracer(&self, thread_id: ThreadId, tracer: Weak<RwLock<LocalSpanManager>>) {
         match self.local_tracers.lock() {
             Ok(mut tracers) => {
-                GlobalTracer::cleanup_locked_tracers(&mut *tracers);
+                GlobalSpanManager::cleanup_locked_tracers(&mut *tracers);
                 tracers.insert(thread_id, tracer);
             }
             Err(e) => {
@@ -318,14 +318,14 @@ impl GlobalTracer {
     }
 
     // Private helper function to cleanup tracers when the map is already locked.
-    fn cleanup_locked_tracers(tracers_map: &mut HashMap<ThreadId, Weak<RwLock<LocalTracer>>>) {
+    fn cleanup_locked_tracers(tracers_map: &mut HashMap<ThreadId, Weak<RwLock<LocalSpanManager>>>) {
         tracers_map.retain(|_tid, weak_tracer| weak_tracer.strong_count() > 0);
     }
 
     pub fn all_thread_spans(&self) -> HashMap<ThreadId, Vec<Span>> {
         let weak_tracers_to_process = match self.local_tracers.lock() {
             Ok(mut tracers_map) => {
-                GlobalTracer::cleanup_locked_tracers(&mut *tracers_map);
+                GlobalSpanManager::cleanup_locked_tracers(&mut *tracers_map);
                 tracers_map.clone()
             }
             Err(e) => {
@@ -348,7 +348,7 @@ impl GlobalTracer {
     pub fn thread_spans(&self, thread_id: ThreadId) -> Option<Vec<Span>> {
         let weak_tracer_option = match self.local_tracers.lock() {
             Ok(mut tracers_map) => {
-                GlobalTracer::cleanup_locked_tracers(&mut *tracers_map);
+                GlobalSpanManager::cleanup_locked_tracers(&mut *tracers_map);
                 tracers_map.get(&thread_id).cloned()
             }
             Err(e) => {
@@ -367,7 +367,7 @@ impl GlobalTracer {
     }
 }
 
-pub static GLOBAL_TRACER: Lazy<GlobalTracer> = Lazy::new(GlobalTracer::new);
+pub static GLOBAL_TRACER: Lazy<GlobalSpanManager> = Lazy::new(GlobalSpanManager::new);
 
 #[cfg(test)]
 mod tests {
@@ -375,8 +375,8 @@ mod tests {
     use std::thread;
     use std::time::Duration as StdDuration; // Renamed to avoid conflict with super::Duration
 
-    fn setup_tracer() -> LocalTracer {
-        LocalTracer {
+    fn setup_tracer() -> LocalSpanManager {
+        LocalSpanManager {
             thread_id: std::thread::current().id(),
             tracer_id: 0, // Simplified for predictable test outcomes
             next_trace_seq: 0,
