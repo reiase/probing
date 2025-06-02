@@ -72,10 +72,7 @@ impl ServerExtension {
         address_string
             .parse::<std::net::SocketAddr>()
             .map_err(|_| {
-                EngineError::InvalidOptionValue(
-                    "server.address".to_string(),
-                    address_string.clone(),
-                )
+                EngineError::InvalidOptionValue("address".to_string(), address_string.clone())
             })?;
 
         self.address = address;
@@ -105,7 +102,7 @@ impl ServerExtension {
         if let Maybe::Just(count) = max_connections {
             if count == 0 {
                 return Err(EngineError::InvalidOptionValue(
-                    "server.max_connections".to_string(),
+                    "max_connections".to_string(),
                     count.to_string(),
                 ));
             }
@@ -132,7 +129,7 @@ impl ServerExtension {
                     Ok(())
                 }
                 _ => Err(EngineError::InvalidOptionValue(
-                    "server.log_level".to_string(),
+                    "log_level".to_string(),
                     level_str.clone(),
                 )),
             }
@@ -145,39 +142,6 @@ impl ServerExtension {
     fn set_assets_root(&mut self, assets_root: Maybe<String>) -> Result<(), EngineError> {
         self.assets_root = assets_root;
         Ok(())
-    }
-
-    // Public getters for Config integration
-    pub fn get_address(&self) -> &Maybe<String> {
-        &self.address
-    }
-
-    pub fn get_unix_socket(&self) -> &Maybe<String> {
-        &self.unix_socket
-    }
-
-    pub fn get_report_addr(&self) -> &Maybe<String> {
-        &self.report_addr
-    }
-
-    pub fn get_max_connections(&self) -> &Maybe<u32> {
-        &self.max_connections
-    }
-
-    pub fn get_timeout(&self) -> &Maybe<u64> {
-        &self.timeout
-    }
-
-    pub fn get_debug(&self) -> &Maybe<bool> {
-        &self.debug
-    }
-
-    pub fn get_log_level(&self) -> &Maybe<String> {
-        &self.log_level
-    }
-
-    pub fn get_assets_root(&self) -> &Maybe<String> {
-        &self.assets_root
     }
 }
 
@@ -192,41 +156,41 @@ mod test {
         let mut ext = ServerExtension::default();
 
         // Test setting and getting addr
-        assert!(ext.set("server.addr", "127.0.0.1:8080").is_ok());
-        assert_eq!(ext.get("server.addr").unwrap(), "127.0.0.1:8080");
+        assert!(ext.set("addr", "127.0.0.1:8080").is_ok());
+        assert_eq!(ext.get("addr").unwrap(), "127.0.0.1:8080");
 
         // Test invalid addr format
-        assert!(ext.set("server.addr", "invalid").is_err());
+        assert!(ext.set("addr", "invalid").is_err());
 
         // Test unix socket
-        assert!(ext.set("server.unix_socket", "/tmp/test.sock").is_ok());
-        assert_eq!(ext.get("server.unix_socket").unwrap(), "/tmp/test.sock");
+        assert!(ext.set("unix_socket", "/tmp/test.sock").is_ok());
+        assert_eq!(ext.get("unix_socket").unwrap(), "/tmp/test.sock");
 
         // Test max connections
-        assert!(ext.set("server.max_connections", "200").is_ok());
-        assert_eq!(ext.get("server.max_connections").unwrap(), "200");
-        assert!(ext.set("server.max_connections", "0").is_err());
+        assert!(ext.set("max_connections", "200").is_ok());
+        assert_eq!(ext.get("max_connections").unwrap(), "200");
+        assert!(ext.set("max_connections", "0").is_err());
 
         // Test timeout
-        assert!(ext.set("server.timeout", "60").is_ok());
-        assert_eq!(ext.get("server.timeout").unwrap(), "60");
+        assert!(ext.set("timeout", "60").is_ok());
+        assert_eq!(ext.get("timeout").unwrap(), "60");
 
         // Test debug mode
-        assert!(ext.set("server.debug", "true").is_ok());
-        assert_eq!(ext.get("server.debug").unwrap(), "true");
+        assert!(ext.set("debug", "true").is_ok());
+        assert_eq!(ext.get("debug").unwrap(), "true");
 
         // Test log level
-        assert!(ext.set("server.log_level", "debug").is_ok());
-        assert_eq!(ext.get("server.log_level").unwrap(), "debug");
-        assert!(ext.set("server.log_level", "invalid").is_err());
+        assert!(ext.set("log_level", "debug").is_ok());
+        assert_eq!(ext.get("log_level").unwrap(), "debug");
+        assert!(ext.set("log_level", "invalid").is_err());
 
         // Test auth token
-        assert!(ext.set("server.auth_token", "secret123").is_ok());
-        assert_eq!(ext.get("server.auth_token").unwrap(), "secret123");
+        assert!(ext.set("auth_token", "secret123").is_ok());
+        assert_eq!(ext.get("auth_token").unwrap(), "secret123");
 
         // Test report address
-        assert!(ext.set("server.report_addr", "127.0.0.1:9922").is_ok());
-        assert_eq!(ext.get("server.report_addr").unwrap(), "127.0.0.1:9922");
+        assert!(ext.set("report_addr", "127.0.0.1:9922").is_ok());
+        assert_eq!(ext.get("report_addr").unwrap(), "127.0.0.1:9922");
 
         // Test invalid option
         assert!(ext.set("invalid.key", "value").is_err());
@@ -234,7 +198,7 @@ mod test {
 
         // Test options list
         let options = ext.options();
-        assert_eq!(options.len(), 8); // Updated count to include all options
+        assert_eq!(options.len(), 9); // Updated count to include all options
         assert!(options.iter().any(|opt| opt.key == "server.address"));
         assert!(options.iter().any(|opt| opt.key == "server.unix_socket"));
         assert!(options.iter().any(|opt| opt.key == "server.report_addr"));

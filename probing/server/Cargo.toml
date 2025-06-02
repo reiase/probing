@@ -6,9 +6,13 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+extension-module = ["probing-python/extension-module"]
+default = ["extension-module"]
+
 [dependencies]
 probing-cc = { path = "../extensions/cc" }
-probing-python = { path = "../extensions/python" }
+probing-python = { path = "../extensions/python", default-features = false }
 probing-proto = { path = "../proto" }
 probing-core = { path = "../core" }
 

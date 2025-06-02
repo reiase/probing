@@ -10,8 +10,8 @@ use probing_core::core::{
     RecordBatch, Schema, SchemaRef, StringArray,
 };
 use probing_core::core::{Float32Array, Int32Array, LazyTableSource};
-use probing_proto::prelude::{Ele, TimeSeries};
-use probing_proto::types; // Keep this for types::EleType
+use probing_proto::prelude::{CallFrame, Ele, TimeSeries};
+use probing_proto::types;
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyDict;
 use pyo3::types::PyDictMethods;
@@ -27,6 +27,75 @@ use pyo3::Python;
 pub struct PythonNamespace {}
 
 impl PythonNamespace {
+    fn get_backtrace_data() -> Result<Vec<RecordBatch>> {
+        let frames = crate::extensions::python::backtrace(None)?;
+
+        if frames.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut ips: Vec<Option<String>> = Vec::new();
+        let mut files: Vec<Option<String>> = Vec::new();
+        let mut funcs: Vec<Option<String>> = Vec::new();
+        let mut linenos: Vec<Option<i64>> = Vec::new();
+        let mut depth: Vec<Option<i64>> = Vec::new(); // Renamed from depths
+        let mut frame_types: Vec<Option<String>> = Vec::new(); // Added for frame type
+        let mut current_depth_val: i64 = 0; // Renamed from current_depth to avoid conflict if depth was a scalar
+
+        for frame in frames {
+            match frame {
+                CallFrame::CFrame {
+                    ip,
+                    file,
+                    func,
+                    lineno,
+                } => {
+                    ips.push(Some(ip));
+                    files.push(Some(file));
+                    funcs.push(Some(func));
+                    linenos.push(Some(lineno));
+                    depth.push(Some(current_depth_val)); // Use new variable name
+                    frame_types.push(Some("Native".to_string())); // Add frame type
+                    current_depth_val += 1;
+                }
+                CallFrame::PyFrame {
+                    file,
+                    func,
+                    lineno,
+                    locals: _,
+                } => {
+                    ips.push(None);
+                    files.push(Some(file));
+                    funcs.push(Some(func));
+                    linenos.push(Some(lineno));
+                    depth.push(Some(current_depth_val)); // Use new variable name
+                    frame_types.push(Some("Python".to_string())); // Add frame type
+                    current_depth_val += 1;
+                }
+            }
+        }
+
+        let schema = SchemaRef::new(Schema::new(vec![
+            Field::new("ip", DataType::Utf8, true),
+            Field::new("file", DataType::Utf8, true),
+            Field::new("func", DataType::Utf8, true),
+            Field::new("lineno", DataType::Int64, true),
+            Field::new("depth", DataType::Int64, true),
+            Field::new("frame_type", DataType::Utf8, true), // Added frame_type field
+        ]));
+
+        let columns: Vec<ArrayRef> = vec![
+            Arc::new(StringArray::from(ips)),
+            Arc::new(StringArray::from(files)),
+            Arc::new(StringArray::from(funcs)),
+            Arc::new(Int64Array::from(linenos)),
+            Arc::new(Int64Array::from(depth)), // Use new variable name
+            Arc::new(StringArray::from(frame_types)), // Added frame_type array
+        ];
+
+        Ok(vec![RecordBatch::try_new(schema, columns)?])
+    }
+
     fn data_from_python(expr: &str) -> Result<Vec<RecordBatch>> {
         Python::with_gil(|py| {
             let parts: Vec<&str> = expr.split('.').collect();
@@ -96,17 +165,27 @@ impl CustomNamespace for PythonNamespace {
     }
 
     fn list() -> Vec<String> {
-        super::exttbls::EXTERN_TABLES.lock().map_or_else(
+        let mut tables = super::exttbls::EXTERN_TABLES.lock().map_or_else(
             |e| {
                 log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
                 vec![]
             },
             |binding| binding.keys().cloned().collect(),
-        )
+        );
+        tables.push("backtrace".to_string()); // Add backtrace to the list
+        tables
     }
 
     fn data(expr: &str) -> Vec<RecordBatch> {
-        if Self::list().contains(&expr.to_string()) {
+        if expr == "backtrace" {
+            match Self::get_backtrace_data() {
+                Ok(batches) => batches,
+                Err(e) => {
+                    error!("Error getting backtrace data: {:?}", e);
+                    vec![]
+                }
+            }
+        } else if Self::list().contains(&expr.to_string()) {
             match Self::data_from_extern(expr) {
                 Ok(batches) => batches,
                 Err(e) => {
@@ -126,6 +205,20 @@ impl CustomNamespace for PythonNamespace {
     }
 
     fn make_lazy(expr: &str) -> Arc<LazyTableSource> {
+        if expr == "backtrace" {
+            let data = Self::get_backtrace_data().unwrap_or_default();
+            let schema = if data.is_empty() {
+                None
+            } else {
+                Some(data[0].schema().clone())
+            };
+            return Arc::new(LazyTableSource {
+                name: expr.to_string(),
+                schema,
+                data,
+            });
+        }
+
         let binding = super::exttbls::EXTERN_TABLES.lock().map_or_else(
             |e| {
                 log::error!("Failed to lock EXTERN_TABLES: {:?}", e);

@@ -6,7 +6,7 @@ use axum::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use once_cell::sync::Lazy;
-use probing_core::config::config;
+use probing_core::config;
 use std::env;
 
 // Auth token environment variable name

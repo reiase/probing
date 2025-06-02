@@ -62,10 +62,15 @@ keywords = ["debug", "performance", "python"]
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+use-mimalloc = ["dep:mimalloc"]
+extension-module = ["probing-python/extension-module", "probing-server/extension-module"]
+default = ["extension-module", "use-mimalloc"]
+
 [dependencies]
 probing-core = { path = "probing/core" }
-probing-server = { path = "probing/server" }
-probing-python = { path = "probing/extensions/python" }
+probing-server = { path = "probing/server", default-features = false }
+probing-python = { path = "probing/extensions/python", default-features = false }
 
 anyhow = { workspace = true }
 log = { workspace = true }
@@ -74,7 +79,7 @@ env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
 ] }
 nix = { workspace = true }
-mimalloc = "0.1.46"
+mimalloc = { version = "0.1.46", optional = true }
 
 [dev-dependencies]
 # probing-cli = { path = "probing/cli" }
