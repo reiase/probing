@@ -202,6 +202,47 @@ pub fn list_spans() -> Result<Vec<span::Span>, TraceError> {
     })
 }
 
+/// Retrieves span statistics for spans recorded by the tracer for the current thread.
+///
+/// This provides metrics and counts for spans, such as how many were started, ended,
+/// and their respective statuses. This can be useful for analyzing the behavior of
+/// traced operations and for debugging purposes.
+///
+/// # Returns
+///
+/// Returns a `Result` containing a `HashMap` where:
+/// * Each key is a tuple consisting of:
+///   - An optional string (e.g., for the span's kind)
+///   - A string representing the span's name
+///   - A `SpanStatus` indicating the final status of the span
+/// * The corresponding value is a `span::SpanStats` struct containing statistical data
+///   about the span (e.g., count, total duration).
+///
+/// Returns a `TraceError` if an error occurs (e.g., `TraceError::LockPoisoned`).
+pub fn get_span_statistics() -> Result<HashMap<(Option<String>, String, span::SpanStatus), span::SpanStats>, TraceError> {
+    LOCAL_TRACER.with(|tracer| {
+        let tracer_guard = tracer.read()?;
+        Ok(tracer_guard.get_statistics())
+    })
+}
+
+/// Retrieves all spans recorded by the tracer for the current thread.
+///
+/// This includes both active and inactive spans that have been started on the current thread.
+/// The spans are typically returned in the order they were recorded.
+///
+/// # Returns
+///
+/// Returns a `Result` containing a `Vec<span::Span>` with clones of all spans recorded
+/// for the current thread, or a `TraceError` if an error occurs. The vector may be empty
+/// if no spans have been recorded.
+pub fn all_spans() -> Result<Vec<span::Span>, TraceError> {
+    LOCAL_TRACER.with(|tracer| {
+        let tracer_guard = tracer.read()?;
+        Ok(tracer_guard.all_spans()) // This already returns Vec<Span>
+    })
+}
+
 // --- Global Trace Information APIs ---
 
 /// Retrieves clones of all spans from all registered threads known to the global tracer.

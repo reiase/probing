@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher}; // Added for SpanStatus hashing
 use std::sync::atomic::{AtomicU16, Ordering}; // For unique tracer ID generation
 use std::sync::{Arc, Mutex, RwLock, Weak, PoisonError}; // Ensure PoisonError is imported
 use std::thread::{self, ThreadId}; // For thread-local storage
@@ -69,7 +70,7 @@ pub struct Event {
 }
 
 // --- Span Status ---
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)] // Added Hash
 pub enum SpanStatus {
     Running,               // This span is the currently active one on its thread.
     Open,                  // This span is active, but one of its children is currently Running.
@@ -82,6 +83,17 @@ impl Default for SpanStatus {
         SpanStatus::Running
     }
 }
+
+// --- Span Statistics --- (NEW)
+/// Holds statistics for a group of spans sharing the same kind, name, and status.
+#[derive(Debug, Clone, Default)]
+pub struct SpanStats {
+    /// The number of spans in this group.
+    pub count: u64,
+    /// The total duration accumulated by all spans in this group.
+    pub total_duration: Duration, // std::time::Duration
+}
+// --- End Span Statistics --- (NEW)
 
 #[derive(Debug, Clone)]
 pub struct Span {
@@ -121,6 +133,7 @@ pub struct LocalSpanManager {
 
     span_stack: Vec<SpanId>,
     spans: HashMap<SpanId, Span>,
+    statistics: HashMap<(Option<String>, String, SpanStatus), SpanStats>, // Added statistics field
 }
 
 impl LocalSpanManager {
@@ -134,6 +147,7 @@ impl LocalSpanManager {
             next_span_seq: 0,
             span_stack: Vec::new(),
             spans: HashMap::new(),
+            statistics: HashMap::new(), // Initialize statistics
         }
     }
 
@@ -251,7 +265,19 @@ impl LocalSpanManager {
         if let Some(active_id_on_stack) = self.span_stack.pop() {
             if let Some(ended_span) = self.spans.get_mut(&active_id_on_stack) {
                 ended_span.end_time = Some(end_time);
-                ended_span.status = final_status;
+                ended_span.status = final_status.clone(); // Update span's status
+
+                // Update statistics
+                if let Some(duration) = ended_span.duration() {
+                    let key = (
+                        ended_span.kind.clone(),
+                        ended_span.name.clone(),
+                        final_status, // Use the final_status for the key
+                    );
+                    let stats_entry = self.statistics.entry(key).or_default();
+                    stats_entry.count += 1;
+                    stats_entry.total_duration += duration;
+                }
             } else {
                 eprintln!(
                     "Error: Popped span_id {:?} not found in spans map during end_span.",
@@ -286,6 +312,29 @@ impl LocalSpanManager {
 
     pub fn all_spans(&self) -> Vec<Span> {
         self.spans.values().cloned().collect()
+    }
+
+    /// Retrieves a clone of the collected span statistics, including counts for active spans.
+    /// Statistics are aggregated by (kind, name, status).
+    /// For active spans (those currently on the stack), only their count is included;
+    /// their duration is not added to `total_duration` as they are still running.
+    pub fn get_statistics(&self) -> HashMap<(Option<String>, String, SpanStatus), SpanStats> {
+        let mut final_stats = self.statistics.clone(); // Clone completed stats
+
+        // Add active spans directly
+        for span_id in &self.span_stack {
+            if let Some(span) = self.spans.get(span_id) {
+                let key = (
+                    span.kind.clone(),
+                    span.name.clone(),
+                    span.status.clone(), // This will be Running or Open
+                );
+                let entry = final_stats.entry(key).or_default();
+                entry.count += 1;
+                // Do not add to total_duration for active spans
+            }
+        }
+        final_stats
     }
 }
 
@@ -382,6 +431,7 @@ mod tests {
             next_span_seq: 0,
             span_stack: vec![],
             spans: Default::default(),
+            statistics: Default::default(), // Initialize statistics
         }
     }
 
