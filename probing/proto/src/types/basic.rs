@@ -9,6 +9,7 @@ use crate::types::error::ProtoError;
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum EleType {
     Nil,
+    BOOL,
     I32,
     I64,
     F32,
@@ -21,6 +22,7 @@ pub enum EleType {
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Ele {
     Nil,
+    BOOL(bool),
     I32(i32),
     I64(i64),
     F32(f32),
@@ -34,6 +36,7 @@ impl Display for Ele {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Ele::Nil => f.write_str("nil"),
+            Ele::BOOL(x) => f.write_fmt(format_args!("{}", x)),
             Ele::I32(x) => f.write_fmt(format_args!("{x}")),
             Ele::I64(x) => f.write_fmt(format_args!("{x}")),
             Ele::F32(x) => f.write_fmt(format_args!("{x}")),
@@ -58,6 +61,12 @@ impl From<&str> for Ele {
 impl From<String> for Ele {
     fn from(val: String) -> Self {
         Ele::Text(val) // Optimized: directly move the String
+    }
+}
+
+impl From<bool> for Ele {
+    fn from(item: bool) -> Self {
+        Ele::BOOL(item)
     }
 }
 
@@ -135,6 +144,7 @@ impl TryInto<f64> for Ele {
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum Seq {
     Nil,
+    SeqBOOL(Vec<bool>),
     SeqI32(Vec<i32>),
     SeqI64(Vec<i64>),
     SeqF32(Vec<f32>),
@@ -146,6 +156,7 @@ pub enum Seq {
 impl Seq {
     pub fn len(&self) -> usize {
         match self {
+            Seq::SeqBOOL(vec) => vec.len(),
             Seq::SeqI32(vec) => vec.len(),
             Seq::SeqI64(vec) => vec.len(),
             Seq::SeqF32(vec) => vec.len(),
@@ -158,6 +169,7 @@ impl Seq {
 
     pub fn nbytes(&self) -> usize {
         match self {
+            Seq::SeqBOOL(vec) => vec.len() * std::mem::size_of::<bool>(),
             Seq::SeqI32(vec) => vec.len() * std::mem::size_of::<i32>(),
             Seq::SeqI64(vec) => vec.len() * std::mem::size_of::<i64>(),
             Seq::SeqF32(vec) => vec.len() * std::mem::size_of::<f32>(),
@@ -177,6 +189,7 @@ impl Seq {
 
     pub fn get_str(&self, idx: usize) -> Option<String> {
         match self {
+            Seq::SeqBOOL(vec) => vec.get(idx).map(|x| x.to_string()),
             Seq::SeqI32(vec) => vec.get(idx).map(|x| x.to_string()),
             Seq::SeqI64(vec) => vec.get(idx).map(|x| x.to_string()),
             Seq::SeqF32(vec) => vec.get(idx).map(|x| x.to_string()),
@@ -193,6 +206,7 @@ impl Seq {
 
     pub fn get(&self, idx: usize) -> Ele {
         match self {
+            Seq::SeqBOOL(vec) => vec.get(idx).map(|x| Ele::BOOL(*x)),
             Seq::SeqI32(vec) => vec.get(idx).map(|x| Ele::I32(*x)),
             Seq::SeqI64(vec) => vec.get(idx).map(|x| Ele::I64(*x)),
             Seq::SeqF32(vec) => vec.get(idx).map(|x| Ele::F32(*x)),

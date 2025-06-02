@@ -9,6 +9,7 @@ use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Pytho
 fn value_to_object(py: Python, v: &Ele) -> PyObject {
     let ret = match v {
         Ele::Nil => Option::<i32>::None.into_bound_py_any(py),
+        Ele::BOOL(v) => v.into_bound_py_any(py),
         Ele::I64(v) => v.into_bound_py_any(py),
         Ele::I32(v) => v.into_bound_py_any(py),
         Ele::F64(v) => v.into_bound_py_any(py),
