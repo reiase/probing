@@ -42,6 +42,7 @@ jobs:
         # Install cargo-zigbuild and rnr if not already cached
         test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
         test -e ~/.cargo/bin/rnr || cargo install rnr
+        test -e ~/.cargo/bin/cargo-nextest || cargo install cargo-nextest
     - name: Save Cargo Cache
       id: cache-save
       uses: actions/cache/save@v4
