@@ -38,7 +38,7 @@ jobs:
     - name: Install system and Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build wheel toml zig-bin==0.14.0 ziglang==0.14.0 cargo-zigbuild
+        pip install build wheel toml zig-bin==0.13.0 ziglang==0.13.0 cargo-zigbuild
         # Install cargo-zigbuild and rnr if not already cached
         # test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
         test -e ~/.cargo/bin/rnr || cargo install rnr
