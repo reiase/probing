@@ -75,6 +75,7 @@ pub fn render_dataframe(df: &DataFrame) {
         for row in 0..col_data.len() {
             let value = match col_data.get(row) {
                 Ele::Nil => "nil".to_string(),
+                Ele::BOOL(x) => x.to_string(),
                 Ele::I32(x) => x.to_string(),
                 Ele::I64(x) => x.to_string(),
                 Ele::F32(x) => x.to_string(),

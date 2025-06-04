@@ -22,6 +22,10 @@ impl Compressable for Seq {
     fn compress(&self) -> Result<(EleType, Vec<u8>, CodeBook), ProtoError> {
         match self {
             Seq::Nil => Ok((EleType::Nil, Default::default(), None)),
+            Seq::SeqBOOL(vec) => {
+                let data: Vec<i32> = vec.iter().map(|&x| if x { 1 } else { 0 }).collect();
+                Ok((EleType::BOOL, sample_compress(&data)?, None))
+            }
             Seq::SeqI32(vec) => Ok((EleType::I32, sample_compress(vec)?, None)),
             Seq::SeqI64(vec) => Ok((EleType::I64, sample_compress(vec)?, None)),
             Seq::SeqF32(vec) => Ok((EleType::F32, sample_compress(vec)?, None)),
@@ -72,6 +76,15 @@ impl Decompressable for Seq {
     fn decompress(dtype: EleType, data: &[u8], cb: &CodeBook) -> Result<Self, ProtoError> {
         let seq = match dtype {
             EleType::Nil => Seq::Nil,
+            EleType::BOOL => {
+                let data = simple_decompress::<i32>(data)
+                    .map_err(|e| ProtoError::CompressError(e.to_string()))?;
+                Seq::SeqBOOL(
+                    data.iter()
+                        .map(|&x| if x != 0 { true } else { false })
+                        .collect(),
+                )
+            }
             EleType::I32 => Seq::SeqI32(
                 simple_decompress::<i32>(data)
                     .map_err(|e| ProtoError::CompressError(e.to_string()))?,
