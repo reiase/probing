@@ -65,14 +65,16 @@ def record_error_hook(exc_type, exc_value, exc_traceback):
 
     s=" where timestamp > " + str(timestamp - 30000000)
     df0 = probing.query("select * from python.iter_output_trace" + s)
+    print(df0)
     df1 = probing.query("select * from python.checkpoint_log" + s)
+    print(df1)
     data = {
         "jobId": JOB_ID,
         "timestamp": timestamp,
         "errorMessage": str(exc_value),
         "uuid": JOB_UNIQUE_ID,
-        "iter":df0,
-        "checkpoint":df1
+        "iter":str(df0),
+        "checkpoint":str(df1)
     }
 
     response = requests.post(f"{API_BASE_URL}/job/error", json=data)
