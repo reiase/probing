@@ -3,6 +3,8 @@ from datetime import datetime
 import atexit
 import sys
 import requests
+import probing
+
 
 # API基础URL - 需要根据实际情况修改
 API_BASE_URL = "http://logi-core.hecp:32245/api"
@@ -36,12 +38,18 @@ def end_job_hook():
     """
     print("Job tracker: end_job_hook called via atexit.")
     print(f"Job ended: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}")
+    timestamp = datetime.now().timestamp() * 1_000_000
+
+    s=" where timestamp > " + str(timestamp - 30000000)
+    df0 = probing.query("select * from python.iter_output_trace" + s)
+    df1 = probing.query("select * from python.checkpoint_log" + s)
     data = {
             "jobId": JOB_ID,
-            "timestamp": datetime.now().timestamp() * 1_000_000,
-            "uuid": JOB_UNIQUE_ID
+            "timestamp": timestamp,
+            "uuid": JOB_UNIQUE_ID,
+            "iter":df0,
+            "checkpoint":df1
     }
-
     response = requests.post(f"{API_BASE_URL}/job/end", json=data)
     response.raise_for_status()
 
@@ -53,12 +61,18 @@ def record_error_hook(exc_type, exc_value, exc_traceback):
     # 调用原始的 excepthook，以便错误仍然被打印到 stderr
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
     print(f"Job error: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, Error={str(exc_value)}")
+    timestamp = datetime.now().timestamp() * 1_000_000
 
+    s=" where timestamp > " + str(timestamp - 30000000)
+    df0 = probing.query("select * from python.iter_output_trace" + s)
+    df1 = probing.query("select * from python.checkpoint_log" + s)
     data = {
         "jobId": JOB_ID,
-        "timestamp": datetime.now().timestamp() * 1_000_000,
+        "timestamp": timestamp,
         "errorMessage": str(exc_value),
-        "uuid": JOB_UNIQUE_ID
+        "uuid": JOB_UNIQUE_ID,
+        "iter":df0,
+        "checkpoint":df1
     }
 
     response = requests.post(f"{API_BASE_URL}/job/error", json=data)
