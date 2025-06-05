@@ -30,6 +30,7 @@ COPY make_wheel.py make_wheel.py
 COPY Cargo.toml Cargo.toml
 COPY README.md README.md
 COPY python/ python/
+COPY examples/ examples/
 
 RUN python make_wheel.py
 RUN pip install dist/*

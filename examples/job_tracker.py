@@ -18,15 +18,17 @@ def start_job_hook():
     print("Job tracker: start_job_hook called.")
     world_size = os.getenv('WORLD_SIZE', 'N/A')
     tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
+    probing_port = os.getenv('PROBING_PORT', 'N/A')
     pod_ip = os.getenv('POD_IP', 'N/A')
-    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num}")
+    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num},probingPort={probing_port}")
     data = {
             "jobId": JOB_ID,
             "timestamp": datetime.now().timestamp() * 1_000_000,
             "podIp": pod_ip,
             "worldSize": world_size,
             "tqGpuNum": tq_gpu_num,
-            "uuid": JOB_UNIQUE_ID
+            "uuid": JOB_UNIQUE_ID,
+            "probingPort": probing_port
         }
 
     response = requests.post(f"{API_BASE_URL}/job/start", json=data)
