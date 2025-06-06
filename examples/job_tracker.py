@@ -21,7 +21,7 @@ def start_job_hook():
         world_size = os.getenv('WORLD_SIZE', 'N/A')
         tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
         pod_ip = os.getenv('POD_IP', 'N/A')
-        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num},probingPort={probing_port}")
+        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num},probingPort={PROBING_PORT}")
         data = {
                 "jobId": JOB_ID,
                 "timestamp": datetime.now().timestamp() * 1_000_000,
