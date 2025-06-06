@@ -130,6 +130,16 @@ pub enum Commands {
         tree: bool,
     },
 
+    /// Fetch multi ranks' stack info
+    #[command(visible_aliases = ["f"])]
+    Fetch {
+        #[arg(long, help = "Fetch all ranks")]
+        all_pids: bool,
+
+        #[arg(long, help = "Fetch only the specified rank")]
+        rank: Option<String>,
+    },
+
     /// Display or modify the configuration
     #[command(visible_aliases = ["cfg", "c"])]
     Config {

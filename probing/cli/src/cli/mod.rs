@@ -10,6 +10,7 @@ pub mod process_monitor;
 pub mod store;
 
 mod ptree;
+mod fetch;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
@@ -139,6 +140,19 @@ impl Cli {
                 Ok(())
             }
             Commands::Store(cmd) => cmd.run().await,
+            Commands::Fetch { all_pids, rank } => {
+                if *all_pids {
+                    let urls = vec![
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                    ];
+                    fetch::fetch_and_save_urls(urls).await
+                } else {
+                    Err(anyhow::anyhow!("Please specify either --all_pids or --rank <rank>"))
+                }
+            }
         }
     }
 }
