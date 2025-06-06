@@ -21,7 +21,7 @@ Probing is a production-grade performance profiler designed specifically for dis
 - **Force You to Decode Fixed Reports** - No more deciphering pre-formatted tables where every row and column needs interpretation; use SQL to create custom analysis reports
 
 [![PyPI version](https://badge.fury.io/py/probing.svg)](https://badge.fury.io/py/probing)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Downloads](https://pepy.tech/badge/probing)](https://pepy.tech/project/probing)
 
 ## Getting Started
@@ -142,30 +142,83 @@ probing <pid> config probing.sample_rate=0.05
 probing <pid> config probing.max_memory=1GB
 ```
 
-## Documentation
-
-- [User Guide](docs/user-guide.md) - Complete usage tutorial
-- [API Reference](docs/api-reference.md) - Detailed interface documentation  
-- [Examples](examples/) - Usage scenarios and sample code
-- [GitHub Issues](https://github.com/reiase/probing/issues) - Bug reports and feature requests
-
 ## Development
+
+### Prerequisites
+
+Before building Probing from source, ensure you have the following dependencies installed:
+
+```bash
+# Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install nightly toolchain (required)
+rustup toolchain install nightly
+rustup default nightly
+
+# Add WebAssembly target for web UI
+rustup target add wasm32-unknown-unknown
+
+# Install trunk for building WebAssembly frontend
+cargo install trunk
+
+# Install cross-compilation tools (optional, for distribution builds)
+cargo install cargo-zigbuild
+pip install ziglang
+```
+
+### Building from Source
 
 ```bash
 # Clone repository
 git clone https://github.com/reiase/probing.git
 cd probing
 
-# Build project (requires Rust 1.70+)
-make build
+# Development build (faster compilation)
+make
 
-# Run tests
+# Production build with cross-platform compatibility
+make ZIG=1
+
+# Build web UI separately (optional)
+cd app && trunk build --release
+
+# Build and install wheel package
+make wheel
+pip install dist/probing-*.whl --force-reinstall
+```
+
+### Testing
+
+```bash
+# Run all tests
 make test
 
-# Contributing
-# Please read CONTRIBUTING.md first
+# Test with a simple example
+PROBE=1 python examples/test_probing.py
+
+# Advanced testing with variable tracking
+PROBE_TORCH_EXPRS="loss@train,acc1@train" PROBE=1 python examples/imagenet.py
 ```
+
+### Project Structure
+
+- `probing/cli/` - Command-line interface
+- `probing/core/` - Core profiling engine  
+- `probing/extensions/` - Language-specific extensions (Python, C++)
+- `probing/server/` - HTTP API server
+- `app/` - Web UI (WebAssembly + Leptos)
+- `python/` - Python hooks and integration
+- `examples/` - Usage examples and demos
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes and add tests
+4. Run tests: `make test`
+5. Submit a pull request
 
 ## License
 
-[Apache License 2.0](LICENSE)
+[GNU General Public License v3.0](LICENSE)
