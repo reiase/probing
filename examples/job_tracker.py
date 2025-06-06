@@ -10,19 +10,17 @@ import probing
 API_BASE_URL = "http://logi-core.hecp:32245/api"
 JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
 JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
-PROBING_SERVER_ADDR = os.getenv('PROBING_SERVER_ADDR', 'N/A')
-for key, value in os.environ.items():
-    print(f"{key}: {value}")
+RANK = os.getenv('RANK', 'N/A')
+
 def start_job_hook():
-    print(os.getenv('PROBING_SERVER_ADDR', 'N/A'))
-    if PROBING_SERVER_ADDR == '0.0.0.0:80':
+    if RANK == 0:
         """
         记录作业开始信息
         """
         print("Job tracker: start_job_hook called.")
         world_size = os.getenv('WORLD_SIZE', 'N/A')
         tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
-        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, TQ_GPU_NUM={tq_gpu_num},PROBING_SERVER_ADDR={PROBING_SERVER_ADDR}")
+        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, TQ_GPU_NUM={tq_gpu_num},RANK={RANK}")
         data = {
                 "jobId": JOB_ID,
                 "timestamp": datetime.now().timestamp() * 1_000_000,
@@ -35,7 +33,7 @@ def start_job_hook():
         response.raise_for_status()
 
 def end_job_hook():
-    if PROBING_SERVER_ADDR == '0.0.0.0:80':
+    if RANK == 0:
         """
         记录作业结束信息 (通过 atexit 注册)
         """
