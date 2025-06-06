@@ -2233,9 +2233,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2094aecddc672e902cd773bad7071542f63641e01e9187c3bba4b43005e837e9"
 dependencies = [
  "ahash",
+ "clap 4.5.38",
  "crossbeam-channel",
  "crossbeam-utils",
  "dashmap",
+ "env_logger",
  "indexmap 2.9.0",
  "itoa",
  "log",
@@ -3115,6 +3117,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "inferno 0.12.2",
  "libloading",
  "log",
  "nix 0.30.1",

@@ -11,6 +11,7 @@ pub mod store;
 
 mod ptree;
 mod fetch;
+mod draw;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
@@ -152,6 +153,10 @@ impl Cli {
                 } else {
                     Err(anyhow::anyhow!("Please specify either --all_pids or --rank <rank>"))
                 }
+            }
+            Commands::Draw => {
+                draw::draw_frame_graph("/home/yang/worksapce/collect_draw_r/output/merged_stacks_4ranks.txt");
+                Ok(())
             }
         }
     }

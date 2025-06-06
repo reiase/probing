@@ -140,6 +140,9 @@ pub enum Commands {
         rank: Option<String>,
     },
 
+    #[command(visible_aliases = ["d"])]
+    Draw,
+
     /// Display or modify the configuration
     #[command(visible_aliases = ["cfg", "c"])]
     Config {
