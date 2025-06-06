@@ -421,7 +421,6 @@ Ready to dive deeper? Here's your recommended learning path:
 
 ### 🚀 **Start Here** (Essential - 30 minutes)
 1. **[Installation](installation.md)** - Set up Probing on your system  
-2. **[Troubleshooting](../user-guide/troubleshooting.md)** - Solving common issues
 
 ### 🎯 **Deep Dive** (Choose based on your needs)
 - **[SQL Analytics](../user-guide/sql-analytics.md)** - Advanced `query` techniques and data analysis

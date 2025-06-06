@@ -9,155 +9,174 @@ The SQL analytics interface transforms complex performance analysis into intuiti
 ## Basic Query Structure
 
 ```sql
-probing <pid> query "SELECT columns FROM table WHERE conditions"
+probing $ENDPOINT query "SELECT columns FROM table WHERE conditions"
 ```
 
 ## Core Tables
 
-### System Information
+### Configuration and Metadata
 
-**`system_info`** - Basic system and process information
+**`information_schema.df_settings`** - System configuration and settings
 ```sql
-SELECT * FROM system_info;
+SELECT * FROM information_schema.df_settings 
+WHERE name LIKE 'probing.%';
 ```
 
 Common columns:
-- `hostname` - Machine hostname
-- `pid` - Process ID
-- `cpu_usage` - Current CPU utilization
-- `memory_usage` - Current memory usage
-- `timestamp` - Data collection time
+- `name` - Configuration parameter name
+- `value` - Configuration parameter value
 
-### Memory Analysis
+### Python Namespace Tables
 
-**`memory_usage`** - Memory consumption over time
+**`python.backtrace`** - Stack trace information
 ```sql
-SELECT timestamp, used_memory_mb, available_memory_mb 
-FROM memory_usage 
-WHERE timestamp > now() - interval '1 hour';
+SELECT * FROM python.backtrace LIMIT 10;
 ```
 
-### Performance Data
+Common columns:
+- `ip` - Instruction pointer (for native frames)
+- `file` - Source file name
+- `func` - Function name
+- `lineno` - Line number
+- `depth` - Stack depth
+- `frame_type` - Frame type ('Python' or 'Native')
 
-**`call_stats`** - Function call statistics
-```sql
-SELECT function_name, count(*) as calls, avg(duration_ms)
-FROM call_stats 
-GROUP BY function_name
-ORDER BY calls DESC;
-```
+### Dynamic External Tables
 
-**`profiling_data`** - Detailed performance metrics
+External tables can be created dynamically through the Python API:
 ```sql
-SELECT * FROM profiling_data 
-WHERE duration_ms > 100
-ORDER BY timestamp DESC;
+-- Example: Query a custom external table
+SELECT * FROM python.my_custom_table;
 ```
 
 ## PyTorch Integration
 
-When monitoring PyTorch applications, additional tables become available:
+When monitoring PyTorch applications with the `@table` decorator, additional tables become available:
 
-**`torch_training_logs`** - Training metrics
+**`python.torch_trace`** - PyTorch execution traces
 ```sql
-SELECT epoch, step, loss, accuracy, learning_rate
-FROM torch_training_logs
-WHERE epoch >= 5
-ORDER BY step DESC;
+SELECT step, module, stage, duration, allocated
+FROM python.torch_trace
+WHERE step >= 5
+ORDER BY step DESC, seq;
 ```
 
-**`torch_tensors`** - Tensor information
+Common columns:
+- `step` - Training step number
+- `seq` - Sequence number within step
+- `module` - Module name
+- `stage` - Execution stage (forward, backward, step)
+- `allocated` - GPU memory allocated (MB)
+- `max_allocated` - Peak GPU memory allocated (MB)
+- `cached` - GPU memory cached (MB)
+- `max_cached` - Peak GPU memory cached (MB)
+- `time_offset` - Time offset
+- `duration` - Execution duration (seconds)
+
+**`python.variables`** - Variable tracking
 ```sql
-SELECT tensor_name, shape, dtype, device, memory_usage_mb
-FROM torch_tensors
-WHERE memory_usage_mb > 100;
+SELECT step, func, name, value
+FROM python.variables
+WHERE step = (SELECT max(step) FROM python.variables);
 ```
+
+Common columns:
+- `step` - Training step number
+- `func` - Function name
+- `name` - Variable name  
+- `value` - Variable value (string representation)
 
 ## Advanced Analytics
 
 ### Time-Series Analysis
 
-**Memory growth over time:**
+**Memory growth over time (using torch_trace):**
 ```sql
 SELECT 
-  timestamp,
-  used_memory_mb,
-  used_memory_mb - LAG(used_memory_mb) OVER (ORDER BY timestamp) as memory_delta
-FROM memory_usage
-WHERE timestamp > now() - interval '30 minutes'
-ORDER BY timestamp;
+  step,
+  stage,
+  avg(allocated) as avg_memory_mb,
+  max(allocated) as peak_memory_mb
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
+GROUP BY step, stage
+ORDER BY step, stage;
 ```
 
 **Rolling averages:**
 ```sql
 SELECT 
-  timestamp,
-  cpu_usage,
-  AVG(cpu_usage) OVER (
-    ORDER BY timestamp 
+  step,
+  module,
+  duration,
+  AVG(duration) OVER (
+    PARTITION BY module
+    ORDER BY step, seq
     ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-  ) as cpu_avg_5min
-FROM system_info
-WHERE timestamp > now() - interval '1 hour';
+  ) as avg_duration_5_samples
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 5 FROM python.torch_trace);
 ```
 
 ### Performance Analysis
 
-**Top slowest functions:**
+**Top slowest operations:**
 ```sql
 SELECT 
-  function_name,
-  count(*) as call_count,
-  avg(duration_ms) as avg_duration,
-  max(duration_ms) as max_duration,
-  stddev(duration_ms) as duration_stddev
-FROM profiling_data
-WHERE timestamp > now() - interval '10 minutes'
-GROUP BY function_name
-HAVING count(*) > 10
+  module,
+  stage,
+  count(*) as execution_count,
+  avg(duration) as avg_duration,
+  max(duration) as max_duration,
+  stddev(duration) as duration_stddev
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
+  AND duration > 0
+GROUP BY module, stage
+HAVING count(*) > 5
 ORDER BY avg_duration DESC
 LIMIT 10;
 ```
 
-**Function call patterns:**
+**Execution patterns:**
 ```sql
 SELECT 
-  DATE_TRUNC('minute', timestamp) as minute,
-  function_name,
-  count(*) as calls_per_minute
-FROM call_stats
-WHERE timestamp > now() - interval '1 hour'
-GROUP BY minute, function_name
-ORDER BY minute DESC, calls_per_minute DESC;
+  step,
+  stage,
+  count(*) as operations_per_step
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 5 FROM python.torch_trace)
+GROUP BY step, stage
+ORDER BY step DESC, operations_per_step DESC;
 ```
 
 ### Training Progress Analysis
 
-**Loss convergence tracking:**
+**Memory usage trends during training:**
 ```sql
 SELECT 
-  epoch,
   step,
-  loss,
-  AVG(loss) OVER (
-    PARTITION BY epoch 
-    ORDER BY step
-  ) as avg_loss_in_epoch
-FROM torch_training_logs
-WHERE epoch BETWEEN 1 AND 10
-ORDER BY epoch, step;
+  avg(allocated) as avg_memory_allocated,
+  max(allocated) as peak_memory_allocated,
+  min(allocated) as min_memory_allocated
+FROM python.torch_trace
+WHERE step IS NOT NULL
+GROUP BY step
+ORDER BY step;
 ```
 
-**Learning rate scheduling:**
+**Module execution time analysis:**
 ```sql
 SELECT 
-  epoch,
-  min(learning_rate) as min_lr,
-  max(learning_rate) as max_lr,
-  avg(learning_rate) as avg_lr
-FROM torch_training_logs
-GROUP BY epoch
-ORDER BY epoch;
+  module,
+  stage,
+  avg(duration) as avg_duration,
+  count(*) as execution_count
+FROM python.torch_trace
+WHERE module IS NOT NULL 
+  AND duration > 0
+GROUP BY module, stage
+ORDER BY avg_duration DESC;
 ```
 
 ## Data Filtering and Conditions
@@ -165,34 +184,30 @@ ORDER BY epoch;
 ### Time-based Filtering
 
 ```sql
--- Last hour
-WHERE timestamp > now() - interval '1 hour'
+-- Recent steps only
+WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
 
--- Last 24 hours
-WHERE timestamp > now() - interval '1 day'
+-- Specific step range
+WHERE step BETWEEN 5 AND 15
 
--- Specific time range
-WHERE timestamp BETWEEN '2025-06-06 10:00:00' AND '2025-06-06 12:00:00'
-
--- Recent data only
-WHERE timestamp > (SELECT max(timestamp) - interval '5 minutes' FROM table_name)
+-- Latest data only
+WHERE step = (SELECT max(step) FROM python.torch_trace)
 ```
 
 ### Performance Filtering
 
 ```sql
--- High CPU usage periods
-WHERE cpu_usage > 80
+-- Long-running operations
+WHERE duration > 0.1
 
--- Memory growth detection
-WHERE used_memory_mb > (
-  SELECT avg(used_memory_mb) * 1.5 
-  FROM memory_usage 
-  WHERE timestamp > now() - interval '1 hour'
-)
+-- Memory-intensive operations
+WHERE allocated > 1000  -- MB
 
--- Slow function calls
-WHERE duration_ms > 1000
+-- Specific execution stages
+WHERE stage IN ('forward', 'backward')
+
+-- Specific modules
+WHERE module LIKE '%attention%'
 ```
 
 ## Aggregation Functions
@@ -201,45 +216,47 @@ WHERE duration_ms > 1000
 
 ```sql
 SELECT 
-  function_name,
-  count(*) as total_calls,
-  avg(duration_ms) as mean_duration,
-  percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms) as median_duration,
-  percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) as p95_duration,
-  min(duration_ms) as min_duration,
-  max(duration_ms) as max_duration,
-  stddev(duration_ms) as std_duration
-FROM profiling_data
-GROUP BY function_name;
+  module,
+  stage,
+  count(*) as total_executions,
+  avg(duration) as mean_duration,
+  percentile_cont(0.5) WITHIN GROUP (ORDER BY duration) as median_duration,
+  percentile_cont(0.95) WITHIN GROUP (ORDER BY duration) as p95_duration,
+  min(duration) as min_duration,
+  max(duration) as max_duration,
+  stddev(duration) as std_duration
+FROM python.torch_trace
+WHERE duration > 0
+GROUP BY module, stage;
 ```
 
 ### Window Functions
 
 ```sql
 SELECT 
-  timestamp,
-  memory_usage_mb,
-  LAG(memory_usage_mb) OVER (ORDER BY timestamp) as prev_memory,
-  LEAD(memory_usage_mb) OVER (ORDER BY timestamp) as next_memory,
-  ROW_NUMBER() OVER (ORDER BY memory_usage_mb DESC) as memory_rank
-FROM memory_usage
-WHERE timestamp > now() - interval '1 hour';
+  step,
+  allocated,
+  LAG(allocated) OVER (ORDER BY step, seq) as prev_memory,
+  LEAD(allocated) OVER (ORDER BY step, seq) as next_memory,
+  ROW_NUMBER() OVER (ORDER BY allocated DESC) as memory_rank
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 5 FROM python.torch_trace);
 ```
 
 ## Cross-Table Joins
 
-**Correlate system metrics with function performance:**
+**Correlate torch traces with variable tracking:**
 ```sql
 SELECT 
-  s.timestamp,
-  s.cpu_usage,
-  s.memory_usage,
-  p.function_name,
-  p.duration_ms
-FROM system_info s
-JOIN profiling_data p ON abs(s.timestamp - p.timestamp) < interval '1 second'
-WHERE s.timestamp > now() - interval '30 minutes'
-  AND s.cpu_usage > 70;
+  t.step,
+  t.module,
+  t.duration,
+  v.name as variable_name,
+  v.value as variable_value
+FROM python.torch_trace t
+JOIN python.variables v ON t.step = v.step
+WHERE t.step > (SELECT max(step) - 3 FROM python.torch_trace)
+  AND t.duration > 0.05;
 ```
 
 ## Configuration Tables
@@ -262,34 +279,33 @@ WHERE name LIKE 'server.%' OR name LIKE 'torch.%';
 
 ### Dashboard Queries
 
-**System overview:**
+**Current training status:**
 ```sql
 SELECT 
-  'CPU Usage' as metric,
-  cpu_usage as value,
-  '%' as unit
-FROM system_info
-WHERE timestamp = (SELECT max(timestamp) FROM system_info)
+  'Current Step' as metric,
+  max(step) as value,
+  '' as unit
+FROM python.torch_trace
 UNION ALL
 SELECT 
-  'Memory Usage',
-  used_memory_mb,
+  'Peak Memory Usage',
+  max(allocated),
   'MB'
-FROM memory_usage
-WHERE timestamp = (SELECT max(timestamp) FROM memory_usage);
+FROM python.torch_trace
+WHERE step = (SELECT max(step) FROM python.torch_trace);
 ```
 
 **Training progress:**
 ```sql
 SELECT 
-  epoch,
-  max(step) as current_step,
-  min(loss) as best_loss,
-  max(accuracy) as best_accuracy
-FROM torch_training_logs
-WHERE timestamp > now() - interval '1 hour'
-GROUP BY epoch
-ORDER BY epoch DESC
+  step,
+  count(*) as total_operations,
+  avg(duration) as avg_duration,
+  max(allocated) as peak_memory_mb
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 5 FROM python.torch_trace)
+GROUP BY step
+ORDER BY step DESC
 LIMIT 5;
 ```
 
@@ -301,14 +317,15 @@ Results can be exported for further analysis:
 
 ```bash
 # Export to JSON
-probing <pid> query "SELECT * FROM memory_usage" > memory_data.json
+probing $ENDPOINT query "SELECT * FROM python.torch_trace" > torch_traces.json
 
 # Time-series data for plotting
-probing <pid> query "
-  SELECT timestamp, cpu_usage, memory_usage 
-  FROM system_info 
-  WHERE timestamp > now() - interval '1 hour'
-" > system_metrics.json
+probing $ENDPOINT query "
+  SELECT step, stage, avg(duration), avg(allocated)
+  FROM python.torch_trace 
+  WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
+  GROUP BY step, stage
+" > training_metrics.json
 ```
 
 ### Integration with Other Tools
@@ -321,9 +338,9 @@ The SQL interface makes it easy to integrate with monitoring and visualization t
 
 ## Best Practices
 
-1. **Use time-based filtering** - Always include time constraints for better performance
+1. **Use step-based filtering** - Always include step constraints for better performance
 2. **Limit result sets** - Use `LIMIT` clauses for large datasets
-3. **Index-friendly queries** - Leverage timestamp and function_name columns
+3. **Index-friendly queries** - Leverage step and module columns
 4. **Aggregate appropriately** - Use `GROUP BY` for summary statistics
 5. **Test queries incrementally** - Start simple and add complexity gradually
 
@@ -333,38 +350,40 @@ The SQL interface makes it easy to integrate with monitoring and visualization t
 
 ```sql
 SELECT 
-  function_name,
-  avg(duration_ms) as current_avg,
-  LAG(avg(duration_ms)) OVER (ORDER BY DATE_TRUNC('hour', timestamp)) as prev_avg
-FROM profiling_data
-WHERE timestamp > now() - interval '2 hours'
-GROUP BY function_name, DATE_TRUNC('hour', timestamp)
-HAVING avg(duration_ms) > LAG(avg(duration_ms)) OVER (ORDER BY DATE_TRUNC('hour', timestamp)) * 1.2;
+  module,
+  stage,
+  avg(duration) as current_avg,
+  LAG(avg(duration)) OVER (ORDER BY step) as prev_avg
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
+GROUP BY module, stage, step
+HAVING avg(duration) > LAG(avg(duration)) OVER (ORDER BY step) * 1.2;
 ```
 
-### Memory Leak Detection
+### Memory Usage Growth Detection
 
 ```sql
 SELECT 
-  DATE_TRUNC('minute', timestamp) as minute,
-  max(used_memory_mb) - min(used_memory_mb) as memory_growth_mb
-FROM memory_usage
-WHERE timestamp > now() - interval '1 hour'
-GROUP BY minute
-HAVING max(used_memory_mb) - min(used_memory_mb) > 50
-ORDER BY minute;
+  step,
+  max(allocated) - min(allocated) as memory_growth_mb
+FROM python.torch_trace
+WHERE step > (SELECT max(step) - 5 FROM python.torch_trace)
+GROUP BY step
+HAVING max(allocated) - min(allocated) > 50
+ORDER BY step;
 ```
 
 ### Error Rate Analysis
 
+For custom external tables with error tracking:
 ```sql
 SELECT 
-  DATE_TRUNC('hour', timestamp) as hour,
+  step,
   count(*) FILTER (WHERE error_count > 0) * 100.0 / count(*) as error_rate_percent
-FROM call_stats
-WHERE timestamp > now() - interval '24 hours'
-GROUP BY hour
-ORDER BY hour;
+FROM python.my_error_table
+WHERE step > (SELECT max(step) - 20 FROM python.my_error_table)
+GROUP BY step
+ORDER BY step;
 ```
 
 For more advanced usage patterns, see [Basic Usage](basic-usage.md) and [Memory Analysis](memory-analysis.md).

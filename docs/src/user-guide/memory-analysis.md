@@ -1,32 +1,44 @@
 # Memory Analysis
 
-Probing provides comprehensive memory analysis capabilities for Python applications, helping you identify memory leaks, optimize memory usage, and understand memory allocation patterns.
+Probing provides comprehensive memory analysis capabilities for Python applications, helping you identify memory leaks, optimize memory usage, and understand memory allocation patterns through PyTorch integration and Python evaluation capabilities.
 
 ## Overview
 
 Memory analysis in Probing covers:
-- Real-time memory usage monitoring
-- Memory leak detection
-- Object lifecycle tracking
-- PyTorch tensor memory analysis
-- Memory allocation patterns
+- PyTorch GPU memory monitoring
+- Tensor memory analysis  
+- Python memory monitoring via `psutil` and system tools
+- Memory allocation patterns via torch traces
+- Cross-step memory tracking
 
-## Basic Memory Monitoring
+## PyTorch Memory Monitoring
 
-### Current Memory Status
+### Current GPU Memory Status
 
-Check current memory usage:
+Check current GPU memory usage:
 ```bash
-probing <pid> query "SELECT * FROM memory_usage ORDER BY timestamp DESC LIMIT 1"
+probing $ENDPOINT eval "
+import torch
+if torch.cuda.is_available():
+    for i in range(torch.cuda.device_count()):
+        print(f'GPU {i}:')
+        print(f'  Allocated: {torch.cuda.memory_allocated(i)/1024**3:.2f} GB')
+        print(f'  Reserved:  {torch.cuda.memory_reserved(i)/1024**3:.2f} GB')
+else:
+    print('CUDA not available')
+"
 ```
 
-View memory trend over time:
+### Memory Trends via Torch Traces
+
+View memory allocation trends during training:
 ```bash
-probing <pid> query "
-  SELECT timestamp, used_memory_mb, available_memory_mb
-  FROM memory_usage 
-  WHERE timestamp > now() - interval '1 hour'
-  ORDER BY timestamp
+probing $ENDPOINT query "
+  SELECT step, stage, avg(allocated) as avg_memory_mb, max(allocated) as peak_memory_mb
+  FROM python.torch_trace 
+  WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
+  GROUP BY step, stage
+  ORDER BY step, stage
 "
 ```
 
@@ -34,24 +46,27 @@ probing <pid> query "
 
 Identify memory growth patterns:
 ```bash
-probing <pid> query "
+probing $ENDPOINT query "
   SELECT 
-    timestamp,
-    used_memory_mb,
-    used_memory_mb - LAG(used_memory_mb) OVER (ORDER BY timestamp) as memory_delta
-  FROM memory_usage
-  WHERE timestamp > now() - interval '30 minutes'
-  HAVING abs(memory_delta) > 10
+    step,
+    stage,
+    allocated,
+    LAG(allocated) OVER (PARTITION BY stage ORDER BY step, seq) as prev_memory,
+    allocated - LAG(allocated) OVER (PARTITION BY stage ORDER BY step, seq) as memory_delta
+  FROM python.torch_trace
+  WHERE step > (SELECT max(step) - 5 FROM python.torch_trace)
+    AND allocated > 0
+  HAVING abs(memory_delta) > 50
 "
 ```
 
-## Python Object Analysis
+## Python Memory Analysis
 
 ### Object Count Tracking
 
 Monitor Python object counts:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import gc
 objects = gc.get_objects()
 from collections import Counter
@@ -65,7 +80,7 @@ for obj_type, count in types.most_common(10):
 
 Find objects consuming the most memory:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import sys
 import gc
 
@@ -89,7 +104,7 @@ for size, obj_type, obj_id in large_objects[:10]:
 
 Analyze object references:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import sys
 import gc
 
@@ -106,48 +121,114 @@ for ref_count, obj_type, obj_id in high_refs[:10]:
 
 ## Memory Leak Detection
 
-### Automatic Leak Detection
+### GPU Memory Leak Detection via Torch Traces
 
-Set up continuous monitoring for potential leaks:
+Monitor for GPU memory leaks during training:
 ```bash
-probing <pid> query "
+probing $ENDPOINT query "
   SELECT 
-    DATE_TRUNC('minute', timestamp) as minute,
-    max(used_memory_mb) as peak_memory,
-    min(used_memory_mb) as min_memory,
-    max(used_memory_mb) - min(used_memory_mb) as memory_range
-  FROM memory_usage
-  WHERE timestamp > now() - interval '2 hours'
-  GROUP BY minute
-  HAVING memory_range > 100  -- Alert if memory varies by >100MB in a minute
-  ORDER BY minute DESC
+    step,
+    max(allocated) as peak_memory_mb,
+    min(allocated) as min_memory_mb,
+    max(allocated) - min(allocated) as memory_range_mb
+  FROM python.torch_trace
+  WHERE step > (SELECT max(step) - 20 FROM python.torch_trace)
+  GROUP BY step
+  HAVING max(allocated) - min(allocated) > 100  -- Alert if memory varies by >100MB in a step
+  ORDER BY step DESC
 "
 ```
 
 ### Memory Growth Rate Analysis
 
-Calculate memory growth rates:
+Calculate memory growth rates across training steps:
 ```bash
-probing <pid> query "
+probing $ENDPOINT query "
   WITH memory_deltas AS (
     SELECT 
-      timestamp,
-      used_memory_mb,
-      used_memory_mb - LAG(used_memory_mb) OVER (ORDER BY timestamp) as delta_mb,
-      extract(epoch from (timestamp - LAG(timestamp) OVER (ORDER BY timestamp))) as delta_seconds
-    FROM memory_usage
-    WHERE timestamp > now() - interval '1 hour'
+      step,
+      stage,
+      allocated,
+      LAG(allocated) OVER (PARTITION BY stage ORDER BY step) as prev_allocated
+    FROM python.torch_trace
+    WHERE step > (SELECT max(step) - 10 FROM python.torch_trace)
+      AND allocated > 0
   )
   SELECT 
-    timestamp,
-    delta_mb,
-    CASE 
-      WHEN delta_seconds > 0 THEN delta_mb / delta_seconds * 60  -- MB per minute
-      ELSE 0 
-    END as growth_rate_mb_per_min
+    step,
+    stage,
+    allocated - prev_allocated as memory_growth_mb
   FROM memory_deltas
-  WHERE delta_mb > 5  -- Only show significant changes
-  ORDER BY growth_rate_mb_per_min DESC
+  WHERE prev_allocated IS NOT NULL
+    AND allocated - prev_allocated > 50  -- Only show significant growth
+  ORDER BY memory_growth_mb DESC
+"
+```
+
+### Python Memory Leak Detection
+
+Monitor memory usage with basic Python tools:
+```bash
+probing $ENDPOINT eval "
+import gc
+import psutil
+import os
+
+# Force garbage collection
+gc.collect()
+
+# Get current process memory usage
+process = psutil.Process(os.getpid())
+memory_info = process.memory_info()
+rss_mb = memory_info.rss / 1024 / 1024
+vms_mb = memory_info.vms / 1024 / 1024
+
+print(f'Process Memory Usage:')
+print(f'  RSS Memory: {rss_mb:.1f} MB')
+print(f'  VMS Memory: {vms_mb:.1f} MB')
+
+# Count objects by type
+objects = gc.get_objects()
+print(f'  Total objects: {len(objects)}')
+
+# Check for uncollectable objects
+uncollectable = gc.garbage
+if uncollectable:
+    print(f'  Uncollectable objects: {len(uncollectable)}')
+else:
+    print('  No uncollectable objects found')
+"
+```
+
+### Memory Growth Rate Analysis via Python
+
+Monitor memory growth using basic Python memory monitoring:
+```bash
+probing $ENDPOINT eval "
+import psutil
+import time
+import os
+
+# Get initial memory usage
+process = psutil.Process(os.getpid())
+initial_memory = process.memory_info().rss / 1024 / 1024
+
+print(f'Initial memory: {initial_memory:.1f} MB')
+
+# Wait and check again (in practice, you'd check periodically)
+time.sleep(1)  # Brief pause for demo
+current_memory = process.memory_info().rss / 1024 / 1024
+
+growth = current_memory - initial_memory
+print(f'Current memory: {current_memory:.1f} MB')
+print(f'Memory growth: {growth:.1f} MB')
+
+if growth > 10:  # Alert if growth > 10MB
+    print('WARNING: Significant memory growth detected')
+elif growth > 0:
+    print('Memory is growing slightly')
+else:
+    print('Memory usage is stable')
 "
 ```
 
@@ -155,7 +236,7 @@ probing <pid> query "
 
 Monitor garbage collection behavior:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import gc
 
 # Get GC stats
@@ -182,7 +263,7 @@ print(f'Net reduction: {before - after}')
 
 For PyTorch applications with GPU usage:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import torch
 
 if torch.cuda.is_available():
@@ -200,14 +281,9 @@ else:
 
 ### Tensor Memory Analysis
 
-Analyze tensor memory usage:
-```bash
-probing <pid> query "SELECT * FROM torch_tensors ORDER BY memory_usage_mb DESC LIMIT 20"
-```
-
 Find large tensors:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import torch
 import gc
 
@@ -234,7 +310,7 @@ for size_mb, shape, dtype, device in tensor_info[:15]:
 
 Check for memory fragmentation:
 ```bash
-probing <pid> eval "
+probing $ENDPOINT eval "
 import torch
 
 if torch.cuda.is_available():
@@ -256,144 +332,218 @@ if torch.cuda.is_available():
 
 ### Memory Profiling Integration
 
-Create detailed memory profiles:
+Create basic memory profiles using system tools:
 ```bash
-probing <pid> eval "
-import tracemalloc
-import linecache
+probing $ENDPOINT eval "
+import psutil
+import gc
 import os
 
-# Start tracing if not already started
-if not tracemalloc.is_tracing():
-    tracemalloc.start()
+# Get current process memory usage
+process = psutil.Process(os.getpid())
+memory_info = process.memory_info()
 
-# Get current memory usage
-current, peak = tracemalloc.get_traced_memory()
-print(f'Current memory usage: {current / 1024 / 1024:.1f} MB')
-print(f'Peak memory usage: {peak / 1024 / 1024:.1f} MB')
+print(f'Memory Profile:')
+print(f'  RSS Memory: {memory_info.rss / 1024 / 1024:.1f} MB')
+print(f'  VMS Memory: {memory_info.vms / 1024 / 1024:.1f} MB')
 
-# Get top memory allocations
-snapshot = tracemalloc.take_snapshot()
-top_stats = snapshot.statistics('lineno')
+# Analyze object counts
+objects = gc.get_objects()
+from collections import Counter
+type_counts = Counter(type(obj).__name__ for obj in objects)
 
-print('\\nTop 10 memory allocations:')
-for index, stat in enumerate(top_stats[:10], 1):
-    frame = stat.traceback.format()[-1]
-    print(f'{index:2d}. {stat.size / 1024 / 1024:.1f} MB - {frame}')
+print(f'\\nTop 10 object types:')
+for obj_type, count in type_counts.most_common(10):
+    print(f'  {obj_type}: {count}')
+
+# Check garbage collection stats
+print(f'\\nGarbage Collection:')
+for i, stat in enumerate(gc.get_stats()):
+    print(f'  Generation {i}: {stat}')
 "
 ```
 
-### Memory Allocation Patterns
+### Memory Allocation Patterns via Torch Traces
 
-Analyze allocation patterns over time:
+Analyze GPU memory allocation patterns during training:
 ```bash
-probing <pid> query "
+probing $ENDPOINT query "
   SELECT 
-    DATE_TRUNC('hour', timestamp) as hour,
-    avg(used_memory_mb) as avg_memory,
-    max(used_memory_mb) as peak_memory,
-    min(used_memory_mb) as min_memory,
-    stddev(used_memory_mb) as memory_volatility
-  FROM memory_usage
-  WHERE timestamp > now() - interval '24 hours'
-  GROUP BY hour
-  ORDER BY hour
+    step / 10 * 10 as step_range,  -- Group by 10-step ranges
+    stage,
+    avg(allocated) as avg_memory_mb,
+    max(allocated) as peak_memory_mb,
+    min(allocated) as min_memory_mb,
+    count(*) as trace_count
+  FROM python.torch_trace
+  WHERE step > (SELECT max(step) - 100 FROM python.torch_trace)
+    AND allocated > 0
+  GROUP BY step_range, stage
+  ORDER BY step_range, stage
 "
 ```
 
 ### Cross-Process Memory Analysis
 
-Compare memory usage across multiple processes:
+Compare memory usage across multiple processes using Python eval:
 ```bash
-# Run this for each process you want to compare
+# Create a script to check multiple processes
 for pid in 1234 5678 9012; do
   echo "=== Process $pid ==="
-  probing $pid query "
-    SELECT 
-      pid, 
-      used_memory_mb, 
-      cpu_usage,
-      timestamp
-    FROM system_info 
-    ORDER BY timestamp DESC 
-    LIMIT 1
+  probing $pid eval "
+import os
+import psutil
+
+try:
+    process = psutil.Process()
+    memory_info = process.memory_info()
+    print(f'PID: {os.getpid()}')
+    print(f'RSS Memory: {memory_info.rss / 1024 / 1024:.1f} MB')
+    print(f'VMS Memory: {memory_info.vms / 1024 / 1024:.1f} MB')
+    
+    # If PyTorch is available, also show GPU memory
+    try:
+        import torch
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / 1024**3
+            reserved = torch.cuda.memory_reserved() / 1024**3
+            print(f'GPU Allocated: {allocated:.2f} GB')
+            print(f'GPU Reserved: {reserved:.2f} GB')
+    except ImportError:
+        pass
+except Exception as e:
+    print(f'Error getting memory info: {e}')
   "
 done
 ```
 
 ## Memory Optimization Strategies
 
-### Identifying Memory Hotspots
+### Identifying Memory Hotspots via System Monitoring
 
-Find functions that allocate the most memory:
+Find memory usage patterns using system monitoring:
 ```bash
-probing <pid> query "
-  SELECT 
-    function_name,
-    count(*) as call_count,
-    avg(memory_delta_mb) as avg_memory_per_call,
-    sum(memory_delta_mb) as total_memory_allocated
-  FROM memory_allocations
-  WHERE timestamp > now() - interval '1 hour'
-  GROUP BY function_name
-  ORDER BY total_memory_allocated DESC
-  LIMIT 20
+probing $ENDPOINT eval "
+import psutil
+import gc
+import sys
+from collections import defaultdict
+
+# Get current process info
+process = psutil.Process()
+memory_info = process.memory_info()
+
+print(f'System Memory Analysis:')
+print(f'  RSS Memory: {memory_info.rss / 1024 / 1024:.1f} MB')
+print(f'  VMS Memory: {memory_info.vms / 1024 / 1024:.1f} MB')
+print(f'  Memory Percent: {process.memory_percent():.1f}%')
+
+# Analyze large objects
+objects = gc.get_objects()
+large_objects = []
+
+for obj in objects:
+    try:
+        size = sys.getsizeof(obj)
+        if size > 1024 * 1024:  # Objects larger than 1MB
+            large_objects.append((size, type(obj).__name__))
+    except:
+        continue
+
+large_objects.sort(reverse=True)
+
+print(f'\\nLarge objects (>1MB):')
+for size, obj_type in large_objects[:10]:
+    print(f'  {size / 1024 / 1024:.1f} MB: {obj_type}')
+
+# Check for memory trends
+import time
+time.sleep(0.1)  # Brief pause
+new_memory = process.memory_info().rss / 1024 / 1024
+growth = new_memory - (memory_info.rss / 1024 / 1024)
+print(f'\\nMemory growth in 0.1s: {growth:.2f} MB')
 "
 ```
 
-### Memory Usage Patterns
+### Memory Usage Patterns by Training Phase
 
-Analyze memory usage patterns by time of day:
+Analyze GPU memory usage patterns by training step ranges:
 ```bash
-probing <pid> query "
+probing $ENDPOINT query "
   SELECT 
-    extract(hour from timestamp) as hour_of_day,
-    avg(used_memory_mb) as avg_memory,
-    max(used_memory_mb) as peak_memory
-  FROM memory_usage
-  WHERE timestamp > now() - interval '7 days'
-  GROUP BY hour_of_day
-  ORDER BY hour_of_day
+    CASE 
+      WHEN step % 100 < 25 THEN 'Early Phase'
+      WHEN step % 100 < 50 THEN 'Mid Phase' 
+      WHEN step % 100 < 75 THEN 'Late Phase'
+      ELSE 'End Phase'
+    END as training_phase,
+    avg(allocated) as avg_memory_mb,
+    max(allocated) as peak_memory_mb,
+    count(*) as trace_count
+  FROM python.torch_trace
+  WHERE step > (SELECT max(step) - 500 FROM python.torch_trace)
+    AND allocated > 0
+  GROUP BY training_phase
+  ORDER BY avg_memory_mb DESC
 "
 ```
 
 ## Alerts and Monitoring
 
-### Memory Threshold Alerts
+### Memory Threshold Alerts via Python Monitoring
 
-Set up alerts for memory usage:
+Set up alerts for memory usage using Python:
 ```bash
-probing <pid> query "
-  SELECT 
-    timestamp,
-    used_memory_mb,
-    'HIGH_MEMORY_USAGE' as alert_type
-  FROM memory_usage
-  WHERE used_memory_mb > 8000  -- Alert above 8GB
-    AND timestamp > now() - interval '5 minutes'
+probing $ENDPOINT eval "
+import psutil
+import torch
+
+# Check system memory
+process = psutil.Process()
+memory_mb = process.memory_info().rss / 1024 / 1024
+
+if memory_mb > 8000:  # Alert above 8GB
+    print(f'ALERT: HIGH_MEMORY_USAGE - {memory_mb:.1f} MB')
+else:
+    print(f'Memory usage normal: {memory_mb:.1f} MB')
+
+# Check GPU memory if available
+if torch.cuda.is_available():
+    gpu_allocated_gb = torch.cuda.memory_allocated() / 1024**3
+    gpu_reserved_gb = torch.cuda.memory_reserved() / 1024**3
+    
+    if gpu_allocated_gb > 10:  # Alert above 10GB
+        print(f'ALERT: HIGH_GPU_MEMORY - Allocated: {gpu_allocated_gb:.2f} GB')
+    else:
+        print(f'GPU memory normal: {gpu_allocated_gb:.2f} GB allocated')
 "
 ```
 
-### Memory Leak Alerts
+### Memory Leak Alerts via Torch Trace Analysis
 
-Detect potential memory leaks:
+Detect potential GPU memory leaks by monitoring allocation trends:
 ```bash
-probing <pid> query "
+probing $ENDPOINT query "
   WITH memory_trend AS (
     SELECT 
-      timestamp,
-      used_memory_mb,
-      AVG(used_memory_mb) OVER (
-        ORDER BY timestamp 
+      step,
+      allocated,
+      AVG(allocated) OVER (
+        ORDER BY step 
         ROWS BETWEEN 10 PRECEDING AND CURRENT ROW
-      ) as moving_avg
-    FROM memory_usage
-    WHERE timestamp > now() - interval '1 hour'
+      ) as moving_avg_allocated
+    FROM python.torch_trace
+    WHERE step > (SELECT max(step) - 50 FROM python.torch_trace)
+      AND allocated > 0
   )
-  SELECT *
+  SELECT 
+    step,
+    allocated,
+    moving_avg_allocated,
+    'POTENTIAL_MEMORY_LEAK' as alert_type
   FROM memory_trend
-  WHERE used_memory_mb > moving_avg * 1.2  -- 20% above moving average
-    AND timestamp > now() - interval '10 minutes'
+  WHERE allocated > moving_avg_allocated * 1.2  -- 20% above moving average
+  ORDER BY step DESC
 "
 ```
 
@@ -407,29 +557,69 @@ probing <pid> query "
 
 ## Integration with Development Workflow
 
-### Pre-deployment Checks
+### Pre-deployment Memory Checks
 
-Before deploying, run memory analysis:
+Before deploying, analyze memory patterns using available data:
 ```bash
-# Check for memory leaks during testing
-probing <pid> query "
+# Check for GPU memory growth during recent training
+probing $ENDPOINT query "
   SELECT 
-    max(used_memory_mb) - min(used_memory_mb) as memory_growth_mb
-  FROM memory_usage
-  WHERE timestamp > now() - interval '1 hour'
+    max(allocated) - min(allocated) as memory_growth_mb,
+    max(allocated) as peak_memory_mb,
+    count(DISTINCT step) as steps_analyzed
+  FROM python.torch_trace
+  WHERE step > (SELECT max(step) - 100 FROM python.torch_trace)
+    AND allocated > 0
+"
+
+# Also check Python memory usage
+probing $ENDPOINT eval "
+import psutil
+
+process = psutil.Process()
+rss_mb = process.memory_info().rss / 1024 / 1024
+
+print(f'Memory analysis complete:')
+print(f'  RSS Memory: {rss_mb:.1f} MB')
+print(f'  Memory Percent: {process.memory_percent():.1f}%')
+
+# Basic memory health check
+if rss_mb > 8000:  # > 8GB
+    print('  Status: HIGH MEMORY USAGE')
+elif rss_mb > 4000:  # > 4GB  
+    print('  Status: MODERATE MEMORY USAGE')
+else:
+    print('  Status: NORMAL MEMORY USAGE')
 "
 ```
 
 ### Performance Regression Detection
 
-Compare memory usage between versions:
+Compare memory usage between different training runs:
 ```bash
-# Export current memory profile
-probing <pid> query "
-  SELECT function_name, avg(memory_usage_mb)
-  FROM memory_allocations
-  GROUP BY function_name
+# Export current PyTorch memory profile
+probing $ENDPOINT query "
+  SELECT 
+    module,
+    stage,
+    avg(allocated) as avg_memory_mb,
+    max(allocated) as peak_memory_mb
+  FROM python.torch_trace
+  WHERE step > (SELECT max(step) - 100 FROM python.torch_trace)
+  GROUP BY module, stage
 " > current_memory_profile.json
+
+# Compare with previous runs by analyzing torch trace patterns
+probing $ENDPOINT query "
+  SELECT 
+    step % 100 as relative_step,
+    avg(allocated) as avg_memory_mb,
+    stddev(allocated) as memory_variance
+  FROM python.torch_trace  
+  WHERE step > (SELECT max(step) - 200 FROM python.torch_trace)
+  GROUP BY relative_step
+  ORDER BY relative_step
+" > memory_pattern_analysis.json
 ```
 
 For more detailed analysis techniques, see [SQL Analytics](sql-analytics.md) and [Basic Usage](basic-usage.md).
