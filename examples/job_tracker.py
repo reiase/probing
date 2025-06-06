@@ -10,50 +10,52 @@ import probing
 API_BASE_URL = "http://logi-core.hecp:32245/api"
 JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
 JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
+PROBING_PORT = os.getenv('PROBING_PORT', 'N/A')
 
 def start_job_hook():
-    """
-    记录作业开始信息
-    """
-    print("Job tracker: start_job_hook called.")
-    world_size = os.getenv('WORLD_SIZE', 'N/A')
-    tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
-    probing_port = os.getenv('PROBING_PORT', 'N/A')
-    pod_ip = os.getenv('POD_IP', 'N/A')
-    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num},probingPort={probing_port}")
-    data = {
-            "jobId": JOB_ID,
-            "timestamp": datetime.now().timestamp() * 1_000_000,
-            "podIp": pod_ip,
-            "worldSize": world_size,
-            "tqGpuNum": tq_gpu_num,
-            "uuid": JOB_UNIQUE_ID,
-            "probingPort": probing_port
-        }
+    if PROBING_PORT == '80':
+        """
+        记录作业开始信息
+        """
+        print("Job tracker: start_job_hook called.")
+        world_size = os.getenv('WORLD_SIZE', 'N/A')
+        tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
+        pod_ip = os.getenv('POD_IP', 'N/A')
+        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num},probingPort={probing_port}")
+        data = {
+                "jobId": JOB_ID,
+                "timestamp": datetime.now().timestamp() * 1_000_000,
+                "podIp": pod_ip,
+                "worldSize": world_size,
+                "tqGpuNum": tq_gpu_num,
+                "uuid": JOB_UNIQUE_ID,
+                "probingPort": PROBING_PORT
+            }
 
-    response = requests.post(f"{API_BASE_URL}/job/start", json=data)
-    response.raise_for_status()
+        response = requests.post(f"{API_BASE_URL}/job/start", json=data)
+        response.raise_for_status()
 
 def end_job_hook():
-    """
-    记录作业结束信息 (通过 atexit 注册)
-    """
-    print("Job tracker: end_job_hook called via atexit.")
-    print(f"Job ended: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}")
-    timestamp = datetime.now().timestamp() * 1_000_000
+    if PROBING_PORT == '80':
+        """
+        记录作业结束信息 (通过 atexit 注册)
+        """
+        print("Job tracker: end_job_hook called via atexit.")
+        print(f"Job ended: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}")
+        timestamp = datetime.now().timestamp() * 1_000_000
 
-    s=" where timestamp > " + str(timestamp - 30000000)
-    df0 = probing.query("select * from python.iter_output_trace" + s)
-    df1 = probing.query("select * from python.checkpoint_log" + s)
-    data = {
-            "jobId": JOB_ID,
-            "timestamp": timestamp,
-            "uuid": JOB_UNIQUE_ID,
-            "iter": df0.to_dict(orient='records'),
-            "checkpoint": df1.to_dict(orient='records')
-    }
-    response = requests.post(f"{API_BASE_URL}/job/end", json=data)
-    response.raise_for_status()
+        s=" where timestamp > " + str(timestamp - 30000000)
+        df0 = probing.query("select * from python.iter_output_trace" + s)
+        df1 = probing.query("select * from python.checkpoint_log" + s)
+        data = {
+                "jobId": JOB_ID,
+                "timestamp": timestamp,
+                "uuid": JOB_UNIQUE_ID,
+                "iter": df0.to_dict(orient='records'),
+                "checkpoint": df1.to_dict(orient='records')
+        }
+        response = requests.post(f"{API_BASE_URL}/job/end", json=data)
+        response.raise_for_status()
 
 def record_error_hook(exc_type, exc_value, exc_traceback):
     """
@@ -64,8 +66,6 @@ def record_error_hook(exc_type, exc_value, exc_traceback):
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
     print(f"Job error: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, Error={str(exc_value)}")
     timestamp = datetime.now().timestamp() * 1_000_000
-
-    s=" where timestamp > " + str(timestamp - 30000000)
     data = {
         "jobId": JOB_ID,
         "timestamp": timestamp,
