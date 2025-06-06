@@ -233,7 +233,7 @@ PROBE=1 python examples/test_probing.py
 PROBE_TORCH_EXPRS="loss@train,acc1@train" PROBE=1 python examples/imagenet.py
 
 # Test SQL interface
-./target/release/probing <pid> query "SELECT * FROM system_info"
+./target/release/probing $ENDPOINT query "SELECT * FROM information_schema.df_settings"
 
 # Test web UI (if built)
 cd app && trunk serve
@@ -246,7 +246,7 @@ cd app && trunk serve
 cargo bench
 
 # Memory usage testing
-valgrind ./target/release/probing <pid> inject
+valgrind ./target/release/probing $ENDPOINT inject
 
 # Load testing
 ./scripts/load_test.sh

@@ -2,8 +2,6 @@
 
 - [Introduction](getting-started/introduction.md)
 - [Installation](getting-started/installation.md)
-- [Quick Start](getting-started/quick-start.md)
-- [Basic Usage](user-guide/basic-usage.md)
 - [Troubleshooting](user-guide/troubleshooting.md)
 
 ---

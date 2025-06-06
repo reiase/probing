@@ -421,17 +421,17 @@ Ready to dive deeper? Here's your recommended learning path:
 
 ### 🚀 **Start Here** (Essential - 30 minutes)
 1. **[Installation](installation.md)** - Set up Probing on your system  
-2. **[Quick Start](quick-start.md)** - Master `eval`, `query`, and `backtrace` with real examples
-3. **[Basic Usage](../user-guide/basic-usage.md)** - Essential commands and workflows
+2. **[Troubleshooting](../user-guide/troubleshooting.md)** - Solving common issues
 
 ### 🎯 **Deep Dive** (Choose based on your needs)
 - **[SQL Analytics](../user-guide/sql-analytics.md)** - Advanced `query` techniques and data analysis
-- **[Python Integration](../user-guide/python-integration.md)** - Power-user `eval` techniques  
+- **[Memory Analysis](../user-guide/memory-analysis.md)** - Tools for analyzing memory usage
 - **[Debugging Guide](../user-guide/debugging.md)** - Expert `backtrace` usage for complex issues
 
 ### 🔧 **Production & Advanced** (When you're ready to scale)
 - **[Production Deployment](../deployment/production.md)** - Scale Probing for production workloads
 - **[Performance Tuning](../user-guide/performance.md)** - Optimize Probing itself for minimal overhead
+- **[Building from Source](../development/building.md)** - Build Probing from source code
 
 ### 💡 **Learn from Examples**
 Browse `examples/` directory for real-world patterns:
