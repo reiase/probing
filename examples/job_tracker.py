@@ -13,6 +13,7 @@ JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
 RANK = os.getenv('RANK', 'N/A')
 
 def start_job_hook():
+    print(RANK)
     if RANK == 0:
         """
         记录作业开始信息
