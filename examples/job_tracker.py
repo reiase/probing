@@ -13,6 +13,7 @@ JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
 PROBING_SERVER_ADDR = os.getenv('PROBING_SERVER_ADDR', 'N/A')
 
 def start_job_hook():
+    print(PROBING_SERVER_ADDR)
     if PROBING_SERVER_ADDR == '0.0.0.0:80':
         """
         记录作业开始信息
