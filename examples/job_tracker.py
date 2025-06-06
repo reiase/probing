@@ -13,7 +13,7 @@ JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
 PROBING_SERVER_ADDR = os.getenv('PROBING_SERVER_ADDR', 'N/A')
 
 def start_job_hook():
-    print(PROBING_SERVER_ADDR)
+    print(os.getenv('PROBING_SERVER_ADDR', 'N/A'))
     if PROBING_SERVER_ADDR == '0.0.0.0:80':
         """
         记录作业开始信息
@@ -21,12 +21,10 @@ def start_job_hook():
         print("Job tracker: start_job_hook called.")
         world_size = os.getenv('WORLD_SIZE', 'N/A')
         tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
-        pod_ip = os.getenv('POD_IP', 'N/A')
         print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, PodIP={pod_ip}, TQ_GPU_NUM={tq_gpu_num},PROBING_SERVER_ADDR={PROBING_SERVER_ADDR}")
         data = {
                 "jobId": JOB_ID,
                 "timestamp": datetime.now().timestamp() * 1_000_000,
-                "podIp": pod_ip,
                 "worldSize": world_size,
                 "tqGpuNum": tq_gpu_num,
                 "uuid": JOB_UNIQUE_ID
