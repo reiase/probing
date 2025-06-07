@@ -20,6 +20,19 @@ use axum::response::IntoResponse;
 use middleware::{request_logging_middleware, request_size_limit_middleware};
 use probing_proto::prelude::Query;
 
+async fn get_config_value_handler(
+    axum::extract::Path(config_key): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match probing_core::config::get(&config_key).await {
+        Ok(value) => (StatusCode::OK, value).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Error retrieving config '{}': {}", config_key, e),
+        )
+            .into_response(),
+    }
+}
+
 pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     let worker_threads = std::env::var("PROBING_SERVER_WORKER_THREADS")
         .unwrap_or("4".to_string())
@@ -50,6 +63,10 @@ fn build_app(auth: bool) -> axum::Router {
         .route("/index.html", axum::routing::get(index))
         .route("/profiler", axum::routing::get(index))
         .route("/query", axum::routing::post(query))
+        .route(
+            "/config/{config_key}",
+            axum::routing::get(get_config_value_handler),
+        )
         .nest_service("/apis", apis_route())
         .fallback(static_files)
         // Apply request size limiting middleware

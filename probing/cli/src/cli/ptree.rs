@@ -1,7 +1,12 @@
+use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+
+// Updated imports
+use crate::cli::ctrl::{self, ProbeEndpoint};
+use log;
 
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
@@ -9,6 +14,7 @@ pub struct ProcessInfo {
     pub ppid: i32,
     pub cmd: String,
     pub socket_name: Option<String>,
+    pub remote_addr: Option<String>, // Added field for remote address
 }
 
 #[derive(Debug)]
@@ -18,18 +24,56 @@ pub struct ProcessNode {
 }
 
 /// Collect information about processes with injected probes
-pub fn collect_probe_processes() -> Result<Vec<ProcessInfo>, std::io::Error> {
-    // Find all abstract unix sockets related to probing
+pub async fn collect_probe_processes() -> Result<Vec<ProcessInfo>> {
     let probe_sockets = find_probe_sockets()?;
     let mut processes = Vec::new();
+    let mut tasks = Vec::new();
 
-    for (pid, socket_name) in probe_sockets {
-        // Get process information
-        if let Ok(Some(info)) = get_process_info(pid, Some(socket_name)) {
-            processes.push(info);
-        }
+    for (pid_val, socket_name_val) in probe_sockets {
+        tasks.push(tokio::spawn(async move {
+            let res = get_process_info(pid_val, Some(socket_name_val.clone())).await;
+            (pid_val, socket_name_val, res) // Return pid and socket_name along with the result
+        }));
     }
 
+    for task_handle in tasks {
+        match task_handle.await { // This is Result<(i32, String, Result<Option<ProcessInfo>, anyhow::Error>), JoinError>
+            Ok((pid, socket_name, Ok(Some(info)))) => {
+                processes.push(info);
+            }
+            Ok((pid, socket_name, Ok(None))) => {
+                log::debug!(
+                    "Process info not returned for PID {} (socket: {}), skipping.",
+                    pid, socket_name
+                );
+            }
+            Ok((pid, socket_name, Err(e))) => {
+                log::warn!(
+                    "Error getting full process info for PID {} (socket: {}): {}. Adding partial info.",
+                    pid, socket_name, e
+                );
+                // Attempt to get ppid and cmd even if remote_addr failed, if possible by refactoring get_process_info
+                // For now, using placeholders for ppid and cmd if the error occurred early in get_process_info.
+                // A more robust solution would be for get_process_info to return partial data on error.
+                let ppid_res = read_parent_pid(pid).unwrap_or(0); // Best effort
+                let cmd_res = read_process_cmdline(pid).unwrap_or_else(|_| String::from("[cmd error]")); // Best effort
+
+                processes.push(ProcessInfo {
+                    pid,
+                    ppid: ppid_res,
+                    cmd: cmd_res,
+                    socket_name: Some(socket_name),
+                    remote_addr: None, // Explicitly None as the error likely relates to fetching this
+                });
+            }
+            Err(join_error) => {
+                log::warn!(
+                    "Task join error (task may have panicked or been cancelled): {}",
+                    join_error
+                );
+            }
+        }
+    }
     Ok(processes)
 }
 
@@ -105,21 +149,62 @@ fn find_process_by_socket_inode(inode: &str) -> Result<Option<i32>, std::io::Err
 }
 
 /// Get information about a process
-pub fn get_process_info(
+pub async fn get_process_info(
     pid: i32,
     socket_name: Option<String>,
-) -> Result<Option<ProcessInfo>, std::io::Error> {
-    // Get parent PID
+) -> Result<Option<ProcessInfo>> {
     let ppid = read_parent_pid(pid)?;
-
-    // Get command line
     let cmd = read_process_cmdline(pid)?;
+    let mut remote_addr: Option<String> = None;
+
+    if socket_name.is_some() {
+        let endpoint = ProbeEndpoint::Local { pid };
+        let config_url = "/config/server.address";
+
+        match ctrl::request(endpoint, config_url, None).await {
+            Ok(response_bytes) => {
+                match String::from_utf8(response_bytes) {
+                    Ok(addr_str) => {
+                        if !addr_str.is_empty()
+                            && addr_str != "Config key 'server.address' not found"
+                        {
+                            // Check for not found message
+                            // Basic validation: check for presence of ':' which is typical in host:port
+                            if addr_str.contains(':') {
+                                remote_addr = Some(addr_str);
+                            } else {
+                                log::debug!("PID {}: Fetched server.address '{}' does not look like a valid address.", pid, addr_str);
+                            }
+                        } else if addr_str == "Config key 'server.address' not found" {
+                            log::debug!(
+                                "PID {}: server.address not set or not found in config.",
+                                pid
+                            );
+                        } else {
+                            log::debug!("PID {}: Fetched empty server.address.", pid);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "PID {}: Failed to parse server.address from response (not UTF-8): {}",
+                            pid,
+                            e
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                log::warn!("PID {}: HTTP request to {} failed: {}", pid, config_url, e);
+            }
+        }
+    }
 
     Ok(Some(ProcessInfo {
         pid,
         ppid,
         cmd,
         socket_name,
+        remote_addr,
     }))
 }
 

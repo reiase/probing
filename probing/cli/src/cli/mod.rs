@@ -99,7 +99,7 @@ impl Cli {
                 ProcessMonitor::new(args, *recursive)?.monitor().await
             }
             Commands::List { verbose, tree } => {
-                match ptree::collect_probe_processes() {
+                match ptree::collect_probe_processes().await {
                     Ok(processes) => {
                         if processes.is_empty() {
                             println!("No processes with injected probes found.");
@@ -116,18 +116,22 @@ impl Cli {
                             println!("Processes with injected probes:");
                             for process in processes {
                                 if *verbose {
+                                    let socket_display = process.socket_name.as_deref().unwrap_or("-");
+                                    let remote_addr_display = process.remote_addr.as_deref().unwrap_or("N/A");
                                     println!(
-                                        "PID {} ({}): {}",
+                                        "PID {} (Socket: {}, Remote: {}): {}",
                                         process.pid,
-                                        if let Some(socket) = &process.socket_name {
-                                            socket
-                                        } else {
-                                            "-"
-                                        },
+                                        socket_display,
+                                        remote_addr_display,
                                         process.cmd
                                     );
                                 } else {
-                                    println!("PID {}: {}", process.pid, process.cmd);
+                                    let remote_addr_display = process.remote_addr.as_deref().unwrap_or("");
+                                    if remote_addr_display.is_empty() {
+                                        println!("PID {}: {}", process.pid, process.cmd);
+                                    } else {
+                                        println!("PID {} (Remote: {}): {}", process.pid, remote_addr_display, process.cmd);
+                                    }
                                 }
                             }
                         }
