@@ -28,6 +28,7 @@ nix = { workspace = true }
 inferno = { version = "0.12.2", features = ["cli"] }
 futures = "0.3"
 reqwest = { version = "0.12.4", features = ["json"] }
+serde = { version = "1.0.197", features = ["derive"] }
 
 env_logger = { version = "0.11.3", default-features = false, features = [
     "humantime",

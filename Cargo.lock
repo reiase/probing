@@ -3126,6 +3126,7 @@ dependencies = [
  "probing-store",
  "procfs",
  "reqwest",
+ "serde",
  "serde_json",
  "tabled",
  "tokio",

@@ -151,11 +151,11 @@ impl Cli {
                     ];
                     fetch::fetch_and_save_urls(urls).await
                 } else {
-                    Err(anyhow::anyhow!("Please specify either --all_pids or --rank <rank>"))
+                    Err(anyhow::anyhow!("Please specify either --all-pids or --rank <rank>"))
                 }
             }
             Commands::Draw => {
-                draw::draw_frame_graph("/home/yang/worksapce/collect_draw_r/output/merged_stacks_4ranks.txt");
+                draw::draw_frame_graph_from_json("/tmp/output.json");
                 Ok(())
             }
         }
