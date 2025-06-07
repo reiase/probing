@@ -137,7 +137,6 @@ def write_probing_wheel(
             "Description-Content-Type": "text/markdown",
             "License": metadata["license"],
             "Classifier": [
-                f"License :: OSI Approved :: {metadata['license']} License",
                 "Programming Language :: Python :: 3",
                 "Operating System :: POSIX :: Linux",
             ],
