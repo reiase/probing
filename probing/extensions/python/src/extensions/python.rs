@@ -311,7 +311,7 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
     })
 }
 
-fn backtrace(tid_param: Option<i32>) -> Result<Vec<CallFrame>> {
+fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     // Acquire the lock at the beginning of the function
     let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
         log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
@@ -329,8 +329,8 @@ fn backtrace(tid_param: Option<i32>) -> Result<Vec<CallFrame>> {
 
     // Determine PID and TID for the tgkill syscall.
     // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
-    let process_pid = unsafe { libc::getpid() }; // PID of the current process (thread group ID)
-    let target_tid = tid_param.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
+    let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
+    let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
 
     log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
 

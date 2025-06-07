@@ -16,8 +16,6 @@ use std::ffi::CStr;
 use std::sync::mpsc;
 use std::sync::Mutex;
 
-use nix::libc;
-
 use log::error;
 use once_cell::sync::Lazy;
 use pkg::TCPStore;
@@ -193,13 +191,14 @@ extern "C" fn py_collect_and_send_python_stack_wrapper(_arg: *mut std::ffi::c_vo
 
 pub fn backtrace_signal_handler() {
     let native_stacks = get_native_stacks().unwrap_or_default();
+    let has_native_stacks = does_native_stack_contain_python_eval_frames(&native_stacks);
 
-    if !try_send_frames_to_channel(native_stacks.clone(), "native stacks (initial send)") {
+    if !try_send_frames_to_channel(native_stacks, "native stacks (initial send)") {
         error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");
         return;
     }
 
-    if does_native_stack_contain_python_eval_frames(&native_stacks) {
+    if has_native_stacks {
         unsafe {
             if pyo3::ffi::Py_AddPendingCall(
                 Some(py_collect_and_send_python_stack_wrapper),
