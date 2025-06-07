@@ -29,6 +29,8 @@ use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
 use crate::CALLSTACK_SENDER_SLOT;
+use lazy_static::lazy_static;
+use std::collections::HashSet;
 
 /// Define a static Mutex for the backtrace function
 static BACKTRACE_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
@@ -309,7 +311,7 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
     })
 }
 
-fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
+fn backtrace(tid_param: Option<i32>) -> Result<Vec<CallFrame>> {
     // Acquire the lock at the beginning of the function
     let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
         log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
@@ -317,48 +319,134 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     })?;
 
     let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-    match CALLSTACK_SENDER_SLOT.try_lock() {
-        Ok(mut sender_slot) => sender_slot.replace(tx),
-        Err(err) => {
+    CALLSTACK_SENDER_SLOT
+        .try_lock()
+        .map_err(|err| {
             log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-            return Err(anyhow::anyhow!("Failed to lock call stack sender slot"));
-        }
-    };
+            anyhow::anyhow!("Failed to lock call stack sender slot")
+        })?
+        .replace(tx);
 
-    let pid = tid
-        .map(|t| nix::unistd::Pid::from_raw(t))
-        .unwrap_or_else(|| nix::unistd::getpid());
+    // Determine PID and TID for the tgkill syscall.
+    // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
+    let process_pid = unsafe { libc::getpid() }; // PID of the current process (thread group ID)
+    let target_tid = tid_param.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
 
-    let ret = unsafe {
-        let pid = libc::getpid();
-        let tid = tid.unwrap_or_else(|| libc::getpid());
-        log::debug!("Sending SIGUSR2 signal to process {} (tid: {:?})", pid, tid);
+    log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
 
-        libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2)
-    };
+    let ret = unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
+
     if ret != 0 {
-        log::error!("Failed to send SIGUSR2 to process {} (tid: {:?})", pid, tid);
-
-        return Err(anyhow::anyhow!(
-            "Failed to send signal to process {pid}(tid {:?})",
-            tid
-        ));
+        let last_error = std::io::Error::last_os_error();
+        let error_msg = format!(
+            "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
+        );
+        log::error!("{}", error_msg);
+        return Err(anyhow::anyhow!(error_msg));
     }
 
-    let frames_result = match rx.recv_timeout(Duration::from_secs(5)) {
-        // Increased timeout slightly
-        Ok(frames) => Ok(frames),
+    // Attempt to receive C++ frames
+    let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(frames) => {
+            log::debug!("Received C++ frames successfully.");
+            frames
+        }
         Err(mpsc::RecvTimeoutError::Timeout) => {
-            log::warn!("Timeout waiting for call stack from signal handler after SIGUSR2");
-            Err(anyhow::anyhow!("No call stack received: timeout"))
+            log::warn!("Timeout waiting for C++ call stack from signal handler");
+            return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
         }
         Err(mpsc::RecvTimeoutError::Disconnected) => {
-            log::error!("Call stack channel disconnected. Signal handler might have failed or sender was not properly used.");
-            Err(anyhow::anyhow!(
-                "No call stack received: channel disconnected"
-            ))
+            log::error!("Call stack channel disconnected while waiting for C++ frames.");
+            return Err(anyhow::anyhow!(
+                "C++ call stack channel disconnected before any frames received"
+            ));
         }
     };
 
-    frames_result
+    // Attempt to receive Python frames
+    let python_frames = match rx.recv_timeout(Duration::from_secs(3)) {
+        Ok(frames) => {
+            log::debug!("Received Python frames successfully.");
+            frames
+        }
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            log::warn!("Timeout waiting for Python call stack from signal handler. Proceeding with C++ frames only.");
+            Vec::new() // Use empty Python frames
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            log::warn!("Call stack channel disconnected while waiting for Python frames. Proceeding with C++ frames only.");
+            Vec::new() // Use empty Python frames
+        }
+    };
+
+    // Merge C++ frames with (potentially empty) Python frames
+    Ok(merge_python_native_stacks(python_frames, cpp_frames))
+}
+
+// Moved from lib.rs
+fn merge_python_native_stacks(
+    python_stacks: Vec<CallFrame>,
+    native_stacks: Vec<CallFrame>,
+) -> Vec<CallFrame> {
+    let mut merged = vec![];
+    let mut python_frame_index = 0;
+
+    enum MergeType {
+        Ignore,
+        MergeNativeFrame,
+        MergePythonFrame,
+    }
+
+    fn get_merge_strategy(frame: &CallFrame) -> MergeType {
+        lazy_static! {
+            static ref WHITELISTED_PREFIXES_SET: HashSet<&'static str> = {
+                const PREFIXES: &[&'static str] = &[
+                    "time",
+                    "sys",
+                    "gc",
+                    "os",
+                    "unicode",
+                    "thread",
+                    "stringio",
+                    "sre",
+                    "PyGilState",
+                    "PyThread",
+                    "lock",
+                ];
+                PREFIXES.iter().cloned().collect()
+            };
+        }
+        let symbol = match frame {
+            CallFrame::CFrame { func, .. } => func,
+            CallFrame::PyFrame { func, .. } => func,
+        };
+        let mut tokens = symbol
+            .split(|c| c == '_' || c == '.')
+            .filter(|s| !s.is_empty());
+        match tokens.next() {
+            Some("PyEval") => match tokens.next() {
+                Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,
+                _ => MergeType::Ignore,
+            },
+            Some(prefix) if WHITELISTED_PREFIXES_SET.contains(prefix) => {
+                MergeType::MergeNativeFrame
+            }
+            _ => MergeType::MergeNativeFrame,
+        }
+    }
+
+    for frame in native_stacks {
+        log::debug!("Processing native frame: {:?}", frame);
+        match get_merge_strategy(&frame) {
+            MergeType::Ignore => {} // Do nothing
+            MergeType::MergeNativeFrame => merged.push(frame),
+            MergeType::MergePythonFrame => {
+                if let Some(py_frame) = python_stacks.get(python_frame_index) {
+                    merged.push(py_frame.clone());
+                }
+                python_frame_index += 1; // Advance index regardless of whether a Python frame was available
+            }
+        }
+    }
+    merged
 }

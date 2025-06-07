@@ -12,12 +12,12 @@ pub mod repl;
 
 mod setup;
 
-use std::collections::HashSet;
 use std::ffi::CStr;
 use std::sync::mpsc;
 use std::sync::Mutex;
 
-use lazy_static::lazy_static;
+use nix::libc;
+
 use log::error;
 use once_cell::sync::Lazy;
 use pkg::TCPStore;
@@ -86,31 +86,30 @@ fn get_python_stacks() -> Option<Vec<CallFrame>> {
     let frames = Python::with_gil(|py| {
         let global = PyDict::new(py);
         if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
-            error!("error extract call stacks {}", err);
+            error!("Failed to execute Python stack dump script: {}", err);
             return None;
         }
         match global.get_item("retval") {
-            Ok(frames) => {
-                if let Some(frames) = frames {
-                    frames.extract::<String>().ok()
-                } else {
-                    error!("error extract python call stacks");
-                    None
-                }
+            Ok(Some(frames_str)) => frames_str.extract::<String>().ok(),
+            Ok(None) => {
+                error!("Python stack dump script did not return 'retval'");
+                None
             }
             Err(err) => {
-                error!("error extract python call stacks {}", err);
+                error!("Failed to get 'retval' from Python stack dump: {}", err);
                 None
             }
         }
     });
 
-    if let Some(frames) = frames {
-        serde_json::from_str::<Vec<CallFrame>>(frames.as_str()).ok()
-    } else {
-        log::error!("Failed to decode Python call stacks");
-        None
-    }
+    frames.and_then(|s| {
+        serde_json::from_str::<Vec<CallFrame>>(&s)
+            .map_err(|e| {
+                error!("Failed to deserialize Python call stacks: {}", e);
+                e
+            })
+            .ok()
+    })
 }
 
 use cpp_demangle::Symbol;
@@ -119,29 +118,29 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
     let mut frames = vec![];
     backtrace::trace(|frame| {
         let ip = frame.ip();
-        let symbol_address = frame.symbol_address() as usize;
+        let symbol_address = frame.symbol_address(); // Keep as *mut c_void for formatting
         backtrace::resolve_frame(frame, |symbol| {
-            let func = symbol.name().and_then(|name| name.as_str());
-            let func = func
+            let func_name = symbol
+                .name()
+                .and_then(|name| name.as_str())
                 .map(|raw_name| {
-                    // 尝试对 C++ 符号名称进行 demangle
                     Symbol::new(raw_name)
                         .ok()
                         .map(|demangled| demangled.to_string())
                         .unwrap_or_else(|| raw_name.to_string())
                 })
-                .unwrap_or(format!("unknown@{:#x}", symbol_address));
+                .unwrap_or_else(|| format!("unknown@{:p}", symbol_address));
 
-            let file = symbol
+            let file_name = symbol
                 .filename()
-                .map(|x| x.to_string_lossy().to_string())
+                .map(|path| path.to_string_lossy().into_owned())
                 .unwrap_or_default();
 
             frames.push(CallFrame::CFrame {
-                ip: format!("{:#x}", ip as usize),
-                file,
-                func,
-                lineno: symbol.lineno().unwrap_or_default() as i64,
+                ip: format!("{:p}", ip),
+                file: file_name,
+                func: func_name,
+                lineno: symbol.lineno().unwrap_or(0) as i64,
             });
         });
         true
@@ -149,166 +148,78 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
     Some(frames)
 }
 
-fn merge_python_native_stacks(
-    python_stacks: Vec<CallFrame>,
-    native_stacks: Vec<CallFrame>,
-) -> Vec<CallFrame> {
-    let mut merged = vec![];
-    let mut python_frame_index = 0;
-
-    enum MergeType {
-        Ignore,
-        MergeNativeFrame,
-        MergePythonFrame,
-    }
-
-    fn get_merge_strategy(frame: &CallFrame) -> MergeType {
-        lazy_static! {
-            static ref WHITELISTED_PREFIXES: HashSet<&'static str> = {
-                let mut prefixes = HashSet::new();
-                prefixes.insert("time");
-                prefixes.insert("sys");
-                prefixes.insert("gc");
-                prefixes.insert("os");
-                prefixes.insert("unicode");
-                prefixes.insert("thread");
-                prefixes.insert("stringio");
-                prefixes.insert("sre");
-                // likewise reasoning about lock contention inside python is also useful
-                prefixes.insert("PyGilState");
-                prefixes.insert("PyThread");
-                prefixes.insert("lock");
-                prefixes
-            };
-        }
-        let symbol = match frame {
-            CallFrame::CFrame {
-                ip: _,
-                file: _,
-                func,
-                lineno: _,
-            } => func,
-            CallFrame::PyFrame {
-                file: _,
-                func,
-                lineno: _,
-                locals: _,
-            } => func,
-        };
-        let mut tokens = symbol.split(&['_', '.'][..]).filter(|&x| !x.is_empty());
-        match tokens.next() {
-            Some("PyEval") => match tokens.next() {
-                Some("EvalFrameDefault") => MergeType::MergePythonFrame,
-                Some("EvalFrameEx") => MergeType::MergePythonFrame,
-                _ => MergeType::Ignore,
-            },
-            Some(prefix) if WHITELISTED_PREFIXES.contains(prefix) => MergeType::MergeNativeFrame,
-            _ => MergeType::MergeNativeFrame,
-        }
-    }
-
-    for frame in native_stacks {
-        log::debug!("Processing native frame: {:?}", frame);
-        match get_merge_strategy(&frame) {
-            MergeType::Ignore => {}
-            MergeType::MergeNativeFrame => merged.push(frame),
-            MergeType::MergePythonFrame => {
-                #[allow(clippy::never_loop)]
-                while python_frame_index < python_stacks.len() {
-                    merged.push(python_stacks[python_frame_index].clone());
-                    break;
-                }
-                python_frame_index += 1;
-            }
-        }
-    }
-    merged
-}
-
 // Helper function to check for Python evaluation frames in the native stack
-fn does_native_stack_contain_python_eval_frames(native_frames: &Vec<CallFrame>) -> bool {
-    for frame in native_frames {
+fn does_native_stack_contain_python_eval_frames(native_frames: &[CallFrame]) -> bool {
+    native_frames.iter().any(|frame| {
         if let CallFrame::CFrame { func, .. } = frame {
-            // These function names are strong indicators of Python bytecode execution.
-            if func.contains("PyEval_EvalFrameDefault") || func.contains("PyEval_EvalFrameEx") {
-                return true;
-            }
+            func.contains("PyEval_EvalFrameDefault") || func.contains("PyEval_EvalFrameEx")
+        } else {
+            false
         }
-    }
-    false
+    })
 }
 
-extern "C" fn py_pending_call_wrapper(_arg: *mut std::ffi::c_void) -> i32 {
-    log::debug!("Pending call: Starting to collect call stacks...");
-    let python_stacks = get_python_stacks().unwrap_or_default();
-    log::debug!(
-        "Pending call: Collected {} Python call stacks",
-        python_stacks.len()
-    );
-    // It's important to get fresh native stacks here to be as contemporaneous as possible
-    // with the python_stacks collected above, as time might have passed since the signal.
-    let native_stacks = get_native_stacks().unwrap_or_default();
-    log::debug!(
-        "Pending call: Collected {} native call stacks",
-        native_stacks.len()
-    );
-
-    let merged_stacks = merge_python_native_stacks(python_stacks, native_stacks);
-    log::debug!(
-        "Pending call: Merged call stacks, total {} frames",
-        merged_stacks.len()
-    );
-    if let Ok(guard) = CALLSTACK_SENDER_SLOT.try_lock() {
-        if let Some(sender) = guard.as_ref() {
-            if let Err(e) = sender.send(merged_stacks) {
-                error!("Pending call: Failed to send callstack data: {}", e);
+// Helper function to attempt sending frames, returns true on success, false on failure.
+fn try_send_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool {
+    match CALLSTACK_SENDER_SLOT.try_lock() {
+        Ok(guard) => {
+            if let Some(sender) = guard.as_ref() {
+                if sender.send(frames).is_ok() {
+                    true
+                } else {
+                    error!("Failed to send frames for {} via channel.", context_msg);
+                    false
+                }
+            } else {
+                error!("No active callstack sender found for {}.", context_msg);
+                false
             }
-        } else {
-            error!("Pending call: No active callstack sender found in CALLSTACK_SENDER_SLOT.");
         }
-    } else {
-        error!("Pending call: Failed to lock CALLSTACK_SENDER_SLOT mutex for pending call.");
+        Err(e) => {
+            error!(
+                "Failed to lock CALLSTACK_SENDER_SLOT for {}: {}",
+                context_msg, e
+            );
+            false
+        }
     }
-    0 // Return 0 for success, as Py_AddPendingCall expects
+}
+
+extern "C" fn py_collect_and_send_python_stack_wrapper(_arg: *mut std::ffi::c_void) -> i32 {
+    let python_stacks = get_python_stacks().unwrap_or_default();
+    try_send_frames_to_channel(python_stacks, "Python stacks (pending call)");
+    0
 }
 
 pub fn backtrace_signal_handler() {
-    // This function is called from a signal context (SIGUSR2).
-    // Operations before Py_AddPendingCall should be async-signal-safe.
-    // Py_AddPendingCall itself is designed to be safe to call from a signal handler.
-
-    // Step 1: Collect native stacks first.
     let native_stacks = get_native_stacks().unwrap_or_default();
 
-    // Step 2: Check if these native stacks indicate we are likely in a Python execution context.
+    if !try_send_frames_to_channel(native_stacks.clone(), "native stacks (initial send)") {
+        error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");
+        return;
+    }
+
     if does_native_stack_contain_python_eval_frames(&native_stacks) {
-        // If Python frames are suspected, schedule the full collection via Py_AddPendingCall.
-        // py_pending_call_wrapper will then collect both Python and fresh native stacks.
-        log::debug!("Signal handler: Python context suspected in native stack. Scheduling pending call for full stack collection.");
         unsafe {
-            // Py_AddPendingCall schedules py_pending_call_wrapper to be called from the main Python thread
-            // when it's safe to do so (i.e., when the GIL is available).
-            pyo3::ffi::Py_AddPendingCall(Some(py_pending_call_wrapper), std::ptr::null_mut());
+            if pyo3::ffi::Py_AddPendingCall(
+                Some(py_collect_and_send_python_stack_wrapper),
+                std::ptr::null_mut(),
+            ) == -1
+            {
+                error!("Signal handler: Failed to schedule Py_AddPendingCall. Sending empty Vec for Python part as fallback.");
+                if !try_send_frames_to_channel(
+                    Vec::new(),
+                    "Python stacks (fallback due to Py_AddPendingCall failure)",
+                ) {
+                    error!("Signal handler: Failed to send Python part (fallback). Receiver might be stuck.");
+                }
+            }
         }
     } else {
-        // If no Python context is suspected from the native stack,
-        // we can send the collected native stacks directly (with an empty Python stack).
-        log::debug!("Signal handler: No Python context suspected. Sending native stack directly.");
-        let merged_stacks = merge_python_native_stacks(Vec::new(), native_stacks); // Python stacks are empty
-
-        if let Ok(guard) = CALLSTACK_SENDER_SLOT.try_lock() {
-            if let Some(sender) = guard.as_ref() {
-                if let Err(e) = sender.send(merged_stacks) {
-                    error!(
-                        "Signal handler (native only): Failed to send callstack data: {}",
-                        e
-                    );
-                }
-            } else {
-                error!("Signal handler (native only): No active callstack sender found in CALLSTACK_SENDER_SLOT.");
-            }
-        } else {
-            error!("Signal handler (native only): Failed to lock CALLSTACK_SENDER_SLOT mutex.");
+        if !try_send_frames_to_channel(Vec::new(), "Python stacks (no Python context)") {
+            error!(
+                "Signal handler: Failed to send Python part (no context). Receiver might be stuck."
+            );
         }
     }
 }
