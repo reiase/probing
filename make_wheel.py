@@ -71,7 +71,7 @@ def write_probing_wheel(
     package_meta = meta.get("package", {})
     workspace_meta = meta.get("workspace", {}).get("package", {})
     metadata = {
-        "version": workspace_meta.get("version") or package_meta.get("version"),
+        "version": workspace_meta.get("version").replace("-", "") or package_meta.get("version").replace("-", ""),
         "authors": workspace_meta.get("authors", []) or package_meta.get("authors", []),
         "license": workspace_meta.get("license") or package_meta.get("license", ""),
         "description": workspace_meta.get("description", "") or package_meta.get("description", ""),  # Only in package

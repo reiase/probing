@@ -18,7 +18,9 @@ h3::before {
 }
 </style>
 
-本文当介绍如何通过Probing进行代码调试, 关于Probing的整体架构设计，请参考[整体架构](./arch.md)。
+# 使用 Probing 进行代码调试
+
+本文介绍如何通过 Probing 进行 Python 应用代码调试，关于 Probing 的整体架构设计，请参考[架构概览](../advanced/architecture.md)。
 
 系统调试一直是分布式系统开发和优化的难题，尤其是异构分布式训练系统，需要综合定位从硬件、系统到框架、模型等多个层面的错误和问题。对于分布式系统的调试需求主要集中在几方面：
 
@@ -178,11 +180,11 @@ sys.monitoring.OPTIMIZER_ID = 5
 - **JUMP**: An unconditional jump in the control flow graph is made.
 - **LINE**: An instruction is about to be executed that has a different line number from the preceding instruction.
 - **PY_RESUME**: Resumption of a Python function (for generator and coroutine functions), except for throw() calls. 
-- **PY_RETURN**: Return from a Python function (occurs immediately before the return, the callee’s frame will be on the stack).
-- **PY_START**: Start of a Python function (occurs immediately after the call, the callee’s frame will be on the stack)
+- **PY_RETURN**: Return from a Python function (occurs immediately before the return, the callee's frame will be on the stack).
+- **PY_START**: Start of a Python function (occurs immediately after the call, the callee's frame will be on the stack)
 - **PY_THROW**: A Python function is resumed by a throw() call.
 - **PY_UNWIND**: Exit from a Python function during exception unwinding.
-- **PY_YIELD**: Yield from a Python function (occurs immediately before the yield, the callee’s frame will be on the stack).
+- **PY_YIELD**: Yield from a Python function (occurs immediately before the yield, the callee's frame will be on the stack).
 - **RAISE**: An exception is raised, except those that cause a STOP_ITERATION event.
 - **RERAISE**: An exception is re-raised, for example at the end of a finally block.
 - **STOP_ITERATION**: An artificial StopIteration is raised; see the STOP_ITERATION event.
@@ -361,6 +363,49 @@ class HookedTensor(torch.Tensor, FakeProbingTensor):
             return ret
         return super().__torch_function__(func, types, args, kwargs)
 ```
+
+## 实际调试案例
+
+### 案例1：内存泄漏调试
+
+使用 Probing 的内存监控功能来定位 Python 应用中的内存泄漏：
+
+```python
+# 启用内存追踪
+import probing
+
+# 在训练循环中监控内存使用
+with probing.trace("memory_usage"):
+    for epoch in range(num_epochs):
+        train_model(epoch)
+        
+# 通过SQL查询分析内存使用模式
+```
+
+### 案例2：分布式训练同步问题
+
+监控分布式训练中的通信和同步问题：
+
+```python
+# 监控集合通信操作
+with probing.trace("collective_ops"):
+    torch.distributed.all_reduce(tensor)
+    
+# 分析不同节点的执行时间差异
+```
+
+## 最佳实践
+
+1. **最小化性能影响**：只在必要的代码段启用追踪
+2. **合理选择事件类型**：根据调试需求选择合适的监控事件
+3. **利用SQL分析**：使用Probing的SQL接口进行高效的数据分析
+4. **分布式协调**：在分布式环境中注意同步和协调问题
+
+## 参考链接
+
+- [内存分析指南](memory-analysis.md)
+- [分布式训练分析](distributed.md)
+- [SQL分析接口](sql-analytics.md)
 
 [^ptrace]: https://www.man7.org/linux/man-pages/man2/ptrace.2.html
 [^dr0_3]: https://sandpile.org/x86/drx.htm

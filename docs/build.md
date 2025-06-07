@@ -1,81 +1,251 @@
-# Probing 快速开始指南
+# Building Probing from Source
 
-Probing 是一个用于监控和跟踪 Python/PyTorch 程序的工具，可以帮助开发者更好地了解程序运行状态和性能表现。本指南将帮助你从零开始使用 Probing 工具。
+This guide provides comprehensive instructions for building Probing from source code, including environment setup, compilation, and verification steps.
 
-## 1. 环境准备
+## Prerequisites
 
-在开始使用 Probing 之前，需要安装以下依赖：
+### System Requirements
+
+- **Operating System**: Linux (Ubuntu 20.04+, CentOS 8+) or macOS
+- **Memory**: Minimum 4GB RAM (8GB+ recommended for large projects)
+- **Disk Space**: At least 2GB for dependencies and build artifacts
+
+### Required Dependencies
+
+Before building Probing, install the following dependencies:
 
 ```bash
-# 安装 Rust 环境
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
+# Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
 
-# 安装 nightly 版本工具链
-rustup toolchain install nightly 
-rustup default nightly           
+# Install nightly toolchain (required for advanced features)
+rustup toolchain install nightly
+rustup default nightly
 
-# 安装 WebAssembly 支持
-rustup target add wasm32-unknown-unknown 
+# Add WebAssembly target for web UI
+rustup target add wasm32-unknown-unknown
 
-# 安装跨 glibc 版本构建支持
-cargo install cargo-zigbuild 
-pip install ziglang          # 简易安装方式，可能需要验证
+# Install trunk for building WebAssembly frontend
+cargo install trunk
+
+# Install cross-compilation tools (for distribution builds)
+cargo install cargo-zigbuild
+pip install ziglang
 ```
 
-## 2. 构建与安装
-
-完成环境准备后，可以按照以下步骤构建和安装 Probing：
+### Optional Dependencies
 
 ```bash
-# 构建发布包
+# For testing and development
+cargo install cargo-nextest    # Faster test runner
+pip install pytest            # Python testing framework
+```
+
+## Building from Source
+
+### Development Build
+
+For quick iteration and development:
+
+```bash
+# Clone repository
+git clone https://github.com/reiase/probing.git
+cd probing
+
+# Development build (faster compilation, debug symbols)
+make
+
+# Build web UI (optional, included in make)
+cd app && trunk build --release && cd ..
+```
+
+### Production Build
+
+For distribution and deployment:
+
+```bash
+# Production build with cross-platform compatibility
 make ZIG=1
 
-# 安装构建包（使用 force-reinstall 确保更新成功）
-pip install dist/probing-0.2.0-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl --force-reinstall 
+# Generate Python wheel package
+make wheel
+
+# Install the built package
+pip install dist/probing-*.whl --force-reinstall
 ```
 
-## 3. 基本使用示例
+## Build Verification
 
-安装完成后，可以使用以下命令测试 Probing 的功能：
+## Build Verification
+
+### Basic Functionality Test
+
+Verify the build by running basic tests:
 
 ```bash
-# 简单测试 - 监控 ImageNet 训练过程
-PROBE=1 python examples/test_imagenet.py -a resnet18 --dummy -b 1
+# Run the test suite
+make test
 
-# 高级测试 - 跟踪特定函数中的变量
-PROBE_TORCH_EXPRS="loss@train,acc1@train" PROBE=1 python examples/test_imagenet.py -a resnet18 --dummy -b 1
+# Verify CLI installation
+probing --version
+
+# Test basic functionality
+PROBE=1 python examples/test_probing.py
 ```
 
-## 4. 监控与数据查询
+### Advanced Feature Testing
 
-Probing 提供了一系列命令用于监控进程和查询收集的数据：
+Test advanced features and integrations:
 
 ```bash
-# 列出所有已被注入探针的进程
-probing list 
+# Test PyTorch integration with variable tracking
+PROBE_TORCH_EXPRS="loss@train,acc1@train" PROBE=1 python examples/imagenet.py
 
-# 查询特定进程中的数据表
-probing <pid> query "show tables"
+# Test distributed monitoring (if available)
+probing cluster test
 
-# 查询 PyTorch 模型追踪数据
-probing <pid> query "select * from python.torch_trace"
-
-# 查询被跟踪的变量
-probing <pid> query "select * from python.variables"
+# Test SQL analytics interface
+python -c "
+import time
+import os
+os.environ['PROBE'] = '1'
+import probing
+# Run your test here
+"
 ```
 
-## 5. 高级功能
+## Build Targets and Options
 
-除了基本的监控功能外，Probing 还支持：
+### Available Make Targets
 
-- 变量追踪：通过设置环境变量 `PROBE_TORCH_EXPRS` 来指定要追踪的变量
-- 实时监控：在程序运行过程中实时查看数据变化
-- 自定义查询：使用类 SQL 语法进行灵活的数据查询
+```bash
+# Development build (default)
+make
 
-## 6. 故障排除
+# Production build with cross-compilation
+make ZIG=1
 
-如果在使用过程中遇到问题：
+# Run tests
+make test
 
-- 确保所有依赖已正确安装
-- 检查 Rust 工具链是否为 nightly 版本
-- 使用 `--force-reinstall` 确保 Probing 被正确安装
+# Build Python wheel package
+make wheel
+
+# Build web UI only
+make app/dist
+
+# Clean build artifacts
+make clean
+```
+
+### Environment Variables
+
+Control the build process with environment variables:
+
+```bash
+# Debug build (faster compilation, larger binaries)
+DEBUG=1 make
+
+# Cross-compilation build
+ZIG=1 make
+
+# Verbose build output
+VERBOSE=1 make
+```
+
+## Project Structure
+
+Understanding the codebase organization:
+
+```
+probing/
+├── probing/cli/          # Command-line interface
+├── probing/core/         # Core profiling engine
+├── probing/extensions/   # Language-specific extensions
+│   ├── python/          # Python integration
+│   └── cc/              # C++ integration
+├── probing/server/       # HTTP API server
+├── app/                 # Web UI (Leptos + WebAssembly)
+├── python/              # Python hooks and bindings
+├── examples/            # Usage examples and demos
+└── docs/                # Documentation
+```
+
+## Troubleshooting
+
+### Common Build Issues
+
+**Rust nightly not found:**
+```bash
+rustup toolchain install nightly
+rustup default nightly
+```
+
+**WebAssembly target missing:**
+```bash
+rustup target add wasm32-unknown-unknown
+```
+
+**Trunk installation failed:**
+```bash
+cargo install trunk --force
+```
+
+**Cross-compilation errors:**
+```bash
+# Ensure ziglang is properly installed
+pip install ziglang --upgrade
+```
+
+### Performance Issues
+
+**Slow compilation:**
+- Use development build: `make` (without ZIG=1)
+- Enable parallel compilation: `export MAKEFLAGS="-j$(nproc)"`
+- Use faster linker: `sudo apt install lld` and add to ~/.cargo/config.toml
+
+**Large binary size:**
+- Production build automatically enables optimizations
+- Strip debug symbols: `strip target/release/probing`
+
+### Platform-Specific Notes
+
+**Ubuntu/Debian:**
+```bash
+# Install additional dependencies
+sudo apt update
+sudo apt install build-essential pkg-config libssl-dev
+```
+
+**CentOS/RHEL:**
+```bash
+# Install development tools
+sudo yum groupinstall "Development Tools"
+sudo yum install openssl-devel
+```
+
+**macOS:**
+```bash
+# Install Xcode command line tools
+xcode-select --install
+```
+
+## Contributing to Build System
+
+### Adding New Build Targets
+
+1. Edit `Makefile` to add your target
+2. Update this documentation
+3. Test on multiple platforms
+4. Submit pull request
+
+### Cross-Platform Testing
+
+We recommend testing builds on:
+- Ubuntu 20.04 LTS
+- CentOS 8
+- macOS 12+
+- Windows (via WSL2)
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md).
