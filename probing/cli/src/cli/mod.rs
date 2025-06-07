@@ -110,7 +110,7 @@ impl Cli {
                             // Build and display process tree
                             let tree_nodes = ptree::build_process_tree(processes);
                             println!("Processes with injected probes (tree view):");
-                            ptree::print_process_tree(&tree_nodes, *verbose, "", true);
+                            ptree::print_process_tree(&tree_nodes, *verbose, "");
                         } else {
                             // Display flat list
                             println!("Processes with injected probes:");
