@@ -151,7 +151,7 @@ impl Cli {
                                 for process in processes {
                                     println!("PID {}: {}", process.pid, process.cmd);
                                     let ctrl: ProbeEndpoint = process.pid.to_string().as_str().try_into()?;
-                                    ctrl::query(
+                                    let _ = ctrl::query(
                                         ctrl,
                                         Query {
                                             expr: String::from("SELECT * FROM information_schema.df_settings where NAME='probing.server.address'"),
@@ -159,7 +159,6 @@ impl Cli {
                                         },
                                     )
                                     .await;
-                                    
                                 }
                             }
                         }
@@ -180,7 +179,7 @@ impl Cli {
                 }
             }
             Commands::Draw => {
-                draw::draw_frame_graph_from_json("/tmp/output.json");
+                let _ = draw::draw_frame_graph_from_json();
                 Ok(())
             }
         }

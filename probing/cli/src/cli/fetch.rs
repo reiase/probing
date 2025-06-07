@@ -6,6 +6,8 @@ use futures::future::join_all;
 use anyhow::{Context, Result};
 
 
+pub const PROBING_JSON_PATH: &str = "/tmp/probing_output.json";
+
 /**
 Fetches JSON data from a list of URLs and saves the combined data to a file.
  */
@@ -38,12 +40,12 @@ pub async fn fetch_and_save_urls(urls: Vec<String>) -> Result<()> {
 
     let output = serde_json::to_string_pretty(&data_list)
         .context("Failed to serialize JSON data")?;
-    let mut file = File::create("/tmp/output.json")
+    let mut file = File::create(PROBING_JSON_PATH)
         .context("Failed to create output file")?;
     file.write_all(output.as_bytes())
         .context("Failed to write to output file")?;
 
-    println!("Data has been saved to output.json");
+    println!("Data has been saved to /tmp/probing_output.json");
 
     Ok(())
 }

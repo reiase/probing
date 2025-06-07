@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read, Write};
 
+use super::fetch::PROBING_JSON_PATH;
+
+
 /// Represents a node in the Trie structure for stack traces.
 #[derive(Debug, Clone)]
 struct TrieNode {
@@ -223,7 +226,8 @@ fn draw_frame_graph(file_path: &str) {
  - Merge stacks;
  - Generate flamegraph;
  */
-pub fn draw_frame_graph_from_json(input_path: &str) -> io::Result<()> {
+pub fn draw_frame_graph_from_json() -> io::Result<()> {
+    let input_path = PROBING_JSON_PATH;
     let output_path = "/tmp/processed_stacks.txt";
     process_callstacks(input_path, output_path)?;
 
