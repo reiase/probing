@@ -98,14 +98,14 @@ pub async fn get_process_info(pid: i32, socket_name: Option<String>) -> Result<P
 
     if socket_name.is_some() {
         let endpoint = ProbeEndpoint::Local { pid };
-        let config_url = "/config/server.address";
+        let url = "/config/server.address";
 
-        match ctrl::request(endpoint, config_url, None).await {
+        match ctrl::request(endpoint, url, None).await {
             Ok(response_bytes) => match String::from_utf8(response_bytes) {
                 Ok(addr_str) => remote_addr = Some(addr_str),
                 Err(e) => log::warn!("PID {pid}: Failed to parse server.address: {e}"),
             },
-            Err(e) => log::warn!("PID {pid}: HTTP request to {config_url} failed: {e}"),
+            Err(e) => log::warn!("PID {pid}: HTTP request to {url} failed: {e}"),
         }
     }
 
@@ -245,7 +245,6 @@ fn build_subtree_recursive(
                         build_subtree_recursive(child_info_owned, adj, pid_map, processed_pids);
                     parent_info.children.push(child_node);
                 }
-                // If child_info_owned is None, it means it was already taken (e.g., part of another root's tree or error in data)
             }
         }
     }
@@ -284,19 +283,15 @@ pub fn print_process_tree(nodes: &[ProcessInfo], verbose: bool, prefix: &str) {
 }
 
 /// Format process information for display
-fn format_process(info: &ProcessInfo, verbose: bool) -> String {
+pub fn format_process(info: &ProcessInfo, verbose: bool) -> String {
     if verbose {
-        let socket_str = info.socket_name.as_deref().unwrap_or("-");
-        let remote_str = info.remote_addr.as_deref().unwrap_or("-");
+        let local = info.socket_name.as_deref().unwrap_or("-");
+        let remote = info.remote_addr.as_deref().unwrap_or("-");
         format!(
-            "{} (socket: {}, remote: {}): {}",
-            info.pid, socket_str, remote_str, info.cmd
+            "{} (local: {local}, remote: {remote}): {}",
+            info.pid, info.cmd
         )
     } else {
-        if let Some(addr) = &info.remote_addr {
-            format!("{}: {} (remote: {})", info.pid, info.cmd, addr)
-        } else {
-            format!("{}: {}", info.pid, info.cmd)
-        }
+        format!("{}: {}", info.pid, info.cmd)
     }
 }

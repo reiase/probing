@@ -107,32 +107,13 @@ impl Cli {
                         }
 
                         if *tree {
-                            // Build and display process tree
                             let tree_nodes = ptree::build_process_tree(processes);
                             println!("Processes with injected probes (tree view):");
                             ptree::print_process_tree(&tree_nodes, *verbose, "");
                         } else {
-                            // Display flat list
                             println!("Processes with injected probes:");
-                            for process in processes {
-                                if *verbose {
-                                    let socket_display = process.socket_name.as_deref().unwrap_or("-");
-                                    let remote_addr_display = process.remote_addr.as_deref().unwrap_or("N/A");
-                                    println!(
-                                        "PID {} (Socket: {}, Remote: {}): {}",
-                                        process.pid,
-                                        socket_display,
-                                        remote_addr_display,
-                                        process.cmd
-                                    );
-                                } else {
-                                    let remote_addr_display = process.remote_addr.as_deref().unwrap_or("");
-                                    if remote_addr_display.is_empty() {
-                                        println!("PID {}: {}", process.pid, process.cmd);
-                                    } else {
-                                        println!("PID {} (Remote: {}): {}", process.pid, remote_addr_display, process.cmd);
-                                    }
-                                }
+                            for p in processes {
+                                println!("{}", ptree::format_process(&p, *verbose));
                             }
                         }
                     }
