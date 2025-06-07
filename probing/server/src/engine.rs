@@ -2,52 +2,24 @@ use anyhow::{self, Result};
 use log;
 use probing_proto::prelude::*;
 
+use crate::extensions as se;
+use probing_cc::extensions as cc;
+use probing_python::extensions as py;
+
 use crate::server::error::ApiResult;
 
 pub use probing_core::ENGINE;
 
 pub async fn initialize_engine() -> Result<()> {
     let builder = probing_core::create_engine()
-        .with_extension(
-            probing_python::extensions::PprofExtension::default(),
-            "pprof",
-            None,
-        )
-        .with_extension(
-            probing_python::extensions::TorchExtension::default(),
-            "torch",
-            None,
-        )
-        .with_extension(
-            crate::extensions::ServerExtension::default(),
-            "server",
-            None,
-        )
-        .with_extension(
-            probing_python::extensions::PythonExt::default(),
-            "python",
-            None,
-        )
-        .with_extension(
-            probing_cc::extensions::TaskStatsExtension::default(),
-            "taskstats",
-            None,
-        )
-        .with_extension(
-            probing_cc::extensions::ClusterExtension::default(),
-            "cluster",
-            Some("nodes"),
-        )
-        .with_extension(
-            probing_cc::extensions::EnvExtension::default(),
-            "process",
-            Some("envs"),
-        )
-        .with_extension(
-            probing_cc::extensions::FilesExtension::default(),
-            "files",
-            None,
-        );
+        .with_extension(py::PprofExtension::default(), "pprof", None)
+        .with_extension(py::TorchExtension::default(), "torch", None)
+        .with_extension(se::ServerExtension::default(), "server", None)
+        .with_extension(py::PythonExt::default(), "python", None)
+        .with_extension(cc::TaskStatsExtension::default(), "taskstats", None)
+        .with_extension(cc::ClusterExtension::default(), "cluster", Some("nodes"))
+        .with_extension(cc::EnvExtension::default(), "process", Some("envs"))
+        .with_extension(cc::FilesExtension::default(), "files", None);
 
     probing_core::initialize_engine(builder).await
 }

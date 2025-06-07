@@ -99,7 +99,7 @@ impl Cli {
                 ProcessMonitor::new(args, *recursive)?.monitor().await
             }
             Commands::List { verbose, tree } => {
-                match ptree::collect_probe_processes() {
+                match ptree::collect_probe_processes().await {
                     Ok(processes) => {
                         if processes.is_empty() {
                             println!("No processes with injected probes found.");
@@ -107,28 +107,13 @@ impl Cli {
                         }
 
                         if *tree {
-                            // Build and display process tree
                             let tree_nodes = ptree::build_process_tree(processes);
                             println!("Processes with injected probes (tree view):");
-                            ptree::print_process_tree(&tree_nodes, *verbose, "", true);
+                            ptree::print_process_tree(&tree_nodes, *verbose, "");
                         } else {
-                            // Display flat list
                             println!("Processes with injected probes:");
-                            for process in processes {
-                                if *verbose {
-                                    println!(
-                                        "PID {} ({}): {}",
-                                        process.pid,
-                                        if let Some(socket) = &process.socket_name {
-                                            socket
-                                        } else {
-                                            "-"
-                                        },
-                                        process.cmd
-                                    );
-                                } else {
-                                    println!("PID {}: {}", process.pid, process.cmd);
-                                }
+                            for p in processes {
+                                println!("{}", ptree::format_process(&p, *verbose));
                             }
                         }
                     }

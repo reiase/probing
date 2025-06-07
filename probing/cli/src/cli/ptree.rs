@@ -1,35 +1,54 @@
+use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-#[derive(Debug, Clone)]
+use crate::cli::ctrl::{self, ProbeEndpoint};
+
+#[derive(Debug, Default, Clone)]
 pub struct ProcessInfo {
     pub pid: i32,
     pub ppid: i32,
     pub cmd: String,
     pub socket_name: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct ProcessNode {
-    pub info: ProcessInfo,
-    pub children: Vec<ProcessNode>,
+    pub remote_addr: Option<String>,
+    pub children: Vec<ProcessInfo>,
 }
 
 /// Collect information about processes with injected probes
-pub fn collect_probe_processes() -> Result<Vec<ProcessInfo>, std::io::Error> {
-    // Find all abstract unix sockets related to probing
-    let probe_sockets = find_probe_sockets()?;
+pub async fn collect_probe_processes() -> Result<Vec<ProcessInfo>> {
     let mut processes = Vec::new();
+    let mut tasks = Vec::new();
 
-    for (pid, socket_name) in probe_sockets {
-        // Get process information
-        if let Ok(Some(info)) = get_process_info(pid, Some(socket_name)) {
-            processes.push(info);
-        }
+    for (pid_val, socket_name_val) in find_probe_sockets()? {
+        tasks.push(tokio::spawn(async move {
+            let res = get_process_info(pid_val, Some(socket_name_val.clone())).await;
+            (pid_val, socket_name_val, res) // Return pid and socket_name along with the result
+        }));
     }
 
+    for task_handle in tasks {
+        match task_handle.await {
+            Ok((_, _, Ok(info))) => processes.push(info),
+            Ok((pid, socket_name, Err(e))) => {
+                log::warn!("Error getting full info for PID {pid} (socket: {socket_name}): {e}.");
+                let ppid = read_parent_pid(pid).unwrap_or(0); // Best effort
+                let cmd = read_process_cmdline(pid).unwrap_or_else(|_| String::from("[cmd error]")); // Best effort
+
+                processes.push(ProcessInfo {
+                    pid,
+                    ppid,
+                    cmd,
+                    socket_name: Some(socket_name),
+                    ..Default::default()
+                });
+            }
+            Err(err) => {
+                log::warn!("Task join error (task may have panicked or been cancelled): {err}")
+            }
+        }
+    }
     Ok(processes)
 }
 
@@ -52,13 +71,17 @@ fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
 
         // Check if we have enough fields and it's an abstract socket
         if fields.len() >= 8 {
-            let socket_name = fields[7];
-            if socket_name.starts_with("@") && socket_name.contains("probing") {
-                let inode = fields[6];
+            let socket_name_full = fields[7]; // e.g., @probing-12345
 
-                // Find process that has this socket
-                if let Some(pid) = find_process_by_socket_inode(inode)? {
-                    result.push((pid, socket_name.to_string()));
+            // Check for the new naming convention: @probing-<pid>
+            if socket_name_full.starts_with("@probing-") {
+                let pid_str = &socket_name_full[9..]; // Skip "@probing-"
+                if let Ok(pid) = pid_str.parse::<i32>() {
+                    result.push((pid, socket_name_full.to_string()));
+                } else {
+                    log::warn!(
+                        "Failed to parse PID from socket name: {socket_name_full}. Expected format @probing-<pid>."
+                    );
                 }
             }
         }
@@ -67,60 +90,33 @@ fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
     Ok(result)
 }
 
-/// Find which process owns a socket with given inode
-fn find_process_by_socket_inode(inode: &str) -> Result<Option<i32>, std::io::Error> {
-    let search_str = format!("socket:[{}]", inode);
+/// Get information about a process
+pub async fn get_process_info(pid: i32, socket_name: Option<String>) -> Result<ProcessInfo> {
+    let ppid = read_parent_pid(pid)?;
+    let cmd = read_process_cmdline(pid)?;
+    let mut remote_addr: Option<String> = None;
 
-    for entry in std::fs::read_dir("/proc")? {
-        let entry = entry?;
-        let path = entry.path();
+    if socket_name.is_some() {
+        let endpoint = ProbeEndpoint::Local { pid };
+        let url = "/config/server.address";
 
-        // Check if entry is a PID directory
-        if let Some(name) = path.file_name() {
-            if let Some(name_str) = name.to_str() {
-                if name_str.chars().all(|c| c.is_ascii_digit()) {
-                    let pid = name_str.parse::<i32>().unwrap_or(-1);
-                    let fd_dir = path.join("fd");
-
-                    if fd_dir.exists() {
-                        // Check all file descriptors
-                        if let Ok(fds) = std::fs::read_dir(&fd_dir) {
-                            for fd in fds.flatten() {
-                                // if let Ok(fd) = fd {
-                                if let Ok(link) = std::fs::read_link(fd.path()) {
-                                    if link.to_string_lossy() == search_str {
-                                        return Ok(Some(pid));
-                                    }
-                                }
-                                // }
-                            }
-                        }
-                    }
-                }
-            }
+        match ctrl::request(endpoint, url, None).await {
+            Ok(response_bytes) => match String::from_utf8(response_bytes) {
+                Ok(addr_str) => remote_addr = Some(addr_str),
+                Err(e) => log::warn!("PID {pid}: Failed to parse server.address: {e}"),
+            },
+            Err(e) => log::warn!("PID {pid}: HTTP request to {url} failed: {e}"),
         }
     }
 
-    Ok(None)
-}
-
-/// Get information about a process
-pub fn get_process_info(
-    pid: i32,
-    socket_name: Option<String>,
-) -> Result<Option<ProcessInfo>, std::io::Error> {
-    // Get parent PID
-    let ppid = read_parent_pid(pid)?;
-
-    // Get command line
-    let cmd = read_process_cmdline(pid)?;
-
-    Ok(Some(ProcessInfo {
+    Ok(ProcessInfo {
         pid,
         ppid,
         cmd,
         socket_name,
-    }))
+        remote_addr,
+        children: Vec::new(), // Initialize children
+    })
 }
 
 /// Read parent PID from /proc/{pid}/status
@@ -160,7 +156,6 @@ fn read_process_cmdline(pid: i32) -> Result<String, std::io::Error> {
     let cmd = cmdline.replace('\0', " ").trim().to_string();
 
     if cmd.is_empty() {
-        // Try to get comm instead
         let comm_path = format!("/proc/{}/comm", pid);
         if Path::new(&comm_path).exists() {
             let comm = std::fs::read_to_string(comm_path)?;
@@ -173,119 +168,128 @@ fn read_process_cmdline(pid: i32) -> Result<String, std::io::Error> {
 }
 
 /// Build a process tree from a flat list of processes
-pub fn build_process_tree(processes: Vec<ProcessInfo>) -> Vec<ProcessNode> {
-    // Map of PID to process info
-    let mut pid_map = HashMap::new();
+pub fn build_process_tree(processes: Vec<ProcessInfo>) -> Vec<ProcessInfo> {
+    // Map of PID to process info, ensuring children are initialized empty
+    let mut pid_map: HashMap<i32, ProcessInfo> = processes
+        .into_iter()
+        .map(|mut p| {
+            p.children = Vec::new(); // Ensure children are empty before putting into map
+            (p.pid, p)
+        })
+        .collect();
 
     // Set of all PIDs that are in our collection
-    let mut process_pids = HashSet::new();
+    let process_pids: HashSet<i32> = pid_map.keys().cloned().collect();
 
-    // First pass: Build a map of PID to process info
-    for process in &processes {
-        pid_map.insert(process.pid, process.clone());
-        process_pids.insert(process.pid);
-    }
+    let mut root_pids = Vec::new();
+    // Adjacency list for building the tree: Parent PID -> Vec<Child PID>
+    let mut adj: HashMap<i32, Vec<i32>> = HashMap::new();
 
-    // Collect root nodes (processes whose parent is not in our collection)
-    let mut root_nodes = Vec::new();
-    let mut child_map: HashMap<i32, Vec<i32>> = HashMap::new();
-
-    // Second pass: Identify parent-child relationships
-    for process in &processes {
-        if !process_pids.contains(&process.ppid) || process.ppid == 0 {
-            // This is a root process in our tree
-            root_nodes.push(process.pid);
+    for (pid, process_info) in &pid_map {
+        // A process is a root if its parent is not in our collection or ppid is 0 (or self-parented, though less common for PPID)
+        if !process_pids.contains(&process_info.ppid)
+            || process_info.ppid == 0
+            || process_info.ppid == *pid
+        {
+            root_pids.push(*pid);
         } else {
-            // Add to children of parent
-            child_map.entry(process.ppid).or_default().push(process.pid);
+            // This is a child of another process in our collection
+            adj.entry(process_info.ppid).or_default().push(*pid);
         }
     }
 
-    // Build tree recursively
-    let mut result = Vec::new();
-    for root_pid in root_nodes {
-        if let Some(root_info) = pid_map.get(&root_pid) {
-            let root_node = build_subtree(root_info.clone(), &child_map, &pid_map);
-            result.push(root_node);
-        }
-    }
+    let mut final_tree = Vec::new();
+    // Keep track of PIDs that have been incorporated into the tree to avoid duplicates
+    // if the input data isn't strictly a tree (e.g., shared children, cycles via ppid)
+    let mut processed_pids = HashSet::new();
 
-    result
-}
-
-/// Build a subtree recursively
-fn build_subtree(
-    info: ProcessInfo,
-    child_map: &HashMap<i32, Vec<i32>>,
-    pid_map: &HashMap<i32, ProcessInfo>,
-) -> ProcessNode {
-    let mut node = ProcessNode {
-        info,
-        children: Vec::new(),
-    };
-
-    // Add children
-    if let Some(child_pids) = child_map.get(&node.info.pid) {
-        for &child_pid in child_pids {
-            if let Some(child_info) = pid_map.get(&child_pid) {
-                let child_node = build_subtree(child_info.clone(), child_map, pid_map);
-                node.children.push(child_node);
+    for root_pid in root_pids {
+        if !processed_pids.contains(&root_pid) {
+            // Check if this root hasn't been processed as a child of another "root"
+            if let Some(root_info_owned) = pid_map.remove(&root_pid) {
+                // Take ownership from the map
+                processed_pids.insert(root_pid); // Mark as processed
+                final_tree.push(build_subtree_recursive(
+                    root_info_owned,
+                    &adj,
+                    &mut pid_map,
+                    &mut processed_pids,
+                ));
             }
         }
     }
+    final_tree
+}
 
-    node
+/// Build a subtree recursively.
+/// Takes ownership of `parent_info`, populates its children by taking them from `pid_map`, and returns it.
+fn build_subtree_recursive(
+    mut parent_info: ProcessInfo,
+    adj: &HashMap<i32, Vec<i32>>,
+    pid_map: &mut HashMap<i32, ProcessInfo>, // Mutable to take ownership of children's ProcessInfo
+    processed_pids: &mut HashSet<i32>,       // To mark nodes as processed and avoid reprocessing
+) -> ProcessInfo {
+    parent_info.children = Vec::new(); // Ensure children list is fresh for this parent
+
+    if let Some(child_pids) = adj.get(&parent_info.pid) {
+        let sorted_child_pids = child_pids.clone(); // Cloning to potentially sort without affecting adj
+
+        for &child_pid in &sorted_child_pids {
+            // Iterate over sorted or original child PIDs
+            if !processed_pids.contains(&child_pid) {
+                // Ensure child hasn't been processed already
+                if let Some(child_info_owned) = pid_map.remove(&child_pid) {
+                    // Take ownership of the child's info
+                    processed_pids.insert(child_pid); // Mark as processed
+                    let child_node =
+                        build_subtree_recursive(child_info_owned, adj, pid_map, processed_pids);
+                    parent_info.children.push(child_node);
+                }
+            }
+        }
+    }
+    parent_info
 }
 
 /// Print the process tree
-pub fn print_process_tree(nodes: &[ProcessNode], verbose: bool, prefix: &str, is_last: bool) {
+pub fn print_process_tree(nodes: &[ProcessInfo], verbose: bool, prefix: &str) {
+    // `is_parent_last` indicates if the direct parent of the current list of `nodes` was the last in its own sibling list.
+    // This helps determine the vertical bar character in the prefix for children.
     for (i, node) in nodes.iter().enumerate() {
-        let is_last_node = i == nodes.len() - 1;
-        let connector = if is_last { "└── " } else { "├── " };
+        let is_current_node_last = i == nodes.len() - 1; // Is the current node the last in *this* list of siblings?
 
-        // Print current node
-        if prefix.is_empty() {
-            println!("{}{}", connector, format_process(&node.info, verbose));
+        let connector = if is_current_node_last {
+            "└── "
         } else {
-            println!(
-                "{}{}{}",
-                prefix,
-                connector,
-                format_process(&node.info, verbose)
-            );
-        }
+            "├── "
+        };
+        println!("{}{}{}", prefix, connector, format_process(node, verbose));
 
-        // Print children with appropriate prefixes
         if !node.children.is_empty() {
-            let child_prefix = if prefix.is_empty() {
-                if is_last {
-                    "    ".to_string()
+            // The prefix for the children lines depends on whether the *current node* (their parent) is the last in its list.
+            let child_prefix = format!(
+                "{}{}",
+                prefix,
+                if is_current_node_last {
+                    "    "
                 } else {
-                    "│   ".to_string()
+                    "│   "
                 }
-            } else if is_last {
-                format!("{}    ", prefix)
-            } else {
-                format!("{}│   ", prefix)
-            };
-
-            print_process_tree(&node.children, verbose, &child_prefix, is_last_node);
+            );
+            // When calling recursively for the children, the `is_parent_last` for that call is `is_current_node_last`.
+            print_process_tree(&node.children, verbose, &child_prefix);
         }
     }
 }
 
 /// Format process information for display
-fn format_process(info: &ProcessInfo, verbose: bool) -> String {
+pub fn format_process(info: &ProcessInfo, verbose: bool) -> String {
     if verbose {
+        let local = info.socket_name.as_deref().unwrap_or("-");
+        let remote = info.remote_addr.as_deref().unwrap_or("-");
         format!(
-            "{} ({}): {}",
-            info.pid,
-            if let Some(socket) = &info.socket_name {
-                socket
-            } else {
-                "-"
-            },
-            info.cmd
+            "{} (local: {local}, remote: {remote}): {}",
+            info.pid, info.cmd
         )
     } else {
         format!("{}: {}", info.pid, info.cmd)
