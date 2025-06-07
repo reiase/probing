@@ -136,10 +136,11 @@ pub enum Commands {
         #[arg(long, help = "Fetch all ranks")]
         all_pids: bool,
 
-        #[arg(long, help = "Fetch only the specified rank")]
+        #[arg(long, help = "Fetch only the specified pids")]
         rank: Option<String>,
     },
 
+    /// Draw the stack traces from json file
     #[command(visible_aliases = ["d"])]
     Draw,
 

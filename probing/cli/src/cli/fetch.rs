@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 
 
 /**
-- Fetches JSON data from a list of URLs and saves the combined data to a file.
+Fetches JSON data from a list of URLs and saves the combined data to a file.
  */
 pub async fn fetch_and_save_urls(urls: Vec<String>) -> Result<()> {
     let client = reqwest::Client::new();
