@@ -10,6 +10,8 @@ pub mod process_monitor;
 pub mod store;
 
 mod ptree;
+mod fetch;
+mod draw;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
@@ -124,6 +126,47 @@ impl Cli {
                 Ok(())
             }
             Commands::Store(cmd) => cmd.run().await,
+            Commands::Fetch { all_pids, rank } => {
+                if *all_pids {
+                    match ptree::collect_probe_processes() {
+                        Ok(processes) => {
+                            if processes.is_empty() {
+                                println!("No processes with injected probes found.");
+                            } else {
+                                for process in processes {
+                                    println!("PID {}: {}", process.pid, process.cmd);
+                                    let ctrl: ProbeEndpoint = process.pid.to_string().as_str().try_into()?;
+                                    let _ = ctrl::query(
+                                        ctrl,
+                                        Query {
+                                            expr: String::from("SELECT * FROM information_schema.df_settings where NAME='probing.server.address'"),
+                                            opts: None,
+                                        },
+                                    )
+                                    .await;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error listing processes: {}", e);
+                        }
+                    }
+                    // todo 将pid的server address给到urls作为输入
+                    let urls = vec![
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                        String::from("http://127.0.0.1:9922/apis/pythonext/callstack"), 
+                    ];
+                    fetch::fetch_and_save_urls(urls).await
+                } else {
+                    Err(anyhow::anyhow!("Please specify either --all-pids or --rank <rank>"))
+                }
+            }
+            Commands::Draw => {
+                let _ = draw::draw_frame_graph_from_json();
+                Ok(())
+            }
         }
     }
 }
