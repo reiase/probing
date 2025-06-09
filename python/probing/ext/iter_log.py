@@ -13,16 +13,15 @@ class IterOutputTrace:
 def init():
     from megatron.training import training
     from megatron.training.training import num_floating_point_operations
-    from megatron.core.num_microbatches_calculator import get_num_microbatches 
     from megatron.training.global_vars import get_args, get_timers
-
+    from megatron.core.num_microbatches_calculator import get_num_microbatches 
     # 保存原始的 training_log 函数
     _original_training_log = training.training_log
 
     def custom_training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_rate, iteration,
                         loss_scale, report_memory_flag, skipped_iter,
                         grad_norm, params_norm, num_zeros_in_grad):
-        from megatron.training.global_vars import _GLOBAL_NUM_MICROBATCHES_CALCULATOR
+        # from megatron.training.global_vars import _GLOBAL_NUM_MICROBATCHES_CALCULATOR      
         # print(f"iteration: {iteration}", flush=True)
         # 获取必要的参数
         args = get_args()
