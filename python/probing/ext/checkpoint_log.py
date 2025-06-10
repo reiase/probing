@@ -25,7 +25,7 @@ def init():
                 elapsed = timer._elapsed
                 if elapsed >0:
                     start_time = timer._start_time
-                    print(f"[MonkeyPatch] {timer_name}: elapsed={elapsed:.4f}s, _start_time={start_time}")
+                    print(f"[ProbingLog:Checkpoint] {timer_name}: elapsed={elapsed:.4f}s, start_time={start_time}")
                     CheckpointLog(
                         name=timer_name,
                         elapsed=elapsed,
