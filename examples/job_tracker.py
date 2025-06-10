@@ -12,7 +12,7 @@ JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
 JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
 
 def start_job_hook():
-    if int(os.getenv('GROUP_WORLD_SIZE')) == int(os.getenv('GROUP_RANK'))+1 and int(os.getenv('LOCAL_RANK')) == 0:
+    if int(os.getenv('GROUP_RANK')) == 0 and int(os.getenv('LOCAL_RANK')) == 0:
         """
         记录作业开始信息
         """
@@ -31,7 +31,7 @@ def start_job_hook():
         response.raise_for_status()
 
 def end_job_hook():
-    if int(os.getenv('GROUP_WORLD_SIZE')) == int(os.getenv('GROUP_RANK'))+1 and int(os.getenv('LOCAL_RANK')) == 0:
+    if int(os.getenv('GROUP_RANK')) == 0 and int(os.getenv('LOCAL_RANK')) == 0:
         """
         记录作业结束信息 (通过 atexit 注册)
         """
