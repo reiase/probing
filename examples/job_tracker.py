@@ -10,17 +10,16 @@ import probing
 API_BASE_URL = "http://logi-core.hecp:32245/api"
 JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
 JOB_ID = os.getenv('JOB_ID') or os.getenv('JOB_NAME', 'unknown_job')
-RANK = os.getenv('RANK', 'N/A')
 
 def start_job_hook():
-    if RANK == '0':
+    if int(os.getenv('GROUP_WORLD_SIZE')) == int(os.getenv('GROUP_RANK'))+1 & int(os.getenv('LOCAL_RANK')) == 0:
         """
         记录作业开始信息
         """
         print("Job tracker: start_job_hook called.")
         world_size = os.getenv('WORLD_SIZE', 'N/A')
         tq_gpu_num = os.getenv('TQ_GPU_NUM', 'N/A')
-        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, TQ_GPU_NUM={tq_gpu_num},RANK={RANK}")
+        print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, TQ_GPU_NUM={tq_gpu_num}")
         data = {
                 "jobId": JOB_ID,
                 "timestamp": datetime.now().timestamp() * 1_000_000,
@@ -28,12 +27,11 @@ def start_job_hook():
                 "tqGpuNum": tq_gpu_num,
                 "uuid": JOB_UNIQUE_ID
             }
-
         response = requests.post(f"{API_BASE_URL}/job/start", json=data)
         response.raise_for_status()
 
 def end_job_hook():
-    if RANK == '0':
+    if int(os.getenv('GROUP_WORLD_SIZE')) == int(os.getenv('GROUP_RANK'))+1 & int(os.getenv('LOCAL_RANK')) == 0:
         """
         记录作业结束信息 (通过 atexit 注册)
         """
