@@ -106,12 +106,20 @@ impl Slice {
 ///
 /// Controls how Series data is chunked, compressed, and managed in memory.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub enum DiscardStrategy {
+    BaseMemorySize,
+    BaseElementCount,
+    None,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct SeriesConfig {
     pub dtype: EleType,
     pub chunk_size: usize,
     pub compression_level: usize,
     pub compression_threshold: usize,
     pub discard_threshold: usize,
+    pub discard_strategy: DiscardStrategy,
 }
 
 impl Default for SeriesConfig {
@@ -122,6 +130,7 @@ impl Default for SeriesConfig {
             compression_level: 0,
             compression_threshold: 2_000_000,
             discard_threshold: 20_000_000,
+            discard_strategy: DiscardStrategy::BaseMemorySize,
         }
     }
 }
@@ -147,6 +156,10 @@ impl SeriesConfig {
         self.discard_threshold = discard_threshold;
         self
     }
+    pub fn with_discard_strategy(mut self, discard_strategy: DiscardStrategy) -> Self {
+        self.discard_strategy = discard_strategy;
+        self
+    }
     pub fn build(self) -> Series {
         Series {
             config: self,
@@ -155,6 +168,7 @@ impl SeriesConfig {
             slices: Default::default(),
             current_slice: None,
             commit_nbytes: 0,
+            commit_counts: 0,
         }
     }
 }
@@ -173,6 +187,7 @@ pub struct Series {
     current_slice: Option<Slice>,
 
     commit_nbytes: usize,
+    commit_counts: usize,
 }
 
 impl Series {
@@ -246,6 +261,17 @@ impl Series {
         total
     }
 
+    pub fn ncounts(&self) -> usize {
+        let mut total = self.commit_counts;
+        
+        // Add counts from current slice if exists
+        if let Some(_) = &self.current_slice {
+            total += 1;
+        }
+
+        total
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -288,17 +314,34 @@ impl Series {
             if let Some(mut slice) = slice {
                 slice.compress();
                 self.commit_nbytes += slice.nbytes();
+                self.commit_counts += 1;
                 self.slices.insert(slice.offset, slice);
             }
         } else if let Some(slice) = slice {
             self.commit_nbytes += slice.nbytes();
+            self.commit_counts += 1;
             self.slices.insert(slice.offset, slice);
         }
-
-        while self.nbytes() > self.config.discard_threshold {
-            if let Some((_offset, slice)) = self.slices.pop_first() {
-                self.dropped += slice.offset + slice.length;
-                self.commit_nbytes -= slice.nbytes();
+        
+        match self.config.discard_strategy {
+            DiscardStrategy::BaseMemorySize => {
+                while self.nbytes() > self.config.discard_threshold {
+                    if let Some((_offset, slice)) = self.slices.pop_first() {
+                        self.dropped += slice.offset + slice.length;
+                        self.commit_nbytes -= slice.nbytes();
+                    }
+                }
+            }
+            DiscardStrategy::BaseElementCount => {
+                while self.ncounts() > self.config.discard_threshold {
+                    if let Some((_offset, slice)) = self.slices.pop_first() {
+                        self.dropped += slice.offset + slice.length;
+                        self.commit_nbytes -= slice.nbytes();
+                    }
+                }
+            }
+            DiscardStrategy::None => {
+                !todo!("Discard strategy is set to None, no action taken")
             }
         }
     }

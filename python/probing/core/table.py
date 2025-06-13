@@ -119,6 +119,11 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
         def take(cls, n):
             table = cache[cls]
             return table.take(n)
+        
+        # @classmethod
+        # def set_db_limit(cls, n):
+        #     table = cache[cls]
+        #     table.set_db_limit(n)
 
         @classmethod
         def drop(cls):
@@ -135,6 +140,7 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
         setattr(cls, "take", take)
         setattr(cls, "drop", drop)
         setattr(cls, "save", save)
+        # setattr(cls, "set_db_limit", set_db_limit)
         init_table()
 
         return cls

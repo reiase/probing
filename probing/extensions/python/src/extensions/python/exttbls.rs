@@ -85,6 +85,12 @@ impl ExternalTable {
         Ok(())
     }
 
+    // #[classmethod]
+    // fn set_db_limit(_cls: &Bound<'_, PyType>, name: &str, limit: usize) -> PyResult<()> {
+    //     Ok(())
+        
+    // }
+
     fn names(&self) -> Vec<String> {
         self.0.lock().unwrap().names.clone()
     }
@@ -167,6 +173,11 @@ impl ExternalTable {
             })
             .collect::<Vec<_>>())
     }
+
+    // fn set_db_limit(&mut self, limit: usize) -> PyResult<()> {
+    //     self.0.lock().unwrap().set_limit(limit);
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]

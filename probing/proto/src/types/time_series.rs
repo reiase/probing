@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::error::ProtoError;
-use super::series::SeriesIterator;
+use super::series::{DiscardStrategy, SeriesIterator};
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
 
 #[derive(Debug, Error)]
@@ -109,6 +109,10 @@ impl TimeSeriesConfig {
     }
     pub fn with_discard_threshold(mut self, discard_threshold: usize) -> Self {
         self.series_config = self.series_config.with_discard_threshold(discard_threshold);
+        self
+    }
+    pub fn with_discard_strategy(mut self, discard_strategy: DiscardStrategy) -> Self {
+        self.series_config = self.series_config.with_discard_strategy(discard_strategy);
         self
     }
     pub fn with_columns(mut self, names: Vec<String>) -> Self {
