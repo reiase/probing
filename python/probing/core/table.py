@@ -85,7 +85,7 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
         cls = name_or_class
         name = None
 
-    def decorator(cls):
+    def decorator(cls, limit):
         if not dataclasses.is_dataclass(cls):
             raise TypeError(f"{cls} is not a dataclass")
 
@@ -101,7 +101,7 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
                         f"Table {table_name} already exists with different fields"
                     )
             except Exception:
-                table = probing.ExternalTable(table_name, fields)
+                table = probing.ExternalTable(table_name, fields, limit)
             cache[cls] = table
             return table
 
@@ -119,11 +119,6 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
         def take(cls, n):
             table = cache[cls]
             return table.take(n)
-        
-        # @classmethod
-        # def set_db_limit(cls, n):
-        #     table = cache[cls]
-        #     table.set_db_limit(n)
 
         @classmethod
         def drop(cls):

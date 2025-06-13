@@ -6,6 +6,8 @@ use super::error::ProtoError;
 use super::series::{DiscardStrategy, SeriesIterator};
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
 
+// use pyo3::types::PyDict;
+
 #[derive(Debug, Error)]
 pub enum TimeSeriesError {
     #[error("column count mismatch")]
@@ -38,8 +40,11 @@ pub struct TimeSeries {
 }
 
 impl TimeSeries {
-    pub fn builder() -> TimeSeriesConfig {
-        Default::default()
+    pub fn builder(limit: usize) -> TimeSeriesConfig {
+        let ts_config = TimeSeriesConfig::default()
+        .with_discard_threshold(limit)
+        .with_discard_strategy(DiscardStrategy::BaseElementCount);
+        ts_config
     }
 
     pub fn len(&self) -> usize {

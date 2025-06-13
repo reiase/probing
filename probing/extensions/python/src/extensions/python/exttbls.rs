@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 use probing_proto::prelude::{Ele, TimeSeries};
-use pyo3::types::PyType;
+use pyo3::types::{PyType, PyDict};
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
 
 fn value_to_object(py: Python, v: &Ele) -> PyObject {
@@ -31,10 +31,10 @@ pub struct ExternalTable(Arc<Mutex<TimeSeries>>, usize);
 #[pymethods]
 impl ExternalTable {
     #[new]
-    fn new(name: &str, columns: Vec<String>) -> Self {
+    fn new(name: &str, columns: Vec<String>, limit: usize) -> Self {
         let ncolumn = columns.len();
         let ts = Arc::new(Mutex::new(
-            TimeSeries::builder().with_columns(columns).build(),
+            TimeSeries::builder(limit).with_columns(columns).build(),
         ));
         EXTERN_TABLES
             .lock()
@@ -72,7 +72,7 @@ impl ExternalTable {
         } else {
             let ncolumn = columns.len();
             let ts = Arc::new(Mutex::new(
-                TimeSeries::builder().with_columns(columns).build(),
+                TimeSeries::builder(10).with_columns(columns).build(),
             ));
             binding.insert(name.to_string(), ts.clone());
             Ok(ExternalTable(ts, ncolumn))
@@ -84,12 +84,6 @@ impl ExternalTable {
         let _ = EXTERN_TABLES.lock().unwrap().remove(name);
         Ok(())
     }
-
-    // #[classmethod]
-    // fn set_db_limit(_cls: &Bound<'_, PyType>, name: &str, limit: usize) -> PyResult<()> {
-    //     Ok(())
-        
-    // }
 
     fn names(&self) -> Vec<String> {
         self.0.lock().unwrap().names.clone()

@@ -13,6 +13,13 @@ chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+pyo3 = { version = "0.25.0", default-features = false, features = [
+    "abi3",
+    "abi3-py37",
+    # "extension-module",
+    "auto-initialize",
+    "macros"
+] }
 
 pco = "0.4.1"
 
