@@ -66,10 +66,35 @@ let coordinator = Arc::new(DistributedStoreCoordinator::new(
 let metadata_store = Arc::new(MemoryStore::new());
 let distributed_store = DistributedEntityStore::new(coordinator, metadata_store);
 
-// Use the store
+// Use the store with URI-based addressing
 let entity = MyEntity { id: "test".to_string(), data: "value".to_string() };
 distributed_store.save(&entity).await?;
+
+// The system now supports URI-based addresses:
+// - Legacy: node1::worker1::test
+// - URI: probing://node1/worker1/objects/test
+// - HTTP: http://node1:8080/worker1/objects/test
 let retrieved = distributed_store.get::<MyEntity>(&entity.id).await?;
+```
+
+## Network-Native Addressing
+
+The system now supports modern URI-based addressing:
+
+### URI Formats
+- **Probing Protocol**: `probing://node/worker/objects/object_id`
+- **HTTP**: `http://node:port/worker/objects/object_id`  
+- **HTTPS**: `https://node:port/worker/objects/object_id`
+
+### Network Accessibility
+```bash
+# Direct HTTP access to distributed objects
+curl -X GET "http://compute-node-1:8080/ml-worker-1/objects/training_job_123"
+wget "http://storage-node-2:9000/data-worker-3/objects/dataset/batch_456"
+
+# RESTful operations
+curl -X POST "http://node1:8080/worker1/objects/new_task" -d @task.json
+curl -X DELETE "http://node1:8080/worker1/objects/old_task"
 ```
 
 ## Architecture

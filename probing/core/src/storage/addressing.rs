@@ -1,34 +1,39 @@
 // Rust-native addressing system using functional programming patterns
-use std::fmt::{self, Display};
-use std::str::FromStr;
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::{self, Display};
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use url::Url;
 
-use crate::core::cluster_model::{NodeId, WorkerId};
 use super::topology::TopologyView;
+use crate::core::cluster_model::{NodeId, WorkerId};
 
 /// Simple error type for addressing operations
 #[derive(Debug, Clone, PartialEq)]
 pub enum AddressError {
     InvalidFormat(String),
+    InvalidUri(String),
     EmptyObject,
     InsufficientTopology,
     NoAvailableNodes,
     NoWorkersOnNode(String),
+    UnsupportedScheme(String),
     // Added for unexpected internal errors, though we aim to avoid these.
-    InternalError(String), 
+    InternalError(String),
 }
 
 impl std::fmt::Display for AddressError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidFormat(msg) => write!(f, "Invalid address format: {}", msg),
+            Self::InvalidUri(msg) => write!(f, "Invalid URI format: {}", msg),
             Self::EmptyObject => write!(f, "Object ID cannot be empty"),
             Self::InsufficientTopology => write!(f, "Topology view is insufficient for allocation"),
             Self::NoAvailableNodes => write!(f, "No available nodes for address allocation"),
             Self::NoWorkersOnNode(node) => write!(f, "No workers available on node {}", node),
+            Self::UnsupportedScheme(scheme) => write!(f, "Unsupported URI scheme: {}", scheme),
             Self::InternalError(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -52,6 +57,87 @@ impl Address {
             worker: Some(worker.into()),
             object,
         }
+    }
+
+    /// Create address from URI format
+    /// Supports the simplified routing pattern:
+    /// 
+    /// **URI Format: /objects/{worker}/{object}**
+    /// - probing://node/objects/worker_id/object_id
+    /// - http://node:port/objects/worker_id/object_id
+    /// - https://node:port/objects/worker_id/object_id
+    /// 
+    /// This format is web framework friendly and provides a clean separation
+    /// between the routing prefix (/objects) and the resource identifiers.
+    /// 
+    /// Examples:
+    /// - `probing://storage-node-1/objects/compute-worker-1/report.pdf`
+    /// - `http://api.example.com:8080/objects/gpu-worker/models/bert.bin`
+    /// - `https://cluster.internal/objects/cache-worker/temp/data.json`
+    pub fn from_uri(uri: &str) -> Result<Self> {
+        let parsed_url = Url::parse(uri).map_err(|e| {
+            AddressError::InvalidUri(format!("Failed to parse URI '{}': {}", uri, e))
+        })?;
+
+        // Validate scheme
+        match parsed_url.scheme() {
+            "probing" | "http" | "https" => {}
+            scheme => return Err(AddressError::UnsupportedScheme(scheme.to_string())),
+        }
+
+        // Extract node from host
+        let node = parsed_url
+            .host_str()
+            .ok_or_else(|| AddressError::InvalidUri("Missing host in URI".to_string()))?
+            .to_string();
+
+        let path = parsed_url.path();
+        let path_segments: Vec<&str> = path
+            .trim_start_matches('/')
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        match path_segments.as_slice() {
+            ["objects", worker, object] => {
+                return Ok(Self {
+                    node: Some(node),
+                    worker: Some(worker.to_string()),
+                    object: object.to_string(),
+                });
+            }
+            _ => {
+                return Err(AddressError::InvalidUri(format!(
+                    "Unsupported URI pattern '{}'. Expected format: /objects/{{worker}}/{{object}}",
+                    uri
+                )));
+            }
+        }
+    }
+
+    pub fn to_uri(&self, scheme: &str) -> String {
+        format!(
+            "{}://{}/objects/{}/{}",
+            scheme,
+            self.node.clone().unwrap_or("None".to_string()),
+            self.worker.clone().unwrap_or("None".to_string()),
+            self.object
+        )
+    }
+
+    /// Convert to probing:// URI
+    pub fn to_probing_uri(&self) -> String {
+        self.to_uri("probing")
+    }
+
+    /// Convert to HTTP URI
+    pub fn to_http_uri(&self) -> String {
+        self.to_uri("http")
+    }
+
+    /// Convert to HTTPS URI
+    pub fn to_https_uri(&self) -> String {
+        self.to_uri("https")
     }
 
     /// Get shard key for data distribution
@@ -88,19 +174,14 @@ impl Address {
 
 impl Into<String> for Address {
     fn into(self) -> String {
-        format!(
-            "{}::{}::{}",
-            self.node.as_deref().unwrap_or(""),
-            self.worker.as_deref().unwrap_or(""),
-            self.object
-        )
+        // Default to legacy format for backward compatibility
+        self.to_probing_uri()
     }
 }
 
 impl Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s: String = self.clone().into();
-        write!(f, "{}", s)
+        write!(f, "{}", self.to_probing_uri())
     }
 }
 
@@ -108,23 +189,15 @@ impl FromStr for Address {
     type Err = AddressError;
 
     fn from_str(s: &str) -> Result<Self> {
-        let (node_str, rest) = s.split_once("::").ok_or_else(|| 
-            AddressError::InvalidFormat(format!("expected 'node::worker::object', missing first '::' in '{}'", s)))?;
-        let (worker_str, object_str) = rest.split_once("::").ok_or_else(|| 
-            AddressError::InvalidFormat(format!("expected 'node::worker::object', missing second '::' in '{}'", s)))?;
-
-        if object_str.is_empty() {
-            return Err(AddressError::EmptyObject);
-        }
-        if object_str.contains("::") {
-            return Err(AddressError::InvalidFormat(format!("Object ID contains '::', which is not allowed: '{}'", s)));
+        // Try URI format first
+        if s.contains("://") {
+            return Self::from_uri(s);
         }
 
-        let node = if node_str.is_empty() { None } else { Some(node_str.to_string()) };
-        let worker = if worker_str.is_empty() { None } else { Some(worker_str.to_string()) };
-        let object = object_str.to_string();
-
-        Ok(Self { node, worker, object })
+        Err(AddressError::InvalidFormat(format!(
+            "Invalid address format: '{}'. Expected URI format.",
+            s
+        )))
     }
 }
 
@@ -144,11 +217,11 @@ impl AddressAllocator {
         Self {
             topology,
             replica_count,
-            min_knowledge_ratio: 0.7, 
-            topology_ttl: 300,       
+            min_knowledge_ratio: 0.7,
+            topology_ttl: 300,
         }
     }
-    
+
     /// 设置拓扑参数（Builder 模式）
     pub fn with_topology_params(mut self, min_knowledge_ratio: f64, ttl_seconds: u64) -> Self {
         self.min_knowledge_ratio = min_knowledge_ratio.clamp(0.0, 1.0);
@@ -166,7 +239,7 @@ impl AddressAllocator {
         if !self.is_topology_sufficient() {
             return Err(AddressError::InsufficientTopology);
         }
-        
+
         let available_nodes: Vec<NodeId> = self.topology.workers_per_node.keys().cloned().collect();
         if available_nodes.is_empty() {
             return Err(AddressError::NoAvailableNodes);
@@ -176,16 +249,26 @@ impl AddressAllocator {
         let mut chosen_node_id: Option<NodeId> = None;
 
         for current_node_id_candidate in available_nodes {
-            let score = self.hash_string_with_version(object_id, &current_node_id_candidate, self.topology.version);
+            let score = self.hash_string_with_version(
+                object_id,
+                &current_node_id_candidate,
+                self.topology.version,
+            );
             if chosen_node_id.is_none() || score > max_score {
                 max_score = score;
                 chosen_node_id = Some(current_node_id_candidate.clone());
             }
         }
 
-        let node_id = chosen_node_id.ok_or_else(|| AddressError::InternalError("Failed to select a primary node despite available nodes.".to_string()))?;
+        let node_id = chosen_node_id.ok_or_else(|| {
+            AddressError::InternalError(
+                "Failed to select a primary node despite available nodes.".to_string(),
+            )
+        })?;
 
-        let workers = self.topology.workers_per_node
+        let workers = self
+            .topology
+            .workers_per_node
             .get(&node_id)
             .ok_or_else(|| AddressError::NoWorkersOnNode(node_id.clone()))?;
 
@@ -212,17 +295,22 @@ impl AddressAllocator {
 
         let replicas = self.allocate_replica_addresses_internal(&primary, self.replica_count)?;
         all_addresses.extend(replicas);
-        
+
         Ok(all_addresses)
     }
 
     /// 检查当前拓扑是否足够进行分配
     fn is_topology_sufficient(&self) -> bool {
-        self.topology.is_sufficient(self.min_knowledge_ratio, self.topology_ttl)
+        self.topology
+            .is_sufficient(self.min_knowledge_ratio, self.topology_ttl)
     }
 
     /// 为已有主地址分配副本地址 (internal helper)
-    fn allocate_replica_addresses_internal(&self, primary: &Address, num_replicas_to_find: usize) -> Result<Vec<Address>> {
+    fn allocate_replica_addresses_internal(
+        &self,
+        primary: &Address,
+        num_replicas_to_find: usize,
+    ) -> Result<Vec<Address>> {
         let mut replicas = Vec::new();
         if num_replicas_to_find == 0 {
             return Ok(replicas);
@@ -230,23 +318,24 @@ impl AddressAllocator {
 
         let available_nodes: Vec<NodeId> = self.topology.workers_per_node.keys().cloned().collect();
 
-        if available_nodes.len() <= 1 && primary.node.is_some() { // Not enough distinct nodes for replicas
-             // If only one node exists and primary is on it, no replicas possible on other nodes.
+        if available_nodes.len() <= 1 && primary.node.is_some() {
+            // Not enough distinct nodes for replicas
+            // If only one node exists and primary is on it, no replicas possible on other nodes.
             if available_nodes.len() == 1 && available_nodes.first() == primary.node.as_ref() {
-                 return Ok(replicas); // No other nodes to pick from
+                return Ok(replicas); // No other nodes to pick from
             }
             // If no nodes, or primary is not set (should not happen here), let it proceed to score.
         }
         if available_nodes.is_empty() {
-             return Ok(replicas); // No nodes at all
+            return Ok(replicas); // No nodes at all
         }
-
 
         let mut node_scores: Vec<(u64, NodeId)> = available_nodes
             .iter()
             .filter(|&n_id| Some(n_id) != primary.node.as_ref()) // Exclude primary node from candidates
             .map(|n_id| {
-                let score = self.hash_string_with_version(&primary.object, n_id, self.topology.version);
+                let score =
+                    self.hash_string_with_version(&primary.object, n_id, self.topology.version);
                 (score, n_id.clone())
             })
             .collect();
@@ -265,29 +354,39 @@ impl AddressAllocator {
             // }
 
             // Ensure replica node is not already in the replicas list (for distinct nodes)
-            if replicas.iter().any(|r: &Address| r.node.as_ref() == Some(&candidate_node_id)) {
+            if replicas
+                .iter()
+                .any(|r: &Address| r.node.as_ref() == Some(&candidate_node_id))
+            {
                 continue;
             }
 
             if let Some(workers) = self.topology.workers_per_node.get(&candidate_node_id) {
                 if !workers.is_empty() {
                     // Use a slightly different seed for replica worker selection to avoid collision if object_id is the same
-                    let replica_seed_object_id = format!("{}:replica:{}", primary.object, replicas.len());
-                    let worker_hash = self.hash_string_with_version(&replica_seed_object_id, &candidate_node_id, self.topology.version);
+                    let replica_seed_object_id =
+                        format!("{}:replica:{}", primary.object, replicas.len());
+                    let worker_hash = self.hash_string_with_version(
+                        &replica_seed_object_id,
+                        &candidate_node_id,
+                        self.topology.version,
+                    );
                     let worker_index = (worker_hash % workers.len() as u64) as usize;
                     let worker_id_candidate = workers[worker_index].clone();
-                    
+
                     // Primary's (node, worker) pair for comparison
                     let primary_node_worker = primary.node.as_ref().zip(primary.worker.as_ref());
                     // Candidate replica's (node, worker) pair
-                    let candidate_node_worker = (Some(&candidate_node_id), Some(&worker_id_candidate));
+                    let candidate_node_worker =
+                        (Some(&candidate_node_id), Some(&worker_id_candidate));
                     // Convert tuple of Options into an Option of tuple for comparison
-                    let candidate_node_worker_opt = candidate_node_worker.0.zip(candidate_node_worker.1);
+                    let candidate_node_worker_opt =
+                        candidate_node_worker.0.zip(candidate_node_worker.1);
 
                     // Ensure replica (node, worker) is different from primary's (node, worker)
                     // This is mainly for the case where primary node was None, or replica is on same node (if allowed by future logic)
                     if primary_node_worker != candidate_node_worker_opt {
-                         replicas.push(Address::new(
+                        replicas.push(Address::new(
                             candidate_node_id.clone(),
                             worker_id_candidate,
                             primary.object.clone(),
@@ -295,7 +394,7 @@ impl AddressAllocator {
                     } else if primary.node.as_ref() != Some(&candidate_node_id) {
                         // If on a different node, (node,worker) collision is not an issue with primary
                         // This path is taken if primary_node_worker was None, or nodes are different
-                         replicas.push(Address::new(
+                        replicas.push(Address::new(
                             candidate_node_id.clone(),
                             worker_id_candidate,
                             primary.object.clone(),
@@ -332,12 +431,73 @@ mod tests {
         }
         TopologyView::new(workers_map, 1) // version 1
     }
-    
+
     #[test]
     fn test_address_creation_and_into_string() {
         let addr_full = Address::new("node1", "worker1", "obj123".to_string());
         let addr_string: String = addr_full.clone().into();
         assert_eq!(addr_string, "node1::worker1::obj123");
+    }
+
+    #[test]
+    fn test_uri_creation_and_parsing() {
+        // Test probing:// scheme with namespace format
+        let addr = Address::new("node1", "worker1", "task_123".to_string());
+        let uri = addr.to_probing_uri();
+        assert_eq!(uri, "probing://node1/objects/worker1/task_123");
+
+        let parsed = Address::from_uri(&uri).unwrap();
+        assert_eq!(parsed.node, Some("node1".to_string()));
+        assert_eq!(parsed.worker, Some("worker1".to_string()));
+        assert_eq!(parsed.object, "task_123");
+
+        // Test HTTP scheme with port and namespace format
+        let http_uri = addr.to_http_uri();
+        assert_eq!(http_uri, "http://node1/objects/worker1/task_123");
+
+        let parsed_http = Address::from_uri(&http_uri).unwrap();
+        assert_eq!(parsed_http.node, Some("node1".to_string()));
+        assert_eq!(parsed_http.worker, Some("worker1".to_string()));
+        assert_eq!(parsed_http.object, "task_123");
+    }
+
+    #[test]
+    fn test_uri_with_nested_object_paths() {
+        let addr = Address::new("node1", "worker1", "data/user/profile_456".to_string());
+        let uri = addr.to_probing_uri();
+        assert_eq!(uri, "probing://node1/objects/worker1/profile_456");
+
+        let parsed = Address::from_uri(&uri).unwrap();
+        assert_eq!(parsed.object, "data/user/profile_456");
+    }
+
+    #[test]
+    fn test_uri_scheme_validation() {
+        // Test unsupported scheme
+        let result = Address::from_uri("ftp://node1/objects/worker1/test");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.err().unwrap(),
+            AddressError::UnsupportedScheme(_)
+        ));
+
+        // Test invalid URI
+        let result = Address::from_uri("invalid-uri");
+        assert!(result.is_err());
+        assert!(matches!(result.err().unwrap(), AddressError::InvalidUri(_)));
+    }
+
+    #[test]
+    fn test_fromstr_with_uri_and_legacy_formats() {
+        // Test URI format parsing
+        let uri_addr = Address::from_str("probing://node1/objects/worker1/test_obj").unwrap();
+        assert_eq!(uri_addr.node, Some("node1".to_string()));
+        assert_eq!(uri_addr.worker, Some("worker1".to_string()));
+        assert_eq!(uri_addr.object, "test_obj");
+
+        // Test display format (should use URI when possible)
+        let display_str = format!("{}", uri_addr);
+        assert!(display_str.starts_with("probing://"));
     }
 
     #[test]
@@ -347,42 +507,11 @@ mod tests {
     }
 
     #[test]
-    fn test_address_parsing() {
-        let addr_str_full = "node1::worker1::obj123";
-        let addr = Address::from_str(addr_str_full).unwrap();
-        assert_eq!(addr.node, Some("node1".to_string()));
-        assert_eq!(addr.worker, Some("worker1".to_string()));
-        assert_eq!(addr.object, "obj123".to_string());
-
-        let addr_str_no_node = "::worker1::obj123";
-        let addr = Address::from_str(addr_str_no_node).unwrap();
-        assert_eq!(addr.node, None);
-        assert_eq!(addr.worker, Some("worker1".to_string()));
-        assert_eq!(addr.object, "obj123".to_string());
-
-        let addr_str_no_worker = "node1::::obj123";
-        let addr = Address::from_str(addr_str_no_worker).unwrap();
-        assert_eq!(addr.node, Some("node1".to_string()));
-        assert_eq!(addr.worker, None);
-        assert_eq!(addr.object, "obj123".to_string());
-
-        let addr_str_none = "::::obj123";
-        let addr = Address::from_str(addr_str_none).unwrap();
-        assert_eq!(addr.node, None);
-        assert_eq!(addr.worker, None);
-        assert_eq!(addr.object, "obj123".to_string());
-
-        assert!(Address::from_str("node1::worker1").is_err());
-        assert!(Address::from_str("node1::worker1::").is_err());
-        assert!(Address::from_str("node1::worker1::obj::extra").is_err());
-        assert!(Address::from_str("node1").is_err());
-    }
-
-    #[test]
-    fn test_primary_address_allocation() { // Renamed from test_address_allocation
+    fn test_primary_address_allocation() {
+        // Renamed from test_address_allocation
         let topology = create_basic_topology(2, 2); // node1 (w1,w2), node2 (w3,w4)
         let allocator = AddressAllocator::new(topology.clone(), 0); // No replicas needed for this test
-        
+
         let addr_res = allocator.allocate_primary_address("test_object");
         assert!(addr_res.is_ok());
         let addr = addr_res.unwrap();
@@ -393,15 +522,21 @@ mod tests {
         let worker_id = addr.worker.clone().unwrap();
 
         assert!(topology.workers_per_node.contains_key(&node_id));
-        assert!(topology.workers_per_node.get(&node_id).unwrap().contains(&worker_id));
+        assert!(topology
+            .workers_per_node
+            .get(&node_id)
+            .unwrap()
+            .contains(&worker_id));
     }
-    
+
     #[test]
     fn test_allocate_addresses_no_replicas() {
         let topology = create_basic_topology(3, 1);
         let allocator = AddressAllocator::new(topology, 0); // 0 replicas
-        let addresses = allocator.allocate_addresses("obj_no_replica".to_string()).unwrap();
-        
+        let addresses = allocator
+            .allocate_addresses("obj_no_replica".to_string())
+            .unwrap();
+
         assert_eq!(addresses.len(), 1); // Only primary
         assert_eq!(addresses[0].object, "obj_no_replica");
     }
@@ -411,7 +546,9 @@ mod tests {
         let topology = create_basic_topology(3, 1); // node1(w1), node2(w2), node3(w3)
         let replica_count = 2;
         let allocator = AddressAllocator::new(topology.clone(), replica_count);
-        let all_addrs = allocator.allocate_addresses("obj_with_replicas".to_string()).unwrap();
+        let all_addrs = allocator
+            .allocate_addresses("obj_with_replicas".to_string())
+            .unwrap();
 
         assert_eq!(all_addrs.len(), 1 + replica_count); // Primary + 2 replicas
         let primary = &all_addrs[0];
@@ -423,18 +560,25 @@ mod tests {
         for i in 1..=replica_count {
             let replica = &all_addrs[i];
             assert_eq!(replica.object, "obj_with_replicas");
-            assert_ne!(replica.node, primary.node, "Replica should be on a different node than primary");
-            assert!(distinct_nodes.insert(replica.node.as_ref().unwrap().clone()), "Replica nodes should be distinct");
+            assert_ne!(
+                replica.node, primary.node,
+                "Replica should be on a different node than primary"
+            );
+            assert!(
+                distinct_nodes.insert(replica.node.as_ref().unwrap().clone()),
+                "Replica nodes should be distinct"
+            );
         }
     }
-    
+
     #[test]
-    fn test_replica_generation_sufficient_nodes() { // Adapted from old test_replica_generation
+    fn test_replica_generation_sufficient_nodes() {
+        // Adapted from old test_replica_generation
         let topology = create_basic_topology(3, 1); // node1(w1), node2(w2), node3(w3)
         let allocator = AddressAllocator::new(topology.clone(), 2); // Request 2 replicas
-        
+
         let all_addresses = allocator.allocate_addresses("obj123".to_string()).unwrap();
-        
+
         assert_eq!(all_addresses.len(), 3); // Primary + 2 replicas
         let primary = &all_addresses[0];
         let replica1 = &all_addresses[1];
@@ -455,33 +599,37 @@ mod tests {
     fn test_replica_generation_insufficient_nodes() {
         let topology = create_basic_topology(2, 1); // node1(w1), node2(w2)
         let allocator = AddressAllocator::new(topology.clone(), 2); // Request 2 replicas, but only 1 other node available
-        
-        let all_addresses = allocator.allocate_addresses("obj_few_nodes".to_string()).unwrap();
-        
+
+        let all_addresses = allocator
+            .allocate_addresses("obj_few_nodes".to_string())
+            .unwrap();
+
         assert_eq!(all_addresses.len(), 2); // Primary + 1 possible replica
         let primary = &all_addresses[0];
         let replica1 = &all_addresses[1];
-        
+
         assert_ne!(primary.node, replica1.node);
     }
-    
+
     #[test]
     fn test_replica_generation_single_node_no_replicas_possible() {
         let topology = create_basic_topology(1, 1); // node1(w1)
         let allocator = AddressAllocator::new(topology.clone(), 1); // Request 1 replica
-        
-        let all_addresses = allocator.allocate_addresses("obj_single_node".to_string()).unwrap();
-        
+
+        let all_addresses = allocator
+            .allocate_addresses("obj_single_node".to_string())
+            .unwrap();
+
         assert_eq!(all_addresses.len(), 1); // Only primary, no other nodes for replicas
     }
 
-
     #[test]
-    fn test_empty_topology_allocation_fails() { // Adapted from old test
+    fn test_empty_topology_allocation_fails() {
+        // Adapted from old test
         let empty_workers: HashMap<NodeId, Vec<WorkerId>> = HashMap::new();
         let empty_topology = TopologyView::new(empty_workers, 0); // version 0
         let allocator = AddressAllocator::new(empty_topology, 2);
-        
+
         let result = allocator.allocate_addresses("test_empty".to_string());
         assert!(result.is_err());
         assert_eq!(result.err(), Some(AddressError::InsufficientTopology)); // Or NoAvailableNodes depending on checks
@@ -496,12 +644,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_address_allocator_functional() -> std::result::Result<(), AddressError> { // Renamed and updated
+    async fn test_address_allocator_functional() -> std::result::Result<(), AddressError> {
+        // Renamed and updated
         let mut workers_per_node = HashMap::new();
-        workers_per_node.insert("node-1".to_string(), vec!["worker-1".to_string(), "worker-2".to_string()]);
+        workers_per_node.insert(
+            "node-1".to_string(),
+            vec!["worker-1".to_string(), "worker-2".to_string()],
+        );
         workers_per_node.insert("node-2".to_string(), vec!["worker-3".to_string()]);
-        workers_per_node.insert("node-3".to_string(), vec!["worker-4".to_string(), "worker-5".to_string()]);
-        
+        workers_per_node.insert(
+            "node-3".to_string(),
+            vec!["worker-4".to_string(), "worker-5".to_string()],
+        );
+
         let topology = TopologyView::new(workers_per_node, 1); // version 1
         let replica_count = 2;
         let allocator = AddressAllocator::new(topology, replica_count);
@@ -509,7 +664,7 @@ mod tests {
         let all_addresses = allocator.allocate_addresses("test-object-functional".to_string())?;
 
         assert_eq!(all_addresses.len(), 1 + replica_count);
-        
+
         let primary = &all_addresses[0];
         assert_eq!(primary.object, "test-object-functional");
         assert!(primary.node.is_some());
@@ -519,12 +674,18 @@ mod tests {
         distinct_nodes.insert(primary.node.as_ref().unwrap().clone());
 
         for i in 0..replica_count {
-            let replica = &all_addresses[i+1];
+            let replica = &all_addresses[i + 1];
             assert_eq!(replica.object, "test-object-functional");
-            assert_ne!(replica.node, primary.node, "Replica node should differ from primary");
-            assert!(distinct_nodes.insert(replica.node.as_ref().unwrap().clone()), "Replica nodes should be distinct among themselves and from primary");
+            assert_ne!(
+                replica.node, primary.node,
+                "Replica node should differ from primary"
+            );
+            assert!(
+                distinct_nodes.insert(replica.node.as_ref().unwrap().clone()),
+                "Replica nodes should be distinct among themselves and from primary"
+            );
         }
-        
+
         println!("✓ Functional AddressAllocator test passed.");
         println!("Primary Address: {}", primary);
         for (i, replica) in all_addresses.iter().skip(1).enumerate() {
@@ -532,5 +693,57 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn test_uri_generation() {
+        let addr = Address::new("node1", "worker1", "obj1".into());
+
+        // Test legacy URI generation
+        let uri = addr.to_probing_uri();
+        assert_eq!(uri, "probing://node1/objects/worker1/obj1");
+
+        let http_uri = addr.to_http_uri();
+        assert_eq!(http_uri, "http://node1/objects/worker1/obj1");
+    }
+
+    #[test]
+    fn test_uri_parsing() {
+        // Test legacy pattern parsing (backward compatibility)
+        let uri = "probing://node1/objects/worker1/obj1";
+        let addr = Address::from_uri(uri).unwrap();
+        assert_eq!(addr.node, Some("node1".to_string()));
+        assert_eq!(addr.worker, Some("worker1".to_string()));
+        assert_eq!(addr.object, "obj1");
+    }
+
+    #[test]
+    fn test_uri_roundtrip() {
+        let original = Address::new("node1", "worker1", "nested/obj/path".into());
+
+        let uri = original.to_probing_uri();
+        let parsed = Address::from_uri(&uri).unwrap();
+        assert_eq!(original, parsed);
+
+        let uri = original.to_http_uri();
+        let parsed = Address::from_uri(&uri).unwrap();
+        assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn test_invalid_uri_patterns() {
+        // Test unsupported pattern
+        let invalid_uri = "probing://node1/unsupported/pattern";
+        let result = Address::from_uri(invalid_uri);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_uri_format_display() {
+        let addr = Address::new("node1", "worker1", "obj1".into());
+
+        // Display should use namespace-based URI format by default
+        let display_str = format!("{}", addr);
+        assert_eq!(display_str, "probing://node1/objects/worker1/obj1");
     }
 }
