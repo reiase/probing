@@ -130,6 +130,13 @@ pub enum Commands {
         tree: bool,
     },
 
+    /// Fetch multi ranks' stack info && draw framegraph
+    #[command(visible_aliases = ["f"])]
+    Fetch {
+        #[arg(last = true, help = "Specify rank and IP:port pairs")]
+        pairs: Vec<String>,
+    },
+
     /// Display or modify the configuration
     #[command(visible_aliases = ["cfg", "c"])]
     Config {

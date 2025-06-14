@@ -10,6 +10,8 @@ pub mod process_monitor;
 pub mod store;
 
 mod ptree;
+mod fetch;
+mod draw;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
@@ -124,6 +126,29 @@ impl Cli {
                 Ok(())
             }
             Commands::Store(cmd) => cmd.run().await,
+            // ./probing fetch -- 0 10.107.204.71:12347 1 10.107.204.71:12348
+            Commands::Fetch { pairs} => {
+                if !pairs.is_empty() {
+                let mut urls: Vec<String> = Vec::new();
+                println!("Received pairs:");
+                for pair in pairs.chunks(2) {
+                    if pair.len() == 2 {
+                        let url = format!("http://{}/apis/pythonext/callstack", pairs[1].to_string());
+                        urls.push(url);
+                        println!("Rank: {}, IP:port: {}", pair[0], pair[1]);
+                            
+                    } else {
+                        eprintln!("Error: Invalid pair format. Please provide a rank and IP:port for each pair.");
+                        std::process::exit(1);
+                    }
+                }
+                fetch::fetch_and_save_urls(urls).await;
+                let _ = draw::draw_frame_graph_from_json();
+
+                }
+                
+                Ok(())
+            }
         }
     }
 }
