@@ -1,7 +1,6 @@
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::{self, Display};
 use std::hash::{Hash, Hasher};
-use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -168,19 +167,22 @@ impl Display for Address {
     }
 }
 
-impl FromStr for Address {
-    type Err = AddressError;
+impl Into<Address> for String {
+    fn into(self) -> Address {
+        self.as_str().into()
+    }
+}
 
-    fn from_str(s: &str) -> Result<Self> {
-        // Try URI format first
-        if s.contains("://") {
-            return Self::from_uri(s);
+impl Into<Address> for &str {
+    fn into(self) -> Address {
+        match Address::from_uri(self) {
+            Ok(addr) => addr,
+            Err(_) => Address {
+                node: None,
+                worker: None,
+                object: self.to_string(),
+            },
         }
-
-        Err(AddressError::InvalidFormat(format!(
-            "Invalid address format: '{}'. Expected URI format.",
-            s
-        )))
     }
 }
 
@@ -218,11 +220,17 @@ impl AddressAllocator {
     }
 
     /// 为对象分配主地址（带安全检查）
-    fn allocate_primary_address(&self, object_id: &str) -> Result<Address> {
+    fn allocate_primary_address<A: Into<Address>>(&self, addr: A) -> Result<Address> {
+        let addr = addr.into();
+        if addr.node.is_some() && addr.worker.is_some() {
+            // If both node and worker are specified, return the address directly.
+            return Ok(addr);
+        }
+
         if !self.is_topology_sufficient() {
             return Err(AddressError::InsufficientTopology);
         }
-
+        let object_id = &addr.object;
         let best_pair = self
             .topology
             .workers_per_node
@@ -246,8 +254,9 @@ impl AddressAllocator {
 
     /// 为对象分配所有地址（主地址和副本地址）
     /// Returns a Vec<Address> where the first element is the primary.
-    pub fn allocate_addresses(&self, object_id: String) -> Result<Vec<Address>> {
-        let primary = self.allocate_primary_address(&object_id)?;
+    pub fn allocate_addresses<A: Into<Address>>(&self, addr: A) -> Result<Vec<Address>> {
+        let addr = addr.into();
+        let primary = self.allocate_primary_address(addr)?;
         let mut all_addresses = vec![primary.clone()]; // Start with primary
 
         if self.replica_count == 0 {
@@ -386,11 +395,13 @@ mod tests {
         assert_eq!(parsed_https.worker, Some("worker1".to_string()));
         assert_eq!(parsed_https.object, "task_123");
 
-
         // Test with nested object paths
         let addr_nested = Address::new("node1", "worker1", "data/user/profile_456".to_string());
         let nested_uri = addr_nested.to_uri("probing");
-        assert_eq!(nested_uri, "probing://node1/objects/worker1/data/user/profile_456");
+        assert_eq!(
+            nested_uri,
+            "probing://node1/objects/worker1/data/user/profile_456"
+        );
         let parsed_nested = Address::from_uri(&nested_uri).unwrap();
         assert_eq!(parsed_nested.object, "data/user/profile_456");
         assert_eq!(addr_nested, parsed_nested); // Roundtrip check
@@ -415,7 +426,7 @@ mod tests {
     #[test]
     fn test_fromstr_with_uri() {
         // Test URI format parsing
-        let uri_addr = Address::from_str("probing://node1/objects/worker1/test_obj").unwrap();
+        let uri_addr: Address = "probing://node1/objects/worker1/test_obj".into();
         assert_eq!(uri_addr.node, Some("node1".to_string()));
         assert_eq!(uri_addr.worker, Some("worker1".to_string()));
         assert_eq!(uri_addr.object, "test_obj");
