@@ -1,45 +1,42 @@
-// Rust-native addressing system using functional programming patterns
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::{self, Display};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use url::Url;
 
 use super::topology::TopologyView;
 use crate::core::cluster_model::{NodeId, WorkerId};
 
-/// Simple error type for addressing operations
-#[derive(Debug, Clone, PartialEq)]
+/// Addressing operation errors
+#[derive(Debug, Clone, PartialEq, Error)]
 pub enum AddressError {
+    #[error("Invalid address format: {0}")]
     InvalidFormat(String),
+
+    #[error("Invalid URI format: {0}")]
     InvalidUri(String),
+
+    #[error("Object ID cannot be empty")]
     EmptyObject,
+
+    #[error("Topology view is insufficient for allocation")]
     InsufficientTopology,
+
+    #[error("No available nodes for address allocation")]
     NoAvailableNodes,
-    NoWorkersOnNode(String),
-    UnsupportedScheme(String),
-    // Added for unexpected internal errors, though we aim to avoid these.
+
+    #[error("No workers available on node {node}")]
+    NoWorkersOnNode { node: String },
+
+    #[error("Unsupported URI scheme: {scheme}")]
+    UnsupportedScheme { scheme: String },
+
+    #[error("Internal error: {0}")]
     InternalError(String),
 }
-
-impl std::fmt::Display for AddressError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidFormat(msg) => write!(f, "Invalid address format: {}", msg),
-            Self::InvalidUri(msg) => write!(f, "Invalid URI format: {}", msg),
-            Self::EmptyObject => write!(f, "Object ID cannot be empty"),
-            Self::InsufficientTopology => write!(f, "Topology view is insufficient for allocation"),
-            Self::NoAvailableNodes => write!(f, "No available nodes for address allocation"),
-            Self::NoWorkersOnNode(node) => write!(f, "No workers available on node {}", node),
-            Self::UnsupportedScheme(scheme) => write!(f, "Unsupported URI scheme: {}", scheme),
-            Self::InternalError(msg) => write!(f, "Internal error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for AddressError {}
 
 pub type Result<T> = std::result::Result<T, AddressError>;
 
@@ -61,15 +58,15 @@ impl Address {
 
     /// Create address from URI format
     /// Supports the simplified routing pattern:
-    /// 
+    ///
     /// **URI Format: /objects/{worker}/{object}**
     /// - probing://node/objects/worker_id/object_id
-    /// - http://node:port/objects/worker_id/object_id
-    /// - https://node:port/objects/worker_id/object_id
-    /// 
+    /// - http://node/objects/worker_id/object_id
+    /// - https://node/objects/worker_id/object_id
+    ///
     /// This format is web framework friendly and provides a clean separation
     /// between the routing prefix (/objects) and the resource identifiers.
-    /// 
+    ///
     /// Examples:
     /// - `probing://storage-node-1/objects/compute-worker-1/report.pdf`
     /// - `http://api.example.com:8080/objects/gpu-worker/models/bert.bin`
@@ -82,7 +79,11 @@ impl Address {
         // Validate scheme
         match parsed_url.scheme() {
             "probing" | "http" | "https" => {}
-            scheme => return Err(AddressError::UnsupportedScheme(scheme.to_string())),
+            scheme => {
+                return Err(AddressError::UnsupportedScheme {
+                    scheme: scheme.to_string(),
+                })
+            }
         }
 
         // Extract node from host
@@ -99,19 +100,15 @@ impl Address {
             .collect();
 
         match path_segments.as_slice() {
-            ["objects", worker, object] => {
-                return Ok(Self {
-                    node: Some(node),
-                    worker: Some(worker.to_string()),
-                    object: object.to_string(),
-                });
-            }
-            _ => {
-                return Err(AddressError::InvalidUri(format!(
-                    "Unsupported URI pattern '{}'. Expected format: /objects/{{worker}}/{{object}}",
-                    uri
-                )));
-            }
+            ["objects", worker, object @ ..] if !object.is_empty() => Ok(Self {
+                node: Some(node),
+                worker: Some(worker.to_string()),
+                object: object.join("/"),
+            }),
+            _ => Err(AddressError::InvalidUri(format!(
+                "Unsupported URI pattern '{}'. Expected format: /objects/{{worker}}/{{object}}",
+                uri
+            ))),
         }
     }
 
@@ -270,10 +267,14 @@ impl AddressAllocator {
             .topology
             .workers_per_node
             .get(&node_id)
-            .ok_or_else(|| AddressError::NoWorkersOnNode(node_id.clone()))?;
+            .ok_or_else(|| AddressError::NoWorkersOnNode {
+                node: node_id.clone(),
+            })?;
 
         if workers.is_empty() {
-            return Err(AddressError::NoWorkersOnNode(node_id.clone()));
+            return Err(AddressError::NoWorkersOnNode {
+                node: node_id.clone(),
+            });
         }
 
         let worker_hash = self.hash_string_with_version(object_id, &node_id, self.topology.version);
@@ -436,7 +437,7 @@ mod tests {
     fn test_address_creation_and_into_string() {
         let addr_full = Address::new("node1", "worker1", "obj123".to_string());
         let addr_string: String = addr_full.clone().into();
-        assert_eq!(addr_string, "node1::worker1::obj123");
+        assert_eq!(addr_string, "probing://node1/objects/worker1/obj123");
     }
 
     #[test]
@@ -465,7 +466,7 @@ mod tests {
     fn test_uri_with_nested_object_paths() {
         let addr = Address::new("node1", "worker1", "data/user/profile_456".to_string());
         let uri = addr.to_probing_uri();
-        assert_eq!(uri, "probing://node1/objects/worker1/profile_456");
+        assert_eq!(uri, "probing://node1/objects/worker1/data/user/profile_456");
 
         let parsed = Address::from_uri(&uri).unwrap();
         assert_eq!(parsed.object, "data/user/profile_456");
@@ -478,7 +479,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.err().unwrap(),
-            AddressError::UnsupportedScheme(_)
+            AddressError::UnsupportedScheme { .. }
         ));
 
         // Test invalid URI
