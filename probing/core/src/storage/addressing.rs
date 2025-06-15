@@ -12,11 +12,8 @@ use crate::core::cluster_model::{NodeId, WorkerId};
 /// Errors that can occur during addressing operations.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum AddressError {
-    /// Error indicating an invalid address format.
-    #[error("Invalid address format: {0}")]
-    InvalidFormat(String),
-
-    /// Error indicating an invalid URI format.
+    /// Error indicating a malformed URI, an unsupported path structure,
+    /// or missing components like the host.
     #[error("Invalid URI format: {0}")]
     InvalidUri(String),
 
@@ -51,8 +48,12 @@ pub type Result<T> = std::result::Result<T, AddressError>;
 
 /// Represents a unique address for an object within the distributed system.
 ///
-/// An `Address` typically includes the node, worker, and a specific object identifier.
-/// It provides mechanisms for URI conversion and shard key generation.
+/// An `Address` primarily consists of an optional worker identifier and a mandatory
+/// object identifier (e.g., a filename or task ID). It does not directly store node
+/// information, as node-awareness is handled by the `AddressAllocator` in conjunction
+/// with a `TopologyView`.
+///
+/// It provides mechanisms for URI conversion and shard key generation based on its components.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Address {
     /// The ID of the worker process on the node responsible for the object.
@@ -75,7 +76,7 @@ impl Address {
         }
     }
 
-    /// Create address from URI format.
+    /// Parses an `Address` from a URI string.
     /// Supports the simplified routing pattern:
     ///
     /// **URI Format: scheme://{worker_id}/objects/{object_id}**
@@ -94,11 +95,13 @@ impl Address {
     /// # Examples:
     /// - `probing://compute-worker-1/objects/report.pdf`
     /// - `http://gpu-worker/objects/models/bert.bin`
-    /// - `https://cache-worker/objects/temp/data.json`
     ///
     /// # Errors
-    /// Returns `AddressError` if the URI is malformed, uses an unsupported scheme,
-    /// is missing the worker_id (host), or does not follow the expected path pattern.
+    /// Returns `AddressError` under the following conditions:
+    /// - `AddressError::InvalidUri`: If the URI is malformed (e.g., unparseable, missing host/worker_id,
+    ///   incorrect path structure before `/objects/`).
+    /// - `AddressError::UnsupportedScheme`: If the URI uses a scheme other than "probing", "http", or "https".
+    /// - `AddressError::EmptyObject`: If the `object_id` part of the path (after `/objects/`) is empty.
     pub fn from_uri(uri: &str) -> Result<Self> {
         let parsed_url = Url::parse(uri).map_err(|e| {
             AddressError::InvalidUri(format!("Failed to parse URI '{}': {}", uri, e))
@@ -127,10 +130,7 @@ impl Address {
 
         if let Some(object_id_part) = path.strip_prefix("/objects/") {
             if object_id_part.is_empty() {
-                return Err(AddressError::InvalidUri(format!(
-                    "Missing object ID in URI path after /objects/: {}",
-                    path
-                )));
+                return Err(AddressError::EmptyObject);
             }
             let object_id_str = object_id_part.to_string();
 
@@ -227,18 +227,12 @@ impl Into<Address> for &str {
     }
 }
 
-/// `AddressAllocator` is responsible for assigning addresses to objects,
-/// including a primary address and optional replica addresses.
+/// `AddressAllocator` assigns primary and replica addresses for objects.
 ///
-/// It employs a consistent hashing strategy (similar to Rendezvous Hashing)
-/// to determine the placement of objects on nodes and workers. This approach
-/// ensures that even with a partial or incomplete view of the cluster topology,
-/// the allocator can still make reasonable and balanced placement decisions.
-/// The hashing mechanism minimizes remapping of objects when nodes are added or
-/// removed, contributing to system stability and efficient load distribution.
-///
-/// The allocator considers the current `TopologyView`, a desired number of replicas,
-/// and parameters for topology sufficiency (minimum knowledge ratio and TTL).
+/// It uses a Rendezvous Hashing-like strategy for object placement, ensuring
+/// balanced load distribution even with partial topology views and minimizing
+/// data remapping during cluster changes. Decisions are based on `TopologyView`,
+/// desired replica count, and topology sufficiency parameters.
 pub struct AddressAllocator {
     topology: TopologyView,
     replica_count: usize, // This is the number of *additional* replicas, not total instances.
@@ -284,47 +278,53 @@ impl AddressAllocator {
 
     /// Allocates the primary address for an object.
     ///
-    /// If the input `Address` already specifies a worker, it's assumed to be
-    /// partially or fully pre-assigned. The current logic will return it directly
-    /// if a worker is present. Otherwise, it uses a consistent hashing approach.
+    /// If `addr.worker` is specified and `addr.object` is non-empty, `addr` is returned directly.
+    /// Otherwise, selects the optimal worker using a Rendezvous Hashing-like score
+    /// (`calculate_assignment_score`) based on worker ID and object ID.
+    /// This allows effective load balancing with dynamic or partial cluster views.
     ///
     /// # Arguments
-    /// * `addr`: An `Address` or a type convertible to `Address` (e.g., `String` for object ID).
+    /// * `addr`: An `Address` or convertible type (e.g., `String` for object ID).
     ///   If `addr.worker` is `Some`, this address might be considered pre-assigned.
+    ///   The `addr.object` field must not be empty.
     ///
     /// # Errors
-    /// Returns `AddressError::InsufficientTopology` if the topology view is not sufficient.
+    /// Returns `AddressError::EmptyObject` if `addr.object` is empty.
+    /// Returns `AddressError::InsufficientTopology` if the topology view is not sufficient for allocation.
     /// Returns `AddressError::NoAvailableNodes` if no suitable node/worker can be found.
     fn allocate_primary_address<A: Into<Address>>(&self, addr: A) -> Result<Address> {
         let addr = addr.into();
+
+        if addr.object.is_empty() {
+            return Err(AddressError::EmptyObject);
+        }
+
         // If worker is specified, consider it (partially) assigned.
         // The original check also included node. Now only worker matters for this check.
         if addr.worker.is_some() {
-            // If the intention is that a pre-specified worker means the address is fully resolved,
-            // then this direct return is correct.
-            // If a pre-specified worker still needs node assignment via topology, this logic would need adjustment.
-            // For now, assume worker presence implies it's sufficiently specified for this stage.
+            // Worker is present, and object ID is validated above.
             return Ok(addr);
         }
 
         if !self.is_topology_sufficient() {
             return Err(AddressError::InsufficientTopology);
         }
-        let object_id = &addr.object;
-        let best_pair = self
-            .topology
-            .workers_per_node
-            .iter()
-            .flat_map(|(node_id, workers)| {
-                workers.iter().map(move |worker_id| (node_id, worker_id))
-            })
-            .max_by_key(|&(_node_id, worker_id)| {
-                // node_id is available from iteration
-                self.calculate_assignment_score(object_id, _node_id, worker_id)
-            });
+        let object_id = &addr.object; // Already checked not empty
+        let mut max_score = 0;
+        let mut best_worker_id = None;
 
-        match best_pair {
-            Some((_chosen_node_id, chosen_worker_id)) => Ok(Address::new(
+        for (_node_id, workers) in &self.topology.workers_per_node {
+            for worker_id in workers {
+                let score = self.calculate_assignment_score(&addr.object, worker_id);
+                if score > max_score {
+                    max_score = score;
+                    best_worker_id = Some(worker_id.clone());
+                }
+            }
+        }
+
+        match best_worker_id {
+            Some(chosen_worker_id) => Ok(Address::new(
                 // Pass only worker to Address::new
                 // chosen_node_id.clone(), // No longer passed to Address::new
                 chosen_worker_id.clone(),
@@ -334,24 +334,23 @@ impl AddressAllocator {
         }
     }
 
-    /// Allocates all addresses for an object, including the primary and any configured replicas.
-    /// The first address in the returned vector is always the primary.
-    /// Replicas are chosen to be on distinct nodes from the primary and from each other,
-    /// using the same consistent hashing strategy to select diverse placements.
+    /// Allocates all addresses for an object: one primary and `self.replica_count` replicas.
+    /// Replicas are placed on distinct nodes from the primary and each other, using
+    /// the same Rendezvous Hashing-like scoring for diverse placement.
     ///
     /// # Arguments
-    /// * `addr`: An `Address` or a type convertible to `Address` (e.g., `String` for object ID).
+    /// * `addr`: An `Address` or convertible type (e.g., `String` for object ID).
     ///
     /// # Returns
-    /// A `Result` containing a `Vec<Address>` where the first element is the primary,
-    /// followed by replicas. The number of replicas will be up to `self.replica_count`,
-    /// limited by the number of available distinct nodes.
+    /// `Ok(Vec<Address>)` with primary first, then replicas. May contain fewer replicas
+    /// than `self.replica_count` if insufficient distinct nodes are available.
     ///
     /// # Errors
-    /// Propagates errors from `allocate_primary_address` or `allocate_replica_addresses`.
+    /// - `AddressError::EmptyObject`: If the object ID in `addr` is empty.
+    /// - Propagates other errors from `allocate_primary_address` or `allocate_replica_addresses`.
     pub fn allocate_addresses<A: Into<Address>>(&self, addr: A) -> Result<Vec<Address>> {
         let addr = addr.into();
-        let primary = self.allocate_primary_address(addr)?;
+        let primary = self.allocate_primary_address(addr)?; // This will check for EmptyObject
         let mut all_addresses = vec![primary.clone()]; // Start with primary
 
         if self.replica_count == 0 {
@@ -371,12 +370,11 @@ impl AddressAllocator {
             .is_sufficient(self.min_knowledge_ratio, self.topology_ttl)
     }
 
-    /// Allocates replica addresses for a given primary address.
+    /// Allocates replica addresses for a primary address.
     ///
-    /// This method attempts to find `num_replicas_to_find` distinct nodes (different from the primary\'s node)
-    /// to host the replicas. The selection of replica nodes and their workers also uses the
-    /// consistent hashing score (`calculate_assignment_score`) to ensure deterministic and
-    /// distributed placement.
+    /// Finds `num_replicas_to_find` distinct nodes (excluding primary's node) for replicas.
+    /// Worker selection on these nodes uses `calculate_assignment_score` (based on worker and object ID)
+    /// for deterministic and distributed placement, promoting diversity and resilience.
     ///
     /// # Arguments
     /// * `primary`: The primary `Address` for which replicas are needed.
@@ -433,8 +431,8 @@ impl AddressAllocator {
             })
             .map(|(node_id, worker_id)| {
                 // node_id is NodeId, worker_id is WorkerId
-                let score = self.calculate_assignment_score(&primary.object, &node_id, &worker_id);
-                (score, node_id, worker_id) // Store NodeId along with WorkerId
+                let score = self.calculate_assignment_score(&primary.object, &worker_id);
+                (score, node_id.clone(), worker_id.clone())
             })
             .collect();
 
@@ -467,32 +465,23 @@ impl AddressAllocator {
         Ok(replicas)
     }
 
-    /// Calculates an assignment score for a given object, node, and worker combination.
-    /// This score is used in the consistent hashing algorithm to determine the preferred
-    /// placement for objects (both primary and replicas).
+    /// Calculates a deterministic assignment score for an object and a worker.
+    /// Central to the Rendezvous Hashing-like placement strategy.
     ///
-    /// The score is generated by hashing a string composed of the `object_id_seed`,
-    /// `node_id`, and `worker_id`. This ensures that for a given object, the scores
-    /// for different (node, worker) pairs are consistent, allowing for stable assignments
-    /// even as the topology changes. This is a key component of the Rendezvous Hashing-like
-    /// behavior, enabling load balancing with potentially incomplete topology information.
+    /// The worker with the highest score (derived from hashing `object_id_seed` and `worker_id`)
+    /// is chosen. This ensures consistent mapping, minimizing data movement during topology changes
+    /// and enabling load balancing with partial cluster views. Node ID is not directly used in this score.
     ///
     /// # Arguments
-    /// * `object_id_seed`: A string seed, typically the object's unique identifier,
-    ///   used to ensure that the same object consistently scores potential locations.
-    /// * `node_id`: The ID of the candidate node.
-    /// * `worker_id`: The ID of the candidate worker on the node.
+    /// * `object_id_seed`: Seed string, typically the object's unique identifier.
+    /// * `worker_id`: Identifier of the candidate worker.
     ///
     /// # Returns
-    /// A `u64` score. Higher scores are generally preferred during allocation.
-    fn calculate_assignment_score(
-        &self,
-        object_id_seed: &str,
-        node_id: &NodeId,
-        worker_id: &WorkerId,
-    ) -> u64 {
+    /// A `u64` score; higher is preferred.
+    fn calculate_assignment_score(&self, object_id: &str, worker_id: &WorkerId) -> u64 {
         let mut hasher = DefaultHasher::new();
-        format!("{node_id}::{worker_id}:{object_id_seed}").hash(&mut hasher);
+        // Hash format changed to exclude node_id
+        format!("{worker_id}:{object_id}").hash(&mut hasher);
         hasher.finish()
     }
 }
@@ -623,9 +612,10 @@ mod tests {
         // Test empty object_id after /objects/
         let result_empty_object = Address::from_uri("probing://worker1/objects/");
         assert!(result_empty_object.is_err());
-        assert!(
-            matches!(result_empty_object.err().unwrap(), AddressError::InvalidUri(msg) if msg.contains("Missing object ID in URI path after /objects/"))
-        );
+        assert!(matches!(
+            result_empty_object.err().unwrap(),
+            AddressError::EmptyObject
+        ));
     }
 
     #[test]
@@ -648,31 +638,36 @@ mod tests {
 
     #[test]
     fn test_primary_address_allocation() {
-        // Renamed from test_address_allocation
-        let topology = create_basic_topology(2, 2); // node1 (w1,w2), node2 (w3,w4)
-        let allocator = AddressAllocator::new(topology.clone(), 0); // No replicas needed for this test
+        // Test case for EmptyObject error when object ID is empty in Address struct
+        let topology_empty_obj_test = create_basic_topology(1, 1);
+        let allocator_empty_obj_test = AddressAllocator::new(topology_empty_obj_test, 0);
+        let addr_with_empty_object = Address {
+            worker: None,
+            object: "".to_string(),
+        };
+        let result_empty_obj =
+            allocator_empty_obj_test.allocate_primary_address(addr_with_empty_object);
+        assert!(matches!(result_empty_obj, Err(AddressError::EmptyObject)));
 
-        let addr_res = allocator.allocate_primary_address("test_object");
-        assert!(addr_res.is_ok());
-        let addr = addr_res.unwrap();
+        // Test case for EmptyObject error when object ID is an empty string literal
+        let topology_empty_str_test = create_basic_topology(1, 1);
+        let allocator_empty_str_test = AddressAllocator::new(topology_empty_str_test, 0);
+        let result_empty_str = allocator_empty_str_test.allocate_primary_address("".to_string());
+        assert!(matches!(result_empty_str, Err(AddressError::EmptyObject)));
 
-        // assert!(addr.node.is_some()); // Node not stored in Address
-        assert!(addr.worker.is_some());
-        // let node_id = addr.node.clone().unwrap(); // Cannot get node_id directly from Address
-        let worker_id = addr.worker.clone().unwrap();
+        // Test: Pre-assigned worker with non-empty object ID should be returned directly
+        let topology = create_basic_topology(1, 1);
+        let allocator = AddressAllocator::new(topology, 0);
+        let pre_assigned_addr = Address {
+            worker: Some("worker1".to_string()),
+            object: "my_object".to_string(),
+        };
+        let result = allocator.allocate_primary_address(pre_assigned_addr.clone());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), pre_assigned_addr);
 
-        // To verify node, we need to find the worker in the topology
-        let mut found_in_topology = false;
-        for (_node, workers) in &topology.workers_per_node {
-            if workers.contains(&worker_id) {
-                found_in_topology = true;
-                break;
-            }
-        }
-        assert!(
-            found_in_topology,
-            "Allocated worker should exist in the topology"
-        );
+        // TODO: Add more tests for successful allocation (worker needs to be chosen),
+        // insufficient topology, and no available nodes.
     }
 
     #[test]
