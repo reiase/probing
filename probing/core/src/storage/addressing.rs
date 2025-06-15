@@ -76,9 +76,8 @@ impl Address {
             AddressError::InvalidUri(format!("Failed to parse URI '{}': {}", uri, e))
         })?;
 
-        // Validate scheme
         match parsed_url.scheme() {
-            "probing" | "http" | "https" => {}
+            "probing" | "http" | "https" => (), // Scheme is supported
             scheme => {
                 return Err(AddressError::UnsupportedScheme {
                     scheme: scheme.to_string(),
@@ -86,29 +85,33 @@ impl Address {
             }
         }
 
-        // Extract node from host
         let node = parsed_url
             .host_str()
             .ok_or_else(|| AddressError::InvalidUri("Missing host in URI".to_string()))?
             .to_string();
 
         let path = parsed_url.path();
-        let path_segments: Vec<&str> = path
-            .trim_start_matches('/')
-            .split('/')
-            .filter(|s| !s.is_empty())
-            .collect();
 
-        match path_segments.as_slice() {
-            ["objects", worker, object @ ..] if !object.is_empty() => Ok(Self {
+        // Expect path like "/objects/{worker_id}/{object_id}" or "/objects/{worker_id}/path/to/{object_id}"
+        if let Some(remaining_path) = path.strip_prefix("/objects/") {
+            let mut segments = remaining_path.splitn(2, '/');
+            let worker_str = segments.next().filter(|s| !s.is_empty()).ok_or_else(|| {
+                AddressError::InvalidUri(format!("Missing worker ID in URI path: {}", path))
+            })?;
+            let object_str = segments.next().filter(|s| !s.is_empty()).ok_or_else(|| {
+                AddressError::InvalidUri(format!("Missing object ID in URI path: {}", path))
+            })?;
+
+            Ok(Self {
                 node: Some(node),
-                worker: Some(worker.to_string()),
-                object: object.join("/"),
-            }),
-            _ => Err(AddressError::InvalidUri(format!(
-                "Unsupported URI pattern '{}'. Expected format: /objects/{{worker}}/{{object}}",
+                worker: Some(worker_str.to_string()),
+                object: object_str.to_string(),
+            })
+        } else {
+            Err(AddressError::InvalidUri(format!(
+                "Unsupported URI pattern '{}'. Expected format: /objects/{{worker}}/{{object...}}",
                 uri
-            ))),
+            )))
         }
     }
 
@@ -116,8 +119,8 @@ impl Address {
         format!(
             "{}://{}/objects/{}/{}",
             scheme,
-            self.node.clone().unwrap_or("None".to_string()),
-            self.worker.clone().unwrap_or("None".to_string()),
+            self.node.as_deref().unwrap_or("None"),
+            self.worker.as_deref().unwrap_or("None"),
             self.object
         )
     }
@@ -153,19 +156,16 @@ impl Address {
     ) -> bool {
         let c_node_id_val: NodeId = current_node_id.into();
         let c_worker_id_val: WorkerId = current_worker_id.into();
-        match (&self.node, &self.worker) {
-            (Some(n), Some(w)) => n == &c_node_id_val && w == &c_worker_id_val,
-            _ => false,
-        }
+        self.node
+            .as_ref()
+            .zip(self.worker.as_ref())
+            .map_or(false, |(n, w)| n == &c_node_id_val && w == &c_worker_id_val)
     }
 
     /// 检查地址是否在同一节点上（忽略worker差异）
     pub fn is_same_node<N: Into<NodeId>>(&self, current_node_id: N) -> bool {
         let c_node_id_val: NodeId = current_node_id.into();
-        match &self.node {
-            Some(n) => n == &c_node_id_val,
-            None => false,
-        }
+        self.node.as_ref().map_or(false, |n| n == &c_node_id_val)
     }
 }
 
@@ -237,51 +237,25 @@ impl AddressAllocator {
             return Err(AddressError::InsufficientTopology);
         }
 
-        let available_nodes: Vec<NodeId> = self.topology.workers_per_node.keys().cloned().collect();
-        if available_nodes.is_empty() {
-            return Err(AddressError::NoAvailableNodes);
-        }
-
-        let mut max_score = 0;
-        let mut chosen_node_id: Option<NodeId> = None;
-
-        for current_node_id_candidate in available_nodes {
-            let score = self.hash_string_with_version(
-                object_id,
-                &current_node_id_candidate,
-                self.topology.version,
-            );
-            if chosen_node_id.is_none() || score > max_score {
-                max_score = score;
-                chosen_node_id = Some(current_node_id_candidate.clone());
-            }
-        }
-
-        let node_id = chosen_node_id.ok_or_else(|| {
-            AddressError::InternalError(
-                "Failed to select a primary node despite available nodes.".to_string(),
-            )
-        })?;
-
-        let workers = self
+        let best_pair = self
             .topology
             .workers_per_node
-            .get(&node_id)
-            .ok_or_else(|| AddressError::NoWorkersOnNode {
-                node: node_id.clone(),
-            })?;
-
-        if workers.is_empty() {
-            return Err(AddressError::NoWorkersOnNode {
-                node: node_id.clone(),
+            .iter()
+            .flat_map(|(node_id, workers)| {
+                workers.iter().map(move |worker_id| (node_id, worker_id))
+            })
+            .max_by_key(|&(node_id, worker_id)| {
+                self.calculate_assignment_score(object_id, node_id, worker_id)
             });
+
+        match best_pair {
+            Some((chosen_node_id, chosen_worker_id)) => Ok(Address::new(
+                chosen_node_id.clone(),
+                chosen_worker_id.clone(),
+                object_id.to_string(),
+            )),
+            None => Err(AddressError::NoAvailableNodes), // Or more specific if all nodes have 0 workers but nodes exist
         }
-
-        let worker_hash = self.hash_string_with_version(object_id, &node_id, self.topology.version);
-        let worker_index = (worker_hash % workers.len() as u64) as usize;
-        let worker_id = workers[worker_index].clone();
-
-        Ok(Address::new(node_id, worker_id, object_id.to_string()))
     }
 
     /// 为对象分配所有地址（主地址和副本地址）
@@ -294,7 +268,7 @@ impl AddressAllocator {
             return Ok(all_addresses);
         }
 
-        let replicas = self.allocate_replica_addresses_internal(&primary, self.replica_count)?;
+        let replicas = self.allocate_replica_addresses(&primary, self.replica_count)?;
         all_addresses.extend(replicas);
 
         Ok(all_addresses)
@@ -306,111 +280,68 @@ impl AddressAllocator {
             .is_sufficient(self.min_knowledge_ratio, self.topology_ttl)
     }
 
-    /// 为已有主地址分配副本地址 (internal helper)
-    fn allocate_replica_addresses_internal(
+    pub fn allocate_replica_addresses(
         &self,
         primary: &Address,
         num_replicas_to_find: usize,
     ) -> Result<Vec<Address>> {
-        let mut replicas = Vec::new();
         if num_replicas_to_find == 0 {
-            return Ok(replicas);
+            return Ok(Vec::new());
         }
 
-        let available_nodes: Vec<NodeId> = self.topology.workers_per_node.keys().cloned().collect();
+        let primary_node_id = primary.node.as_ref();
 
-        if available_nodes.len() <= 1 && primary.node.is_some() {
-            // Not enough distinct nodes for replicas
-            // If only one node exists and primary is on it, no replicas possible on other nodes.
-            if available_nodes.len() == 1 && available_nodes.first() == primary.node.as_ref() {
-                return Ok(replicas); // No other nodes to pick from
-            }
-            // If no nodes, or primary is not set (should not happen here), let it proceed to score.
-        }
-        if available_nodes.is_empty() {
-            return Ok(replicas); // No nodes at all
-        }
-
-        let mut node_scores: Vec<(u64, NodeId)> = available_nodes
+        // Generate all potential (node, worker) pairs for replicas, score them, and sort.
+        let mut potential_replicas: Vec<_> = self
+            .topology
+            .workers_per_node
             .iter()
-            .filter(|&n_id| Some(n_id) != primary.node.as_ref()) // Exclude primary node from candidates
-            .map(|n_id| {
-                let score =
-                    self.hash_string_with_version(&primary.object, n_id, self.topology.version);
-                (score, n_id.clone())
+            .filter(|(node_id, _workers)| Some(*node_id) != primary_node_id) // Exclude primary node
+            .flat_map(|(node_id, workers)| {
+                workers.iter().map(move |worker_id| (node_id, worker_id))
+            })
+            .map(|(node_id, worker_id)| {
+                // Use primary.object as the seed for consistent scoring context.
+                // The specific node and worker will differentiate the scores.
+                let score = self.calculate_assignment_score(&primary.object, node_id, worker_id);
+                (score, node_id, worker_id)
             })
             .collect();
 
-        node_scores.sort_unstable_by(|a, b| b.0.cmp(&a.0)); // Sort by score descending
+        // Sort by score in descending order
+        potential_replicas.sort_unstable_by_key(|k| std::cmp::Reverse(k.0));
 
-        for (_score, candidate_node_id) in node_scores {
+        let mut replicas = Vec::with_capacity(num_replicas_to_find);
+        let mut used_replica_nodes = std::collections::HashSet::new();
+
+        for (_score, candidate_node_id, candidate_worker_id) in potential_replicas {
             if replicas.len() >= num_replicas_to_find {
                 break;
             }
 
-            // This check is now implicitly handled by filtering `primary.node` before scoring,
-            // but double-checking doesn't hurt if logic changes.
-            // if Some(&candidate_node_id) == primary.node.as_ref() {
-            //     continue;
-            // }
-
-            // Ensure replica node is not already in the replicas list (for distinct nodes)
-            if replicas
-                .iter()
-                .any(|r: &Address| r.node.as_ref() == Some(&candidate_node_id))
-            {
-                continue;
-            }
-
-            if let Some(workers) = self.topology.workers_per_node.get(&candidate_node_id) {
-                if !workers.is_empty() {
-                    // Use a slightly different seed for replica worker selection to avoid collision if object_id is the same
-                    let replica_seed_object_id =
-                        format!("{}:replica:{}", primary.object, replicas.len());
-                    let worker_hash = self.hash_string_with_version(
-                        &replica_seed_object_id,
-                        &candidate_node_id,
-                        self.topology.version,
-                    );
-                    let worker_index = (worker_hash % workers.len() as u64) as usize;
-                    let worker_id_candidate = workers[worker_index].clone();
-
-                    // Primary's (node, worker) pair for comparison
-                    let primary_node_worker = primary.node.as_ref().zip(primary.worker.as_ref());
-                    // Candidate replica's (node, worker) pair
-                    let candidate_node_worker =
-                        (Some(&candidate_node_id), Some(&worker_id_candidate));
-                    // Convert tuple of Options into an Option of tuple for comparison
-                    let candidate_node_worker_opt =
-                        candidate_node_worker.0.zip(candidate_node_worker.1);
-
-                    // Ensure replica (node, worker) is different from primary's (node, worker)
-                    // This is mainly for the case where primary node was None, or replica is on same node (if allowed by future logic)
-                    if primary_node_worker != candidate_node_worker_opt {
-                        replicas.push(Address::new(
-                            candidate_node_id.clone(),
-                            worker_id_candidate,
-                            primary.object.clone(),
-                        ));
-                    } else if primary.node.as_ref() != Some(&candidate_node_id) {
-                        // If on a different node, (node,worker) collision is not an issue with primary
-                        // This path is taken if primary_node_worker was None, or nodes are different
-                        replicas.push(Address::new(
-                            candidate_node_id.clone(),
-                            worker_id_candidate,
-                            primary.object.clone(),
-                        ));
-                    }
-                }
+            // Ensure replica is on a distinct node
+            if !used_replica_nodes.contains(candidate_node_id) {
+                replicas.push(Address::new(
+                    candidate_node_id.clone(),
+                    candidate_worker_id.clone(),
+                    primary.object.clone(),
+                ));
+                used_replica_nodes.insert(candidate_node_id.clone());
             }
         }
+
         Ok(replicas)
     }
 
-    /// 带版本的哈希函数，确保拓扑变化时的一致性
-    fn hash_string_with_version(&self, object_id: &str, node_id: &str, version: u64) -> u64 {
+    /// Generates a hash for selecting a worker on a node or a (node, worker) pair.
+    fn calculate_assignment_score(
+        &self,
+        object_id_seed: &str,
+        node_id: &NodeId,
+        worker_id: &WorkerId,
+    ) -> u64 {
         let mut hasher = DefaultHasher::new();
-        format!("{}:{}:v{}", object_id, node_id, version).hash(&mut hasher);
+        format!("{}:{}:{}", object_id_seed, node_id, worker_id).hash(&mut hasher);
         hasher.finish()
     }
 }
