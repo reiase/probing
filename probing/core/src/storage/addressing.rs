@@ -125,21 +125,6 @@ impl Address {
         )
     }
 
-    /// Convert to probing:// URI
-    pub fn to_probing_uri(&self) -> String {
-        self.to_uri("probing")
-    }
-
-    /// Convert to HTTP URI
-    pub fn to_http_uri(&self) -> String {
-        self.to_uri("http")
-    }
-
-    /// Convert to HTTPS URI
-    pub fn to_https_uri(&self) -> String {
-        self.to_uri("https")
-    }
-
     /// Get shard key for data distribution
     pub fn shard_key(&self) -> Option<String> {
         match (&self.node, &self.worker) {
@@ -171,14 +156,15 @@ impl Address {
 
 impl Into<String> for Address {
     fn into(self) -> String {
-        // Default to legacy format for backward compatibility
-        self.to_probing_uri()
+        // Default to "probing" scheme when converting to String
+        self.to_uri("probing")
     }
 }
 
 impl Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_probing_uri())
+        // Default to "probing" scheme for display
+        write!(f, "{}", self.to_uri("probing"))
     }
 }
 
@@ -365,42 +351,49 @@ mod tests {
     }
 
     #[test]
-    fn test_address_creation_and_into_string() {
+    fn test_address_creation_and_to_string() {
         let addr_full = Address::new("node1", "worker1", "obj123".to_string());
-        let addr_string: String = addr_full.clone().into();
+        let addr_string = addr_full.to_string(); // Use to_string()
         assert_eq!(addr_string, "probing://node1/objects/worker1/obj123");
     }
 
     #[test]
-    fn test_uri_creation_and_parsing() {
-        // Test probing:// scheme with namespace format
+    fn test_to_uri_and_from_uri() {
         let addr = Address::new("node1", "worker1", "task_123".to_string());
-        let uri = addr.to_probing_uri();
-        assert_eq!(uri, "probing://node1/objects/worker1/task_123");
 
-        let parsed = Address::from_uri(&uri).unwrap();
-        assert_eq!(parsed.node, Some("node1".to_string()));
-        assert_eq!(parsed.worker, Some("worker1".to_string()));
-        assert_eq!(parsed.object, "task_123");
+        // Test with "probing" scheme
+        let probing_uri = addr.to_uri("probing");
+        assert_eq!(probing_uri, "probing://node1/objects/worker1/task_123");
+        let parsed_probing = Address::from_uri(&probing_uri).unwrap();
+        assert_eq!(parsed_probing.node, Some("node1".to_string()));
+        assert_eq!(parsed_probing.worker, Some("worker1".to_string()));
+        assert_eq!(parsed_probing.object, "task_123");
+        assert_eq!(addr, parsed_probing); // Roundtrip check
 
-        // Test HTTP scheme with port and namespace format
-        let http_uri = addr.to_http_uri();
+        // Test with "http" scheme
+        let http_uri = addr.to_uri("http");
         assert_eq!(http_uri, "http://node1/objects/worker1/task_123");
-
         let parsed_http = Address::from_uri(&http_uri).unwrap();
         assert_eq!(parsed_http.node, Some("node1".to_string()));
         assert_eq!(parsed_http.worker, Some("worker1".to_string()));
         assert_eq!(parsed_http.object, "task_123");
-    }
 
-    #[test]
-    fn test_uri_with_nested_object_paths() {
-        let addr = Address::new("node1", "worker1", "data/user/profile_456".to_string());
-        let uri = addr.to_probing_uri();
-        assert_eq!(uri, "probing://node1/objects/worker1/data/user/profile_456");
+        // Test with "https" scheme
+        let https_uri = addr.to_uri("https");
+        assert_eq!(https_uri, "https://node1/objects/worker1/task_123");
+        let parsed_https = Address::from_uri(&https_uri).unwrap();
+        assert_eq!(parsed_https.node, Some("node1".to_string()));
+        assert_eq!(parsed_https.worker, Some("worker1".to_string()));
+        assert_eq!(parsed_https.object, "task_123");
 
-        let parsed = Address::from_uri(&uri).unwrap();
-        assert_eq!(parsed.object, "data/user/profile_456");
+
+        // Test with nested object paths
+        let addr_nested = Address::new("node1", "worker1", "data/user/profile_456".to_string());
+        let nested_uri = addr_nested.to_uri("probing");
+        assert_eq!(nested_uri, "probing://node1/objects/worker1/data/user/profile_456");
+        let parsed_nested = Address::from_uri(&nested_uri).unwrap();
+        assert_eq!(parsed_nested.object, "data/user/profile_456");
+        assert_eq!(addr_nested, parsed_nested); // Roundtrip check
     }
 
     #[test]
@@ -420,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fromstr_with_uri_and_legacy_formats() {
+    fn test_fromstr_with_uri() {
         // Test URI format parsing
         let uri_addr = Address::from_str("probing://node1/objects/worker1/test_obj").unwrap();
         assert_eq!(uri_addr.node, Some("node1".to_string()));
@@ -429,7 +422,7 @@ mod tests {
 
         // Test display format (should use URI when possible)
         let display_str = format!("{}", uri_addr);
-        assert!(display_str.starts_with("probing://"));
+        assert_eq!(display_str, "probing://node1/objects/worker1/test_obj"); // Check full string
     }
 
     #[test]
@@ -628,41 +621,6 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_generation() {
-        let addr = Address::new("node1", "worker1", "obj1".into());
-
-        // Test legacy URI generation
-        let uri = addr.to_probing_uri();
-        assert_eq!(uri, "probing://node1/objects/worker1/obj1");
-
-        let http_uri = addr.to_http_uri();
-        assert_eq!(http_uri, "http://node1/objects/worker1/obj1");
-    }
-
-    #[test]
-    fn test_uri_parsing() {
-        // Test legacy pattern parsing (backward compatibility)
-        let uri = "probing://node1/objects/worker1/obj1";
-        let addr = Address::from_uri(uri).unwrap();
-        assert_eq!(addr.node, Some("node1".to_string()));
-        assert_eq!(addr.worker, Some("worker1".to_string()));
-        assert_eq!(addr.object, "obj1");
-    }
-
-    #[test]
-    fn test_uri_roundtrip() {
-        let original = Address::new("node1", "worker1", "nested/obj/path".into());
-
-        let uri = original.to_probing_uri();
-        let parsed = Address::from_uri(&uri).unwrap();
-        assert_eq!(original, parsed);
-
-        let uri = original.to_http_uri();
-        let parsed = Address::from_uri(&uri).unwrap();
-        assert_eq!(original, parsed);
-    }
-
-    #[test]
     fn test_invalid_uri_patterns() {
         // Test unsupported pattern
         let invalid_uri = "probing://node1/unsupported/pattern";
@@ -671,10 +629,8 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_format_display() {
+    fn test_display_trait() {
         let addr = Address::new("node1", "worker1", "obj1".into());
-
-        // Display should use namespace-based URI format by default
         let display_str = format!("{}", addr);
         assert_eq!(display_str, "probing://node1/objects/worker1/obj1");
     }
