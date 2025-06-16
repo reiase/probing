@@ -114,12 +114,11 @@ impl StackTrie {
 }
 
 /// Merges multiple stack traces into a single StackTrie.
-fn merge_stacks(stacks: Vec<&str>) -> StackTrie {
-    let all_ranks: Vec<u32> = (0..stacks.len() as u32).collect();
-    let mut trie = StackTrie::new(all_ranks);
-    for (rank, stack) in stacks.iter().enumerate() {
+fn merge_stacks(stacks: Vec<&str>, all_ranks: Vec<u32>) -> StackTrie {
+    let mut trie = StackTrie::new(all_ranks.clone());
+    for (stack, rank) in stacks.iter().zip(all_ranks) {
         let stack_frames: Vec<&str> = stack.split(';').collect();
-        trie.insert(stack_frames, rank as u32);
+        trie.insert(stack_frames, rank);
     }
     trie
 }
@@ -226,9 +225,9 @@ fn draw_frame_graph(file_path: &str) {
  - Merge stacks;
  - Generate flamegraph;
  */
-pub fn draw_frame_graph_from_json() -> io::Result<()> {
+pub fn draw_frame_graph_from_json(ranks: Vec<u32>) -> io::Result<()> {
     let input_path = PROBING_JSON_PATH;
-    let output_path = "/tmp/processed_stacks.txt";
+    let output_path = "/tmp/probing_processed_stacks_01.txt";
     process_callstacks(input_path, output_path)?;
 
     let file = File::open(output_path)?;
@@ -241,9 +240,9 @@ pub fn draw_frame_graph_from_json() -> io::Result<()> {
     }
 
     let stacks: Vec<&str> = content.lines().collect();
-    let trie = merge_stacks(stacks);
+    let trie = merge_stacks(stacks, ranks);
 
-    let output_path = "/tmp/merged_stacks.txt";
+    let output_path = "/tmp/probing_merged_stacks_02.txt";
     let mut output = File::create(output_path)?;
     for (path, rank_str) in trie.traverse_with_all_stack(&trie.root, Vec::new()) {
         writeln!(output, "{} {} 1", path.join(";"), rank_str)?;

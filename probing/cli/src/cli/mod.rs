@@ -145,11 +145,22 @@ impl Cli {
             Commands::Fetch { pairs} => {
                 if !pairs.is_empty() {
                 let mut urls: Vec<String> = Vec::new();
+                let mut ranks: Vec<u32> = Vec::new();
                 println!("Received pairs:");
                 for pair in pairs.chunks(2) {
                     if pair.len() == 2 {
                         let url = format!("http://{}/apis/pythonext/callstack", pairs[1].to_string());
                         urls.push(url);
+                        let rank = pair[0].to_string();
+                        match rank.parse::<u32>() {
+                            Ok(r) => {
+                                ranks.push(r);
+                            }
+                            Err(_) => {
+                                eprintln!("Error: Invalid rank value '{}'. It must be an integer.", pair[0]);
+                                std::process::exit(1);
+                            }
+                        }
                         println!("Rank: {}, IP:port: {}", pair[0], pair[1]);
                             
                     } else {
@@ -157,8 +168,8 @@ impl Cli {
                         std::process::exit(1);
                     }
                 }
-                fetch::fetch_and_save_urls(urls).await;
-                let _ = draw::draw_frame_graph_from_json();
+                let _ = fetch::fetch_and_save_urls(urls).await;
+                let _ = draw::draw_frame_graph_from_json(ranks);
 
                 }
                 
