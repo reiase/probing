@@ -210,7 +210,7 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()]);
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], 10);
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 
