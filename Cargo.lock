@@ -2995,7 +2995,6 @@ dependencies = [
  "criterion",
  "js-sys",
  "pco",
- "pyo3",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
