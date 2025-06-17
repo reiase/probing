@@ -163,7 +163,7 @@ impl Iterator for TimeSeriesIter<'_> {
 mod test {
     #[test]
     fn test_timeseries_create() {
-        let _ = super::TimeSeries::builder()
+        let _ = super::TimeSeries::builder(10)
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
@@ -175,7 +175,7 @@ mod test {
 
     #[test]
     fn test_timeseries_append() {
-        let mut ts = super::TimeSeries::builder()
+        let mut ts = super::TimeSeries::builder(10)
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
@@ -190,7 +190,7 @@ mod test {
     }
     #[test]
     fn test_timeseries_iter() {
-        let mut ts = super::TimeSeries::builder()
+        let mut ts = super::TimeSeries::builder(10)
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
