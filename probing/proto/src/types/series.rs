@@ -207,7 +207,9 @@ impl Series {
             if let Page::Raw(ref mut array) = slice.data {
                 T::append_to_array(array, data)?;
                 slice.length += 1;
+                println!("!!!!slice.length += 1");
                 if slice.length == self.config.chunk_size {
+                    println!("!!!!commit current slice");
                     self.commit_current_slice();
                 }
             } else {

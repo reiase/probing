@@ -43,6 +43,7 @@ impl TimeSeries {
     pub fn builder(limit: usize) -> TimeSeriesConfig {
         let ts_config = TimeSeriesConfig::default()
         .with_discard_threshold(limit)
+        .with_chunk_size(limit)
         .with_discard_strategy(DiscardStrategy::BaseElementCount);
         ts_config
     }
@@ -65,6 +66,7 @@ impl TimeSeries {
         }
         self.timestamp.append_value(timestamp)?;
         for (i, item) in values.iter().enumerate().take(self.cols.len()) {
+            println!("{} ts ready append value", i);
             self.cols[i].append_value(item.clone())?;
         }
         Ok(())
