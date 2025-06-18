@@ -12,8 +12,7 @@ pub use mem_store::MemoryStore;
 // Distributed storage exports
 pub use addressing::{Address, AddressAllocator};
 pub use distributed::{
-    ConsistencyLevel, DistributedEntityStore, DistributedMetadata, DistributedStoreCoordinator,
-    RemoteStoreClient, StorageLocation,
+    ConsistencyLevel, DistributedEntityStore, DistributedStoreCoordinator, RemoteStoreClient,
 };
 pub use remote_client::MemoryRemoteClient;
-pub use topology::{TopologyView, TopologyStats};
+pub use topology::{TopologyStats, TopologyView};

@@ -18,15 +18,15 @@ impl MemoryRemoteClient {
 
 #[async_trait]
 impl RemoteStoreClient for MemoryRemoteClient {
-    async fn save_entity(&self, key: &str, data: &[u8]) -> Result<()> {
+    async fn put(&self, key: &str, data: &[u8]) -> Result<()> {
         self.store.raw_entities_save(key.to_string(), data.to_vec()).await
     }
 
-    async fn get_entity(&self, key: &str) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
         self.store.raw_entities_get(key).await
     }
 
-    async fn delete_entity(&self, key: &str) -> Result<()> {
+    async fn del(&self, key: &str) -> Result<()> {
         self.store.raw_entities_delete(key).await
     }
 
@@ -49,15 +49,15 @@ mod tests {
         let data = b"test_data";
 
         // Test save
-        client.save_entity(key, data).await.unwrap();
+        client.put(key, data).await.unwrap();
 
         // Test get
-        let retrieved = client.get_entity(key).await.unwrap();
+        let retrieved = client.get(key).await.unwrap();
         assert_eq!(retrieved, Some(data.to_vec()));
 
         // Test delete
-        client.delete_entity(key).await.unwrap();
-        let retrieved = client.get_entity(key).await.unwrap();
+        client.del(key).await.unwrap();
+        let retrieved = client.get(key).await.unwrap();
         assert_eq!(retrieved, None);
 
         // Test health

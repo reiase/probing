@@ -15,9 +15,9 @@ use crate::core::cluster_model::{NodeId, WorkerId};
 
 #[async_trait]
 pub trait RemoteStoreClient: Send + Sync {
-    async fn save_entity(&self, key: &str, data: &[u8]) -> Result<()>;
-    async fn get_entity(&self, key: &str) -> Result<Option<Vec<u8>>>;
-    async fn delete_entity(&self, key: &str) -> Result<()>;
+    async fn put(&self, key: &str, data: &[u8]) -> Result<()>;
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>>;
+    async fn del(&self, key: &str) -> Result<()>;
     async fn is_healthy(&self) -> bool;
 }
 
@@ -79,10 +79,7 @@ impl DistributedStoreCoordinator {
         Ok(())
     }
 
-    async fn allocate_storage_addresses<T: PersistentEntity>(
-        &self,
-        entity: &T,
-    ) -> Result<Vec<Address>> {
+    async fn allocate_addresses<T: PersistentEntity>(&self, entity: &T) -> Result<Vec<Address>> {
         Ok(self
             .address_allocator
             .read()
@@ -107,11 +104,7 @@ impl DistributedStoreCoordinator {
         }
     }
 
-    async fn delete_from_locations<T: PersistentEntity>(
-        &self,
-        id: &T::Id,
-        locations: &[&Address],
-    ) -> Result<()> {
+    async fn delete<T: PersistentEntity>(&self, id: &T::Id, locations: &[&Address]) -> Result<()> {
         let key = format!("{}::{}", T::entity_type(), id.as_str());
 
         let mut results = Vec::new();
@@ -126,7 +119,7 @@ impl DistributedStoreCoordinator {
 
                 let clients = self.remote_clients.read().await;
                 if let Some(client) = clients.get(&shard_key) {
-                    client.delete_entity(&key).await
+                    client.del(&key).await
                 } else {
                     Err(anyhow!("No remote client for shard: {}", shard_key))
                 }
@@ -138,7 +131,7 @@ impl DistributedStoreCoordinator {
         Ok(())
     }
 
-    async fn write_to_locations<T: PersistentEntity>(
+    async fn write<T: PersistentEntity>(
         &self,
         entity: &T,
         locations: &[&Address],
@@ -158,7 +151,7 @@ impl DistributedStoreCoordinator {
 
                 let clients = self.remote_clients.read().await;
                 if let Some(client) = clients.get(&shard_key) {
-                    client.save_entity(&key, &serialized).await
+                    client.put(&key, &serialized).await
                 } else {
                     Err(anyhow!("No remote client for shard: {}", shard_key))
                 }
@@ -170,11 +163,7 @@ impl DistributedStoreCoordinator {
         Ok(results)
     }
 
-    async fn read_from_location<T: PersistentEntity>(
-        &self,
-        id: &T::Id,
-        location: &Address,
-    ) -> Result<Option<T>> {
+    async fn read<T: PersistentEntity>(&self, id: &T::Id, location: &Address) -> Result<Option<T>> {
         let key = format!("{}::{}", T::entity_type(), id.as_str());
 
         if location.is_local(&self.worker_id) {
@@ -186,7 +175,7 @@ impl DistributedStoreCoordinator {
 
             let clients = self.remote_clients.read().await;
             if let Some(client) = clients.get(&shard_key) {
-                if let Some(data) = client.get_entity(&key).await? {
+                if let Some(data) = client.get(&key).await? {
                     let entity: T = bincode::deserialize(&data)?;
                     Ok(Some(entity))
                 } else {
@@ -194,23 +183,6 @@ impl DistributedStoreCoordinator {
                 }
             } else {
                 Err(anyhow!("No remote client for shard: {}", shard_key))
-            }
-        }
-    }
-
-    async fn check_location_health(&self, location: &Address) -> bool {
-        if location.is_local(&self.worker_id) {
-            true
-        } else {
-            if let Some(shard_key) = location.shard_key() {
-                let clients = self.remote_clients.read().await;
-                if let Some(client) = clients.get(&shard_key) {
-                    client.is_healthy().await
-                } else {
-                    false
-                }
-            } else {
-                false
             }
         }
     }
@@ -232,25 +204,18 @@ impl DistributedStoreCoordinator {
 
 pub struct DistributedEntityStore {
     coordinator: Arc<DistributedStoreCoordinator>,
-    metadata_store: Arc<MemoryStore>,
 }
 
 impl DistributedEntityStore {
-    pub fn new(
-        coordinator: Arc<DistributedStoreCoordinator>,
-        metadata_store: Arc<MemoryStore>,
-    ) -> Self {
-        Self {
-            coordinator,
-            metadata_store,
-        }
+    pub fn new(coordinator: Arc<DistributedStoreCoordinator>) -> Self {
+        Self { coordinator }
     }
 }
 
 #[async_trait]
 impl EntityStore for DistributedEntityStore {
     async fn save<T: PersistentEntity>(&self, entity: &T) -> Result<()> {
-        let locations = self.coordinator.allocate_storage_addresses(entity).await?;
+        let locations = self.coordinator.allocate_addresses(entity).await?;
 
         let write_locations = self
             .coordinator
@@ -265,12 +230,9 @@ impl EntityStore for DistributedEntityStore {
             return Err(anyhow!("No addresses allocated for the entity."));
         }
 
-        let write_results = self
-            .coordinator
-            .write_to_locations(entity, &write_locations)
-            .await?;
+        let write_results = self.coordinator.write(entity, &write_locations).await?;
 
-        let successful_writes = write_results.iter().filter(|r| r.is_ok()).count();
+        let _writes = write_results.iter().filter(|r| r.is_ok()).count();
 
         Ok(())
     }
@@ -300,11 +262,7 @@ impl EntityStore for DistributedEntityStore {
             .allocate_replica_addresses(&addr, 3)?;
 
         for location in replicas {
-            if let Ok(Some(entity)) = self
-                .coordinator
-                .read_from_location::<T>(id, &location)
-                .await
-            {
+            if let Ok(Some(entity)) = self.coordinator.read::<T>(id, &location).await {
                 return Ok(Some(entity));
             }
         }
@@ -334,11 +292,11 @@ impl EntityStore for DistributedEntityStore {
             .await
             .allocate_replica_addresses(&addr, 3)?;
         self.coordinator
-            .delete_from_locations::<T>(
+            .delete::<T>(
                 &id,
                 replicas.iter().map(|a| a).collect::<Vec<_>>().as_slice(),
             )
-            .await;
+            .await?;
         Ok(())
     }
 
@@ -441,8 +399,7 @@ mod tests {
             1,
         );
 
-        let metadata_store = Arc::new(MemoryStore::new());
-        let store = DistributedEntityStore::new(coordinator.clone(), metadata_store);
+        let store = DistributedEntityStore::new(coordinator.clone());
 
         let job = ClusterJob {
             id: "job123".to_string(),
@@ -469,8 +426,7 @@ mod tests {
             vec![worker_id.clone()],
             1,
         );
-        let metadata_store = Arc::new(MemoryStore::new());
-        let store = DistributedEntityStore::new(coordinator.clone(), metadata_store);
+        let store = DistributedEntityStore::new(coordinator.clone());
 
         let retrieved_job: Option<ClusterJob> = store
             .get(&"nonexistentjob".to_string())
@@ -489,8 +445,7 @@ mod tests {
             vec![worker_id.clone()],
             1,
         );
-        let metadata_store = Arc::new(MemoryStore::new());
-        let store = DistributedEntityStore::new(coordinator.clone(), metadata_store);
+        let store = DistributedEntityStore::new(coordinator.clone());
 
         let job = ClusterJob {
             id: "job456".to_string(),
@@ -543,7 +498,7 @@ mod tests {
 
     #[async_trait]
     impl RemoteStoreClient for MemoryRemoteClient {
-        async fn save_entity(&self, key: &str, data: &[u8]) -> Result<()> {
+        async fn put(&self, key: &str, data: &[u8]) -> Result<()> {
             if !*self.is_healthy_state.read().await {
                 return Err(anyhow!("Simulated network error: remote client unhealthy"));
             }
@@ -573,7 +528,7 @@ mod tests {
             }
         }
 
-        async fn get_entity(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
             if !*self.is_healthy_state.read().await {
                 return Err(anyhow!("Simulated network error: remote client unhealthy"));
             }
@@ -588,7 +543,7 @@ mod tests {
             }
         }
 
-        async fn delete_entity(&self, key: &str) -> Result<()> {
+        async fn del(&self, key: &str) -> Result<()> {
             if !*self.is_healthy_state.read().await {
                 return Err(anyhow!("Simulated network error: remote client unhealthy"));
             }
