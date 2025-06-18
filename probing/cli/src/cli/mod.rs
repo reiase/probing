@@ -40,11 +40,8 @@ pub struct Cli {
     verbose: bool,
 
     /// target process, PID (e.g., 1234) for local process, and <ip>:<port> for remote process
-    #[arg()]
+    #[arg(short, long)]
     target: Option<String>,
-
-    #[arg()]
-    query: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -52,16 +49,55 @@ pub struct Cli {
 
 impl Cli {
     pub async fn run(&mut self) -> Result<()> {
-        let target = self.target.clone().unwrap_or("0".to_string());
-
-        if let Some(query) = &self.query {
-            self.command = Some(Commands::Query {
-                query: query.clone(),
-            });
+        // Handle external commands first to avoid target requirement
+        if let Some(Commands::External(args)) = &self.command {
+            return handle_external_command(&args);
         }
 
+        // Handle commands that don't need a target
+        match &self.command {
+            Some(Commands::List { verbose, tree }) => {
+                return self.handle_list_command(*verbose, *tree).await;
+            }
+            Some(Commands::Launch { recursive, args }) => {
+                return ProcessMonitor::new(args, *recursive)?.monitor().await;
+            }
+            Some(Commands::Store(cmd)) => {
+                return cmd.run().await;
+            }
+            _ => {}
+        }
+
+        // For other commands, we need a target
+        let target = self.target.clone().unwrap_or("0".to_string());
         let ctrl: ProbeEndpoint = target.as_str().try_into()?;
         self.execute_command(ctrl).await
+    }
+
+    async fn handle_list_command(&self, verbose: bool, tree: bool) -> Result<()> {
+        match ptree::collect_probe_processes().await {
+            Ok(processes) => {
+                if processes.is_empty() {
+                    println!("No processes with injected probes found.");
+                    return Ok(());
+                }
+
+                if tree {
+                    let tree_nodes = ptree::build_process_tree(processes);
+                    println!("Processes with injected probes (tree view):");
+                    ptree::print_process_tree(&tree_nodes, verbose, "");
+                } else {
+                    println!("Processes with injected probes:");
+                    for p in processes {
+                        println!("{}", ptree::format_process(&p, verbose));
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Error listing processes: {}", e);
+            }
+        }
+        Ok(())
     }
 
     async fn execute_command(&self, ctrl: ProbeEndpoint) -> Result<()> {
@@ -112,35 +148,35 @@ impl Cli {
             Commands::Backtrace { tid } => ctrl.backtrace(*tid).await,
             Commands::Eval { code } => ctrl.eval(code.clone()).await,
             Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())).await,
-            Commands::Launch { recursive, args } => {
-                ProcessMonitor::new(args, *recursive)?.monitor().await
+            // These commands are handled in run() method and don't need a target
+            Commands::Launch { .. }
+            | Commands::List { .. }
+            | Commands::Store(..)
+            | Commands::External(..) => {
+                unreachable!("These commands should be handled in run() method")
             }
-            Commands::List { verbose, tree } => {
-                match ptree::collect_probe_processes().await {
-                    Ok(processes) => {
-                        if processes.is_empty() {
-                            println!("No processes with injected probes found.");
-                            return Ok(());
-                        }
+        }
+    }
+}
 
-                        if *tree {
-                            let tree_nodes = ptree::build_process_tree(processes);
-                            println!("Processes with injected probes (tree view):");
-                            ptree::print_process_tree(&tree_nodes, *verbose, "");
-                        } else {
-                            println!("Processes with injected probes:");
-                            for p in processes {
-                                println!("{}", ptree::format_process(&p, *verbose));
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error listing processes: {}", e);
-                    }
-                }
-                Ok(())
-            }
-            Commands::Store(cmd) => cmd.run().await,
+fn handle_external_command(args: &[String]) -> Result<()> {
+    if args.is_empty() {
+        eprintln!("Command not specified. Please provide a subcommand.");
+        std::process::exit(1);
+    }
+
+    let subcommand = &args[0];
+    let external_bin = format!("myapp-{}", subcommand);
+
+    let status = std::process::Command::new(&external_bin)
+        .args(&args[1..])
+        .status();
+
+    match status {
+        Ok(exit_status) => std::process::exit(exit_status.code().unwrap_or(1)),
+        Err(e) => {
+            eprintln!("Error finding external command '{}'\n\t{}", external_bin, e);
+            std::process::exit(1);
         }
     }
 }

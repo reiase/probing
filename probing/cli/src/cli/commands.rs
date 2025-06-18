@@ -167,6 +167,9 @@ pub enum Commands {
         args: Vec<String>,
     },
 
+    #[command(external_subcommand)]
+    External(Vec<String>),
+
     /// Access various storage backends
     #[command(subcommand = false, hide = true)]
     Store(StoreCommand),
