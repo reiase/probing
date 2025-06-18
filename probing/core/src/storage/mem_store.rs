@@ -30,6 +30,10 @@ impl MemoryStore {
         self.entities.write().await.remove(key);
         Ok(())
     }
+
+    pub async fn raw_entities_contains(&self, key: &str) -> bool {
+        self.entities.read().await.contains_key(key)
+    }
 }
 
 #[async_trait]
