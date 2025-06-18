@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 
 use crate::core::cluster_model::{NodeId, WorkerId};
 
@@ -24,7 +24,7 @@ impl TopologyView {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-            
+
         Self {
             version: now,
             timestamp: now,
@@ -77,14 +77,14 @@ impl TopologyView {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-            
+
         now - self.timestamp <= ttl_seconds
     }
 
     /// 检查拓扑视图是否完整
     pub fn is_complete(&self, min_knowledge_ratio: f64) -> bool {
         let known_nodes = self.workers_per_node.len();
-        
+
         if self.estimated_total_nodes == 0 {
             return known_nodes > 0;
         }
@@ -110,7 +110,10 @@ impl TopologyView {
 
     /// 获取总worker数量
     pub fn total_workers_count(&self) -> usize {
-        self.workers_per_node.values().map(|workers| workers.len()).sum()
+        self.workers_per_node
+            .values()
+            .map(|workers| workers.len())
+            .sum()
     }
 
     /// 检查是否包含指定节点
@@ -132,7 +135,7 @@ impl TopologyView {
         if other.version > self.version {
             self.version = other.version;
         }
-        
+
         // 使用更新的时间戳
         if other.timestamp > self.timestamp {
             self.timestamp = other.timestamp;
@@ -140,7 +143,8 @@ impl TopologyView {
 
         // 合并节点信息
         for (node_id, workers) in &other.workers_per_node {
-            self.workers_per_node.insert(node_id.clone(), workers.clone());
+            self.workers_per_node
+                .insert(node_id.clone(), workers.clone());
         }
 
         // 更新预估总节点数
@@ -187,13 +191,14 @@ mod tests {
             "node1".to_string(),
             vec!["worker1".to_string(), "worker2".to_string()],
         );
-        workers_per_node.insert(
-            "node2".to_string(),
-            vec!["worker3".to_string()],
-        );
+        workers_per_node.insert("node2".to_string(), vec!["worker3".to_string()]);
         workers_per_node.insert(
             "node3".to_string(),
-            vec!["worker4".to_string(), "worker5".to_string(), "worker6".to_string()],
+            vec![
+                "worker4".to_string(),
+                "worker5".to_string(),
+                "worker6".to_string(),
+            ],
         );
         workers_per_node
     }
@@ -212,7 +217,7 @@ mod tests {
     #[test]
     fn test_empty_topology_view() {
         let topology = TopologyView::empty();
-        
+
         assert_eq!(topology.version, 0);
         assert_eq!(topology.timestamp, 0);
         assert!(topology.workers_per_node.is_empty());
@@ -248,7 +253,7 @@ mod tests {
     #[test]
     fn test_is_complete() {
         let workers_per_node = create_test_workers_map();
-        
+
         // 测试完整性检查
         let topology = TopologyView::new(workers_per_node.clone(), 3); // 3个已知节点，预估3个总节点
         assert!(topology.is_complete(1.0)); // 100%完整性
@@ -341,10 +346,10 @@ mod tests {
         let mut topology = TopologyView::new(workers_per_node, 3);
 
         let original_timestamp = topology.timestamp;
-        
+
         // 等待一小段时间确保时间戳会改变
         thread::sleep(Duration::from_millis(10));
-        
+
         topology.refresh_timestamp();
         assert!(topology.timestamp >= original_timestamp);
     }
@@ -354,7 +359,7 @@ mod tests {
         let mut workers1 = HashMap::new();
         workers1.insert("node1".to_string(), vec!["worker1".to_string()]);
         workers1.insert("node2".to_string(), vec!["worker2".to_string()]);
-        
+
         let mut workers2 = HashMap::new();
         workers2.insert("node2".to_string(), vec!["worker2_updated".to_string()]);
         workers2.insert("node3".to_string(), vec!["worker3".to_string()]);
@@ -366,27 +371,30 @@ mod tests {
 
         // 检查版本更新
         assert_eq!(topology1.version, 200);
-        
+
         // 检查节点合并
         assert_eq!(topology1.known_nodes_count(), 3);
         assert!(topology1.contains_node(&"node1".to_string()));
         assert!(topology1.contains_node(&"node2".to_string()));
         assert!(topology1.contains_node(&"node3".to_string()));
-        
+
         // 检查预估总数更新
         assert_eq!(topology1.estimated_total_nodes, 5);
-        
+
         // node2应该被更新
-        assert_eq!(topology1.get_workers(&"node2".to_string()).unwrap(), &vec!["worker2_updated".to_string()]);
+        assert_eq!(
+            topology1.get_workers(&"node2".to_string()).unwrap(),
+            &vec!["worker2_updated".to_string()]
+        );
     }
 
     #[test]
     fn test_get_stats() {
         let workers_per_node = create_test_workers_map();
         let topology = TopologyView::new(workers_per_node, 5);
-        
+
         let stats = topology.get_stats();
-        
+
         assert_eq!(stats.known_nodes, 3);
         assert_eq!(stats.total_workers, 6);
         assert_eq!(stats.estimated_total_nodes, 5);
@@ -405,7 +413,10 @@ mod tests {
         // 测试反序列化
         let deserialized: TopologyView = serde_json::from_str(&serialized).unwrap();
         assert_eq!(topology.workers_per_node, deserialized.workers_per_node);
-        assert_eq!(topology.estimated_total_nodes, deserialized.estimated_total_nodes);
+        assert_eq!(
+            topology.estimated_total_nodes,
+            deserialized.estimated_total_nodes
+        );
         assert_eq!(topology.version, deserialized.version);
         assert_eq!(topology.timestamp, deserialized.timestamp);
     }

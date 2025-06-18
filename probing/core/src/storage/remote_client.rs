@@ -11,7 +11,8 @@ pub struct MemoryRemoteClient {
 }
 
 impl MemoryRemoteClient {
-    pub fn new(store: Arc<MemoryStore>) -> Self { // Modify constructor
+    pub fn new(store: Arc<MemoryStore>) -> Self {
+        // Modify constructor
         Self { store }
     }
 }
@@ -19,7 +20,9 @@ impl MemoryRemoteClient {
 #[async_trait]
 impl RemoteStoreClient for MemoryRemoteClient {
     async fn put(&self, key: &str, data: &[u8]) -> Result<()> {
-        self.store.raw_entities_save(key.to_string(), data.to_vec()).await
+        self.store
+            .raw_entities_save(key.to_string(), data.to_vec())
+            .await
     }
 
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {

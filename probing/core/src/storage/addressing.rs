@@ -397,24 +397,18 @@ impl AddressAllocator {
             return Ok(Vec::new());
         }
 
-        let primary_worker_id = primary.worker.as_ref().ok_or_else(|| {
-            AddressError::InternalError("Primary address is missing a worker ID".to_string())
-        })?;
+        let primary_worker_id = primary.worker.clone();
 
         // Find the node of the primary worker
-        let mut primary_node_id_opt: Option<NodeId> = None;
-        for (node_id, worker_list) in &self.topology.workers_per_node {
-            if worker_list.contains(primary_worker_id) {
-                primary_node_id_opt = Some(node_id.clone());
-                break;
+        let mut primary_node_id: Option<NodeId> = None;
+        if let Some(worker_id) = primary_worker_id {
+            for (node_id, worker_list) in &self.topology.workers_per_node {
+                if worker_list.contains(&worker_id) {
+                    primary_node_id = Some(node_id.clone());
+                    break;
+                }
             }
         }
-        let primary_node_id = primary_node_id_opt.ok_or_else(|| {
-            AddressError::InternalError(format!(
-                "Node for primary worker '{}' not found in topology",
-                primary_worker_id
-            ))
-        })?;
 
         // Generate all potential (node, worker) pairs for replicas, score them, and sort.
         let mut potential_replicas: Vec<_> = self
@@ -422,7 +416,13 @@ impl AddressAllocator {
             .workers_per_node
             .iter()
             // Exclude primary node. The node_id here is the key from workers_per_node.
-            .filter(|(node_id, _workers)| *node_id != &primary_node_id)
+            .filter(|(node_id, _workers)| {
+                if let Some(primary_node_id) = primary_node_id.clone() {
+                    *node_id != &primary_node_id
+                } else {
+                    true
+                }
+            })
             .flat_map(|(node_id, workers)| {
                 // node_id is the actual NodeId
                 workers
@@ -443,7 +443,9 @@ impl AddressAllocator {
         let mut used_replica_nodes = std::collections::HashSet::new();
         // Add primary's node to prevent choosing it for a replica, though already filtered.
         // This is more of a safeguard if the filter logic changes.
-        used_replica_nodes.insert(primary_node_id);
+        if let Some(node_id) = primary_node_id {
+            used_replica_nodes.insert(node_id);
+        }
 
         for (_score, candidate_node_id, candidate_worker_id) in potential_replicas {
             if replicas.len() >= num_replicas_to_find {

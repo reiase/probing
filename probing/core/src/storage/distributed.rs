@@ -28,7 +28,7 @@ pub enum ConsistencyLevel {
     All,
 }
 
-pub struct DistributedStoreCoordinator {
+pub struct DistributedEntityStore {
     node_id: NodeId,
     worker_id: WorkerId,
     topology: Arc<RwLock<TopologyView>>,
@@ -39,7 +39,7 @@ pub struct DistributedStoreCoordinator {
     default_consistency: ConsistencyLevel,
 }
 
-impl DistributedStoreCoordinator {
+impl DistributedEntityStore {
     pub fn new(
         node_id: NodeId,
         worker_id: WorkerId,
@@ -99,29 +99,34 @@ impl DistributedStoreCoordinator {
             ConsistencyLevel::Primary => {
                 vec![&locations[0]]
             }
-            ConsistencyLevel::Quorum => locations.iter().take(1 + locations.len() / 2).collect(),
+            ConsistencyLevel::Quorum => locations.iter().take(self.default_replica_count).collect(),
             ConsistencyLevel::All => locations.iter().collect(),
         }
     }
 
-    async fn delete<T: PersistentEntity>(&self, id: &T::Id, locations: &[&Address]) -> Result<()> {
+    async fn get_remote_client(&self, location: &Address) -> Result<Arc<dyn RemoteStoreClient>> {
+        let shard_key = location
+            .shard_key()
+            .ok_or_else(|| anyhow!("Invalid address for remote operation"))?;
+        let clients = self.remote_clients.read().await;
+        clients
+            .get(&shard_key)
+            .cloned()
+            .ok_or_else(|| anyhow!("No remote client for shard: {}", shard_key))
+    }
+
+    async fn remove<T: PersistentEntity>(&self, id: &T::Id, locations: &[&Address]) -> Result<()> {
         let key = format!("{}::{}", T::entity_type(), id.as_str());
 
         let mut results = Vec::new();
 
         for location in locations {
             let result = if location.is_local(&self.worker_id) {
-                self.local_store.delete::<T>(id).await
+                self.local_store.del::<T>(id).await
             } else {
-                let shard_key = location
-                    .shard_key()
-                    .ok_or_else(|| anyhow!("Invalid address for remote write"))?;
-
-                let clients = self.remote_clients.read().await;
-                if let Some(client) = clients.get(&shard_key) {
-                    client.del(&key).await
-                } else {
-                    Err(anyhow!("No remote client for shard: {}", shard_key))
+                match self.get_remote_client(location).await {
+                    Ok(client) => client.del(&key).await,
+                    Err(e) => Err(e),
                 }
             };
 
@@ -143,17 +148,11 @@ impl DistributedStoreCoordinator {
 
         for location in locations {
             let result = if location.is_local(&self.worker_id) {
-                self.local_store.save(entity).await
+                self.local_store.put(entity).await
             } else {
-                let shard_key = location
-                    .shard_key()
-                    .ok_or_else(|| anyhow!("Invalid address for remote write"))?;
-
-                let clients = self.remote_clients.read().await;
-                if let Some(client) = clients.get(&shard_key) {
-                    client.put(&key, &serialized).await
-                } else {
-                    Err(anyhow!("No remote client for shard: {}", shard_key))
+                match self.get_remote_client(location).await {
+                    Ok(client) => client.put(&key, &serialized).await,
+                    Err(e) => Err(e),
                 }
             };
 
@@ -169,26 +168,18 @@ impl DistributedStoreCoordinator {
         if location.is_local(&self.worker_id) {
             self.local_store.get::<T>(id).await
         } else {
-            let shard_key = location
-                .shard_key()
-                .ok_or_else(|| anyhow!("Invalid address for remote read"))?;
-
-            let clients = self.remote_clients.read().await;
-            if let Some(client) = clients.get(&shard_key) {
-                if let Some(data) = client.get(&key).await? {
-                    let entity: T = bincode::deserialize(&data)?;
-                    Ok(Some(entity))
-                } else {
-                    Ok(None)
-                }
+            let client = self.get_remote_client(location).await?;
+            if let Some(data) = client.get(&key).await? {
+                let entity: T = bincode::deserialize(&data)?;
+                Ok(Some(entity))
             } else {
-                Err(anyhow!("No remote client for shard: {}", shard_key))
+                Ok(None)
             }
         }
     }
 }
 
-impl DistributedStoreCoordinator {
+impl DistributedEntityStore {
     pub fn node_id(&self) -> &NodeId {
         &self.node_id
     }
@@ -202,24 +193,19 @@ impl DistributedStoreCoordinator {
     }
 }
 
-pub struct DistributedEntityStore {
-    coordinator: Arc<DistributedStoreCoordinator>,
-}
-
-impl DistributedEntityStore {
-    pub fn new(coordinator: Arc<DistributedStoreCoordinator>) -> Self {
-        Self { coordinator }
-    }
-}
-
 #[async_trait]
 impl EntityStore for DistributedEntityStore {
-    async fn save<T: PersistentEntity>(&self, entity: &T) -> Result<()> {
-        let locations = self.coordinator.allocate_addresses(entity).await?;
+    async fn put<T: PersistentEntity>(&self, entity: &T) -> Result<()> {
+        let locations = self.allocate_addresses(entity).await?;
 
-        let write_locations = self
-            .coordinator
-            .select_write_locations(&locations, &self.coordinator.default_consistency);
+        let write_locations = self.select_write_locations(&locations, &self.default_consistency);
+
+        println!(
+            "Write locations for entity {}: {:?}\n\t{:?}",
+            entity.id(),
+            write_locations,
+            locations
+        );
 
         if write_locations.is_empty() && !locations.is_empty() {
             return Err(anyhow!(
@@ -230,7 +216,7 @@ impl EntityStore for DistributedEntityStore {
             return Err(anyhow!("No addresses allocated for the entity."));
         }
 
-        let write_results = self.coordinator.write(entity, &write_locations).await?;
+        let write_results = self.write(entity, &write_locations).await?;
 
         let _writes = write_results.iter().filter(|r| r.is_ok()).count();
 
@@ -238,13 +224,8 @@ impl EntityStore for DistributedEntityStore {
     }
 
     async fn get<T: PersistentEntity>(&self, id: &T::Id) -> Result<Option<T>> {
-        if self
-            .coordinator
-            .local_store
-            .raw_entities_contains(id.as_str())
-            .await
-        {
-            if let Some(entity) = self.coordinator.local_store.get::<T>(id).await? {
+        if self.local_store.raw_entities_contains(id.as_str()).await {
+            if let Some(entity) = self.local_store.get::<T>(id).await? {
                 return Ok(Some(entity));
             }
         }
@@ -255,14 +236,13 @@ impl EntityStore for DistributedEntityStore {
         };
 
         let replicas = self
-            .coordinator
             .address_allocator
             .read()
             .await
             .allocate_replica_addresses(&addr, 3)?;
 
         for location in replicas {
-            if let Ok(Some(entity)) = self.coordinator.read::<T>(id, &location).await {
+            if let Ok(Some(entity)) = self.read::<T>(id, &location).await {
                 return Ok(Some(entity));
             }
         }
@@ -270,14 +250,9 @@ impl EntityStore for DistributedEntityStore {
         Ok(None)
     }
 
-    async fn delete<T: PersistentEntity>(&self, id: &T::Id) -> Result<()> {
-        if self
-            .coordinator
-            .local_store
-            .raw_entities_contains(id.as_str())
-            .await
-        {
-            self.coordinator.local_store.delete::<T>(id).await?;
+    async fn del<T: PersistentEntity>(&self, id: &T::Id) -> Result<()> {
+        if self.local_store.raw_entities_contains(id.as_str()).await {
+            self.local_store.del::<T>(id).await?;
         }
 
         let addr = Address {
@@ -286,33 +261,20 @@ impl EntityStore for DistributedEntityStore {
         };
 
         let replicas = self
-            .coordinator
             .address_allocator
             .read()
             .await
             .allocate_replica_addresses(&addr, 3)?;
-        self.coordinator
-            .delete::<T>(
-                &id,
-                replicas.iter().map(|a| a).collect::<Vec<_>>().as_slice(),
-            )
-            .await?;
+        self.remove::<T>(
+            &id,
+            replicas.iter().map(|a| a).collect::<Vec<_>>().as_slice(),
+        )
+        .await?;
         Ok(())
     }
 
-    async fn find_by_index<T: PersistentEntity>(
-        &self,
-        index_name: &str,
-        index_value: &str,
-    ) -> Result<Vec<T>> {
-        self.coordinator
-            .local_store()
-            .find_by_index(index_name, index_value)
-            .await
-    }
-
     async fn list_all<T: PersistentEntity>(&self) -> Result<Vec<T>> {
-        self.coordinator.local_store().list_all().await
+        self.local_store().list_all().await
     }
 
     async fn list_paginated<T: PersistentEntity>(
@@ -320,18 +282,15 @@ impl EntityStore for DistributedEntityStore {
         limit: usize,
         offset: usize,
     ) -> Result<(Vec<T>, bool)> {
-        self.coordinator
-            .local_store()
-            .list_paginated(limit, offset)
-            .await
+        self.local_store().list_paginated(limit, offset).await
     }
 }
 
 impl fmt::Debug for DistributedEntityStore {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DistributedEntityStore")
-            .field("coordinator_node_id", &self.coordinator.node_id)
-            .field("coordinator_worker_id", &self.coordinator.worker_id)
+            .field("coordinator_node_id", &self.node_id)
+            .field("coordinator_worker_id", &self.worker_id)
             .finish()
     }
 }
@@ -368,18 +327,18 @@ mod tests {
         }
     }
 
-    fn setup_coordinator(
+    fn setup_store(
         node_id: NodeId,
         worker_id: WorkerId,
         workers_on_node: Vec<WorkerId>,
         replica_count: usize,
-    ) -> Arc<DistributedStoreCoordinator> {
+    ) -> Arc<DistributedEntityStore> {
         let mut workers_map = HashMap::new();
         workers_map.insert(node_id.clone(), workers_on_node);
         let topology = TopologyView::new(workers_map, replica_count);
         let local_store = Arc::new(MemoryStore::new());
 
-        Arc::new(DistributedStoreCoordinator::new(
+        Arc::new(DistributedEntityStore::new(
             node_id,
             worker_id,
             topology,
@@ -388,18 +347,15 @@ mod tests {
         ))
     }
 
-    #[tokio::test]
-    async fn test_save_and_get_entity_locally() {
+    fn setup_default_store() -> Arc<DistributedEntityStore> {
         let node_id = "node1".to_string();
         let worker_id = "worker1".to_string();
-        let coordinator = setup_coordinator(
-            node_id.clone(),
-            worker_id.clone(),
-            vec![worker_id.clone()],
-            1,
-        );
+        setup_store(node_id.clone(), worker_id.clone(), vec![worker_id], 1)
+    }
 
-        let store = DistributedEntityStore::new(coordinator.clone());
+    #[tokio::test]
+    async fn test_save_and_get_entity_locally() {
+        let store = setup_default_store();
 
         let job = ClusterJob {
             id: "job123".to_string(),
@@ -408,7 +364,7 @@ mod tests {
             status: "Pending".to_string(),
         };
 
-        store.save(&job).await.expect("Failed to save job");
+        store.put(&job).await.expect("Failed to save job");
 
         let retrieved_job: Option<ClusterJob> =
             store.get(&job.id).await.expect("Failed to get job");
@@ -418,15 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_entity_not_found() {
-        let node_id = "node1".to_string();
-        let worker_id = "worker1".to_string();
-        let coordinator = setup_coordinator(
-            node_id.clone(),
-            worker_id.clone(),
-            vec![worker_id.clone()],
-            1,
-        );
-        let store = DistributedEntityStore::new(coordinator.clone());
+        let store = setup_default_store();
 
         let retrieved_job: Option<ClusterJob> = store
             .get(&"nonexistentjob".to_string())
@@ -437,15 +385,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_save_and_delete_entity() {
-        let node_id = "node1".to_string();
-        let worker_id = "worker1".to_string();
-        let coordinator = setup_coordinator(
-            node_id.clone(),
-            worker_id.clone(),
-            vec![worker_id.clone()],
-            1,
-        );
-        let store = DistributedEntityStore::new(coordinator.clone());
+        let store = setup_default_store();
 
         let job = ClusterJob {
             id: "job456".to_string(),
@@ -455,7 +395,7 @@ mod tests {
         };
 
         store
-            .save(&job)
+            .put(&job)
             .await
             .expect("Failed to save job for deletion test");
         let retrieved_job: Option<ClusterJob> = store
@@ -465,7 +405,7 @@ mod tests {
         assert!(retrieved_job.is_some(), "Job should exist before deletion");
 
         store
-            .delete::<ClusterJob>(&job.id)
+            .del::<ClusterJob>(&job.id)
             .await
             .expect("Failed to delete job");
         let retrieved_job_after_delete: Option<ClusterJob> = store
@@ -476,91 +416,5 @@ mod tests {
             retrieved_job_after_delete.is_none(),
             "Job should not exist after deletion"
         );
-    }
-
-    struct MemoryRemoteClient {
-        remote_store: Arc<MemoryStore>,
-        is_healthy_state: Arc<RwLock<bool>>,
-    }
-
-    impl MemoryRemoteClient {
-        fn new(store: Arc<MemoryStore>) -> Self {
-            Self {
-                remote_store: store,
-                is_healthy_state: Arc::new(RwLock::new(true)),
-            }
-        }
-        #[allow(dead_code)]
-        async fn set_healthy(&self, healthy: bool) {
-            *self.is_healthy_state.write().await = healthy;
-        }
-    }
-
-    #[async_trait]
-    impl RemoteStoreClient for MemoryRemoteClient {
-        async fn put(&self, key: &str, data: &[u8]) -> Result<()> {
-            if !*self.is_healthy_state.read().await {
-                return Err(anyhow!("Simulated network error: remote client unhealthy"));
-            }
-            let parts: Vec<&str> = key.splitn(2, "::").collect();
-            if parts.len() == 2 {
-                #[derive(Serialize, Deserialize, Clone, Debug)]
-                struct RemoteStoredData(Vec<u8>);
-                impl PersistentEntity for RemoteStoredData {
-                    type Id = String;
-                    fn entity_type() -> &'static str {
-                        "__remote_bytes__"
-                    }
-                    fn id(&self) -> &Self::Id {
-                        panic!("MemoryRemoteClient save_entity mock needs better ID handling for PersistentEntity");
-                    }
-                }
-                let _ = self
-                    .remote_store
-                    .raw_entities_save(key.to_string(), data.to_vec())
-                    .await;
-                Ok(())
-            } else {
-                Err(anyhow!(
-                    "Invalid key format for MemoryRemoteClient: {}",
-                    key
-                ))
-            }
-        }
-
-        async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
-            if !*self.is_healthy_state.read().await {
-                return Err(anyhow!("Simulated network error: remote client unhealthy"));
-            }
-            let parts: Vec<&str> = key.splitn(2, "::").collect();
-            if parts.len() == 2 {
-                Ok(self.remote_store.raw_entities_get(key).await?)
-            } else {
-                Err(anyhow!(
-                    "Invalid key format for MemoryRemoteClient: {}",
-                    key
-                ))
-            }
-        }
-
-        async fn del(&self, key: &str) -> Result<()> {
-            if !*self.is_healthy_state.read().await {
-                return Err(anyhow!("Simulated network error: remote client unhealthy"));
-            }
-            let parts: Vec<&str> = key.splitn(2, "::").collect();
-            if parts.len() == 2 {
-                let _ = self.remote_store.raw_entities_delete(key).await;
-                Ok(())
-            } else {
-                Err(anyhow!(
-                    "Invalid key format for MemoryRemoteClient: {}",
-                    key
-                ))
-            }
-        }
-
-        async fn is_healthy(&self) -> bool {
-            *self.is_healthy_state.read().await
-        }
     }
 }

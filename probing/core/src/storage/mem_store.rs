@@ -38,7 +38,7 @@ impl MemoryStore {
 
 #[async_trait]
 impl EntityStore for MemoryStore {
-    async fn save<T: PersistentEntity>(&self, entity: &T) -> Result<()> {
+    async fn put<T: PersistentEntity>(&self, entity: &T) -> Result<()> {
         let key = format!("{}::{}", T::entity_type(), entity.id().as_str());
         let value = bincode::serialize(entity)?;
 
@@ -57,36 +57,10 @@ impl EntityStore for MemoryStore {
         }
     }
 
-    async fn delete<T: PersistentEntity>(&self, id: &T::Id) -> Result<()> {
+    async fn del<T: PersistentEntity>(&self, id: &T::Id) -> Result<()> {
         let key = format!("{}::{}", T::entity_type(), id.as_str());
         self.entities.write().await.remove(&key);
         Ok(())
-    }
-
-    async fn find_by_index<T: PersistentEntity>(
-        &self,
-        index_name: &str,
-        index_value: &str,
-    ) -> Result<Vec<T>> {
-        let entities = self.entities.read().await;
-        let prefix = format!("{}::", T::entity_type());
-
-        let mut result = Vec::new();
-
-        for (key, value) in entities.iter() {
-            if key.starts_with(&prefix) {
-                if let Ok(entity) = bincode::deserialize::<T>(value) {
-                    for (idx_name, idx_value) in entity.index_keys() {
-                        if idx_name == index_name && idx_value == index_value {
-                            result.push(entity);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(result)
     }
 
     async fn list_all<T: PersistentEntity>(&self) -> Result<Vec<T>> {
