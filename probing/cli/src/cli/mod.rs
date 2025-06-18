@@ -13,10 +13,27 @@ mod ptree;
 
 use crate::cli::ctrl::ProbeEndpoint;
 use commands::Commands;
+use once_cell::sync::Lazy;
+
+fn get_build_info() -> String {
+    let mut info = "0.2.0".to_string();
+
+    if let Some(timestamp) = option_env!("VERGEN_BUILD_TIMESTAMP") {
+        info.push_str(&format!("\nBuild Timestamp: {}", timestamp));
+    }
+
+    if let Some(rustc_version) = option_env!("VERGEN_RUSTC_SEMVER") {
+        info.push_str(&format!("\nrustc version: {}", rustc_version));
+    }
+
+    info
+}
+
+static BUILD_INFO: Lazy<String> = Lazy::new(|| get_build_info());
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]
-#[command(version = "0.2.0")]
+#[command(version = BUILD_INFO.as_str())]
 pub struct Cli {
     /// Enable verbose mode
     #[arg(short, long, global = true)]
@@ -99,7 +116,7 @@ impl Cli {
                 ProcessMonitor::new(args, *recursive)?.monitor().await
             }
             Commands::List { verbose, tree } => {
-                match ptree::collect_probe_processes() {
+                match ptree::collect_probe_processes().await {
                     Ok(processes) => {
                         if processes.is_empty() {
                             println!("No processes with injected probes found.");
@@ -107,28 +124,13 @@ impl Cli {
                         }
 
                         if *tree {
-                            // Build and display process tree
                             let tree_nodes = ptree::build_process_tree(processes);
                             println!("Processes with injected probes (tree view):");
-                            ptree::print_process_tree(&tree_nodes, *verbose, "", true);
+                            ptree::print_process_tree(&tree_nodes, *verbose, "");
                         } else {
-                            // Display flat list
                             println!("Processes with injected probes:");
-                            for process in processes {
-                                if *verbose {
-                                    println!(
-                                        "PID {} ({}): {}",
-                                        process.pid,
-                                        if let Some(socket) = &process.socket_name {
-                                            socket
-                                        } else {
-                                            "-"
-                                        },
-                                        process.cmd
-                                    );
-                                } else {
-                                    println!("PID {}: {}", process.pid, process.cmd);
-                                }
+                            for p in processes {
+                                println!("{}", ptree::format_process(&p, *verbose));
                             }
                         }
                     }
