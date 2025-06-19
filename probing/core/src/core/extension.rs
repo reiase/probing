@@ -215,30 +215,29 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 /// # Examples
 ///
 /// ```rust
-/// use std::sync::{Arc, Mutex};
+/// use std::sync::Arc;
+/// use tokio::sync::Mutex;
 /// use probing_core::core::EngineExtensionManager;
-/// use probing_core::core::{EngineExtension, EngineExtensionOption};
-/// use probing_core::core::EngineCall;
-/// use probing_core::core::EngineDatasource;
-/// use probing_core::core::EngineError;
+/// use probing_core::core::{EngineExtension, EngineExtensionOption, EngineCall, EngineDatasource, EngineError};
 ///
 /// #[derive(Debug)]
 /// struct MyExtension {
 ///     some_option: String
 /// }
 ///
+/// // MyExtension needs to implement EngineCall and EngineDatasource.
+/// // These traits have default implementations for their methods if not overridden.
 /// impl EngineCall for MyExtension {}
-///
 /// impl EngineDatasource for MyExtension {}
 ///
 /// impl EngineExtension for MyExtension {
 ///     fn name(&self) -> String {
-///         "my_extension".to_string()
+///         "my_extension".to_string() // This name is used to form the option namespace
 ///     }
 ///
 ///     fn set(&mut self, key: &str, value: &str) -> Result<String, EngineError> {
 ///         match key {
-///             "some_option" => {
+///             "some_option" => { // This is the local option key within the extension
 ///                 let old = self.some_option.clone();
 ///                 self.some_option = value.to_string();
 ///                 Ok(old)
@@ -249,7 +248,7 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 ///
 ///     fn get(&self, key: &str) -> Result<String, EngineError> {
 ///         match key {
-///             "some_option" => Ok(self.some_option.clone()),
+///             "some_option" => Ok(self.some_option.clone()), // Local option key
 ///             _ => Err(EngineError::UnsupportedOption(key.to_string()))
 ///         }
 ///     }
@@ -257,7 +256,7 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 ///     fn options(&self) -> Vec<EngineExtensionOption> {
 ///         vec![
 ///             EngineExtensionOption {
-///                 key: "some_option".to_string(),
+///                 key: "some_option".to_string(), // Local option key
 ///                 value: Some(self.some_option.clone()),
 ///                 help: "An example option"
 ///             }
@@ -265,16 +264,39 @@ pub trait EngineExtension: Debug + Send + Sync + EngineCall + EngineDatasource {
 ///     }
 /// }
 ///
-/// let mut manager = EngineExtensionManager::default();
-/// // Register extensions
-/// manager.register(Arc::new(Mutex::new(MyExtension { some_option: "default".to_string() })));
+/// // This example demonstrates usage within an async context.
+/// # async fn manager_usage_example() -> Result<(), EngineError> {
+///     let mut manager = EngineExtensionManager::default();
+///     // Register extensions. The first argument "my_ext_instance_key" is an internal key for the manager
+///     // and does not directly affect option key formation for set_option/get_option.
+///     manager.register(
+///         "my_ext_instance_key".to_string(),
+///         Arc::new(Mutex::new(MyExtension { some_option: "default".to_string() }))
+///     );
 ///
-/// // Configure extensions
-/// manager.set_option("some_option", "new").unwrap();
-/// assert_eq!(manager.get_option("some_option").unwrap(), "new");
+///     // Configure extensions. The option key is "<extension_name>.<local_option_key>".
+///     // MyExtension::name() returns "my_extension". The local key is "some_option".
+///     // The manager derives the namespace "my_extension." from MyExtension::name().
+///     manager.set_option("my_extension.some_option", "new").await?;
+///     assert_eq!(manager.get_option("my_extension.some_option").await?, "new");
 ///
-/// // List all available options
-/// let options = manager.options();
+///     // List all available options. manager.options() returns options with their local keys.
+///     let options_list = manager.options().await;
+///     assert!(!options_list.is_empty(), "Options list should not be empty");
+///     if !options_list.is_empty() {
+///         assert_eq!(options_list[0].key, "some_option"); // Key is "some_option" as returned by MyExtension::options
+///         assert_eq!(options_list[0].value, Some("new".to_string())); // Value reflects the update
+///     }
+///     Ok(())
+/// # }
+///
+/// // To run this example (e.g., in a test or main function):
+/// // fn main() {
+/// //     let rt = tokio::runtime::Runtime::new().unwrap();
+/// //     rt.block_on(manager_usage_example()).unwrap();
+/// // }
+/// // Or if used in a #[tokio::test] or #[tokio::main] annotated function:
+/// // manager_usage_example().await.unwrap();
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct EngineExtensionManager {

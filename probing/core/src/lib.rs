@@ -1,5 +1,6 @@
 pub mod config;
 pub mod core;
+pub mod storage;
 pub mod trace;
 
 use self::core::Engine;

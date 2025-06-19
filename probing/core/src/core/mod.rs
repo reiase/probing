@@ -1,4 +1,5 @@
 pub mod cluster;
+pub mod cluster_model;
 mod engine;
 mod error;
 pub mod extension;
