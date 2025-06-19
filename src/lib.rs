@@ -81,15 +81,17 @@ fn setup() {
                             .parse()
                             .unwrap_or(0);
                         let serving_port = port_number.saturating_add(local_rank);
-
-                        let hostname = if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
-                            "0.0.0.0".to_string()
-                        } else {
-                            get_hostname().unwrap_or_else(|err| {
-                                log::warn!("Failed to get hostname: {}, defaulting to localhost", err);
-                                "localhost".to_string()
-                            })
-                        };
+                        // let hostname = if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
+                        //     "0.0.0.0".to_string()
+                        // } else {
+                        //     get_hostname().unwrap_or_else(|err| {
+                        //         log::warn!("Failed to get hostname: {}, defaulting to localhost", err);
+                        //         "localhost".to_string()
+                        //     })
+                        // };
+                        
+                        // 所有rank都绑定到0.0.0.0，而不是只有rank=0
+                        let hostname = "0.0.0.0".to_string();
                         std::env::set_var("PROBING_SERVER_ADDR", format!("'{}:{}'", hostname, serving_port));
                         log::debug!(
                             "PROBING_SERVER_ADDR set to {}:{} (base: {}, local_rank: {}).",
