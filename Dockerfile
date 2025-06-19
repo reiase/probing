@@ -21,7 +21,7 @@ RUN CARGO_ZIGBUILD_ZIG_PATH=/usr/local/zig/zig cargo zigbuild --target x86_64-un
 RUN CARGO_ZIGBUILD_ZIG_PATH=/usr/local/zig/zig cargo zigbuild --target x86_64-unknown-linux-gnu -r --package probing-cli
 
 
-FROM 10.200.53.208/public/xmegatron:v1.3.0
+FROM 10.200.53.208/public/xmegatron:v1.2.0
 ARG TARGET_DIR=target/x86_64-unknown-linux-gnu/release/
 RUN [ -d "$TARGET_DIR" ] || mkdir -p "$TARGET_DIR"
 COPY --from=builder /workspace/target/x86_64-unknown-linux-gnu/release/libprobing.so $TARGET_DIR

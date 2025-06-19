@@ -25,3 +25,4 @@ pkg/
 .VSCodeCounter/
 *.pyc
 venv/
+*.docx
