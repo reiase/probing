@@ -11,7 +11,7 @@ API_BASE_URL = "http://logi-core.hecp:32245/api"
 JOB_UNIQUE_ID = datetime.now().strftime("%Y%m%d%H%M%S%f") # Timestamp-based ID
 JOB_ID = os.getenv('JOB_NAME', 'unknown_job')
 POD_IP = os.getenv('POD_IP')
-group_rank = os.getenv('GROUP_RANK')
+rank = os.getenv('RANK')
 
 def start_job_hook():
     """
@@ -20,13 +20,13 @@ def start_job_hook():
     print("Job tracker: start_job_hook called.")
     world_size = os.getenv('WORLD_SIZE', 'N/A')
     local_rank = os.getenv('LOCAL_RANK', '0')
-    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, GroupRank={group_rank}, LocalRank={local_rank}, PodIP={POD_IP}")
+    print(f"Job started: ID={JOB_ID}, TimestampID={JOB_UNIQUE_ID}, WorldSize={world_size}, Rank={rank}, LocalRank={local_rank}, PodIP={POD_IP}")
     data = {
             "jobId": JOB_ID,
             "timestamp": datetime.now().timestamp() * 1_000_000,
             "worldSize": world_size,
             "uuid": JOB_UNIQUE_ID,
-            "rank": group_rank,
+            "rank": rank,
             "podIp": POD_IP,
             "port":int(local_rank)+80
         }
