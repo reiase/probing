@@ -79,7 +79,7 @@ env_logger = { version = "0.11.6", default-features = false, features = [
     "humantime",
 ] }
 nix = { workspace = true }
-mimalloc = { version = "0.1.46", optional = true }
+mimalloc = { version = "0.1.47", optional = true }
 
 [dev-dependencies]
 # probing-cli = { path = "probing/cli" }

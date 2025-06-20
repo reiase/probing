@@ -82,18 +82,28 @@ fn setup() {
                             .unwrap_or(0);
                         let serving_port = port_number.saturating_add(local_rank);
 
-                        let hostname = if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
-                            "0.0.0.0".to_string()
-                        } else {
-                            get_hostname().unwrap_or_else(|err| {
-                                log::warn!("Failed to get hostname: {}, defaulting to localhost", err);
-                                "localhost".to_string()
-                            })
-                        };
-                        std::env::set_var("PROBING_SERVER_ADDR", format!("'{}:{}'", hostname, serving_port));
+                        let hostname =
+                            if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
+                                "0.0.0.0".to_string()
+                            } else {
+                                get_hostname().unwrap_or_else(|err| {
+                                    log::warn!(
+                                        "Failed to get hostname: {}, defaulting to localhost",
+                                        err
+                                    );
+                                    "localhost".to_string()
+                                })
+                            };
+                        std::env::set_var(
+                            "PROBING_SERVER_ADDR",
+                            format!("'{}:{}'", hostname, serving_port),
+                        );
                         log::debug!(
                             "PROBING_SERVER_ADDR set to {}:{} (base: {}, local_rank: {}).",
-                            hostname, serving_port, port_number, local_rank
+                            hostname,
+                            serving_port,
+                            port_number,
+                            local_rank
                         );
                     }
                     Err(_) => {
@@ -115,7 +125,8 @@ fn setup() {
     // Setup reporting address only if a base port was determined (specific port, not RANDOM)
     if let Some(base_port_for_reporting) = report_port_basis {
         if let Ok(master_addr) = std::env::var("MASTER_ADDR") {
-            if !master_addr.is_empty() { // Ensure MASTER_ADDR is not empty
+            if !master_addr.is_empty() {
+                // Ensure MASTER_ADDR is not empty
                 log::debug!("Configuring PROBING_SERVER_REPORT_ADDR to {}:{} based on MASTER_ADDR and base port", master_addr, base_port_for_reporting);
                 std::env::set_var(
                     "PROBING_SERVER_REPORT_ADDR",
