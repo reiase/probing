@@ -25,7 +25,9 @@ use pyo3::types::PyModuleMethods;
 use probing_core::ENGINE;
 use probing_proto::prelude::CallFrame;
 
-pub static CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
+pub static NATIVE_CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
+    Lazy::new(|| Mutex::new(None));
+pub static PYTHON_CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
     Lazy::new(|| Mutex::new(None));
 
 use cpp_demangle::Symbol;
@@ -68,18 +70,21 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
 
 // Helper function to check for Python evaluation frames in the native stack
 fn does_native_stack_contain_python_eval_frames(native_frames: &[CallFrame]) -> bool {
-    native_frames.iter().any(|frame| {
-        if let CallFrame::CFrame { func, .. } = frame {
-            func.contains("PyEval_EvalFrameDefault") || func.contains("PyEval_EvalFrameEx")
-        } else {
-            false
-        }
-    })
+    PYTHON_CALLSTACK_SENDER_SLOT
+        .try_lock()
+        .map_or(false, |guard| guard.is_some())
+        && native_frames.iter().any(|frame| {
+            if let CallFrame::CFrame { func, .. } = frame {
+                func.contains("PyEval_EvalFrameDefault") || func.contains("PyEval_EvalFrameEx")
+            } else {
+                false
+            }
+        })
 }
 
 // Helper function to attempt sending frames, returns true on success, false on failure.
-fn try_send_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool {
-    match CALLSTACK_SENDER_SLOT.try_lock() {
+fn try_send_native_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool {
+    match NATIVE_CALLSTACK_SENDER_SLOT.try_lock() {
         Ok(guard) => {
             if let Some(sender) = guard.as_ref() {
                 if sender.send(frames).is_ok() {
@@ -89,13 +94,39 @@ fn try_send_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool
                     false
                 }
             } else {
-                error!("No active callstack sender found for {}.", context_msg);
-                false
+                log::trace!("No active callstack sender found for {}.", context_msg);
+                true
             }
         }
         Err(e) => {
             error!(
-                "Failed to lock CALLSTACK_SENDER_SLOT for {}: {}",
+                "Failed to lock NATIVE_CALLSTACK_SENDER_SLOT for {}: {}",
+                context_msg, e
+            );
+            false
+        }
+    }
+}
+
+// Helper function to attempt sending frames, returns true on success, false on failure.
+fn try_send_python_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool {
+    match PYTHON_CALLSTACK_SENDER_SLOT.try_lock() {
+        Ok(guard) => {
+            if let Some(sender) = guard.as_ref() {
+                if sender.send(frames).is_ok() {
+                    true
+                } else {
+                    error!("Failed to send frames for {} via channel.", context_msg);
+                    false
+                }
+            } else {
+                log::trace!("No active callstack sender found for {}.", context_msg);
+                true
+            }
+        }
+        Err(e) => {
+            error!(
+                "Failed to lock PYTHON_CALLSTACK_SENDER_SLOT for {}: {}",
                 context_msg, e
             );
             false
@@ -104,21 +135,21 @@ fn try_send_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool
 }
 
 extern "C" fn py_collect_and_send_python_stack_wrapper(_arg: *mut std::ffi::c_void) -> i32 {
-    let python_stacks = get_python_stacks().unwrap_or_default();
-    try_send_frames_to_channel(python_stacks, "Python stacks (pending call)");
+    let python_stacks = get_python_stacks(None).unwrap_or_default();
+    try_send_python_frames_to_channel(python_stacks, "Python stacks (pending call)");
     0
 }
 
 pub fn backtrace_signal_handler() {
     let native_stacks = get_native_stacks().unwrap_or_default();
-    let has_native_stacks = does_native_stack_contain_python_eval_frames(&native_stacks);
+    let has_python_context = does_native_stack_contain_python_eval_frames(&native_stacks);
 
-    if !try_send_frames_to_channel(native_stacks, "native stacks (initial send)") {
+    if !try_send_native_frames_to_channel(native_stacks, "native stacks (initial send)") {
         error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");
         return;
     }
 
-    if has_native_stacks {
+    if has_python_context {
         unsafe {
             if pyo3::ffi::Py_AddPendingCall(
                 Some(py_collect_and_send_python_stack_wrapper),
@@ -126,7 +157,7 @@ pub fn backtrace_signal_handler() {
             ) == -1
             {
                 error!("Signal handler: Failed to schedule Py_AddPendingCall. Sending empty Vec for Python part as fallback.");
-                if !try_send_frames_to_channel(
+                if !try_send_python_frames_to_channel(
                     Vec::new(),
                     "Python stacks (fallback due to Py_AddPendingCall failure)",
                 ) {
@@ -135,7 +166,7 @@ pub fn backtrace_signal_handler() {
             }
         }
     } else {
-        if !try_send_frames_to_channel(Vec::new(), "Python stacks (no Python context)") {
+        if !try_send_python_frames_to_channel(Vec::new(), "Python stacks (no Python context)") {
             error!(
                 "Signal handler: Failed to send Python part (no context). Receiver might be stuck."
             );

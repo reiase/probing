@@ -35,6 +35,8 @@ def get_threads():
 
 stacks = []
 frames = sys._current_frames()
+tid, nid = get_threads(), tid
+
 if tid in frames:
     curr = frames[tid]
     while curr is not None:
