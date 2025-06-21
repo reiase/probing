@@ -22,7 +22,7 @@ description = "Performance and Stability Diagnostic Tool for AI Applications"
 [workspace.dependencies]
 anyhow = "1.0"
 arrow = { version = "55.1.0", default-features = false, features = ["csv"] }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 nix = { version = "0.30.1", default-features = false, features = [
     "ptrace",
