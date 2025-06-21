@@ -3,8 +3,12 @@ use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 use probing_proto::prelude::{Ele, TimeSeries};
-use pyo3::types::PyType;
+use probing_proto::types::series::DiscardStrategy;
+use pyo3::prelude::*;
+use pyo3::types::{PyType, PyDict};
+use pyo3::exceptions::PyValueError;
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
+
 
 fn value_to_object(py: Python, v: &Ele) -> PyObject {
     let ret = match v {
@@ -21,6 +25,15 @@ fn value_to_object(py: Python, v: &Ele) -> PyObject {
     ret.map(|x| x.unbind()).unwrap_or(py.None())
 }
 
+// #[derive(Debug)]
+// struct ExternalTableConfig {
+//     chunk_size: usize,
+//     discard_threshold: usize,
+//     discard_strategy: DiscardStrategy,
+// }
+
+// 
+
 pub static EXTERN_TABLES: Lazy<Mutex<HashMap<String, Arc<Mutex<TimeSeries>>>>> =
     Lazy::new(|| Mutex::new(Default::default()));
 
@@ -31,10 +44,10 @@ pub struct ExternalTable(Arc<Mutex<TimeSeries>>, usize);
 #[pymethods]
 impl ExternalTable {
     #[new]
-    fn new(name: &str, columns: Vec<String>) -> Self {
+    fn new(name: &str, columns: Vec<String>, limit: usize) -> Self {
         let ncolumn = columns.len();
         let ts = Arc::new(Mutex::new(
-            TimeSeries::builder().with_columns(columns).build(),
+            TimeSeries::builder(limit).with_columns(columns).build(),
         ));
         EXTERN_TABLES
             .lock()
@@ -72,7 +85,7 @@ impl ExternalTable {
         } else {
             let ncolumn = columns.len();
             let ts = Arc::new(Mutex::new(
-                TimeSeries::builder().with_columns(columns).build(),
+                TimeSeries::builder(10).with_columns(columns).build(),
             ));
             binding.insert(name.to_string(), ts.clone());
             Ok(ExternalTable(ts, ncolumn))
@@ -167,6 +180,11 @@ impl ExternalTable {
             })
             .collect::<Vec<_>>())
     }
+
+    // fn set_db_limit(&mut self, limit: usize) -> PyResult<()> {
+    //     self.0.lock().unwrap().set_limit(limit);
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]
@@ -205,7 +223,7 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()]);
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], 10);
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 

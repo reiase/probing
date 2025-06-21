@@ -55,7 +55,7 @@ impl TaskStatsWorker {
         static INSTANCE: Lazy<TaskStatsWorker> = Lazy::new(|| TaskStatsWorker {
             running: Arc::new(AtomicBool::new(false)),
             time_series: Arc::new(Mutex::new(
-                TimeSeries::builder()
+                TimeSeries::builder(10)
                     .with_columns(vec!["cpu_utime".to_string(), "cpu_stime".to_string()])
                     .build(),
             )),

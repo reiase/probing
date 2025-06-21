@@ -101,7 +101,7 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
                         f"Table {table_name} already exists with different fields"
                     )
             except Exception:
-                table = probing.ExternalTable(table_name, fields)
+                table = probing.ExternalTable(table_name, fields, 10)
             cache[cls] = table
             return table
 
@@ -135,6 +135,7 @@ def table(name_or_class: Optional[Union[str, Type[Any]]] = None):
         setattr(cls, "take", take)
         setattr(cls, "drop", drop)
         setattr(cls, "save", save)
+        # setattr(cls, "set_db_limit", set_db_limit)
         init_table()
 
         return cls

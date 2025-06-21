@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::error::ProtoError;
-use super::series::SeriesIterator;
+use super::series::{DiscardStrategy, SeriesIterator};
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
+
+// use pyo3::types::PyDict;
 
 #[derive(Debug, Error)]
 pub enum TimeSeriesError {
@@ -38,12 +40,20 @@ pub struct TimeSeries {
 }
 
 impl TimeSeries {
-    pub fn builder() -> TimeSeriesConfig {
-        Default::default()
+    pub fn builder(limit: usize) -> TimeSeriesConfig {
+        let ts_config = TimeSeriesConfig::default()
+        .with_discard_threshold(limit)
+        .with_chunk_size(limit)
+        .with_discard_strategy(DiscardStrategy::BaseElementCount);
+        ts_config
     }
 
     pub fn len(&self) -> usize {
         self.timestamp.len()
+    }
+
+    pub fn cnts(&self) -> usize {
+        self.timestamp.ncounts()
     }
 
     #[must_use]
@@ -60,6 +70,7 @@ impl TimeSeries {
         }
         self.timestamp.append_value(timestamp)?;
         for (i, item) in values.iter().enumerate().take(self.cols.len()) {
+            println!("{} ts ready append value", i);
             self.cols[i].append_value(item.clone())?;
         }
         Ok(())
@@ -111,6 +122,10 @@ impl TimeSeriesConfig {
         self.series_config = self.series_config.with_discard_threshold(discard_threshold);
         self
     }
+    pub fn with_discard_strategy(mut self, discard_strategy: DiscardStrategy) -> Self {
+        self.series_config = self.series_config.with_discard_strategy(discard_strategy);
+        self
+    }
     pub fn with_columns(mut self, names: Vec<String>) -> Self {
         self.names = names;
         self
@@ -150,9 +165,11 @@ impl Iterator for TimeSeriesIter<'_> {
 
 #[cfg(test)]
 mod test {
+    use super::super::series::DiscardStrategy;
+
     #[test]
     fn test_timeseries_create() {
-        let _ = super::TimeSeries::builder()
+        let _ = super::TimeSeries::builder(10)
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
@@ -164,7 +181,7 @@ mod test {
 
     #[test]
     fn test_timeseries_append() {
-        let mut ts = super::TimeSeries::builder()
+        let mut ts = super::TimeSeries::builder(10)
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
@@ -177,9 +194,29 @@ mod test {
             vec![super::Ele::I64(1), super::Ele::I64(2)],
         );
     }
+
+    #[test]
+    fn test_timeseries_limit() {
+        let mut ts = super::TimeSeries::builder(10)
+            .with_dtype(super::EleType::I64)
+            .with_chunk_size(10)
+            .with_discard_threshold(10)
+            .with_discard_strategy(DiscardStrategy::BaseElementCount)
+            .with_columns(vec!["a".to_string(), "b".to_string()])
+            .build();
+
+        for _ in 0..16 {
+            let _ = ts.append(
+                super::Ele::I64(1),
+                vec![super::Ele::I64(77), super::Ele::I64(88)],
+            );
+        }
+        assert_eq!(ts.cnts(), 6);
+    }
+
     #[test]
     fn test_timeseries_iter() {
-        let mut ts = super::TimeSeries::builder()
+        let mut ts = super::TimeSeries::builder(10)
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)

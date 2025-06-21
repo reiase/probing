@@ -106,12 +106,20 @@ impl Slice {
 ///
 /// Controls how Series data is chunked, compressed, and managed in memory.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub enum DiscardStrategy {
+    BaseMemorySize,
+    BaseElementCount,
+    None,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct SeriesConfig {
     pub dtype: EleType,
     pub chunk_size: usize,
     pub compression_level: usize,
     pub compression_threshold: usize,
     pub discard_threshold: usize,
+    pub discard_strategy: DiscardStrategy,
 }
 
 impl Default for SeriesConfig {
@@ -122,6 +130,7 @@ impl Default for SeriesConfig {
             compression_level: 0,
             compression_threshold: 2_000_000,
             discard_threshold: 20_000_000,
+            discard_strategy: DiscardStrategy::BaseMemorySize,
         }
     }
 }
@@ -147,6 +156,10 @@ impl SeriesConfig {
         self.discard_threshold = discard_threshold;
         self
     }
+    pub fn with_discard_strategy(mut self, discard_strategy: DiscardStrategy) -> Self {
+        self.discard_strategy = discard_strategy;
+        self
+    }
     pub fn build(self) -> Series {
         Series {
             config: self,
@@ -155,6 +168,7 @@ impl SeriesConfig {
             slices: Default::default(),
             current_slice: None,
             commit_nbytes: 0,
+            commit_counts: 0,
         }
     }
 }
@@ -173,6 +187,7 @@ pub struct Series {
     current_slice: Option<Slice>,
 
     commit_nbytes: usize,
+    commit_counts: usize,
 }
 
 impl Series {
@@ -192,6 +207,10 @@ impl Series {
             if let Page::Raw(ref mut array) = slice.data {
                 T::append_to_array(array, data)?;
                 slice.length += 1;
+                println!("0000!!!!slice.length {}", slice.length);
+                if let DiscardStrategy::BaseElementCount = self.config.discard_strategy {
+                    self.commit_counts += 1;
+                }
                 if slice.length == self.config.chunk_size {
                     self.commit_current_slice();
                 }
@@ -200,6 +219,8 @@ impl Series {
             }
         } else {
             self.config.dtype = T::dtype();
+
+            println!("eeeeeelse");
 
             let array = T::create_array(data, self.config.chunk_size);
             let page = Page::Raw(array);
@@ -210,9 +231,16 @@ impl Series {
                 length: 1,
                 data: page,
             });
+
+            if let DiscardStrategy::BaseElementCount = self.config.discard_strategy {
+                self.commit_counts += 1;
+            }
         }
 
         self.offset = self.offset.saturating_add(1);
+        
+        println!("3333series offset {}", self.offset);
+        println!("4444series commit_counts {}", self.commit_counts);
         Ok(())
     }
 
@@ -244,6 +272,10 @@ impl Series {
         }
 
         total
+    }
+
+    pub fn ncounts(&self) -> usize {
+        self.commit_counts
     }
 
     pub fn is_empty(&self) -> bool {
@@ -284,8 +316,10 @@ impl Series {
     fn commit_current_slice(&mut self) {
         let nbytes = self.nbytes();
         let slice = self.current_slice.take();
+        println!("commit_current_slice nbytes {} self.compression_threshold  {}", nbytes, self.config.compression_threshold);
         if nbytes > self.config.compression_threshold {
             if let Some(mut slice) = slice {
+                println!("compress slice {:?}", slice);
                 slice.compress();
                 self.commit_nbytes += slice.nbytes();
                 self.slices.insert(slice.offset, slice);
@@ -294,11 +328,29 @@ impl Series {
             self.commit_nbytes += slice.nbytes();
             self.slices.insert(slice.offset, slice);
         }
-
-        while self.nbytes() > self.config.discard_threshold {
-            if let Some((_offset, slice)) = self.slices.pop_first() {
-                self.dropped += slice.offset + slice.length;
-                self.commit_nbytes -= slice.nbytes();
+        
+        match self.config.discard_strategy {
+            DiscardStrategy::BaseMemorySize => {
+                while self.nbytes() > self.config.discard_threshold {
+                    if let Some((_offset, slice)) = self.slices.pop_first() {
+                        self.dropped += slice.offset + slice.length;
+                        self.commit_nbytes -= slice.nbytes();
+                    }
+                }
+            }
+            DiscardStrategy::BaseElementCount => {
+                println!("1111deal ncounts {} discard threshold {}", self.commit_counts, self.config.discard_threshold);
+                while self.ncounts() >= (self.config.discard_threshold - 1) {
+                    if let Some((_offset, slice)) = self.slices.pop_first() {
+                        println!("2222ddddelete deal slice {:?}", slice);
+                        self.dropped += slice.offset + slice.length;
+                        self.commit_nbytes -= slice.nbytes();
+                        self.commit_counts = 0;
+                    }
+                }
+            }
+            DiscardStrategy::None => {
+                !todo!("Discard strategy is set to None, no action taken")
             }
         }
     }
@@ -509,6 +561,20 @@ impl Iterator for SeriesIterator<'_> {
 
 #[cfg(test)]
 mod test {
+    #[test]
+    fn test_series_limit() {
+        let mut series = super::Series::builder()
+        .with_chunk_size(10)
+        .with_discard_strategy(crate::types::series::DiscardStrategy::BaseElementCount)
+        .with_discard_threshold(10)
+        .build();
+        for i in 0..16 {
+            series.append(i as i64).unwrap();
+        }
+        assert_eq!(series.slices.len(), 0);
+        assert!(series.dropped == 10);
+    }
+
     #[test]
     fn test_new_series() {
         let series = super::Series::builder().build();
