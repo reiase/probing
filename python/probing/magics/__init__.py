@@ -14,7 +14,11 @@ from jupyter_client.session import Session
 from typing import Union, List, Optional
 from dataclasses import dataclass, field, asdict
 import json
-from IPython.core.magic import Magics, magics_class, line_magic
+
+from .torch_magic import TorchMagic
+from .debug_magic import DebugMagic
+from .stack_magic import StackMagic
+from .handle_magic import HandleMagic
 
 
 @dataclass
@@ -57,45 +61,6 @@ class ExecutionResult:
             print("Traceback:")
             for line in self.traceback:
                 print(line)
-
-
-@magics_class
-class SpecialMagicsExample(Magics):
-    """Defines custom magic commands for the IPython shell.
-
-    Magics are special commands prefixed with '%' (line magics) or '%%' (cell magics)
-    that provide convenient shortcuts and extend the functionality of the shell.
-    """
-
-    @line_magic
-    def special_command(self, line: str) -> str:
-        """An example of a special line magic command.
-
-        This magic command simply takes the rest of the line as an argument and
-        returns a string.
-
-        Usage
-        -----
-        %special_command some_argument
-
-        Examples
-        --------
-        >>> executor = CodeExecutor()
-        >>> res = executor.execute("%special_command hello world")
-        >>> res.display()
-        Status: ok
-        Output:
-        Executing special command with argument: hello world
-        'HELLO WORLD'
-        >>> executor.shutdown() # doctest: +ELLIPSIS
-        <BLANKLINE>
-        Shutting down kernel...
-        Kernel shut down.
-        """
-        print(f"Executing special command with argument: {line}")
-        # In a real scenario, this could trigger complex logic,
-        # interact with other parts of your application, etc.
-        return f"{line.upper()}"
 
 
 class CodeExecutor:
@@ -152,7 +117,10 @@ class CodeExecutor:
 
         if self.km.has_kernel:
             shell = self.km.kernel.shell
-            shell.register_magics(SpecialMagicsExample(shell=shell))
+            shell.register_magics(TorchMagic(shell=shell))
+            shell.register_magics(DebugMagic(shell=shell))
+            shell.register_magics(StackMagic(shell=shell))
+            shell.register_magics(HandleMagic(shell=shell))
 
     def execute(self, code_or_request: Union[str, dict]) -> ExecutionResult:
         """Executes a string of code or a request dictionary in the kernel.
