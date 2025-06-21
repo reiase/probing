@@ -35,8 +35,10 @@ use std::collections::HashSet;
 /// Define a static Mutex for the backtrace function
 static BACKTRACE_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 mod exttbls;
+mod stack;
 mod tbls;
 
+pub use stack::get_python_stacks;
 pub use tbls::PythonNamespace;
 
 /// Collection of Python extensions loaded into the system

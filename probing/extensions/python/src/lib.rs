@@ -12,16 +12,13 @@ pub mod repl;
 
 mod setup;
 
-use std::ffi::CStr;
 use std::sync::mpsc;
 use std::sync::Mutex;
 
 use log::error;
 use once_cell::sync::Lazy;
 use pkg::TCPStore;
-use pyo3::ffi::c_str;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
 
@@ -31,86 +28,9 @@ use probing_proto::prelude::CallFrame;
 pub static CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
     Lazy::new(|| Mutex::new(None));
 
-const DUMP_STACK: &CStr = c_str!(
-    r#"
-def _get_obj_type(obj):
-    try:
-        m = type(obj).__module__
-        n = type(obj).__name__
-        return f"{m}.{n}"
-    except Exception:
-        return str(type(obj))
-
-
-def _get_obj_repr(obj, value=False):
-    typ = _get_obj_type(obj)
-    ret = {
-        "id": id(obj),
-        "class": _get_obj_type(obj),
-    }
-    if typ == "torch.Tensor":
-        ret["shape"] = str(obj.shape)
-        ret["dtype"] = str(obj.dtype)
-        ret["device"] = str(obj.device)
-    if value:
-        ret["value"] = str(obj)[:150]
-    return ret
-
-stacks = []
-
-import sys
-
-try:
-    curr = sys._getframe(1)
-except:
-    curr = None
-while curr is not None:
-    stack = {"PyFrame": {
-        "file": curr.f_code.co_filename,
-        "func": curr.f_code.co_name,
-        "lineno": curr.f_lineno,
-        "locals": {
-            k: _get_obj_repr(v, value=True) for k, v in curr.f_locals.items()
-        },
-    }}
-    stacks.append(stack)
-    curr = curr.f_back
-import json
-retval = json.dumps(stacks)
-"#
-);
-
-fn get_python_stacks() -> Option<Vec<CallFrame>> {
-    let frames = Python::with_gil(|py| {
-        let global = PyDict::new(py);
-        if let Err(err) = py.run(DUMP_STACK, Some(&global), Some(&global)) {
-            error!("Failed to execute Python stack dump script: {}", err);
-            return None;
-        }
-        match global.get_item("retval") {
-            Ok(Some(frames_str)) => frames_str.extract::<String>().ok(),
-            Ok(None) => {
-                error!("Python stack dump script did not return 'retval'");
-                None
-            }
-            Err(err) => {
-                error!("Failed to get 'retval' from Python stack dump: {}", err);
-                None
-            }
-        }
-    });
-
-    frames.and_then(|s| {
-        serde_json::from_str::<Vec<CallFrame>>(&s)
-            .map_err(|e| {
-                error!("Failed to deserialize Python call stacks: {}", e);
-                e
-            })
-            .ok()
-    })
-}
-
 use cpp_demangle::Symbol;
+
+use crate::extensions::python::get_python_stacks;
 
 fn get_native_stacks() -> Option<Vec<CallFrame>> {
     let mut frames = vec![];
