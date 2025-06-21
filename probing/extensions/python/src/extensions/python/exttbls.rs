@@ -3,8 +3,12 @@ use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 use probing_proto::prelude::{Ele, TimeSeries};
+use probing_proto::types::series::DiscardStrategy;
+use pyo3::prelude::*;
 use pyo3::types::{PyType, PyDict};
+use pyo3::exceptions::PyValueError;
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
+
 
 fn value_to_object(py: Python, v: &Ele) -> PyObject {
     let ret = match v {
@@ -20,6 +24,15 @@ fn value_to_object(py: Python, v: &Ele) -> PyObject {
     };
     ret.map(|x| x.unbind()).unwrap_or(py.None())
 }
+
+// #[derive(Debug)]
+// struct ExternalTableConfig {
+//     chunk_size: usize,
+//     discard_threshold: usize,
+//     discard_strategy: DiscardStrategy,
+// }
+
+// 
 
 pub static EXTERN_TABLES: Lazy<Mutex<HashMap<String, Arc<Mutex<TimeSeries>>>>> =
     Lazy::new(|| Mutex::new(Default::default()));

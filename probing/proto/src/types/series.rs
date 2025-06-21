@@ -208,6 +208,9 @@ impl Series {
                 T::append_to_array(array, data)?;
                 slice.length += 1;
                 println!("0000!!!!slice.length {}", slice.length);
+                if let DiscardStrategy::BaseElementCount = self.config.discard_strategy {
+                    self.commit_counts += 1;
+                }
                 if slice.length == self.config.chunk_size {
                     self.commit_current_slice();
                 }
@@ -228,12 +231,14 @@ impl Series {
                 length: 1,
                 data: page,
             });
+
+            if let DiscardStrategy::BaseElementCount = self.config.discard_strategy {
+                self.commit_counts += 1;
+            }
         }
 
         self.offset = self.offset.saturating_add(1);
-        if let DiscardStrategy::BaseElementCount = self.config.discard_strategy {
-            self.commit_counts += 1;
-        }
+        
         println!("3333series offset {}", self.offset);
         println!("4444series commit_counts {}", self.commit_counts);
         Ok(())
@@ -340,7 +345,7 @@ impl Series {
                         println!("2222ddddelete deal slice {:?}", slice);
                         self.dropped += slice.offset + slice.length;
                         self.commit_nbytes -= slice.nbytes();
-                        self.commit_counts -= 1;
+                        self.commit_counts = 0;
                     }
                 }
             }
@@ -567,7 +572,7 @@ mod test {
             series.append(i as i64).unwrap();
         }
         assert_eq!(series.slices.len(), 0);
-        assert!(series.dropped > 0);
+        assert!(series.dropped == 10);
     }
 
     #[test]

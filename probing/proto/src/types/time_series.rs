@@ -52,6 +52,10 @@ impl TimeSeries {
         self.timestamp.len()
     }
 
+    pub fn cnts(&self) -> usize {
+        self.timestamp.ncounts()
+    }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -161,6 +165,8 @@ impl Iterator for TimeSeriesIter<'_> {
 
 #[cfg(test)]
 mod test {
+    use super::super::series::DiscardStrategy;
+
     #[test]
     fn test_timeseries_create() {
         let _ = super::TimeSeries::builder(10)
@@ -188,6 +194,26 @@ mod test {
             vec![super::Ele::I64(1), super::Ele::I64(2)],
         );
     }
+
+    #[test]
+    fn test_timeseries_limit() {
+        let mut ts = super::TimeSeries::builder(10)
+            .with_dtype(super::EleType::I64)
+            .with_chunk_size(10)
+            .with_discard_threshold(10)
+            .with_discard_strategy(DiscardStrategy::BaseElementCount)
+            .with_columns(vec!["a".to_string(), "b".to_string()])
+            .build();
+
+        for _ in 0..16 {
+            let _ = ts.append(
+                super::Ele::I64(1),
+                vec![super::Ele::I64(77), super::Ele::I64(88)],
+            );
+        }
+        assert_eq!(ts.cnts(), 6);
+    }
+
     #[test]
     fn test_timeseries_iter() {
         let mut ts = super::TimeSeries::builder(10)
