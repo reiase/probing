@@ -1,4 +1,6 @@
 mod apis;
+mod repl;
+
 pub mod cluster;
 pub mod config;
 pub mod error;
@@ -15,6 +17,7 @@ use once_cell::sync::Lazy;
 
 use crate::asset::{index, static_files};
 use crate::engine::{handle_query, initialize_engine};
+use crate::server::repl::ws_handler;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use middleware::{request_logging_middleware, request_size_limit_middleware};
@@ -68,6 +71,7 @@ fn build_app(auth: bool) -> axum::Router {
             axum::routing::get(get_config_value_handler),
         )
         .nest_service("/apis", apis_route())
+        .route("/ws", axum::routing::get(ws_handler))
         .fallback(static_files)
         // Apply request size limiting middleware
         .layer(axum::middleware::from_fn(request_size_limit_middleware))
