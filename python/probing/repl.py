@@ -488,3 +488,10 @@ class DebugConsole(code.InteractiveConsole):
         self.buffer.append(line)
         source = "\n".join(self.buffer)
         return self.runsource(source, self.filename)
+
+try:
+    from .repl2 import DebugConsole
+except:
+    print("DebugConsole not found, using default DebugConsole")
+    
+debug_console = DebugConsole()
