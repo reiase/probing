@@ -310,121 +310,40 @@ pub trait ArrayType {
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError>;
 }
 
-impl ArrayType for i32 {
-    fn dtype() -> EleType {
-        EleType::I32
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqI32(array)
-    }
+macro_rules! impl_array_type {
+    ($type:ty, $ele_type:ident, $seq_variant:ident) => {
+        impl ArrayType for $type {
+            fn dtype() -> EleType {
+                EleType::$ele_type
+            }
+            
+            fn create_array(data: Self, size: usize) -> Seq {
+                let mut array = Vec::with_capacity(size);
+                array.push(data);
+                Seq::$seq_variant(array)
+            }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqI32(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::I32,
-                got: EleType::Nil,
-            })
+            fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
+                if let Seq::$seq_variant(arr) = array {
+                    arr.push(data);
+                    Ok(())
+                } else {
+                    Err(ProtoError::TypeMismatch {
+                        expected: EleType::$ele_type,
+                        got: EleType::Nil,
+                    })
+                }
+            }
         }
-    }
+    };
 }
 
-impl ArrayType for i64 {
-    fn dtype() -> EleType {
-        EleType::I64
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqI64(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqI64(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::I64,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
-
-impl ArrayType for f32 {
-    fn dtype() -> EleType {
-        EleType::F32
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqF32(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqF32(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::F32,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
-
-impl ArrayType for f64 {
-    fn dtype() -> EleType {
-        EleType::F64
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqF64(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqF64(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::F64,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
-
-impl ArrayType for String {
-    fn dtype() -> EleType {
-        EleType::Text
-    }
-
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqText(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqText(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::F64,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
+// 使用宏实现所有基本类型
+impl_array_type!(i32, I32, SeqI32);
+impl_array_type!(i64, I64, SeqI64);
+impl_array_type!(f32, F32, SeqF32);
+impl_array_type!(f64, F64, SeqF64);
+impl_array_type!(String, Text, SeqText);
 
 pub struct SeriesIterator<'a> {
     current_btree_iter: std::collections::btree_map::Iter<'a, usize, Slice>,
@@ -447,6 +366,35 @@ impl<'a> SeriesIterator<'a> {
             cache: Seq::Nil,
         }
     }
+
+    fn get_value_from_slice(&mut self, slice: &Slice) -> Option<Ele> {
+        if self.elem_idx >= slice.length {
+            return None;
+        }
+
+        // Handle decompression for compressed slices on first access
+        if self.elem_idx == 0 {
+            if let Page::Compressed { dtype, buffer, codebook } = &slice.data {
+                if let Some(page) = slice.data.decompress_buffer(dtype.clone(), buffer, codebook) {
+                    self.cache = if let Page::Raw(array) = page {
+                        array
+                    } else {
+                        Seq::Nil
+                    }
+                }
+            }
+        }
+
+        let array = match &slice.data {
+            Page::Raw(array) => array,
+            Page::Compressed { .. } => &self.cache,
+            Page::Ref => return Some(Ele::Nil),
+        };
+
+        let value = array.get(self.elem_idx);
+        self.elem_idx += 1;
+        Some(value)
+    }
 }
 
 impl Iterator for SeriesIterator<'_> {
@@ -455,48 +403,18 @@ impl Iterator for SeriesIterator<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         // Process BTreeMap slices first
         while let Some((_, slice)) = self.current_btree_slice {
-            if self.elem_idx < slice.length {
-                if self.elem_idx == 0 {
-                    if let Page::Compressed {
-                        dtype,
-                        buffer,
-                        codebook,
-                    } = &slice.data
-                    {
-                        if let Some(page) =
-                            slice
-                                .data
-                                .decompress_buffer(dtype.clone(), buffer, codebook)
-                        {
-                            self.cache = if let Page::Raw(array) = page {
-                                array
-                            } else {
-                                Seq::Nil
-                            }
-                        }
-                    }
-                }
-                let array = if let Page::Raw(ref array) = slice.data {
-                    array
-                } else {
-                    &self.cache
-                };
-                let value = array.get(self.elem_idx);
-                self.elem_idx += 1;
+            if let Some(value) = self.get_value_from_slice(slice) {
                 return Some(value);
             }
+            // Move to next slice
             self.current_btree_slice = self.current_btree_iter.next();
             self.elem_idx = 0;
         }
 
         // Then try current_slice
         if let Some(slice) = self.current_slice {
-            if self.elem_idx < slice.length {
-                if let Page::Raw(ref array) = slice.data {
-                    let value = array.get(self.elem_idx);
-                    self.elem_idx += 1;
-                    return Some(value);
-                }
+            if let Some(value) = self.get_value_from_slice(slice) {
+                return Some(value);
             }
             // Done with current_slice
             self.current_slice = None;
