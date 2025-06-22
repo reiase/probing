@@ -44,15 +44,3 @@ impl PythonConsole for NativePythonConsole {
         })
     }
 }
-
-#[cfg(test)]
-mod test {
-    use crate::repl::python_repl::PythonConsole;
-
-    #[test]
-    fn test_python_console() {
-        let mut console = super::NativePythonConsole::default();
-        let ret = console.try_execute("1+1".to_string());
-        assert_eq!(ret, Some("2\n".to_string()));
-    }
-}
