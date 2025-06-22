@@ -39,10 +39,10 @@ pip install probing
 PROBING=1 python train.py
 
 # Or inject into running process
-probing <pid> inject
+probing -t <pid> inject
 
 # Real-time stack trace analysis
-probing <pid> backtrace
+probing -t <pid> backtrace
 ```
 
 ## Core Features
@@ -50,24 +50,29 @@ probing <pid> backtrace
 - **Dynamic Probe Injection** - Runtime instrumentation without target application modification
 - **Distributed Performance Aggregation** - Cross-node data collection with unified correlation analysis
 - **SQL Analytics Interface** - Apache DataFusion-powered query engine with standard SQL syntax
+- **Interactive Python REPL** - Live debugging and variable inspection in running processes
 - **Production-Grade Overhead** - Efficient sampling strategies maintaining <1% performance impact
 - **Time-Series Storage** - Columnar data storage with configurable compression and retention
 - **Real-Time Introspection** - Live performance metrics and runtime stack trace analysis
+- **Advanced CLI** - Comprehensive command-line interface with process monitoring and management
 
 ## Basic Usage
 
 ```bash
 # Inject performance monitoring
-probing <pid> inject
+probing -t <pid> inject
 
 # Real-time stack trace analysis
-probing <pid> backtrace
+probing -t <pid> backtrace
 
 # Memory usage profiling
-probing <pid> memory
+probing -t <pid> memory
 
 # Generate flame graphs
-probing <pid> flamegraph
+probing -t <pid> flamegraph
+
+# Interactive Python REPL (connect to running process)
+probing -t <pid> repl
 ```
 
 ## Advanced Features
@@ -75,10 +80,10 @@ probing <pid> flamegraph
 ### SQL Analytics Interface
 ```bash
 # Memory usage analysis
-probing <pid> query "SELECT * FROM memory_usage WHERE timestamp > now() - interval '5 min'"
+probing -t <pid> query "SELECT * FROM memory_usage WHERE timestamp > now() - interval '5 min'"
 
 # Performance hotspot analysis
-probing <pid> query "
+probing -t <pid> query "
   SELECT operation_name, avg(duration_ms), count(*)
   FROM profiling_data 
   WHERE timestamp > now() - interval '5 minutes'
@@ -87,7 +92,7 @@ probing <pid> query "
 "
 
 # Training progress tracking
-probing <pid> query "
+probing -t <pid> query "
   SELECT epoch, avg(loss), min(loss), count(*) as steps
   FROM training_logs 
   GROUP BY epoch 
@@ -95,31 +100,55 @@ probing <pid> query "
 "
 ```
 
+### Interactive Python REPL
+
+Probing provides an interactive Python REPL that connects to running processes, allowing you to inspect variables, execute code, and debug in real-time:
+
+```bash
+# Connect to a process via REPL
+probing -t <pid> repl
+
+# For remote processes
+probing -t <host|ip:port> repl
+```
+
+Example REPL session:
+```python
+>>> import torch
+>>> # Inspect torch models in the target process
+>>> models = [m for m in gc.get_objects() if isinstance(m, torch.nn.Module)]
+```
+
+The REPL provides:
+- **Live Variable Inspection**: Access all variables in the target process context
+- **Code Execution**: Run arbitrary Python code within the target process
+- **Real-time Debugging**: Set breakpoints and inspect state without stopping the process
+
 ### Distributed Training Analysis
 ```bash
 # Monitor all cluster nodes
 probing cluster attach
 
 # Inter-node communication latency
-probing <pid> query "SELECT src_rank, dst_rank, avg(latency_ms) FROM comm_metrics"
+probing -t <pid> query "SELECT src_rank, dst_rank, avg(latency_ms) FROM comm_metrics"
 
 # Cross-node stack trace comparison
-probing <pid> query "SELECT * FROM python.backtrace"
+probing -t <pid> query "SELECT * FROM python.backtrace"
 
 # GPU utilization analysis
-probing <pid> query "SELECT avg(gpu_util) FROM gpu_metrics WHERE timestamp > now() - 60"
+probing -t <pid> query "SELECT avg(gpu_util) FROM gpu_metrics WHERE timestamp > now() - 60"
 ```
 
 ### Memory Analysis
 ```bash
 # Quick memory usage overview
-probing <pid> memory
+probing -t <pid> memory
 
 # Memory growth trend analysis
-probing <pid> query "SELECT hour(timestamp), avg(memory_mb) FROM memory_usage GROUP BY hour(timestamp)"
+probing -t <pid> query "SELECT hour(timestamp), avg(memory_mb) FROM memory_usage GROUP BY hour(timestamp)"
 
 # Memory leak detection
-probing <pid> query "
+probing -t <pid> query "
   SELECT function_name, sum(allocated_bytes) as total_alloc
   FROM memory_allocations 
   WHERE timestamp > now() - interval '1 hour'
@@ -135,11 +164,11 @@ export PROBING_SAMPLE_RATE=0.1      # Set sampling rate
 export PROBING_RETENTION_DAYS=7     # Data retention period
 
 # View current configuration
-probing <pid> config
+probing -t <pid> config
 
 # Dynamic configuration updates
-probing <pid> config probing.sample_rate=0.05
-probing <pid> config probing.max_memory=1GB
+probing -t <pid> config probing.sample_rate=0.05
+probing -t <pid> config probing.max_memory=1GB
 ```
 
 ## Development
