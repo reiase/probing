@@ -87,41 +87,30 @@ pub enum EngineError {
 
 impl EngineError {
     pub fn with_context<C: Into<String>>(self, context: C) -> EngineError {
+        let context = context.into();
+        
+        // Helper macro to reduce boilerplate for string-based variants
+        macro_rules! add_context {
+            ($variant:path, $msg:expr) => {
+                $variant(format!("{}: {}", context, $msg))
+            };
+        }
+        
         match self {
-            EngineError::PluginError(msg) => {
-                EngineError::PluginError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::PluginNotFound(msg) => {
-                EngineError::PluginNotFound(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::PluginRegistrationFailed(msg) => {
-                EngineError::PluginRegistrationFailed(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::QueryError(msg) => {
-                EngineError::QueryError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::InternalError(msg) => {
-                EngineError::InternalError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::CallError(msg) => {
-                EngineError::CallError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::ClusterError(msg) => {
-                EngineError::ClusterError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::ConcurrencyError(msg) => {
-                EngineError::ConcurrencyError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::ConfigError(msg) => {
-                EngineError::ConfigError(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::UnsupportedOption(msg) => {
-                EngineError::UnsupportedOption(format!("{}: {}", context.into(), msg))
-            }
-            EngineError::ReadOnlyOption(msg) => {
-                EngineError::ReadOnlyOption(format!("{}: {}", context.into(), msg))
-            }
+            // String-based error variants that can have context added
+            EngineError::PluginError(msg) => add_context!(EngineError::PluginError, msg),
+            EngineError::PluginNotFound(msg) => add_context!(EngineError::PluginNotFound, msg),
+            EngineError::PluginRegistrationFailed(msg) => add_context!(EngineError::PluginRegistrationFailed, msg),
+            EngineError::QueryError(msg) => add_context!(EngineError::QueryError, msg),
+            EngineError::InternalError(msg) => add_context!(EngineError::InternalError, msg),
+            EngineError::CallError(msg) => add_context!(EngineError::CallError, msg),
+            EngineError::ClusterError(msg) => add_context!(EngineError::ClusterError, msg),
+            EngineError::ConcurrencyError(msg) => add_context!(EngineError::ConcurrencyError, msg),
+            EngineError::ConfigError(msg) => add_context!(EngineError::ConfigError, msg),
+            EngineError::UnsupportedOption(msg) => add_context!(EngineError::UnsupportedOption, msg),
+            EngineError::ReadOnlyOption(msg) => add_context!(EngineError::ReadOnlyOption, msg),
 
+            // Error variants that cannot or should not have context added
             e @ (EngineError::UnsupportedCall
             | EngineError::ArrowError(_)
             | EngineError::DataFusionError(_)

@@ -275,7 +275,7 @@ impl Series {
         None
     }
 
-    pub fn iter(&self) -> SeriesIterator {
+    pub fn iter(&self) -> SeriesIterator<'_> {
         SeriesIterator::new(self)
     }
 }
@@ -585,49 +585,33 @@ mod test {
 
     #[test]
     fn test_series_nbytes() {
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_chunk_size(256)
-            .build();
+        /// Test compression effectiveness for different data types
+        fn test_nbytes_for_type<T>(values: impl Iterator<Item = T> + Clone, type_name: &str, type_size: usize)
+        where
+            T: super::ArrayType,
+        {
+            let mut series = super::Series::builder()
+                .with_compression_threshold(8)
+                .with_chunk_size(256)
+                .build();
 
-        for i in 0..512 {
-            series.append(i as i64).unwrap();
+            for value in values {
+                series.append(value).unwrap();
+            }
+
+            println!("512 {} nbytes: {}", type_name, series.nbytes());
+            assert!(
+                series.nbytes() * 5 < 512 * type_size,
+                "Compression not effective enough for {} type", 
+                type_name
+            );
         }
-        println!("512 i64 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i64>());
 
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_chunk_size(256)
-            .build();
-
-        for i in 0..512 {
-            series.append(i).unwrap();
-        }
-        println!("512 i32 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i32>());
-
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_chunk_size(256)
-            .build();
-
-        for i in 0..512 {
-            series.append(i as f32).unwrap();
-        }
-        println!("512 f32 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f32>());
-
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_chunk_size(256)
-            .build();
-
-        for i in 0..512 {
-            series.append(i as f64).unwrap();
-        }
-        println!("512 f64 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f64>());
+        // Test different data types with their respective iterators and sizes
+        test_nbytes_for_type((0..512).map(|i| i as i64), "i64", std::mem::size_of::<i64>());
+        test_nbytes_for_type(0..512, "i32", std::mem::size_of::<i32>());
+        test_nbytes_for_type((0..512).map(|i| i as f32), "f32", std::mem::size_of::<f32>());
+        test_nbytes_for_type((0..512).map(|i| i as f64), "f64", std::mem::size_of::<f64>());
     }
 
     #[test]
