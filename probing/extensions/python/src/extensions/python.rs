@@ -29,7 +29,6 @@ use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
 use crate::NATIVE_CALLSTACK_SENDER_SLOT;
-use crate::PYTHON_CALLSTACK_SENDER_SLOT;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
@@ -314,87 +313,6 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
     })
 }
 
-fn backtrace2(tid: Option<i32>) -> Result<Vec<CallFrame>> {
-    // Acquire the lock at the beginning of the function
-    let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
-        log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
-        anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
-    })?;
-
-    let (ntx, nrx) = mpsc::channel::<Vec<CallFrame>>();
-    NATIVE_CALLSTACK_SENDER_SLOT
-        .try_lock()
-        .map_err(|err| {
-            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-            anyhow::anyhow!("Failed to lock call stack sender slot")
-        })?
-        .replace(ntx);
-
-    let (ptx, prx) = mpsc::channel::<Vec<CallFrame>>();
-    PYTHON_CALLSTACK_SENDER_SLOT
-        .try_lock()
-        .map_err(|err| {
-            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-            anyhow::anyhow!("Failed to lock call stack sender slot")
-        })?
-        .replace(ptx);
-
-    // Determine PID and TID for the tgkill syscall.
-    // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
-    let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-    let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
-
-    log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
-
-    let ret = unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
-
-    if ret != 0 {
-        let last_error = std::io::Error::last_os_error();
-        let error_msg = format!(
-            "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
-        );
-        log::error!("{}", error_msg);
-        return Err(anyhow::anyhow!(error_msg));
-    }
-
-    // Attempt to receive C++ frames
-    let cpp_frames = match nrx.recv_timeout(Duration::from_secs(2)) {
-        Ok(frames) => {
-            log::debug!("Received C++ frames successfully.");
-            frames
-        }
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            log::warn!("Timeout waiting for C++ call stack from signal handler");
-            return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => {
-            log::error!("Call stack channel disconnected while waiting for C++ frames.");
-            return Err(anyhow::anyhow!(
-                "C++ call stack channel disconnected before any frames received"
-            ));
-        }
-    };
-
-    // Attempt to receive Python frames
-    let python_frames = match prx.recv_timeout(Duration::from_secs(3)) {
-        Ok(frames) => {
-            log::debug!("Received Python frames successfully.");
-            frames
-        }
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            log::warn!("Timeout waiting for Python call stack from signal handler. Proceeding with C++ frames only.");
-            Vec::new() // Use empty Python frames
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => {
-            log::warn!("Call stack channel disconnected while waiting for Python frames. Proceeding with C++ frames only.");
-            Vec::new() // Use empty Python frames
-        }
-    };
-
-    // Merge C++ frames with (potentially empty) Python frames
-    Ok(merge_python_native_stacks(python_frames, cpp_frames))
-}
-
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     log::debug!("Collecting backtrace for TID: {:?}", tid);
 
@@ -406,8 +324,8 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
         anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
     })?;
 
-    Python::with_gil(|py| {
-        let python_frames = get_python_stacks(Some(target_tid)).unwrap_or_default();
+    Python::with_gil(|_py| {
+        let python_frames = get_python_stacks(target_tid).unwrap_or_default();
 
         let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
         NATIVE_CALLSTACK_SENDER_SLOT
@@ -417,13 +335,6 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
                 anyhow::anyhow!("Failed to lock call stack sender slot")
             })?
             .replace(tx);
-        PYTHON_CALLSTACK_SENDER_SLOT
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-                anyhow::anyhow!("Failed to lock call stack sender slot")
-            })?
-            .take();
 
         // Determine PID and TID for the tgkill syscall.
         // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).

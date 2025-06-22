@@ -12,18 +12,14 @@ pub async fn ws_handler(
         // Handle WebSocket connection
         log::info!("WebSocket connection established");
         let (mut write, mut read) = ws.split();
-        
+
         let mut repl = probing_python::repl::PythonRepl::default();
 
         while let Some(Ok(msg)) = read.next().await {
             if let Message::Text(msg) = msg {
                 let rsp = repl.feed(msg.to_string()).unwrap_or("{}".to_string());
 
-                if write
-                    .send(Message::Text(rsp.into()))
-                    .await
-                    .is_err()
-                {
+                if write.send(Message::Text(rsp.into())).await.is_err() {
                     break;
                 }
             }

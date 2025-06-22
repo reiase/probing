@@ -640,183 +640,98 @@ mod tests {
 
     #[test]
     fn test_primary_address_allocation() {
-        // Test case for EmptyObject error when object ID is empty in Address struct
-        let topology_empty_obj_test = create_basic_topology(1, 1);
-        let allocator_empty_obj_test = AddressAllocator::new(topology_empty_obj_test, 0);
-        let addr_with_empty_object = Address {
-            worker: None,
-            object: "".to_string(),
-        };
-        let result_empty_obj =
-            allocator_empty_obj_test.allocate_primary_address(addr_with_empty_object);
-        assert!(matches!(result_empty_obj, Err(AddressError::EmptyObject)));
-
-        // Test case for EmptyObject error when object ID is an empty string literal
-        let topology_empty_str_test = create_basic_topology(1, 1);
-        let allocator_empty_str_test = AddressAllocator::new(topology_empty_str_test, 0);
-        let result_empty_str = allocator_empty_str_test.allocate_primary_address("".to_string());
-        assert!(matches!(result_empty_str, Err(AddressError::EmptyObject)));
-
-        // Test: Pre-assigned worker with non-empty object ID should be returned directly
         let topology = create_basic_topology(1, 1);
         let allocator = AddressAllocator::new(topology, 0);
-        let pre_assigned_addr = Address {
+
+        // Test empty object errors
+        let empty_cases = [
+            Address {
+                worker: None,
+                object: "".to_string(),
+            },
+            "".to_string().into(),
+        ];
+
+        for case in empty_cases {
+            assert!(matches!(
+                allocator.allocate_primary_address(case),
+                Err(AddressError::EmptyObject)
+            ));
+        }
+
+        // Test pre-assigned worker
+        let pre_assigned = Address {
             worker: Some("worker1".to_string()),
             object: "my_object".to_string(),
         };
-        let result = allocator.allocate_primary_address(pre_assigned_addr.clone());
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), pre_assigned_addr);
+        assert_eq!(
+            allocator
+                .allocate_primary_address(pre_assigned.clone())
+                .unwrap(),
+            pre_assigned
+        );
+    }
 
-        // TODO: Add more tests for successful allocation (worker needs to be chosen),
-        // insufficient topology, and no available nodes.
+    fn assert_replica_allocation(
+        node_count: usize,
+        requested_replicas: usize,
+        expected_total: usize,
+        object_id: &str,
+    ) {
+        let topology = create_basic_topology(node_count, 1);
+        let allocator = AddressAllocator::new(topology, requested_replicas);
+        let addresses = allocator.allocate_addresses(object_id.to_string()).unwrap();
+
+        assert_eq!(addresses.len(), expected_total);
+
+        // Verify all addresses have the same object ID
+        addresses
+            .iter()
+            .for_each(|addr| assert_eq!(addr.object, object_id));
+
+        // Verify nodes are distinct (if we have more than one address)
+        if addresses.len() > 1 {
+            let nodes: std::collections::HashSet<_> = addresses
+                .iter()
+                .map(|addr| {
+                    allocator
+                        .topology
+                        .find_node_for_worker(addr.worker.as_ref().unwrap())
+                        .unwrap()
+                })
+                .collect();
+            assert_eq!(
+                nodes.len(),
+                addresses.len(),
+                "All addresses should be on different nodes"
+            );
+        }
     }
 
     #[test]
     fn test_allocate_addresses_no_replicas() {
-        let topology = create_basic_topology(3, 1);
-        let allocator = AddressAllocator::new(topology, 0); // 0 replicas
-        let addresses = allocator
-            .allocate_addresses("obj_no_replica".to_string())
-            .unwrap();
-
-        assert_eq!(addresses.len(), 1); // Only primary
-        assert_eq!(addresses[0].object, "obj_no_replica");
+        assert_replica_allocation(3, 0, 1, "obj_no_replica");
     }
 
     #[test]
-    fn test_allocate_addresses_with_replicas() {
-        let topology = create_basic_topology(3, 1); // node1(w1), node2(w2), node3(w3)
-        let replica_count = 2;
-        let allocator = AddressAllocator::new(topology.clone(), replica_count);
-        let all_addrs = allocator
-            .allocate_addresses("obj_with_replicas".to_string())
-            .unwrap();
+    fn test_replica_generation_scenarios() {
+        // Sufficient nodes
+        assert_replica_allocation(3, 2, 3, "obj_sufficient");
 
-        assert_eq!(all_addrs.len(), 1 + replica_count); // Primary + 2 replicas
-        let primary = &all_addrs[0];
-        assert_eq!(primary.object, "obj_with_replicas");
+        // Insufficient nodes
+        assert_replica_allocation(2, 2, 2, "obj_insufficient");
 
-        let mut distinct_workers = std::collections::HashSet::new();
-        distinct_workers.insert(primary.worker.as_ref().unwrap().clone());
-
-        let mut distinct_nodes_from_topology = std::collections::HashSet::new();
-        let primary_worker_node = allocator
-            .topology
-            .find_node_for_worker(primary.worker.as_ref().unwrap())
-            .unwrap();
-        distinct_nodes_from_topology.insert(primary_worker_node.clone());
-
-        for i in 1..=replica_count {
-            let replica = &all_addrs[i];
-            assert_eq!(replica.object, "obj_with_replicas");
-
-            let replica_worker_node = allocator
-                .topology
-                .find_node_for_worker(replica.worker.as_ref().unwrap())
-                .unwrap();
-            assert_ne!(
-                replica_worker_node, primary_worker_node,
-                "Replica should be on a different node than primary"
-            );
-            // Worker IDs should be distinct if they are on different nodes,
-            // or if multiple workers on the same node are chosen (though current replica logic aims for distinct nodes first)
-            assert!(
-                distinct_workers.insert(replica.worker.as_ref().unwrap().clone()),
-                "Replica workers should be distinct (or on distinct nodes)"
-            );
-            assert!(
-                distinct_nodes_from_topology.insert(replica_worker_node),
-                "Replica nodes should be distinct based on topology lookup"
-            );
-        }
-    }
-
-    #[test]
-    fn test_replica_generation_sufficient_nodes() {
-        // Adapted from old test_replica_generation
-        let topology = create_basic_topology(3, 1); // node1(w1), node2(w2), node3(w3)
-        let allocator = AddressAllocator::new(topology.clone(), 2); // Request 2 replicas
-
-        let all_addresses = allocator.allocate_addresses("obj123".to_string()).unwrap();
-
-        assert_eq!(all_addresses.len(), 3); // Primary + 2 replicas
-        let primary = &all_addresses[0];
-        let replica1 = &all_addresses[1];
-        let replica2 = &all_addresses[2];
-
-        // Find nodes for these workers using the topology
-        let primary_node = allocator
-            .topology
-            .find_node_for_worker(primary.worker.as_ref().unwrap())
-            .unwrap();
-        let replica1_node = allocator
-            .topology
-            .find_node_for_worker(replica1.worker.as_ref().unwrap())
-            .unwrap();
-        let replica2_node = allocator
-            .topology
-            .find_node_for_worker(replica2.worker.as_ref().unwrap())
-            .unwrap();
-
-        assert_ne!(primary_node, replica1_node);
-        assert_ne!(primary_node, replica2_node);
-        assert_ne!(replica1_node, replica2_node);
-
-        for addr in &all_addresses {
-            // assert!(addr.node.is_some()); // Node not stored
-            assert!(addr.worker.is_some());
-            assert_eq!(addr.object, "obj123");
-        }
-    }
-
-    #[test]
-    fn test_replica_generation_insufficient_nodes() {
-        let topology = create_basic_topology(2, 1); // node1(w1), node2(w2)
-        let allocator = AddressAllocator::new(topology.clone(), 2); // Request 2 replicas, but only 1 other node available
-
-        let all_addresses = allocator
-            .allocate_addresses("obj_few_nodes".to_string())
-            .unwrap();
-
-        assert_eq!(all_addresses.len(), 2); // Primary + 1 possible replica
-        let primary = &all_addresses[0];
-        let replica1 = &all_addresses[1];
-
-        let primary_node = allocator
-            .topology
-            .find_node_for_worker(primary.worker.as_ref().unwrap())
-            .unwrap();
-        let replica1_node = allocator
-            .topology
-            .find_node_for_worker(replica1.worker.as_ref().unwrap())
-            .unwrap();
-
-        assert_ne!(primary_node, replica1_node);
-    }
-
-    #[test]
-    fn test_replica_generation_single_node_no_replicas_possible() {
-        let topology = create_basic_topology(1, 1); // node1(w1)
-        let allocator = AddressAllocator::new(topology.clone(), 1); // Request 1 replica
-
-        let all_addresses = allocator
-            .allocate_addresses("obj_single_node".to_string())
-            .unwrap();
-
-        assert_eq!(all_addresses.len(), 1); // Only primary, no other nodes for replicas
+        // Single node - no replicas possible
+        assert_replica_allocation(1, 1, 1, "obj_single");
     }
 
     #[test]
     fn test_empty_topology_allocation_fails() {
-        // Adapted from old test
-        let empty_workers: HashMap<NodeId, Vec<WorkerId>> = HashMap::new();
-        let empty_topology = TopologyView::new(empty_workers, 0); // version 0
-        let allocator = AddressAllocator::new(empty_topology, 2);
-
-        let result = allocator.allocate_addresses("test_empty".to_string());
-        assert!(result.is_err());
-        assert_eq!(result.err(), Some(AddressError::InsufficientTopology)); // Or NoAvailableNodes depending on checks
+        let allocator = AddressAllocator::new(TopologyView::new(HashMap::new(), 0), 2);
+        assert!(matches!(
+            allocator.allocate_addresses("test_empty".to_string()),
+            Err(AddressError::InsufficientTopology)
+        ));
     }
 
     #[test]
@@ -828,101 +743,53 @@ mod tests {
         // assert!(!addr.is_local("node2", "worker1"));
         // assert!(!addr.is_local("node1", "worker2"));
     }
-
     #[tokio::test]
-    async fn test_address_allocator_functional() -> std::result::Result<(), AddressError> {
-        // Renamed and updated
-        let mut workers_per_node = HashMap::new();
-        workers_per_node.insert(
-            "node-1".to_string(),
-            vec!["worker-1".to_string(), "worker-2".to_string()],
-        );
-        workers_per_node.insert("node-2".to_string(), vec!["worker-3".to_string()]);
-        workers_per_node.insert(
-            "node-3".to_string(),
-            vec!["worker-4".to_string(), "worker-5".to_string()],
-        );
+    async fn test_address_allocator_functional() -> Result<()> {
+        let workers_per_node = [
+            ("node-1", vec!["worker-1", "worker-2"]),
+            ("node-2", vec!["worker-3"]),
+            ("node-3", vec!["worker-4", "worker-5"]),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.into_iter().map(String::from).collect()))
+        .collect();
 
-        let topology = TopologyView::new(workers_per_node.clone(), 1); // version 1
-        let replica_count = 2;
-        let allocator = AddressAllocator::new(topology, replica_count);
+        let allocator = AddressAllocator::new(TopologyView::new(workers_per_node, 1), 2);
+        let addresses = allocator.allocate_addresses("test-object".to_string())?;
 
-        let all_addresses = allocator.allocate_addresses("test-object-functional".to_string())?;
+        assert_eq!(addresses.len(), 3); // Primary + 2 replicas
 
-        assert_eq!(all_addresses.len(), 1 + replica_count);
-
-        let primary = &all_addresses[0];
-        assert_eq!(primary.object, "test-object-functional");
-        assert!(primary.worker.is_some());
-
-        let primary_worker_id_str = primary.worker.as_deref().unwrap();
-        let primary_node_id = workers_per_node
+        // Verify all addresses have the same object and different nodes
+        let nodes: std::collections::HashSet<_> = addresses
             .iter()
-            .find_map(|(node, workers)| {
-                if workers.contains(&primary_worker_id_str.to_string()) {
-                    Some(node.as_str())
-                } else {
-                    None
-                }
+            .map(|addr| {
+                assert_eq!(addr.object, "test-object");
+                allocator
+                    .topology
+                    .find_node_for_worker(addr.worker.as_ref().unwrap())
+                    .unwrap()
             })
-            .unwrap_or("UNKNOWN");
-        assert!(["node-1", "node-2", "node-3"].contains(&primary_node_id));
+            .collect();
 
-        let mut distinct_nodes_from_topology = std::collections::HashSet::new();
-        let primary_worker_node_found = allocator
-            .topology
-            .find_node_for_worker(primary.worker.as_ref().unwrap())
-            .expect("Primary worker must be in topology");
-        distinct_nodes_from_topology.insert(primary_worker_node_found.clone());
-
-        for i in 0..replica_count {
-            let replica = &all_addresses[i + 1];
-            assert_eq!(replica.object, "test-object-functional");
-            let replica_worker_node = allocator
-                .topology
-                .find_node_for_worker(replica.worker.as_ref().unwrap())
-                .expect("Replica worker must be in topology");
-
-            assert_ne!(
-                replica_worker_node, primary_worker_node_found,
-                "Replica node should differ from primary"
-            );
-            assert!(
-                distinct_nodes_from_topology.insert(replica_worker_node.clone()),
-                "Replica nodes should be distinct among themselves and from primary"
-            );
-        }
-
-        println!("✓ Functional AddressAllocator test passed.");
-        // Display trait will use the new URI format
-        println!("Primary Address: {}", primary);
-        for (i, replica) in all_addresses.iter().skip(1).enumerate() {
-            // If you want to also print the node, you'd look it up via topology
-            // let replica_node = allocator.topology.find_node_for_worker(replica.worker.as_ref().unwrap()).unwrap_or_else(|| "NODE_NOT_FOUND".to_string());
-            // println!("Replica {}: {} on Node: {}", i + 1, replica, replica_node);
-            println!("Replica {}: {}", i + 1, replica);
-        }
-
+        assert_eq!(nodes.len(), 3, "All replicas should be on different nodes");
         Ok(())
     }
 
     #[test]
     fn test_invalid_uri_patterns() {
-        // Test path not starting with /objects/
-        let invalid_uri = "probing://worker1/unsupported/pattern";
-        let result = Address::from_uri(invalid_uri);
-        assert!(result.is_err());
-        assert!(
-            matches!(result.err().unwrap(), AddressError::InvalidUri(msg) if msg.contains("Unsupported URI path pattern"))
-        );
+        let invalid_cases = [
+            (
+                "probing://worker1/unsupported/pattern",
+                "Unsupported URI path pattern",
+            ),
+            ("probing:///objects/some_object", "Missing worker ID"),
+        ];
 
-        // Test empty worker_id (host)
-        let invalid_uri_empty_host = "probing:///objects/some_object";
-        let result_empty_host = Address::from_uri(invalid_uri_empty_host);
-        assert!(result_empty_host.is_err());
-        assert!(
-            matches!(result_empty_host.err().unwrap(), AddressError::InvalidUri(msg) if msg.contains("Missing worker ID"))
-        );
+        for (uri, expected_error) in invalid_cases {
+            let result = Address::from_uri(uri);
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains(expected_error));
+        }
     }
 
     #[test]
