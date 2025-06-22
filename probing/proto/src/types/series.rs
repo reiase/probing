@@ -316,7 +316,7 @@ macro_rules! impl_array_type {
             fn dtype() -> EleType {
                 EleType::$ele_type
             }
-            
+
             fn create_array(data: Self, size: usize) -> Seq {
                 let mut array = Vec::with_capacity(size);
                 array.push(data);
@@ -374,8 +374,16 @@ impl<'a> SeriesIterator<'a> {
 
         // Handle decompression for compressed slices on first access
         if self.elem_idx == 0 {
-            if let Page::Compressed { dtype, buffer, codebook } = &slice.data {
-                if let Some(page) = slice.data.decompress_buffer(dtype.clone(), buffer, codebook) {
+            if let Page::Compressed {
+                dtype,
+                buffer,
+                codebook,
+            } = &slice.data
+            {
+                if let Some(page) = slice
+                    .data
+                    .decompress_buffer(dtype.clone(), buffer, codebook)
+                {
                     self.cache = if let Page::Raw(array) = page {
                         array
                     } else {
@@ -504,8 +512,11 @@ mod test {
     #[test]
     fn test_series_nbytes() {
         /// Test compression effectiveness for different data types
-        fn test_nbytes_for_type<T>(values: impl Iterator<Item = T> + Clone, type_name: &str, type_size: usize)
-        where
+        fn test_nbytes_for_type<T>(
+            values: impl Iterator<Item = T> + Clone,
+            type_name: &str,
+            type_size: usize,
+        ) where
             T: super::ArrayType,
         {
             let mut series = super::Series::builder()
@@ -520,16 +531,28 @@ mod test {
             println!("512 {} nbytes: {}", type_name, series.nbytes());
             assert!(
                 series.nbytes() * 5 < 512 * type_size,
-                "Compression not effective enough for {} type", 
+                "Compression not effective enough for {} type",
                 type_name
             );
         }
 
         // Test different data types with their respective iterators and sizes
-        test_nbytes_for_type((0..512).map(|i| i as i64), "i64", std::mem::size_of::<i64>());
+        test_nbytes_for_type(
+            (0..512).map(|i| i as i64),
+            "i64",
+            std::mem::size_of::<i64>(),
+        );
         test_nbytes_for_type(0..512, "i32", std::mem::size_of::<i32>());
-        test_nbytes_for_type((0..512).map(|i| i as f32), "f32", std::mem::size_of::<f32>());
-        test_nbytes_for_type((0..512).map(|i| i as f64), "f64", std::mem::size_of::<f64>());
+        test_nbytes_for_type(
+            (0..512).map(|i| i as f32),
+            "f32",
+            std::mem::size_of::<f32>(),
+        );
+        test_nbytes_for_type(
+            (0..512).map(|i| i as f64),
+            "f64",
+            std::mem::size_of::<f64>(),
+        );
     }
 
     #[test]
