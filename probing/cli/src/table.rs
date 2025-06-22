@@ -37,7 +37,7 @@ impl Table {
     }
 
     pub fn put(&mut self, pos: Position, text: String) {
-        self.data[pos.0][pos.1] = Text::new(text)
+        self.data[pos.row][pos.col] = Text::new(text)
     }
 
     pub fn draw(self, termwidth: usize) -> Option<String> {
@@ -68,7 +68,7 @@ pub fn render_dataframe(df: &DataFrame) {
     let mut table = Table::new(ncol, nrow);
 
     for (col, name) in df.names.iter().enumerate() {
-        table.put((0, col), name.clone());
+        table.put((0 as usize, col).into(), name.clone());
     }
 
     for (col, col_data) in df.cols.iter().enumerate() {
@@ -84,7 +84,7 @@ pub fn render_dataframe(df: &DataFrame) {
                 Ele::Url(x) => x.to_string(),
                 Ele::DataTime(x) => x.to_string(),
             };
-            table.put((row + 1, col), value);
+            table.put((row + 1, col).into(), value);
         }
     }
     println!(

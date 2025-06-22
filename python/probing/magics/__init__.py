@@ -215,12 +215,52 @@ class CodeExecutor:
         self.km.shutdown_kernel()
         print("Kernel shut down.")
 
-class DebugConsole:
+import code
+
+class DebugConsole(code.InteractiveConsole):
     def __init__(self):
         self.code_executor = CodeExecutor()
+        super().__init__()
+            
+    def runsource(self, source):
+        try:
+            code = self.compile(source, "<input>", "single")
+        except (OverflowError, SyntaxError, ValueError):
+            print("Error in code:\n", source)
+            retval = self.code_executor.execute(source)
+            self.resetbuffer()
+            return retval
         
+        if code is None: #incomplete code
+            return None
+        
+        retval = self.code_executor.execute(source)
+        self.resetbuffer()
+        return retval
+    
     def push(self, code: str):
-        """Pushes code to the executor and executes it."""
-        print(f"Executing code: {code}")
-        result = self.code_executor.execute(code)
-        return result.output
+        """Pushes code to the executor and executes it.
+        
+        Examples
+        --------
+        >>> console = DebugConsole()
+        >>> console.push("x = 10")
+        '{"status": "ok", "output": "", "traceback": []}'
+        >>> console.push("x")
+        '{"status": "ok", "output": "10", "traceback": []}'
+        >>> result = console.push("print(y)")
+        >>> '"status": "error"' in result
+        True
+        >>> '"traceback":' in result
+        True
+        """
+        try:
+            self.buffer.append(code)
+            source = "\n".join(self.buffer)
+            retval = self.runsource(source)
+            if retval is not None:
+                return retval.to_json()
+            return json.dumps({})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()

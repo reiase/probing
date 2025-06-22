@@ -2889,9 +2889,9 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 
 [[package]]
 name = "papergrid"
-version = "0.13.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b0f8def1f117e13c895f3eda65a7b5650688da29d6ad04635f61bc7b92eebd"
+checksum = "6978128c8b51d8f4080631ceb2302ab51e32cc6e8615f735ee2f83fd269ae3f1"
 dependencies = [
  "bytecount",
  "fnv",
@@ -3293,6 +3293,7 @@ dependencies = [
  "axum",
  "base64 0.21.7",
  "bytes",
+ "futures-util",
  "http-body-util",
  "include_dir",
  "log",
@@ -3372,9 +3373,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f239d656363bcee73afef85277f1b281e8ac6212a1d42aa90e55b90ed43c47a4"
+checksum = "8970a78afe0628a3e3430376fc5fd76b6b45c4d43360ffd6cdd40bdde72b682a"
 dependencies = [
  "indoc",
  "libc",
@@ -3389,9 +3390,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-build-config"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "755ea671a1c34044fa165247aaf6f419ca39caa6003aee791a0df2713d8f1b6d"
+checksum = "458eb0c55e7ece017adeba38f2248ff3ac615e53660d7c71a238d7d2a01c7598"
 dependencies = [
  "once_cell",
  "target-lexicon",
@@ -3399,9 +3400,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-ffi"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc95a2e67091e44791d4ea300ff744be5293f394f1bafd9f78c080814d35956e"
+checksum = "7114fe5457c61b276ab77c5055f206295b812608083644a5c5b2640c3102565c"
 dependencies = [
  "libc",
  "pyo3-build-config",
@@ -3409,9 +3410,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a179641d1b93920829a62f15e87c0ed791b6c8db2271ba0fd7c2686090510214"
+checksum = "a8725c0a622b374d6cb051d11a0983786448f7785336139c3c94f5aa6bef7e50"
 dependencies = [
  "proc-macro2",
  "pyo3-macros-backend",
@@ -3421,9 +3422,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros-backend"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dff85ebcaab8c441b0e3f7ae40a6963ecea8a9f5e74f647e33fcf5ec9a1e89e"
+checksum = "4109984c22491085343c05b0dbc54ddc405c3cf7b4374fc533f5c3313a572ccc"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -4012,11 +4013,12 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.17.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6709222f3973137427ce50559cd564dc187a95b9cfe01613d2f4e93610e510a"
+checksum = "e39a2ee1fbcd360805a771e1b300f78cc88fec7b8d3e2f71cd37bbf23e725c7d"
 dependencies = [
  "papergrid",
+ "testing_table",
 ]
 
 [[package]]
@@ -4045,6 +4047,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "testing_table"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f8daae29995a24f65619e19d8d31dea5b389f3d853d8bf297bbf607cd0014cc"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]
