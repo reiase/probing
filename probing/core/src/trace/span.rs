@@ -435,30 +435,56 @@ mod tests {
     }
 
     // Helper functions to reduce test redundancy
-    fn create_span_with_duration(tracer: &mut LocalSpanManager, name: &str, kind: Option<&str>, duration_ms: u64, status: SpanStatus) {
+    fn create_span_with_duration(
+        tracer: &mut LocalSpanManager,
+        name: &str,
+        kind: Option<&str>,
+        duration_ms: u64,
+        status: SpanStatus,
+    ) {
         tracer.start_span(name, kind, None);
         std::thread::sleep(StdDuration::from_millis(duration_ms));
         tracer.end_span(status);
     }
 
-    fn assert_stats_entry(stats: &std::collections::HashMap<(Option<String>, String, SpanStatus), SpanStats>, 
-                         key: (Option<String>, String, SpanStatus), 
-                         expected_count: u64, 
-                         min_duration: Option<StdDuration>) {
-        let stats_entry = stats.get(&key).expect(&format!("Stats not found for key: {:?}", key));
-        assert_eq!(stats_entry.count, expected_count, "Count mismatch for key: {:?}", key);
-        
+    fn assert_stats_entry(
+        stats: &std::collections::HashMap<(Option<String>, String, SpanStatus), SpanStats>,
+        key: (Option<String>, String, SpanStatus),
+        expected_count: u64,
+        min_duration: Option<StdDuration>,
+    ) {
+        let stats_entry = stats
+            .get(&key)
+            .expect(&format!("Stats not found for key: {:?}", key));
+        assert_eq!(
+            stats_entry.count, expected_count,
+            "Count mismatch for key: {:?}",
+            key
+        );
+
         if let Some(min_dur) = min_duration {
-            assert!(stats_entry.total_duration >= min_dur, 
-                   "Duration too short for key: {:?}. Expected: {:?}, Got: {:?}", 
-                   key, min_dur, stats_entry.total_duration);
+            assert!(
+                stats_entry.total_duration >= min_dur,
+                "Duration too short for key: {:?}. Expected: {:?}, Got: {:?}",
+                key,
+                min_dur,
+                stats_entry.total_duration
+            );
         } else {
-            assert_eq!(stats_entry.total_duration, StdDuration::from_nanos(0), 
-                      "Expected zero duration for active span: {:?}", key);
+            assert_eq!(
+                stats_entry.total_duration,
+                StdDuration::from_nanos(0),
+                "Expected zero duration for active span: {:?}",
+                key
+            );
         }
     }
 
-    fn create_span_key(kind: Option<&str>, name: &str, status: SpanStatus) -> (Option<String>, String, SpanStatus) {
+    fn create_span_key(
+        kind: Option<&str>,
+        name: &str,
+        status: SpanStatus,
+    ) -> (Option<String>, String, SpanStatus) {
         (kind.map(String::from), name.to_string(), status)
     }
 
@@ -842,7 +868,10 @@ mod tests {
     fn test_get_statistics_empty() {
         let tracer = setup_tracer();
         let stats = tracer.get_statistics();
-        assert!(stats.is_empty(), "Statistics should be empty for a new tracer");
+        assert!(
+            stats.is_empty(),
+            "Statistics should be empty for a new tracer"
+        );
     }
 
     #[test]
@@ -853,7 +882,12 @@ mod tests {
         let span_scenarios = [
             ("task_a", Some("type1"), 10, SpanStatus::Close),
             ("task_a", Some("type1"), 20, SpanStatus::Close),
-            ("task_b", Some("type2"), 30, SpanStatus::Error(Some("failed".to_string()))),
+            (
+                "task_b",
+                Some("type2"),
+                30,
+                SpanStatus::Error(Some("failed".to_string())),
+            ),
         ];
 
         for (name, kind, duration, status) in span_scenarios {
@@ -868,7 +902,11 @@ mod tests {
         assert_stats_entry(&stats, task_a_key, 2, Some(StdDuration::from_millis(30)));
 
         // Verify task_b statistics (1 error span)
-        let task_b_key = create_span_key(Some("type2"), "task_b", SpanStatus::Error(Some("failed".to_string())));
+        let task_b_key = create_span_key(
+            Some("type2"),
+            "task_b",
+            SpanStatus::Error(Some("failed".to_string())),
+        );
         assert_stats_entry(&stats, task_b_key, 1, Some(StdDuration::from_millis(30)));
     }
 
@@ -887,8 +925,16 @@ mod tests {
         // Test all active spans have zero duration
         let active_keys = [
             create_span_key(Some("type_active"), "active_task_1", SpanStatus::Open),
-            create_span_key(Some("type_parent_active"), "active_task_2_parent", SpanStatus::Open),
-            create_span_key(Some("type_child_active"), "active_task_2_child", SpanStatus::Running),
+            create_span_key(
+                Some("type_parent_active"),
+                "active_task_2_parent",
+                SpanStatus::Open,
+            ),
+            create_span_key(
+                Some("type_child_active"),
+                "active_task_2_child",
+                SpanStatus::Running,
+            ),
         ];
 
         for key in active_keys {
@@ -898,13 +944,27 @@ mod tests {
         // End child and verify parent becomes Running
         tracer.end_span(SpanStatus::Close);
         let stats_after = tracer.get_statistics();
-        
-        assert_stats_entry(&stats_after, 
-                          create_span_key(Some("type_child_active"), "active_task_2_child", SpanStatus::Close),
-                          1, Some(StdDuration::from_nanos(1)));
-        assert_stats_entry(&stats_after,
-                          create_span_key(Some("type_parent_active"), "active_task_2_parent", SpanStatus::Running),
-                          1, None);
+
+        assert_stats_entry(
+            &stats_after,
+            create_span_key(
+                Some("type_child_active"),
+                "active_task_2_child",
+                SpanStatus::Close,
+            ),
+            1,
+            Some(StdDuration::from_nanos(1)),
+        );
+        assert_stats_entry(
+            &stats_after,
+            create_span_key(
+                Some("type_parent_active"),
+                "active_task_2_parent",
+                SpanStatus::Running,
+            ),
+            1,
+            None,
+        );
     }
 
     #[test]
@@ -912,20 +972,44 @@ mod tests {
         let mut tracer = setup_tracer();
 
         // Create mixed scenario: completed, active, and error spans
-        create_span_with_duration(&mut tracer, "completed_task", Some("type_c"), 15, SpanStatus::Close);
-        
+        create_span_with_duration(
+            &mut tracer,
+            "completed_task",
+            Some("type_c"),
+            15,
+            SpanStatus::Close,
+        );
+
         tracer.start_span("active_task", Some("type_a"), None); // This will remain active
-        
-        create_span_with_duration(&mut tracer, "active_task", Some("type_a"), 25, SpanStatus::Error(None));
+
+        create_span_with_duration(
+            &mut tracer,
+            "active_task",
+            Some("type_a"),
+            25,
+            SpanStatus::Error(None),
+        );
 
         let stats = tracer.get_statistics();
         assert_eq!(stats.len(), 3, "Expected 3 groups of statistics");
 
         // Use helper to verify all expected statistics
         let expected_stats = [
-            (create_span_key(Some("type_c"), "completed_task", SpanStatus::Close), 1, Some(StdDuration::from_millis(15))),
-            (create_span_key(Some("type_a"), "active_task", SpanStatus::Running), 1, None),
-            (create_span_key(Some("type_a"), "active_task", SpanStatus::Error(None)), 1, Some(StdDuration::from_millis(25))),
+            (
+                create_span_key(Some("type_c"), "completed_task", SpanStatus::Close),
+                1,
+                Some(StdDuration::from_millis(15)),
+            ),
+            (
+                create_span_key(Some("type_a"), "active_task", SpanStatus::Running),
+                1,
+                None,
+            ),
+            (
+                create_span_key(Some("type_a"), "active_task", SpanStatus::Error(None)),
+                1,
+                Some(StdDuration::from_millis(25)),
+            ),
         ];
 
         for (key, count, min_duration) in expected_stats {
@@ -959,7 +1043,11 @@ mod tests {
         // Verify statistics for each status type
         let expected_results = [
             (SpanStatus::Close, 2, Some(StdDuration::from_millis(11))), // 5 + 6
-            (SpanStatus::Error(Some("network issue".to_string())), 1, Some(StdDuration::from_millis(8))),
+            (
+                SpanStatus::Error(Some("network issue".to_string())),
+                1,
+                Some(StdDuration::from_millis(8)),
+            ),
             (SpanStatus::Running, 1, None),
         ];
 

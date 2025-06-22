@@ -8,11 +8,23 @@ struct DataTypeInfo {
 }
 
 impl DataTypeInfo {
-    const I64: Self = Self { name: "i64", size_bytes: 8 };
-    const I32: Self = Self { name: "i32", size_bytes: 4 };
-    const F64: Self = Self { name: "f64", size_bytes: 8 };
-    const F32: Self = Self { name: "f32", size_bytes: 4 };
-    
+    const I64: Self = Self {
+        name: "i64",
+        size_bytes: 8,
+    };
+    const I32: Self = Self {
+        name: "i32",
+        size_bytes: 4,
+    };
+    const F64: Self = Self {
+        name: "f64",
+        size_bytes: 8,
+    };
+    const F32: Self = Self {
+        name: "f32",
+        size_bytes: 4,
+    };
+
     const ALL: &'static [Self] = &[Self::I64, Self::I32, Self::F64, Self::F32];
 }
 
@@ -33,7 +45,7 @@ impl SeqGenerator {
         (Self::LinearPlusSin, "x+sin(x)"),
         (Self::Exp, "exp(x)"),
     ];
-    
+
     fn generate(&self, i: usize) -> f64 {
         let x = i as f64;
         match self {
@@ -47,7 +59,11 @@ impl SeqGenerator {
 }
 
 /// Append value to series based on data type
-fn append_to_series(series: &mut Series, val: f64, dtype: DataTypeInfo) -> Result<(), Box<dyn std::error::Error>> {
+fn append_to_series(
+    series: &mut Series,
+    val: f64,
+    dtype: DataTypeInfo,
+) -> Result<(), Box<dyn std::error::Error>> {
     match dtype.name {
         "i64" => series.append(val as i64).map_err(|e| e.into()),
         "i32" => series.append(val as i32).map_err(|e| e.into()),
@@ -58,33 +74,38 @@ fn append_to_series(series: &mut Series, val: f64, dtype: DataTypeInfo) -> Resul
 }
 
 /// Create and populate a series with generated data
-fn create_series(dtype: DataTypeInfo, seq_gen: &SeqGenerator, level: usize, count: usize) -> Series {
+fn create_series(
+    dtype: DataTypeInfo,
+    seq_gen: &SeqGenerator,
+    level: usize,
+    count: usize,
+) -> Series {
     let mut series = Series::builder()
         .with_chunk_size(10000)
         .with_compression_threshold(100)
         .with_compression_level(level)
         .build();
-    
+
     for i in 0..count {
         let val = seq_gen.generate(i);
         let _ = append_to_series(&mut series, val, dtype);
     }
-    
+
     series
 }
 
 fn main() {
     const DATA_COUNT: usize = 1_000_000;
     const COMPRESSION_LEVELS: &[usize] = &[0, 8, 12];
-    
+
     for &dtype in DataTypeInfo::ALL {
         for &level in COMPRESSION_LEVELS {
             for &(ref seq_gen, seq_name) in SeqGenerator::ALL {
                 let series = create_series(dtype, seq_gen, level, DATA_COUNT);
-                
+
                 let compression_ratio = series.nbytes() as f64 / DATA_COUNT as f64 / 8.0;
                 let uncompressed_size = DATA_COUNT * dtype.size_bytes;
-                
+
                 println!(
                     "{} series ({}) with compress level {} ({}): {} => {}",
                     dtype.name,

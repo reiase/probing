@@ -645,10 +645,13 @@ mod tests {
 
         // Test empty object errors
         let empty_cases = [
-            Address { worker: None, object: "".to_string() },
+            Address {
+                worker: None,
+                object: "".to_string(),
+            },
             "".to_string().into(),
         ];
-        
+
         for case in empty_cases {
             assert!(matches!(
                 allocator.allocate_primary_address(case),
@@ -662,7 +665,9 @@ mod tests {
             object: "my_object".to_string(),
         };
         assert_eq!(
-            allocator.allocate_primary_address(pre_assigned.clone()).unwrap(),
+            allocator
+                .allocate_primary_address(pre_assigned.clone())
+                .unwrap(),
             pre_assigned
         );
     }
@@ -676,19 +681,30 @@ mod tests {
         let topology = create_basic_topology(node_count, 1);
         let allocator = AddressAllocator::new(topology, requested_replicas);
         let addresses = allocator.allocate_addresses(object_id.to_string()).unwrap();
-        
+
         assert_eq!(addresses.len(), expected_total);
-        
+
         // Verify all addresses have the same object ID
-        addresses.iter().for_each(|addr| assert_eq!(addr.object, object_id));
-        
+        addresses
+            .iter()
+            .for_each(|addr| assert_eq!(addr.object, object_id));
+
         // Verify nodes are distinct (if we have more than one address)
         if addresses.len() > 1 {
             let nodes: std::collections::HashSet<_> = addresses
                 .iter()
-                .map(|addr| allocator.topology.find_node_for_worker(addr.worker.as_ref().unwrap()).unwrap())
+                .map(|addr| {
+                    allocator
+                        .topology
+                        .find_node_for_worker(addr.worker.as_ref().unwrap())
+                        .unwrap()
+                })
                 .collect();
-            assert_eq!(nodes.len(), addresses.len(), "All addresses should be on different nodes");
+            assert_eq!(
+                nodes.len(),
+                addresses.len(),
+                "All addresses should be on different nodes"
+            );
         }
     }
 
@@ -701,20 +717,17 @@ mod tests {
     fn test_replica_generation_scenarios() {
         // Sufficient nodes
         assert_replica_allocation(3, 2, 3, "obj_sufficient");
-        
-        // Insufficient nodes  
+
+        // Insufficient nodes
         assert_replica_allocation(2, 2, 2, "obj_insufficient");
-        
+
         // Single node - no replicas possible
         assert_replica_allocation(1, 1, 1, "obj_single");
     }
 
     #[test]
     fn test_empty_topology_allocation_fails() {
-        let allocator = AddressAllocator::new(
-            TopologyView::new(HashMap::new(), 0), 
-            2
-        );
+        let allocator = AddressAllocator::new(TopologyView::new(HashMap::new(), 0), 2);
         assert!(matches!(
             allocator.allocate_addresses("test_empty".to_string()),
             Err(AddressError::InsufficientTopology)
@@ -729,33 +742,35 @@ mod tests {
         // Old tests for node are no longer applicable directly
         // assert!(!addr.is_local("node2", "worker1"));
         // assert!(!addr.is_local("node1", "worker2"));
-    }    #[tokio::test]
+    }
+    #[tokio::test]
     async fn test_address_allocator_functional() -> Result<()> {
         let workers_per_node = [
             ("node-1", vec!["worker-1", "worker-2"]),
             ("node-2", vec!["worker-3"]),
             ("node-3", vec!["worker-4", "worker-5"]),
-        ].into_iter()
+        ]
+        .into_iter()
         .map(|(k, v)| (k.to_string(), v.into_iter().map(String::from).collect()))
         .collect();
 
-        let allocator = AddressAllocator::new(
-            TopologyView::new(workers_per_node, 1), 
-            2
-        );
+        let allocator = AddressAllocator::new(TopologyView::new(workers_per_node, 1), 2);
         let addresses = allocator.allocate_addresses("test-object".to_string())?;
 
         assert_eq!(addresses.len(), 3); // Primary + 2 replicas
-        
+
         // Verify all addresses have the same object and different nodes
         let nodes: std::collections::HashSet<_> = addresses
             .iter()
             .map(|addr| {
                 assert_eq!(addr.object, "test-object");
-                allocator.topology.find_node_for_worker(addr.worker.as_ref().unwrap()).unwrap()
+                allocator
+                    .topology
+                    .find_node_for_worker(addr.worker.as_ref().unwrap())
+                    .unwrap()
             })
             .collect();
-        
+
         assert_eq!(nodes.len(), 3, "All replicas should be on different nodes");
         Ok(())
     }
@@ -763,10 +778,13 @@ mod tests {
     #[test]
     fn test_invalid_uri_patterns() {
         let invalid_cases = [
-            ("probing://worker1/unsupported/pattern", "Unsupported URI path pattern"),
+            (
+                "probing://worker1/unsupported/pattern",
+                "Unsupported URI path pattern",
+            ),
             ("probing:///objects/some_object", "Missing worker ID"),
         ];
-        
+
         for (uri, expected_error) in invalid_cases {
             let result = Address::from_uri(uri);
             assert!(result.is_err());

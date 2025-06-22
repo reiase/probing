@@ -88,26 +88,30 @@ pub enum EngineError {
 impl EngineError {
     pub fn with_context<C: Into<String>>(self, context: C) -> EngineError {
         let context = context.into();
-        
+
         // Helper macro to reduce boilerplate for string-based variants
         macro_rules! add_context {
             ($variant:path, $msg:expr) => {
                 $variant(format!("{}: {}", context, $msg))
             };
         }
-        
+
         match self {
             // String-based error variants that can have context added
             EngineError::PluginError(msg) => add_context!(EngineError::PluginError, msg),
             EngineError::PluginNotFound(msg) => add_context!(EngineError::PluginNotFound, msg),
-            EngineError::PluginRegistrationFailed(msg) => add_context!(EngineError::PluginRegistrationFailed, msg),
+            EngineError::PluginRegistrationFailed(msg) => {
+                add_context!(EngineError::PluginRegistrationFailed, msg)
+            }
             EngineError::QueryError(msg) => add_context!(EngineError::QueryError, msg),
             EngineError::InternalError(msg) => add_context!(EngineError::InternalError, msg),
             EngineError::CallError(msg) => add_context!(EngineError::CallError, msg),
             EngineError::ClusterError(msg) => add_context!(EngineError::ClusterError, msg),
             EngineError::ConcurrencyError(msg) => add_context!(EngineError::ConcurrencyError, msg),
             EngineError::ConfigError(msg) => add_context!(EngineError::ConfigError, msg),
-            EngineError::UnsupportedOption(msg) => add_context!(EngineError::UnsupportedOption, msg),
+            EngineError::UnsupportedOption(msg) => {
+                add_context!(EngineError::UnsupportedOption, msg)
+            }
             EngineError::ReadOnlyOption(msg) => add_context!(EngineError::ReadOnlyOption, msg),
 
             // Error variants that cannot or should not have context added
