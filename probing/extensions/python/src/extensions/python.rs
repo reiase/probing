@@ -325,7 +325,7 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     })?;
 
     Python::with_gil(|_py| {
-        let python_frames = get_python_stacks(Some(target_tid)).unwrap_or_default();
+        let python_frames = get_python_stacks(target_tid).unwrap_or_default();
 
         let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
         NATIVE_CALLSTACK_SENDER_SLOT
