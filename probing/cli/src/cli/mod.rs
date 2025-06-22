@@ -51,6 +51,7 @@ impl Cli {
     pub async fn run(&mut self) -> Result<()> {
         // Handle external commands first to avoid target requirement
         if let Some(Commands::External(args)) = &self.command {
+            std::env::set_var("PROBING_ENDPOINT", format!("{}", self.target.clone().unwrap_or_default()));
             return handle_external_command(&args);
         }
 
@@ -166,7 +167,7 @@ fn handle_external_command(args: &[String]) -> Result<()> {
     }
 
     let subcommand = &args[0];
-    let external_bin = format!("myapp-{}", subcommand);
+    let external_bin = format!("probing-{}", subcommand);
 
     let status = std::process::Command::new(&external_bin)
         .args(&args[1..])
