@@ -16,7 +16,7 @@ pub mod prelude {
     pub use crate::types::Ele;
     pub use crate::types::Seq;
     pub use crate::types::Series;
-    pub use crate::types::TimeSeries;
+    pub use crate::types::{TimeSeries, ExternalTableConfig};
     pub use crate::types::Value;
 
     // --- Error Handling ---

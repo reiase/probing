@@ -6,7 +6,6 @@ use super::error::ProtoError;
 use super::series::{DiscardStrategy, SeriesIterator};
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
 
-// use pyo3::types::PyDict;
 
 #[derive(Debug, Error)]
 pub enum TimeSeriesError {
@@ -39,11 +38,18 @@ pub struct TimeSeries {
     pub cols: Vec<Series>,
 }
 
+#[derive(Copy, Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub struct ExternalTableConfig {
+    pub chunk_size: usize,
+    pub discard_threshold: usize,
+    // discard_strategy: DiscardStrategy,
+}
+
 impl TimeSeries {
-    pub fn builder(limit: usize) -> TimeSeriesConfig {
+    pub fn builder(ext_config: ExternalTableConfig) -> TimeSeriesConfig {
         let ts_config = TimeSeriesConfig::default()
-        .with_discard_threshold(limit)
-        .with_chunk_size(limit)
+        .with_discard_threshold(ext_config.discard_threshold)
+        .with_chunk_size(ext_config.chunk_size)
         .with_discard_strategy(DiscardStrategy::BaseElementCount);
         ts_config
     }
