@@ -205,11 +205,6 @@ impl ExternalTable {
             })
             .collect::<Vec<_>>())
     }
-
-    // fn set_db_limit(&mut self, limit: usize) -> PyResult<()> {
-    //     self.0.lock().unwrap().set_limit(limit);
-    //     Ok(())
-    // }
 }
 
 #[cfg(test)]
@@ -232,7 +227,7 @@ mod tests {
                 c_str!(
                     r#"
 import probing
-config = probing.ExternalTableConfig(chunk_size=10, discard_threshold=100)
+config = probing.ExternalTableConfig(chunk_size=10000, discard_threshold=20_000_000)
 table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config)
 table3.append([1, 2])
 table3.append([3, 4])
