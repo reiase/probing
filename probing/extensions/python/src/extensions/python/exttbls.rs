@@ -25,14 +25,37 @@ fn value_to_object(py: Python, v: &Ele) -> PyObject {
     ret.map(|x| x.unbind()).unwrap_or(py.None())
 }
 
-// #[derive(Debug)]
-// struct ExternalTableConfig {
-//     chunk_size: usize,
-//     discard_threshold: usize,
-//     discard_strategy: DiscardStrategy,
-// }
+#[pyclass]
+pub struct ExternalTableConfig {
+    #[pyo3(get)]
+    chunk_size: usize,
+    #[pyo3(get)]
+    discard_threshold: usize,
+    // discard_strategy: DiscardStrategy,
+}
 
-// 
+impl FromPyObject<'_> for ExternalTableConfig {
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let chunk_size: usize = ob.get_item("chunk_size")?.extract()?;
+        let discard_threshold: usize = ob.get_item("discard_threshold")?.extract()?;
+        Ok(Self { chunk_size, discard_threshold })
+    }
+}
+
+#[pymethods]
+impl ExternalTableConfig {
+    #[new]
+    fn new(chunk_size: usize, discard_threshold: usize) -> Self {
+        Self { chunk_size, discard_threshold }
+    }
+
+    fn into_py(&self, py: Python<'_>) -> PyObject {
+        let dict = PyDict::new(py);
+        dict.set_item("chunk_size", &self.chunk_size).unwrap();
+        dict.set_item("discard_threshold", self.discard_threshold).unwrap();
+        dict.into()
+    }
+}
 
 pub static EXTERN_TABLES: Lazy<Mutex<HashMap<String, Arc<Mutex<TimeSeries>>>>> =
     Lazy::new(|| Mutex::new(Default::default()));
@@ -44,10 +67,10 @@ pub struct ExternalTable(Arc<Mutex<TimeSeries>>, usize);
 #[pymethods]
 impl ExternalTable {
     #[new]
-    fn new(name: &str, columns: Vec<String>, limit: usize) -> Self {
+    fn new(name: &str, columns: Vec<String>, config: ExternalTableConfig) -> Self {
         let ncolumn = columns.len();
         let ts = Arc::new(Mutex::new(
-            TimeSeries::builder(limit).with_columns(columns).build(),
+            TimeSeries::builder(config.discard_threshold).with_columns(columns).build(),
         ));
         EXTERN_TABLES
             .lock()
@@ -76,6 +99,7 @@ impl ExternalTable {
         _cls: &Bound<'_, PyType>,
         name: &str,
         columns: Vec<String>,
+        config: Option<ExternalTableConfig>,
     ) -> PyResult<ExternalTable> {
         let mut binding = EXTERN_TABLES.lock().unwrap();
         let ts = binding.get(name);
@@ -84,8 +108,9 @@ impl ExternalTable {
             Ok(ExternalTable(ts.clone(), ncolumn))
         } else {
             let ncolumn = columns.len();
+            let limit = config.map(|c| c.discard_threshold).unwrap_or(10);
             let ts = Arc::new(Mutex::new(
-                TimeSeries::builder(10).with_columns(columns).build(),
+                TimeSeries::builder(limit).with_columns(columns).build(),
             ));
             binding.insert(name.to_string(), ts.clone());
             Ok(ExternalTable(ts, ncolumn))
@@ -207,7 +232,8 @@ mod tests {
                 c_str!(
                     r#"
 import probing
-table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"])
+config = probing.ExternalTableConfig(chunk_size=10, discard_threshold=100)
+table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config)
 table3.append([1, 2])
 table3.append([3, 4])
 table3.append([5, 6])
@@ -223,7 +249,11 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], 10);
+        let config = ExternalTableConfig {
+            chunk_size: 10,
+            discard_threshold: 10,
+        };
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], config);
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 
