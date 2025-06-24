@@ -91,7 +91,6 @@ impl TimeSeries {
         }
         self.timestamp.append_value(timestamp)?;
         for (i, item) in values.iter().enumerate().take(self.cols.len()) {
-            println!("{} ts ready append value", i);
             self.cols[i].append_value(item.clone())?;
         }
         Ok(())
