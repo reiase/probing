@@ -26,7 +26,6 @@ fn value_to_object(py: Python, v: &Ele) -> PyObject {
 }
 
 #[pyclass]
-#[derive(Default)]
 pub struct PyExternalTableConfig {
     #[pyo3(get)]
     chunk_size: usize,
@@ -34,6 +33,16 @@ pub struct PyExternalTableConfig {
     discard_threshold: usize,
     #[pyo3(get)]
     discard_strategy: String,
+}
+
+impl Default for PyExternalTableConfig {
+    fn default() -> Self {
+        PyExternalTableConfig {
+            chunk_size: 10000,
+            discard_threshold: 20_000_000,
+            discard_strategy: "BaseMemorySize".to_string(),
+        }
+    }
 }
 
 impl FromPyObject<'_> for PyExternalTableConfig {
@@ -55,7 +64,7 @@ impl From<PyExternalTableConfig> for ExternalTableConfig {
             discard_strategy: match py_config.discard_strategy.as_str() {
                 "BaseElementCount" => DiscardStrategy::BaseElementCount,
                 "BaseMemorySize" => DiscardStrategy::BaseMemorySize,
-                _ => DiscardStrategy::None, // Default case
+                _ => DiscardStrategy::None,
             }
         }
     }
@@ -136,18 +145,8 @@ impl ExternalTable {
         } else {
             let ncolumn = columns.len();
             let config: ExternalTableConfig = py_config_param
-                .unwrap_or_default()  // 获取默认的 PyExternalTableConfig
+                .unwrap_or_default()
                 .into();
-            // let config: ExternalTableConfig;
-            // if let Some(py_config) = py_config_param {
-            //     config = py_config.into();
-            // } else {
-            //     config = ExternalTableConfig {
-            //         chunk_size: 1000,
-            //         discard_threshold: 1000,
-            //     };
-            // }
-
             let ts = Arc::new(Mutex::new(
                 TimeSeries::builder_with_config(config).with_columns(columns).build(),
             ));
@@ -266,7 +265,7 @@ mod tests {
                 c_str!(
                     r#"
 import probing
-config = probing.PyExternalTableConfig(chunk_size=10000, discard_threshold=20_000_000)
+config = probing.PyExternalTableConfig(chunk_size=10000, discard_threshold=20_000_000, discard_strategy="BaseMemorySize")
 table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config)
 table3.append([1, 2])
 table3.append([3, 4])
@@ -283,10 +282,6 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        // let config = PyExternalTableConfig {
-        //     chunk_size: 10,
-        //     discard_threshold: 10,
-        // };
         let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], None);
         assert_eq!(table.names(), vec!["a", "b"]);
     }

@@ -207,7 +207,6 @@ impl Series {
             if let Page::Raw(ref mut array) = slice.data {
                 T::append_to_array(array, data)?;
                 slice.length += 1;
-                println!("0000!!!!slice.length {}", slice.length);
                 if let DiscardStrategy::BaseElementCount = self.config.discard_strategy {
                     self.commit_counts += 1;
                 }
@@ -219,8 +218,6 @@ impl Series {
             }
         } else {
             self.config.dtype = T::dtype();
-
-            println!("eeeeeelse");
 
             let array = T::create_array(data, self.config.chunk_size);
             let page = Page::Raw(array);
@@ -239,8 +236,6 @@ impl Series {
 
         self.offset = self.offset.saturating_add(1);
         
-        println!("3333series offset {}", self.offset);
-        println!("4444series commit_counts {}", self.commit_counts);
         Ok(())
     }
 
@@ -316,10 +311,8 @@ impl Series {
     fn commit_current_slice(&mut self) {
         let nbytes = self.nbytes();
         let slice = self.current_slice.take();
-        println!("commit_current_slice nbytes {} self.compression_threshold  {}", nbytes, self.config.compression_threshold);
         if nbytes > self.config.compression_threshold {
             if let Some(mut slice) = slice {
-                println!("compress slice {:?}", slice);
                 slice.compress();
                 self.commit_nbytes += slice.nbytes();
                 self.slices.insert(slice.offset, slice);
@@ -339,10 +332,8 @@ impl Series {
                 }
             }
             DiscardStrategy::BaseElementCount => {
-                println!("1111deal ncounts {} discard threshold {}", self.commit_counts, self.config.discard_threshold);
                 while self.ncounts() >= (self.config.discard_threshold - 1) {
                     if let Some((_offset, slice)) = self.slices.pop_first() {
-                        println!("2222ddddelete deal slice {:?}", slice);
                         self.dropped += slice.offset + slice.length;
                         self.commit_nbytes -= slice.nbytes();
                         self.commit_counts = 0;
