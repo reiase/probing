@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 use probing_proto::prelude::{Ele, TimeSeries, ExternalTableConfig};
-// use probing_proto::types::series::DiscardStrategy;
+use probing_proto::types::series::DiscardStrategy;
 use pyo3::prelude::*;
 use pyo3::types::{PyType, PyDict};
 // use pyo3::exceptions::PyValueError;
@@ -32,13 +32,18 @@ pub struct PyExternalTableConfig {
     chunk_size: usize,
     #[pyo3(get)]
     discard_threshold: usize,
+    #[pyo3(get)]
+    discard_strategy: String,
 }
 
 impl FromPyObject<'_> for PyExternalTableConfig {
     fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
         let chunk_size: usize = ob.get_item("chunk_size")?.extract()?;
         let discard_threshold: usize = ob.get_item("discard_threshold")?.extract()?;
-        Ok(PyExternalTableConfig { chunk_size, discard_threshold })
+        let discard_strategy: String = ob
+            .get_item("discard_strategy")
+            .map_or(Ok("None".to_string()), |v| v.extract())?;
+        Ok(PyExternalTableConfig { chunk_size, discard_threshold, discard_strategy })
     }
 }
 
@@ -47,6 +52,11 @@ impl From<PyExternalTableConfig> for ExternalTableConfig {
         ExternalTableConfig {
             chunk_size: py_config.chunk_size,
             discard_threshold: py_config.discard_threshold,
+            discard_strategy: match py_config.discard_strategy.as_str() {
+                "BaseElementCount" => DiscardStrategy::BaseElementCount,
+                "BaseMemorySize" => DiscardStrategy::BaseMemorySize,
+                _ => DiscardStrategy::None, // Default case
+            }
         }
     }
 }
@@ -54,14 +64,19 @@ impl From<PyExternalTableConfig> for ExternalTableConfig {
 #[pymethods]
 impl PyExternalTableConfig {
     #[new]
-    fn new(chunk_size: usize, discard_threshold: usize) -> Self {
-        PyExternalTableConfig { chunk_size, discard_threshold }
+    fn new(chunk_size: usize, discard_threshold: usize, discard_strategy: String) -> Self {
+        PyExternalTableConfig { 
+            chunk_size, 
+            discard_threshold, 
+            discard_strategy,
+        }
     }
 
     fn into_py(&self, py: Python<'_>) -> PyObject {
         let dict = PyDict::new(py);
         dict.set_item("chunk_size", &self.chunk_size).unwrap();
         dict.set_item("discard_threshold", self.discard_threshold).unwrap();
+        dict.set_item("discard_strategy", &self.discard_strategy).unwrap();
         dict.into()
     }
 }
@@ -251,7 +266,7 @@ mod tests {
                 c_str!(
                     r#"
 import probing
-config = probing.ExternalTableConfig(chunk_size=10000, discard_threshold=20_000_000)
+config = probing.PyExternalTableConfig(chunk_size=10000, discard_threshold=20_000_000)
 table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config)
 table3.append([1, 2])
 table3.append([3, 4])
@@ -268,11 +283,11 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let config = ExternalTableConfig {
-            chunk_size: 10,
-            discard_threshold: 10,
-        };
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], config);
+        // let config = PyExternalTableConfig {
+        //     chunk_size: 10,
+        //     discard_threshold: 10,
+        // };
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], None);
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 

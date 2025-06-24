@@ -38,11 +38,11 @@ pub struct TimeSeries {
     pub cols: Vec<Series>,
 }
 
-#[derive(Copy, Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct ExternalTableConfig {
     pub chunk_size: usize,
     pub discard_threshold: usize,
-    // discard_strategy: DiscardStrategy,
+    pub discard_strategy: DiscardStrategy,
 }
 
 impl Default for ExternalTableConfig {
@@ -50,6 +50,7 @@ impl Default for ExternalTableConfig {
         ExternalTableConfig {
             chunk_size: 10000,
             discard_threshold: 20_000_000,
+            discard_strategy: DiscardStrategy::BaseMemorySize,
         }
     }
 }
@@ -64,7 +65,7 @@ impl TimeSeries {
         let ts_config = TimeSeriesConfig::default()
             .with_discard_threshold(ext_config.discard_threshold)
             .with_chunk_size(ext_config.chunk_size)
-            .with_discard_strategy(DiscardStrategy::BaseElementCount);
+            .with_discard_strategy(ext_config.discard_strategy);
         ts_config
     }
 
