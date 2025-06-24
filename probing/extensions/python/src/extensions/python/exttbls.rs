@@ -265,8 +265,12 @@ mod tests {
                 c_str!(
                     r#"
 import probing
-config = probing.PyExternalTableConfig(chunk_size=10000, discard_threshold=20_000_000, discard_strategy="BaseMemorySize")
-table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config)
+config_dict = {
+    "chunk_size": 10000,
+    "discard_threshold": 20_000_000,
+    "discard_strategy": "BaseMemorySize",
+}
+table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config_dict)
 table3.append([1, 2])
 table3.append([3, 4])
 table3.append([5, 6])
