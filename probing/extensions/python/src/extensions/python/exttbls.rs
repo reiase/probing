@@ -6,7 +6,6 @@ use probing_proto::prelude::{Ele, TimeSeries, ExternalTableConfig};
 use probing_proto::types::series::DiscardStrategy;
 use pyo3::prelude::*;
 use pyo3::types::{PyType, PyDict};
-// use pyo3::exceptions::PyValueError;
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
 
 
@@ -298,7 +297,7 @@ table3.append([5, 6])
                 c_str!(
                     r#"
 import probing
-table = probing.ExternalTable.get_or_create("table2", ["a", "b"])
+table = probing.ExternalTable.get_or_create("table2", ["a", "b"], None)
 "#
                 ),
                 None,
@@ -320,7 +319,7 @@ table = probing.ExternalTable.get_or_create("table2", ["a", "b"])
                 c_str!(
                     r#"
 import probing
-probing.ExternalTable.get_or_create("table2", ["a", "b"])
+probing.ExternalTable.get_or_create("table2", ["a", "b"], None)
                     "#
                 ),
                 None,
