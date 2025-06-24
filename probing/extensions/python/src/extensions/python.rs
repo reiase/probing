@@ -20,7 +20,7 @@ use pyo3::types::PyAnyMethods;
 use pyo3::Python;
 
 pub use exttbls::ExternalTable;
-// pub use probing_proto::prelude::ExternalTableConfig;
+pub use exttbls::PyExternalTableConfig;
 pub use tbls::PythonPlugin;
 
 use crate::flamegraph;

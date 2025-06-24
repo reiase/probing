@@ -26,6 +26,7 @@ fn value_to_object(py: Python, v: &Ele) -> PyObject {
 }
 
 #[pyclass]
+#[derive(Default)]
 pub struct PyExternalTableConfig {
     #[pyo3(get)]
     chunk_size: usize,
@@ -75,11 +76,13 @@ pub struct ExternalTable(Arc<Mutex<TimeSeries>>, usize);
 #[pymethods]
 impl ExternalTable {
     #[new]
-    fn new(name: &str, columns: Vec<String>, py_config: PyExternalTableConfig ) -> Self {
+    fn new(name: &str, columns: Vec<String>, py_config: Option<PyExternalTableConfig>  ) -> Self {
         let ncolumn = columns.len();
-        let config: ExternalTableConfig = py_config.into();
+        let config: ExternalTableConfig = py_config
+            .unwrap_or_default()
+            .into();           
         let ts = Arc::new(Mutex::new(
-            TimeSeries::builder(config).with_columns(columns).build(),
+            TimeSeries::builder_with_config(config).with_columns(columns).build(),
         ));
         EXTERN_TABLES
             .lock()
@@ -117,18 +120,21 @@ impl ExternalTable {
             Ok(ExternalTable(ts.clone(), ncolumn))
         } else {
             let ncolumn = columns.len();
-            let config: ExternalTableConfig;
-            if let Some(py_config) = py_config_param {
-                config = py_config.into();
-            } else {
-                config = ExternalTableConfig {
-                    chunk_size: 1000,
-                    discard_threshold: 1000,
-                };
-            }
-            // let limit = config.map(|c| c.discard_threshold).unwrap_or(10);
+            let config: ExternalTableConfig = py_config_param
+                .unwrap_or_default()  // 获取默认的 PyExternalTableConfig
+                .into();
+            // let config: ExternalTableConfig;
+            // if let Some(py_config) = py_config_param {
+            //     config = py_config.into();
+            // } else {
+            //     config = ExternalTableConfig {
+            //         chunk_size: 1000,
+            //         discard_threshold: 1000,
+            //     };
+            // }
+
             let ts = Arc::new(Mutex::new(
-                TimeSeries::builder(config).with_columns(columns).build(),
+                TimeSeries::builder_with_config(config).with_columns(columns).build(),
             ));
             binding.insert(name.to_string(), ts.clone());
             Ok(ExternalTable(ts, ncolumn))

@@ -45,12 +45,26 @@ pub struct ExternalTableConfig {
     // discard_strategy: DiscardStrategy,
 }
 
+impl Default for ExternalTableConfig {
+    fn default() -> Self {
+        ExternalTableConfig {
+            chunk_size: 10000,
+            discard_threshold: 20_000_000,
+        }
+    }
+}
+
 impl TimeSeries {
-    pub fn builder(ext_config: ExternalTableConfig) -> TimeSeriesConfig {
+    pub fn builder() -> TimeSeriesConfig {
+        let ts_config = TimeSeriesConfig::default();
+        ts_config
+    }
+
+    pub fn builder_with_config(ext_config: ExternalTableConfig) -> TimeSeriesConfig {
         let ts_config = TimeSeriesConfig::default()
-        .with_discard_threshold(ext_config.discard_threshold)
-        .with_chunk_size(ext_config.chunk_size)
-        .with_discard_strategy(DiscardStrategy::BaseElementCount);
+            .with_discard_threshold(ext_config.discard_threshold)
+            .with_chunk_size(ext_config.chunk_size)
+            .with_discard_strategy(DiscardStrategy::BaseElementCount);
         ts_config
     }
 
@@ -175,7 +189,7 @@ mod test {
 
     #[test]
     fn test_timeseries_create() {
-        let _ = super::TimeSeries::builder(10)
+        let _ = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
@@ -187,7 +201,7 @@ mod test {
 
     #[test]
     fn test_timeseries_append() {
-        let mut ts = super::TimeSeries::builder(10)
+        let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)
@@ -203,7 +217,7 @@ mod test {
 
     #[test]
     fn test_timeseries_limit() {
-        let mut ts = super::TimeSeries::builder(10)
+        let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_discard_threshold(10)
@@ -222,7 +236,7 @@ mod test {
 
     #[test]
     fn test_timeseries_iter() {
-        let mut ts = super::TimeSeries::builder(10)
+        let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
             .with_chunk_size(10)
             .with_compression_level(1)

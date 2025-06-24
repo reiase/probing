@@ -252,7 +252,7 @@ pub fn create_probing_module() -> PyResult<()> {
         }
         m.setattr(pyo3::intern!(py, "_C"), 42)?;
         m.add_class::<crate::extensions::python::ExternalTable>()?;
-        // m.add_class::<crate::extensions::python::PyExternalTableConfig>()?;
+        m.add_class::<crate::extensions::python::PyExternalTableConfig>()?;
         m.add_class::<TCPStore>()?;
         m.add_function(wrap_pyfunction!(query_json, py)?)?;
 

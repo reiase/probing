@@ -16,7 +16,7 @@ use probing_core::core::{
     NamespacePluginHelper, RecordBatch, Schema, SchemaRef, StringArray,
 };
 
-use probing_proto::prelude::{Ele, TimeSeries, ExternalTableConfig};
+use probing_proto::prelude::{Ele, TimeSeries};
 use probing_proto::types; // Keep this for types::EleType
 
 #[allow(unused)]
@@ -52,15 +52,10 @@ pub struct TaskStatsWorker {
 
 impl TaskStatsWorker {
     pub fn instance() -> &'static Self {
-        static config: ExternalTableConfig = ExternalTableConfig {
-            chunk_size: 1000,
-            discard_threshold: 1000,
-            // discard_strategy: DiscardStrategy::BaseElementCount,
-        };
         static INSTANCE: Lazy<TaskStatsWorker> = Lazy::new(|| TaskStatsWorker {
             running: Arc::new(AtomicBool::new(false)),
             time_series: Arc::new(Mutex::new(
-                TimeSeries::builder(config)
+                TimeSeries::builder()
                     .with_columns(vec!["cpu_utime".to_string(), "cpu_stime".to_string()])
                     .build(),
             )),
