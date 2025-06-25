@@ -1,24 +1,19 @@
-import ctypes
-dll = ctypes.CDLL("/home/yang/worksapce/probing/target/x86_64-unknown-linux-gnu/release/libprobing.so")
-
-from dataclasses import dataclass
-
-from enum import Enum, auto
-from threading import Lock
-from typing import Dict
-
 import time
-
 
 import probing
 
 config_data = {
-    "chunk_size": 10,
-    "discard_threshold": 10,
-    "discard_strategy": "BaseElementCount",
+    "chunk_size": 10000,
+    "discard_threshold": 1000000000,
+    "discard_strategy": "BaseMemorySize",
 }
 
-# config = probing.ExternalTableConfig(chunk_size=10, discard_threshold=10) #這個創建方式不行
+# config_data = {
+#     "chunk_size": 10,
+#     "discard_threshold": 10,
+#     "discard_strategy": "BaseElementCount",
+# }
+
 tbl = probing.ExternalTable("test222", ["allreduce_count", "broadcast_count"], config_data)
 
 tbl.append([1, 1])
