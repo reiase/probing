@@ -6,6 +6,7 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
+use py_spy::config::LockingStrategy;
 use std::sync::Mutex;
 
 use nix::libc;
@@ -319,6 +320,9 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
     let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
 
+    log::debug!("!!!!!!!!!!!!!2222222python");
+    print_python_stacks(process_pid)?;
+
     let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
         log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
         anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
@@ -442,4 +446,30 @@ fn merge_python_native_stacks(
         }
     }
     merged
+}
+
+
+use py_spy;
+
+fn print_python_stacks(pid: py_spy::Pid) -> Result<(), anyhow::Error> {
+    log::debug!("Getting python stack for PID xxx");
+
+    // Create a new PythonSpy object with the default config options
+    let mut config = py_spy::Config::default();
+    config.blocking = py_spy::config::LockingStrategy::NonBlocking;
+    let mut process = py_spy::PythonSpy::new(pid, &config)?;
+
+    // get stack traces for each thread in the process
+    let traces = process.get_stack_traces()?;
+
+    // Print out the python stack for each thread
+    for trace in traces {
+        log::debug!("Thread {:#X} ({})", trace.thread_id, trace.status_str());
+        for frame in &trace.frames {
+            log::debug!("\t {} ({}:{})", frame.name, frame.filename, frame.line);
+        }
+    }
+    log::debug!("Stack trace saved to /tmp/debug0626.txt");
+
+    Ok(())
 }
