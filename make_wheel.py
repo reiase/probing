@@ -86,8 +86,8 @@ def write_probing_wheel(
         out_dir_path.mkdir(parents=True)
 
     for name, path in {
-        "probing": "/home/yang/worksapce/probing/target/release/probing",
-        "libprobing.so": "/home/yang/worksapce/probing/target/release/libprobing.so",
+        "probing": "target/x86_64-unknown-linux-gnu/release/probing",
+        "libprobing.so": "target/x86_64-unknown-linux-gnu/release/libprobing.so",
         "probing-repl": "python/probing-repl",
     }.items():
         zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")
