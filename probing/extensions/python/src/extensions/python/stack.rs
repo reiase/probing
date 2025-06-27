@@ -1,45 +1,36 @@
-use std::ffi::CString;
-
-use log::error;
 use probing_proto::prelude::CallFrame;
-use pyo3::{prelude::*, types::PyDict};
+use py_spy;
 
-const STACK_THREADS: &str = include_str!("stack_get_threads.py");
+pub fn get_python_stacks(pid: py_spy::Pid) -> Option<Vec<CallFrame>> {
+    let mut frames = vec![];
 
-pub fn get_python_stacks(tid: i32) -> Option<Vec<CallFrame>> {
-    log::debug!("Collecting python backtrace for TID: {:?}", tid);
+    // Create a new PythonSpy object with the default config options
+    let mut config = py_spy::Config::default();
+    config.blocking = py_spy::config::LockingStrategy::NonBlocking;
+    let process = py_spy::PythonSpy::new(pid, &config);
 
-    let frames = Python::with_gil(|py| {
-        let global = PyDict::new(py);
-        global.set_item("tid", tid).unwrap_or_else(|err| {
-            error!("Failed to set 'tid' in Python global dict: {}", err);
-        });
-        let script_cstr = CString::new(STACK_THREADS).unwrap_or_default();
-        if let Err(err) = py.run(&script_cstr, Some(&global), Some(&global)) {
-            error!("Failed to execute Python stack dump script: {}", err);
+    // get stack traces for each thread in the process
+    let traces = match process.unwrap().get_stack_traces() {
+        Ok(traces) => traces,
+        Err(e) => {
+            log::error!("Failed to get stack traces: {}", e);
             return None;
-        }
-        match global.get_item("retval") {
-            Ok(Some(frames_str)) => frames_str.extract::<String>().ok(),
-            Ok(None) => {
-                error!("Python stack dump script did not return 'retval'");
-                None
-            }
-            Err(err) => {
-                error!("Failed to get 'retval' from Python stack dump: {}", err);
-                None
-            }
-        }
-    });
+    }
+};
 
-    log::debug!("Collected python frames: {:?}", frames);
+    // Print out the python stack for each thread
+    for trace in traces {
+        log::debug!("!!!!Thread {:#X} ({})", trace.thread_id, trace.status_str());
+        for frame in &trace.frames {
+            log::debug!("!!!!!\t {} ({}:{})", frame.name, frame.filename, frame.line);
+            frames.push(CallFrame::PyFrame {
+                file: frame.filename.clone(),
+                func: frame.name.clone(),
+                lineno: frame.line as i64,
+                locals: Default::default(),
+            });
+        }
+    }
 
-    frames.and_then(|s| {
-        serde_json::from_str::<Vec<CallFrame>>(&s)
-            .map_err(|e| {
-                error!("Failed to deserialize Python call stacks: {}", e);
-                e
-            })
-            .ok()
-    })
+    Some(frames)
 }

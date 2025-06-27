@@ -6,7 +6,6 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
-use py_spy::config::LockingStrategy;
 use std::sync::Mutex;
 
 use nix::libc;
@@ -320,64 +319,59 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
     let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
 
-    log::debug!("!!!!!!!!!!!!!2222222python");
-    print_python_stacks(process_pid)?;
-
     let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
         log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
         anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
     })?;
 
-    Python::with_gil(|_py| {
-        let python_frames = get_python_stacks(target_tid).unwrap_or_default();
+    let python_frames = get_python_stacks(process_pid).unwrap_or_default();
 
-        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-        NATIVE_CALLSTACK_SENDER_SLOT
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-                anyhow::anyhow!("Failed to lock call stack sender slot")
-            })?
-            .replace(tx);
+    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+    NATIVE_CALLSTACK_SENDER_SLOT
+        .try_lock()
+        .map_err(|err| {
+            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
+            anyhow::anyhow!("Failed to lock call stack sender slot")
+        })?
+        .replace(tx);
 
-        // Determine PID and TID for the tgkill syscall.
-        // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
-        let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-        let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
+    // Determine PID and TID for the tgkill syscall.
+    // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
+    let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
+    let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
 
-        log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
+    log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
 
-        let ret =
-            unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
+    let ret =
+        unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
 
-        if ret != 0 {
-            let last_error = std::io::Error::last_os_error();
-            let error_msg = format!(
-            "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
-        );
-            log::error!("{}", error_msg);
-            return Err(anyhow::anyhow!(error_msg));
+    if ret != 0 {
+        let last_error = std::io::Error::last_os_error();
+        let error_msg = format!(
+        "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
+    );
+        log::error!("{}", error_msg);
+        return Err(anyhow::anyhow!(error_msg));
+    }
+
+    // Attempt to receive C++ frames
+    let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(frames) => {
+            log::debug!("Received C++ frames successfully.");
+            frames
         }
-
-        // Attempt to receive C++ frames
-        let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
-            Ok(frames) => {
-                log::debug!("Received C++ frames successfully.");
-                frames
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                log::warn!("Timeout waiting for C++ call stack from signal handler");
-                return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                log::error!("Call stack channel disconnected while waiting for C++ frames.");
-                return Err(anyhow::anyhow!(
-                    "C++ call stack channel disconnected before any frames received"
-                ));
-            }
-        };
-        Ok(merge_python_native_stacks(python_frames, cpp_frames))
-    })
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            log::warn!("Timeout waiting for C++ call stack from signal handler");
+            return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            log::error!("Call stack channel disconnected while waiting for C++ frames.");
+            return Err(anyhow::anyhow!(
+                "C++ call stack channel disconnected before any frames received"
+            ));
+        }
+    };
+    Ok(merge_python_native_stacks(python_frames, cpp_frames))
 }
 
 // Moved from lib.rs
@@ -446,30 +440,4 @@ fn merge_python_native_stacks(
         }
     }
     merged
-}
-
-
-use py_spy;
-
-fn print_python_stacks(pid: py_spy::Pid) -> Result<(), anyhow::Error> {
-    log::debug!("Getting python stack for PID xxx");
-
-    // Create a new PythonSpy object with the default config options
-    let mut config = py_spy::Config::default();
-    config.blocking = py_spy::config::LockingStrategy::NonBlocking;
-    let mut process = py_spy::PythonSpy::new(pid, &config)?;
-
-    // get stack traces for each thread in the process
-    let traces = process.get_stack_traces()?;
-
-    // Print out the python stack for each thread
-    for trace in traces {
-        log::debug!("Thread {:#X} ({})", trace.thread_id, trace.status_str());
-        for frame in &trace.frames {
-            log::debug!("\t {} ({}:{})", frame.name, frame.filename, frame.line);
-        }
-    }
-    log::debug!("Stack trace saved to /tmp/debug0626.txt");
-
-    Ok(())
 }
