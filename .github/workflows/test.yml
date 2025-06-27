@@ -57,6 +57,8 @@ jobs:
     # Build the package
     - name: Build package
       run: |
+        apt-get install libunwind-dev
+        export RUSTFLAGS="-L /lib/x86_64-linux-gnu"
         make ZIG=1 wheel
     # Run Tests
     - name: Run make test
