@@ -29,6 +29,7 @@ use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
 use crate::NATIVE_CALLSTACK_SENDER_SLOT;
+use crate::PYTHON_THREAD_RESUME;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
@@ -324,56 +325,66 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
         anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
     })?;
 
-    Python::with_gil(|_py| {
-        let python_frames = get_python_stacks(target_tid).unwrap_or_default();
+    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+    NATIVE_CALLSTACK_SENDER_SLOT
+        .try_lock()
+        .map_err(|err| {
+            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
+            anyhow::anyhow!("Failed to lock call stack sender slot")
+        })?
+        .replace(tx);
+    let (resume_signal, resume_slot) = mpsc::channel::<()>();
+    PYTHON_THREAD_RESUME
+        .try_lock()
+        .map_err(|err| {
+            log::error!("Failed to lock PYTHON_THREAD_RESUME: {}", err);
+            anyhow::anyhow!("Failed to lock Python thread resume slot")
+        })?
+        .replace(resume_slot);
 
-        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-        NATIVE_CALLSTACK_SENDER_SLOT
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-                anyhow::anyhow!("Failed to lock call stack sender slot")
-            })?
-            .replace(tx);
+    log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
 
-        // Determine PID and TID for the tgkill syscall.
-        // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
-        let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-        let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
-
-        log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
-
-        let ret =
-            unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
-
-        if ret != 0 {
-            let last_error = std::io::Error::last_os_error();
-            let error_msg = format!(
+    let ret = unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
+    if ret != 0 {
+        let last_error = std::io::Error::last_os_error();
+        let error_msg = format!(
             "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
         );
-            log::error!("{}", error_msg);
-            return Err(anyhow::anyhow!(error_msg));
-        }
+        log::error!("{}", error_msg);
+        return Err(anyhow::anyhow!(error_msg));
+    }
+    let python_frames = get_python_stacks(target_tid);
 
-        // Attempt to receive C++ frames
-        let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
-            Ok(frames) => {
-                log::debug!("Received C++ frames successfully.");
-                frames
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                log::warn!("Timeout waiting for C++ call stack from signal handler");
-                return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                log::error!("Call stack channel disconnected while waiting for C++ frames.");
-                return Err(anyhow::anyhow!(
-                    "C++ call stack channel disconnected before any frames received"
-                ));
-            }
-        };
-        Ok(merge_python_native_stacks(python_frames, cpp_frames))
-    })
+    resume_signal.send(())?;
+
+    let python_frames = python_frames
+        .and_then(|s| {
+            serde_json::from_str::<Vec<CallFrame>>(&s)
+                .map_err(|e| {
+                    log::error!("Failed to deserialize Python call stacks: {}", e);
+                    e
+                })
+                .ok()
+        })
+        .unwrap_or_default();
+    // Attempt to receive C++ frames
+    let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(frames) => {
+            log::debug!("Received C++ frames successfully.");
+            frames
+        }
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            log::warn!("Timeout waiting for C++ call stack from signal handler");
+            return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            log::error!("Call stack channel disconnected while waiting for C++ frames.");
+            return Err(anyhow::anyhow!(
+                "C++ call stack channel disconnected before any frames received"
+            ));
+        }
+    };
+    Ok(merge_python_native_stacks(python_frames, cpp_frames))
 }
 
 // Moved from lib.rs
@@ -429,7 +440,7 @@ fn merge_python_native_stacks(
     }
 
     for frame in native_stacks {
-        log::debug!("Processing native frame: {:?}", frame);
+        // log::debug!("Processing native frame: {:?}", frame);
         match get_merge_strategy(&frame) {
             MergeType::Ignore => {} // Do nothing
             MergeType::MergeNativeFrame => merged.push(frame),
