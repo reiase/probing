@@ -39,7 +39,7 @@ use crate::ENGINE;
 /// # Ok(())
 /// # }
 /// ```
-
+///
 /// Set a configuration option through the engine extension system.
 ///
 /// This function finds the appropriate extension that handles the given key

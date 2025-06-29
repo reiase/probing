@@ -125,7 +125,7 @@ impl Span {
 // --- ThreadLocal Span Manager ---
 #[derive(Debug)]
 pub struct LocalSpanManager {
-    thread_id: ThreadId,
+    _thread_id: ThreadId,
     tracer_id: u16, // Unique numeric ID for this tracer, used in TraceId generation.
 
     next_trace_seq: u64,
@@ -141,7 +141,7 @@ impl LocalSpanManager {
         let short_tracer_id = NEXT_TRACER_NUM.fetch_add(1, Ordering::Relaxed);
 
         LocalSpanManager {
-            thread_id: thread::current().id(),
+            _thread_id: thread::current().id(),
             tracer_id: short_tracer_id,
             next_trace_seq: 0,
             next_span_seq: 0,
@@ -424,7 +424,7 @@ mod tests {
 
     fn setup_tracer() -> LocalSpanManager {
         LocalSpanManager {
-            thread_id: std::thread::current().id(),
+            _thread_id: std::thread::current().id(),
             tracer_id: 0, // Simplified for predictable test outcomes
             next_trace_seq: 0,
             next_span_seq: 0,
