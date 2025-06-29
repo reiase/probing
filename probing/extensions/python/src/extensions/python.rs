@@ -317,8 +317,8 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     log::debug!("Collecting backtrace for TID: {:?}", tid);
 
-    let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-    let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
+    let pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
+    let tid = tid.unwrap_or(pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
 
     let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
         log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
@@ -342,18 +342,17 @@ fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
         })?
         .replace(resume_slot);
 
-    log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
+    log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
 
-    let ret = unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
+    let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
     if ret != 0 {
         let last_error = std::io::Error::last_os_error();
-        let error_msg = format!(
-            "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
-        );
+        let error_msg =
+            format!("Failed to send SIGUSR2 to process {pid} (thread: {tid}): {last_error}");
         log::error!("{}", error_msg);
         return Err(anyhow::anyhow!(error_msg));
     }
-    let python_frames = get_python_stacks(target_tid);
+    let python_frames = get_python_stacks(tid);
 
     resume_signal.send(())?;
 

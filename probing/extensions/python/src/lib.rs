@@ -19,6 +19,7 @@ use std::time::Duration;
 use log::error;
 use once_cell::sync::Lazy;
 use pkg::TCPStore;
+use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::types::PyModuleMethods;
@@ -96,8 +97,15 @@ fn try_send_native_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) 
 }
 
 extern "C" {
+
     #[cfg_attr(PyPy, link_name = "PyGILState_Check")]
     pub fn PyGILState_Check() -> i32;
+    pub fn _PyEval_AcquireLock(tstate: *mut ffi::PyThreadState) -> i32;
+    pub fn _PyEval_ReleaseLock(
+        interp: *mut ffi::PyInterpreterState,
+        tstate: *mut ffi::PyThreadState,
+        arg: i32,
+    );
 }
 
 pub fn backtrace_signal_handler() {
@@ -105,9 +113,16 @@ pub fn backtrace_signal_handler() {
 
     unsafe {
         use pyo3::ffi;
+        let has_gil = PyGILState_Check() != 0;
+        let tstate = if has_gil {
+            log::debug!("GIL is held, releasing GIL.");
+            ffi::PyGC_Disable();
 
-        let _saved = if PyGILState_Check() == 1 {
-            ffi::PyEval_SaveThread()
+            let tstate = ffi::PyThreadState_GET();
+            let interp = ffi::PyInterpreterState_Get();
+
+            _PyEval_ReleaseLock(interp, tstate, 0);
+            tstate
         } else {
             log::debug!("GIL is not held, skipping PyEval_SaveThread.");
             std::ptr::null_mut()
@@ -116,7 +131,8 @@ pub fn backtrace_signal_handler() {
         match PYTHON_THREAD_RESUME.lock() {
             Ok(mut guard) => {
                 if let Some(receiver) = guard.take() {
-                    if receiver.recv_timeout(Duration::from_secs(10)).is_err() {
+                    // if receiver.recv_timeout(Duration::from_secs(10)).is_err() {
+                    if receiver.recv().is_err() {
                         error!(
                             "Signal handler: Failed to receive from Python thread resume channel."
                         );
@@ -129,9 +145,10 @@ pub fn backtrace_signal_handler() {
                 error!("Failed to lock PYTHON_THREAD_RESUME: {}", e);
             }
         }
-        if !_saved.is_null() {
+        if has_gil && !tstate.is_null() {
             log::debug!("Restoring GIL state after signal handler.");
-            ffi::PyEval_RestoreThread(_saved);
+            _PyEval_AcquireLock(tstate);
+            ffi::PyGC_Enable();
         }
     }
 
