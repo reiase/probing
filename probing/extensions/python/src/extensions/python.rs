@@ -6,7 +6,6 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 use nix::libc;
 use probing_core::core::EngineCall;
@@ -29,17 +28,86 @@ use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
 use crate::NATIVE_CALLSTACK_SENDER_SLOT;
+use crate::PYTHON_THREAD_RESUME;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
 /// Define a static Mutex for the backtrace function
-static BACKTRACE_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static BACKTRACE_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
 mod exttbls;
 mod stack;
 mod tbls;
 
 pub use stack::get_python_stacks;
 pub use tbls::PythonNamespace;
+
+#[async_trait]
+pub trait StackTracer: Send + Sync + std::fmt::Debug {
+    fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
+}
+
+#[derive(Debug)]
+pub struct SignalTracer;
+
+#[async_trait]
+impl StackTracer for SignalTracer {
+    fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
+        log::debug!("Collecting backtrace for TID: {:?}", tid);
+
+        let pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
+        let tid = tid.unwrap_or(pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
+
+        let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
+            log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
+            anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
+        })?;
+
+        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+        NATIVE_CALLSTACK_SENDER_SLOT
+            .try_lock()
+            .map_err(|err| {
+                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
+                anyhow::anyhow!("Failed to lock call stack sender slot")
+            })?
+            .replace(tx);
+        let (resume_signal, resume_slot) = mpsc::channel::<()>();
+        PYTHON_THREAD_RESUME
+            .try_lock()
+            .map_err(|err| {
+                log::error!("Failed to lock PYTHON_THREAD_RESUME: {}", err);
+                anyhow::anyhow!("Failed to lock Python thread resume slot")
+            })?
+            .replace(resume_slot);
+
+        log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
+
+        let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
+        if ret != 0 {
+            let last_error = std::io::Error::last_os_error();
+            let error_msg =
+                format!("Failed to send SIGUSR2 to process {pid} (thread: {tid}): {last_error}");
+            log::error!("{}", error_msg);
+            return Err(anyhow::anyhow!(error_msg));
+        }
+        let python_frames = get_python_stacks(tid);
+
+        resume_signal.send(())?;
+
+        let python_frames = python_frames
+            .and_then(|s| {
+                serde_json::from_str::<Vec<CallFrame>>(&s)
+                    .map_err(|e| {
+                        log::error!("Failed to deserialize Python call stacks: {}", e);
+                        e
+                    })
+                    .ok()
+            })
+            .unwrap_or_default();
+        let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
+
+        Ok(merge_python_native_stacks(python_frames, cpp_frames))
+    }
+}
 
 /// Collection of Python extensions loaded into the system
 #[derive(Debug, Default)]
@@ -61,7 +129,7 @@ impl Display for PyExtList {
 }
 
 /// Python integration with the probing system
-#[derive(Debug, Default, EngineExtension)]
+#[derive(Debug, EngineExtension)]
 pub struct PythonExt {
     /// Path to Python crash handler script (executed when interpreter crashes)
     #[option(aliases = ["crash.handler"])]
@@ -78,6 +146,20 @@ pub struct PythonExt {
     /// Disable Python extension by setting `python.disabled=<extension_statement>`
     #[option()]
     disabled: Maybe<String>,
+
+    tracer: Box<dyn StackTracer>,
+}
+
+impl Default for PythonExt {
+    fn default() -> Self {
+        Self {
+            crash_handler: Default::default(),
+            monitoring: Default::default(),
+            enabled: Default::default(),
+            disabled: Default::default(),
+            tracer: Box::new(SignalTracer),
+        }
+    }
 }
 
 #[async_trait]
@@ -97,9 +179,9 @@ impl EngineCall for PythonExt {
         if path == "callstack" {
             let frames = if params.contains_key("tid") {
                 let tid = params.get("tid").unwrap().parse::<i32>().unwrap();
-                backtrace(Some(tid))
+                self.tracer.trace(Some(tid))
             } else {
-                backtrace(None)
+                self.tracer.trace(None)
             }
             .map_err(|e| {
                 log::error!("Failed to get call stack: {}", e);
@@ -314,66 +396,7 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
 }
 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
-    log::debug!("Collecting backtrace for TID: {:?}", tid);
-
-    let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-    let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
-
-    let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
-        log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
-        anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
-    })?;
-
-    Python::with_gil(|_py| {
-        let python_frames = get_python_stacks(target_tid).unwrap_or_default();
-
-        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-        NATIVE_CALLSTACK_SENDER_SLOT
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-                anyhow::anyhow!("Failed to lock call stack sender slot")
-            })?
-            .replace(tx);
-
-        // Determine PID and TID for the tgkill syscall.
-        // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
-        let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-        let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
-
-        log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
-
-        let ret =
-            unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
-
-        if ret != 0 {
-            let last_error = std::io::Error::last_os_error();
-            let error_msg = format!(
-            "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
-        );
-            log::error!("{}", error_msg);
-            return Err(anyhow::anyhow!(error_msg));
-        }
-
-        // Attempt to receive C++ frames
-        let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
-            Ok(frames) => {
-                log::debug!("Received C++ frames successfully.");
-                frames
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                log::warn!("Timeout waiting for C++ call stack from signal handler");
-                return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                log::error!("Call stack channel disconnected while waiting for C++ frames.");
-                return Err(anyhow::anyhow!(
-                    "C++ call stack channel disconnected before any frames received"
-                ));
-            }
-        };
-        Ok(merge_python_native_stacks(python_frames, cpp_frames))
-    })
+    SignalTracer.trace(tid)
 }
 
 // Moved from lib.rs
@@ -429,7 +452,7 @@ fn merge_python_native_stacks(
     }
 
     for frame in native_stacks {
-        log::debug!("Processing native frame: {:?}", frame);
+        // log::debug!("Processing native frame: {:?}", frame);
         match get_merge_strategy(&frame) {
             MergeType::Ignore => {} // Do nothing
             MergeType::MergeNativeFrame => merged.push(frame),
