@@ -31,7 +31,7 @@ impl DataFrame {
         self.len() == 0
     }
 
-    pub fn iter(&self) -> DataFrameIterator {
+    pub fn iter(&'_ self) -> DataFrameIterator<'_> {
         DataFrameIterator {
             df: self,
             current: 0,

@@ -730,7 +730,7 @@ mod tests {
         let (_, trace_id_after_wrap) = tracer.start_span("span_after_u64_wrap", None, None); // Removed None for attributes
         assert_eq!(
             trace_id_after_wrap.0,
-            (tracer_id_val << TRACE_ID_PREFIX_SHIFT) | (0u128 & MAX_TRACE_SEQ),
+            tracer_id_val << TRACE_ID_PREFIX_SHIFT,
             "Trace ID after u64 wrap"
         );
         tracer.end_span(SpanStatus::Close);

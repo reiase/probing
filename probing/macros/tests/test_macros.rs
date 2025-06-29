@@ -32,7 +32,7 @@ impl<T: FromStr> FromStr for Maybe<T> {
 impl<T: Display> Display for Maybe<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            Maybe::Just(s) => write!(f, "{}", s),
+            Maybe::Just(s) => write!(f, "{s}"),
             Maybe::Nothing => write!(f, ""),
         }
     }

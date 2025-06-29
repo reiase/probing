@@ -9,8 +9,6 @@ use probing_server::sync_env_settings;
 const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
 
-const DEFAULT_PORT: u16 = 9700;
-
 #[cfg(feature = "use-mimalloc")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

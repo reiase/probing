@@ -352,7 +352,7 @@ probing.ExternalTable.drop("table2")
                     .await
                     .unwrap()
             });
-        println!("{:?}", tables);
+        println!("{tables:?}");
         assert!(!tables.is_empty());
     }
 }

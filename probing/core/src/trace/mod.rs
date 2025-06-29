@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use std::sync::PoisonError;
 use std::thread::ThreadId;
 
+/// Type alias for span statistics map to reduce type complexity
+pub type SpanStatisticsMap = HashMap<(Option<String>, String, SpanStatus), span::SpanStats>;
+
 // --- Custom Error Type ---
 
 /// Represents errors that can occur during tracing operations.
@@ -219,8 +222,7 @@ pub fn list_spans() -> Result<Vec<span::Span>, TraceError> {
 ///   about the span (e.g., count, total duration).
 ///
 /// Returns a `TraceError` if an error occurs (e.g., `TraceError::LockPoisoned`).
-pub fn get_span_statistics(
-) -> Result<HashMap<(Option<String>, String, span::SpanStatus), span::SpanStats>, TraceError> {
+pub fn get_span_statistics() -> Result<SpanStatisticsMap, TraceError> {
     LOCAL_TRACER.with(|tracer| {
         let tracer_guard = tracer.read()?;
         Ok(tracer_guard.get_statistics())
