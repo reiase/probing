@@ -99,12 +99,13 @@ extern "C" {
 
     #[cfg_attr(PyPy, link_name = "PyGILState_Check")]
     pub fn PyGILState_Check() -> i32;
-    pub fn _PyEval_AcquireLock(tstate: *mut ffi::PyThreadState) -> i32;
-    pub fn _PyEval_ReleaseLock(
+    pub fn PyEval_AcquireLock(tstate: *mut ffi::PyThreadState) -> i32;
+    pub fn PyEval_ReleaseLock(
         interp: *mut ffi::PyInterpreterState,
         tstate: *mut ffi::PyThreadState,
         arg: i32,
     );
+    pub fn PyInterpreterState_Get() -> *mut ffi::PyInterpreterState;
 }
 
 pub fn backtrace_signal_handler() {
@@ -115,12 +116,12 @@ pub fn backtrace_signal_handler() {
         let has_gil = PyGILState_Check() != 0;
         let tstate = if has_gil {
             log::debug!("GIL is held, releasing GIL.");
-            ffi::PyGC_Disable();
+            // ffi::PyGC_Disable();
 
             let tstate = ffi::PyThreadState_GET();
-            let interp = ffi::PyInterpreterState_Get();
+            let interp = PyInterpreterState_Get();
 
-            _PyEval_ReleaseLock(interp, tstate, 0);
+            PyEval_ReleaseLock(interp, tstate, 0);
             tstate
         } else {
             log::debug!("GIL is not held, skipping PyEval_SaveThread.");
@@ -146,8 +147,8 @@ pub fn backtrace_signal_handler() {
         }
         if has_gil && !tstate.is_null() {
             log::debug!("Restoring GIL state after signal handler.");
-            _PyEval_AcquireLock(tstate);
-            ffi::PyGC_Enable();
+            PyEval_AcquireLock(tstate);
+            // ffi::PyGC_Enable();
         }
     }
 

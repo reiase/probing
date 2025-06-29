@@ -91,7 +91,7 @@ anyhow = { workspace = true }
 arrow = { workspace = true }
 pyo3 = { version = "0.25.1", default-features = false, features = [
     "abi3",
-    "abi3-py310",
+    "abi3-py37",
     "auto-initialize",
     "macros",
 ] }
