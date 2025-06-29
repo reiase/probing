@@ -39,9 +39,9 @@ impl<T> From<PoisonError<T>> for TraceError {
 ///
 /// * `name`: A human-readable name for the span (e.g., "database_query", "process_request").
 /// * `kind`: An optional string categorizing the span (e.g., "client", "server", "producer", "consumer").
-///           This can be used by tracing systems for semantic interpretation.
+///   This can be used by tracing systems for semantic interpretation.
 /// * `code_path`: An optional string representing the code location where the span is initiated
-///                (e.g., "my_module::my_function").
+///   (e.g., "my_module::my_function").
 ///
 /// # Returns
 ///
@@ -133,7 +133,7 @@ pub fn end_span_with_status(status: SpanStatus) -> Result<(), TraceError> {
 ///
 /// * `key`: The attribute key (e.g., "http.method", "db.statement").
 /// * `value`: The attribute value, which can be any type that implements `Into<Ele>`.
-///            `Ele` is an enum representing various primitive telemetry data types.
+///   `Ele` is an enum representing various primitive telemetry data types.
 ///
 /// # Returns
 ///
