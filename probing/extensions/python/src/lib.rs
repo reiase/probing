@@ -14,7 +14,6 @@ mod setup;
 
 use std::sync::mpsc;
 use std::sync::Mutex;
-use std::time::Duration;
 
 use log::error;
 use once_cell::sync::Lazy;
