@@ -19,17 +19,17 @@ fn get_build_info() -> String {
     let mut info = "0.2.0".to_string();
 
     if let Some(timestamp) = option_env!("VERGEN_BUILD_TIMESTAMP") {
-        info.push_str(&format!("\nBuild Timestamp: {}", timestamp));
+        info.push_str(&format!("\nBuild Timestamp: {timestamp}"));
     }
 
     if let Some(rustc_version) = option_env!("VERGEN_RUSTC_SEMVER") {
-        info.push_str(&format!("\nrustc version: {}", rustc_version));
+        info.push_str(&format!("\nrustc version: {rustc_version}"));
     }
 
     info
 }
 
-static BUILD_INFO: Lazy<String> = Lazy::new(|| get_build_info());
+static BUILD_INFO: Lazy<String> = Lazy::new(get_build_info);
 
 /// Probing CLI - A performance and stability diagnostic tool for AI applications
 #[derive(Parser, Debug)]
@@ -51,11 +51,8 @@ impl Cli {
     pub async fn run(&mut self) -> Result<()> {
         // Handle external commands first to avoid target requirement
         if let Some(Commands::External(args)) = &self.command {
-            std::env::set_var(
-                "PROBING_ENDPOINT",
-                format!("{}", self.target.clone().unwrap_or_default()),
-            );
-            return handle_external_command(&args);
+            std::env::set_var("PROBING_ENDPOINT", self.target.clone().unwrap_or_default());
+            return handle_external_command(args);
         }
 
         // Handle commands that don't need a target
@@ -98,7 +95,7 @@ impl Cli {
                 }
             }
             Err(e) => {
-                eprintln!("Error listing processes: {}", e);
+                eprintln!("Error listing processes: {e}");
             }
         }
         Ok(())
@@ -120,15 +117,15 @@ impl Cli {
                         let setting = if !setting_str.starts_with("set ")
                             && !setting_str.starts_with("SET ")
                         {
-                            format!("set {}", setting_str)
+                            format!("set {setting_str}")
                         } else {
                             setting_str.clone()
                         };
-                        format!("{}; {}", setting, opts_str)
+                        format!("{setting}; {opts_str}")
                     }
                     (Some(setting_str), None) => {
                         if !setting_str.starts_with("set ") && !setting_str.starts_with("SET ") {
-                            format!("set {}", setting_str)
+                            format!("set {setting_str}")
                         } else {
                             setting_str.clone()
                         }
@@ -170,7 +167,7 @@ fn handle_external_command(args: &[String]) -> Result<()> {
     }
 
     let subcommand = &args[0];
-    let external_bin = format!("probing-{}", subcommand);
+    let external_bin = format!("probing-{subcommand}");
 
     let status = std::process::Command::new(&external_bin)
         .args(&args[1..])
@@ -179,7 +176,7 @@ fn handle_external_command(args: &[String]) -> Result<()> {
     match status {
         Ok(exit_status) => std::process::exit(exit_status.code().unwrap_or(1)),
         Err(e) => {
-            eprintln!("Error finding external command '{}'\n\t{}", external_bin, e);
+            eprintln!("Error finding external command '{external_bin}'\n\t{e}");
             std::process::exit(1);
         }
     }

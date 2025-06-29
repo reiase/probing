@@ -56,7 +56,7 @@ impl ProcessMonitor {
                     .collect();
                 for pid in remain {
                     if let Err(err) = self.inject(pid).await {
-                        error!("failed to probe {}, retry later: {}", pid, err)
+                        error!("failed to probe {pid}, retry later: {err}")
                     }
                 }
             }

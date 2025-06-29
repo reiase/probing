@@ -38,7 +38,7 @@ impl<T: FromStr> FromStr for Maybe<T> {
 impl<T: Display> Display for Maybe<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            Maybe::Just(s) => write!(f, "{}", s),
+            Maybe::Just(s) => write!(f, "{s}"),
             Maybe::Nothing => write!(f, ""),
         }
     }
@@ -318,7 +318,7 @@ impl EngineExtensionManager {
         if namespace.ends_with("extension") {
             namespace.truncate(namespace.len() - "extension".len());
         }
-        format!("{}.", namespace)
+        format!("{namespace}.")
     }
 
     pub async fn set_option(&mut self, key: &str, value: &str) -> Result<(), EngineError> {
@@ -378,9 +378,9 @@ impl EngineExtensionManager {
         for extension in self.extensions.values() {
             let ext = extension.lock().await;
             let name = ext.name();
-            log::debug!("checking extension [{}]:{}", name, path);
+            log::debug!("checking extension [{name}]:{path}");
 
-            let expected_prefix = format!("/{}/", name);
+            let expected_prefix = format!("/{name}/");
             if !path.starts_with(&expected_prefix) {
                 continue;
             }

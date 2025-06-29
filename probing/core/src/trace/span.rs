@@ -1,8 +1,8 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher}; // Added for SpanStatus hashing
+use std::hash::Hash; // Added for SpanStatus hashing
 use std::sync::atomic::{AtomicU16, Ordering}; // For unique tracer ID generation
-use std::sync::{Arc, Mutex, PoisonError, RwLock, Weak}; // Ensure PoisonError is imported
+use std::sync::{Arc, Mutex, RwLock, Weak}; // Ensure PoisonError is imported
 use std::thread::{self, ThreadId}; // For thread-local storage
 
 use super::TraceError; // Import TraceError from parent module

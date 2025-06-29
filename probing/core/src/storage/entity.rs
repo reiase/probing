@@ -23,7 +23,7 @@ pub trait EntityId:
 // 为我们的ID类型实现EntityId
 impl EntityId for String {
     fn as_str(&self) -> &str {
-        &self // Corrected from self.as_str()
+        self // Corrected from self.as_str()
     }
 
     fn from_string(s: String) -> Self {

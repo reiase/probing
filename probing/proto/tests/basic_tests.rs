@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use core::f64;
+
     use probing_proto::types::basic::*;
 
     #[test]
@@ -15,8 +17,8 @@ mod tests {
         assert_eq!(seq, Seq::SeqText(vec!["hello".to_string()]));
 
         let mut seq = Seq::Nil;
-        assert!(seq.append(3.14f64).is_ok());
-        assert_eq!(seq, Seq::SeqF64(vec![3.14]));
+        assert!(seq.append(f64::consts::PI).is_ok());
+        assert_eq!(seq, Seq::SeqF64(vec![f64::consts::PI]));
     }
 
     #[test]

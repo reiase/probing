@@ -86,11 +86,7 @@ pub async fn set(key: &str, value: &str) -> Result<(), EngineError> {
         // Note: The EngineExtensionManager is responsible for applying this specific option.
         // Broader engine re-configuration, if necessary based on this change,
         // would be handled by the engine's internal logic after this call.
-        log::info!(
-            "Configuration option processed via EngineExtensionManager: {} = {}",
-            key,
-            value
-        );
+        log::info!("Configuration option processed via EngineExtensionManager: {key} = {value}");
         Ok(())
     } else {
         Err(EngineError::EngineNotInitialized)
