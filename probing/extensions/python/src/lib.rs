@@ -49,7 +49,7 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
                         .map(|demangled| demangled.to_string())
                         .unwrap_or_else(|| raw_name.to_string())
                 })
-                .unwrap_or_else(|| format!("unknown@{:p}", symbol_address));
+                .unwrap_or_else(|| format!("unknown@{symbol_address:p}"));
 
             let file_name = symbol
                 .filename()
@@ -57,7 +57,7 @@ fn get_native_stacks() -> Option<Vec<CallFrame>> {
                 .unwrap_or_default();
 
             frames.push(CallFrame::CFrame {
-                ip: format!("{:p}", ip),
+                ip: format!("{ip:p}"),
                 file: file_name,
                 func: func_name,
                 lineno: symbol.lineno().unwrap_or(0) as i64,
@@ -77,19 +77,16 @@ fn try_send_native_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) 
                 if sender.send(frames).is_ok() {
                     true
                 } else {
-                    error!("Failed to send frames for {} via channel.", context_msg);
+                    error!("Failed to send frames for {context_msg} via channel.");
                     false
                 }
             } else {
-                log::trace!("No active callstack sender found for {}.", context_msg);
+                log::trace!("No active callstack sender found for {context_msg}.");
                 true
             }
         }
         Err(e) => {
-            error!(
-                "Failed to lock NATIVE_CALLSTACK_SENDER_SLOT for {}: {}",
-                context_msg, e
-            );
+            error!("Failed to lock NATIVE_CALLSTACK_SENDER_SLOT for {context_msg}: {e}");
             false
         }
     }
@@ -142,7 +139,7 @@ pub fn backtrace_signal_handler() {
                 }
             }
             Err(e) => {
-                error!("Failed to lock PYTHON_THREAD_RESUME: {}", e);
+                error!("Failed to lock PYTHON_THREAD_RESUME: {e}");
             }
         }
         if has_gil && !tstate.is_null() {
@@ -154,7 +151,6 @@ pub fn backtrace_signal_handler() {
 
     if !try_send_native_frames_to_channel(native_stacks, "native stacks (initial send)") {
         error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");
-        return;
     }
 }
 

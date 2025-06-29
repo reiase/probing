@@ -76,7 +76,7 @@ impl TaskStatsWorker {
             let task = match procfs::process::Process::myself() {
                 Ok(p) => p,
                 Err(e) => {
-                    log::error!("Failed to get process: {}", e);
+                    log::error!("Failed to get process: {e}");
                     return;
                 }
             };
@@ -103,7 +103,7 @@ impl TaskStatsWorker {
                         .append(t.into(), vec![cpu_utime, cpu_stime])
                     {
                         Ok(_) => {}
-                        Err(e) => log::error!("Failed to append to time series: {}", e),
+                        Err(e) => log::error!("Failed to append to time series: {e}"),
                     };
                 }
                 thread::sleep(config.interval);

@@ -76,7 +76,7 @@ fn get_token_from_request(headers: &HeaderMap) -> Option<String> {
 fn unauthorized_response() -> Response {
     let realm = format!("Basic realm=\"{}\"", AUTH_REALM.as_str());
 
-    let response = (
+    (
         StatusCode::UNAUTHORIZED,
         [
             (
@@ -87,16 +87,14 @@ fn unauthorized_response() -> Response {
         ],
         "Unauthorized: Please login to access this resource",
     )
-        .into_response();
-
-    response
+        .into_response()
 }
 
 /// Authentication middleware
 pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, impl IntoResponse> {
     // Get the configured token
     let configured_token = config::get("server.auth_token").await.unwrap_or_default();
-    log::debug!("Configured auth token: {:?}", configured_token);
+    log::debug!("Configured auth token: {configured_token:?}");
 
     if !configured_token.is_empty() {
         // Extract token from the request

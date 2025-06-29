@@ -7,7 +7,7 @@ where
             Ok(_) => {
                 log::debug!("Registered signal handler for signal {sig}");
             }
-            Err(e) => log::error!("Failed to register signal handler: {}", e),
+            Err(e) => log::error!("Failed to register signal handler: {e}"),
         }
     };
 }

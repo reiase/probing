@@ -15,7 +15,7 @@ impl PprofHolder {
     }
 
     pub fn setup(&self, freq: i32) {
-        log::debug!("setup pprof with sample freq: {}", freq);
+        log::debug!("setup pprof with sample freq: {freq}");
         let _ = self.0.lock().map(|mut holder| {
             match ProfilerGuardBuilder::default().frequency(freq).build() {
                 Ok(ph) => holder.replace(ph),

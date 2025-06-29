@@ -52,7 +52,7 @@ pub struct SignalTracer;
 #[async_trait]
 impl StackTracer for SignalTracer {
     fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
-        log::debug!("Collecting backtrace for TID: {:?}", tid);
+        log::debug!("Collecting backtrace for TID: {tid:?}");
 
         let pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
         let tid = tid.unwrap_or(pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
@@ -351,9 +351,7 @@ impl PythonExt {
                 }
             })
         } else {
-            log::debug!(
-                "Python extension '{ext}' was not enabled, nothing to disable"
-            );
+            log::debug!("Python extension '{ext}' was not enabled, nothing to disable");
             // Extension wasn't found, not an error
             Ok(())
         }
@@ -373,12 +371,12 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
         let result = pkg
             .unwrap()
             .call_method1("load_extension", (code,))
-            .map_err(|e| format!("Error loading Python plugin: {}", e))?;
+            .map_err(|e| format!("Error loading Python plugin: {e}"))?;
 
         // Verify the object has an init method
         if !result
             .hasattr("init")
-            .map_err(|e| format!("Unable to check `init` method: {}", e))?
+            .map_err(|e| format!("Unable to check `init` method: {e}"))?
         {
             return Err("Plugin must have an `init` method".to_string());
         }
@@ -386,9 +384,9 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
         // Initialize the plugin
         result
             .call_method0("init")
-            .map_err(|e| format!("Error calling `init` method: {}", e))?;
+            .map_err(|e| format!("Error calling `init` method: {e}"))?;
 
-        log::info!("Python extension loaded successfully: {}", code);
+        log::info!("Python extension loaded successfully: {code}");
         Ok(result.unbind())
     })
 }
@@ -434,9 +432,7 @@ fn merge_python_native_stacks(
             CallFrame::CFrame { func, .. } => func,
             CallFrame::PyFrame { func, .. } => func,
         };
-        let mut tokens = symbol
-            .split(|c| c == '_' || c == '.')
-            .filter(|s| !s.is_empty());
+        let mut tokens = symbol.split(['_', '.']).filter(|s| !s.is_empty());
         match tokens.next() {
             Some("PyEval") => match tokens.next() {
                 Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,

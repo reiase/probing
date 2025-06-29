@@ -54,7 +54,7 @@ pub async fn handle_extension_call(req: axum::extract::Request) -> ApiResult<Res
                     .into_response());
             }
             Err(e) => {
-                log::warn!("Extension call failed for path '{}': {}", path, e);
+                log::warn!("Extension call failed for path '{path}': {e}");
                 return Err(anyhow::anyhow!("Extension call failed: {}", e).into());
             }
         }

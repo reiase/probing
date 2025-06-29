@@ -21,7 +21,7 @@ impl Default for NativePythonConsole {
                 let ret: Bound<'_, PyAny> = global
                     .get_item("debug_console")
                     .map_err(|err| {
-                        eprintln!("error initializing console: {}", err);
+                        eprintln!("error initializing console: {err}");
                     })
                     .unwrap();
                 ret.unbind()

@@ -52,8 +52,7 @@ impl ExternalTable {
             Ok(ExternalTable(ts.clone(), ncolumn))
         } else {
             Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "table {} not found",
-                name
+                "table {name} not found"
             )))
         }
     }

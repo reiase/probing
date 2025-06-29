@@ -36,8 +36,7 @@ impl TorchExtension {
             )),
             Maybe::Just(ref mode) => {
                 match execute_python_code(&format!(
-                    "probing.profiling.torch_probe.set_sampling_mode('{}')",
-                    mode
+                    "probing.profiling.torch_probe.set_sampling_mode('{mode}')"
                 )) {
                     Ok(_) => {
                         self.profiling_mode = profiling_mode.clone();
@@ -54,7 +53,7 @@ impl TorchExtension {
 
     fn set_sample_rate(&mut self, sample_rate: Maybe<f64>) -> Result<(), EngineError> {
         if let Maybe::Just(rate) = sample_rate {
-            if rate < 0.0 || rate > 1.0 {
+            if !(0.0..=1.0).contains(&rate) {
                 return Err(EngineError::InvalidOptionValue(
                     Self::OPTION_SAMPLE_RATE.to_string(),
                     rate.to_string(),

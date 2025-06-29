@@ -524,8 +524,7 @@ mod tests {
         }
 
         // Verify TraceId incorporates the tracer's ID and the trace sequence number (0 for the first trace)
-        let expected_trace_id_val =
-            (tracer_id_for_assertion as u128) << TRACE_ID_PREFIX_SHIFT;
+        let expected_trace_id_val = (tracer_id_for_assertion as u128) << TRACE_ID_PREFIX_SHIFT;
         assert_eq!(
             trace_id.0, expected_trace_id_val,
             "Trace ID mismatch for root span"
