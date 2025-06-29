@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// 通用的实体ID trait，所有ID类型都应该实现这个trait
+/// A generic entity ID trait that all ID types should implement.
 pub trait EntityId:
     Clone
     + Send
@@ -20,10 +20,10 @@ pub trait EntityId:
     fn from_string(s: String) -> Self;
 }
 
-// 为我们的ID类型实现EntityId
+// Implement EntityId for our ID type
 impl EntityId for String {
     fn as_str(&self) -> &str {
-        &self // Corrected from self.as_str()
+        self // Corrected from self.as_str()
     }
 
     fn from_string(s: String) -> Self {
@@ -31,59 +31,59 @@ impl EntityId for String {
     }
 }
 
-/// 可持久化实体的基础trait
-/// 所有需要持久化的对象都应该实现这个trait
+/// Base trait for persistent entities.
+/// All objects that need to be persisted should implement this trait.
 #[async_trait]
 pub trait PersistentEntity:
     Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + 'static
 {
-    /// 实体的ID类型
+    /// The ID type of the entity.
     type Id: EntityId;
 
-    /// 获取实体的唯一标识符
+    /// Gets the unique identifier of the entity.
     fn id(&self) -> &Self::Id;
 
-    /// 实体类型名称，用于存储路径/表名等
+    /// The entity type name, used for storage paths/table names, etc.
     fn entity_type() -> &'static str;
 
-    /// 获取最后更新时间（如果有）
+    /// Gets the last updated time (if any).
     fn last_updated(&self) -> Option<DateTime<Utc>> {
         None
     }
 
-    /// 设置最后更新时间（如果支持）
+    /// Sets the last updated time (if supported).
     fn set_last_updated(&mut self, _timestamp: DateTime<Utc>) {
-        // 默认空实现，实体可以选择性实现
+        // Default empty implementation, entities can implement it selectively.
     }
 
-    /// 获取实体的版本（用于并发控制，可选）
+    /// Gets the version of the entity (for optimistic concurrency control, optional).
     fn version(&self) -> Option<u64> {
         None
     }
 
-    /// 获取相关的索引键，用于二级索引
-    /// 返回格式: (index_name, index_key)
+    /// Gets related index keys for secondary indexing.
+    /// Returns in the format: (index_name, index_key)
     fn index_keys(&self) -> Vec<(String, String)> {
         Vec::new()
     }
 }
 
-/// 通用的存储接口，支持任何实现了PersistentEntity的类型
+/// A generic storage interface that supports any type that implements PersistentEntity.
 #[async_trait]
 pub trait EntityStore: Send + Sync + 'static {
-    /// 保存实体
+    /// Saves an entity.
     async fn put<T: PersistentEntity>(&self, entity: &T) -> Result<()>;
 
-    /// 根据ID获取实体
+    /// Gets an entity by its ID.
     async fn get<T: PersistentEntity>(&self, id: &T::Id) -> Result<Option<T>>;
 
-    /// 删除实体
+    /// Deletes an entity.
     async fn del<T: PersistentEntity>(&self, id: &T::Id) -> Result<()>;
 
-    /// 列出某类型的所有实体（谨慎使用，可能返回大量数据）
+    /// Lists all entities of a certain type (use with caution, may return a large amount of data).
     async fn list_all<T: PersistentEntity>(&self) -> Result<Vec<T>>;
 
-    /// 分页列出实体
+    /// Lists entities with pagination.
     async fn list_paginated<T: PersistentEntity>(
         &self,
         offset: usize,

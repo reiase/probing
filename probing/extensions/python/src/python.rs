@@ -14,7 +14,7 @@ pub static OLD_HANDLER: Lazy<Option<Py<PyAny>>> = Lazy::new(|| None);
 
 fn call_default_handler(typ: Py<PyAny>, value: Py<PyAny>, traceback: Py<PyAny>) -> Result<()> {
     let code = get_code("crash_handler.py").unwrap_or_default();
-    let code = format!("{}\0", code);
+    let code = format!("{code}\0");
     let code = CStr::from_bytes_with_nul(code.as_bytes())?;
     Python::with_gil(|py| -> Result<()> {
         let global = PyDict::new(py);
@@ -48,7 +48,7 @@ fn call_custom_handler(
             py.eval(&expr, None, Some(&locals))
         })();
 
-        println!("crash handler: {:?}", ret);
+        println!("crash handler: {ret:?}");
         Ok(())
     })
 }
@@ -67,7 +67,7 @@ pub fn crash_handler(typ: Py<PyAny>, value: Py<PyAny>, traceback: Py<PyAny>) {
         match ret {
             Ok(_) => {}
             Err(err) => {
-                log::error!("error calling crash handler: {}", err);
+                log::error!("error calling crash handler: {err}");
             }
         }
     }
@@ -101,7 +101,7 @@ pub fn enable_monitoring(filename: &str) -> anyhow::Result<()> {
 
         let code = get_code(filename).unwrap_or_default();
 
-        let code = format!("{}\0", code);
+        let code = format!("{code}\0");
         let code = CStr::from_bytes_with_nul(code.as_bytes())?;
         py.run(code, None, None)
             .map_err(|err| anyhow::anyhow!("error apply monitoring {}: {}", filename, err))?;

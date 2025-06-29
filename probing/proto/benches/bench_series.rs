@@ -60,9 +60,7 @@ fn series_iter(s: &Series, expected_sum: u64) -> u64 {
     }
     assert!(
         result == expected_sum,
-        "expected sum: {}, got: {}",
-        expected_sum,
-        result
+        "expected sum: {expected_sum}, got: {result}"
     );
     result
 }

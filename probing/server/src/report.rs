@@ -13,7 +13,7 @@ pub fn get_hostname() -> Result<String> {
 }
 
 pub fn start_report_worker(report_addr: String, local_addr: String) {
-    log::debug!("start report worker: {} => {}", local_addr, report_addr);
+    log::debug!("start report worker: {local_addr} => {report_addr}");
     SERVER_RUNTIME.spawn(report_worker(report_addr, local_addr));
 }
 
@@ -23,7 +23,7 @@ async fn report_worker(report_addr: String, local_addr: String) {
     loop {
         interval.tick().await;
 
-        let report_addr = format!("http://{}/apis/nodes", report_addr);
+        let report_addr = format!("http://{report_addr}/apis/nodes");
         let hostname = get_hostname().unwrap_or("localhost".to_string());
         let address = {
             let probing_address = PROBING_ADDRESS.read().unwrap();
@@ -48,14 +48,14 @@ async fn report_worker(report_addr: String, local_addr: String) {
             timestamp: 0,
         };
 
-        log::debug!("reporting node status to {report_addr}: {:?}", node);
+        log::debug!("reporting node status to {report_addr}: {node:?}");
         if node.rank == Some(0) {
             probing_core::core::cluster::update_node(node);
         } else {
-            let node_display = format!("{}", node);
+            let node_display = format!("{node}");
             match request_remote(&report_addr, node).await {
                 Ok(reply) => {
-                    log::debug!("node status reported to {report_addr}: {:?}", reply);
+                    log::debug!("node status reported to {report_addr}: {reply:?}");
                 }
                 Err(err) => {
                     log::error!("failed to report {node_display} to {report_addr}, {err}");

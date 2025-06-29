@@ -103,9 +103,8 @@ impl Address {
     /// - `AddressError::UnsupportedScheme`: If the URI uses a scheme other than "probing", "http", or "https".
     /// - `AddressError::EmptyObject`: If the `object_id` part of the path (after `/objects/`) is empty.
     pub fn from_uri(uri: &str) -> Result<Self> {
-        let parsed_url = Url::parse(uri).map_err(|e| {
-            AddressError::InvalidUri(format!("Failed to parse URI '{}': {}", uri, e))
-        })?;
+        let parsed_url = Url::parse(uri)
+            .map_err(|e| AddressError::InvalidUri(format!("Failed to parse URI '{uri}': {e}")))?;
 
         match parsed_url.scheme() {
             "probing" | "http" | "https" => (),
@@ -140,8 +139,7 @@ impl Address {
             })
         } else {
             Err(AddressError::InvalidUri(format!(
-                "Unsupported URI path pattern '{}'. Expected path like /objects/{{object_id...}} (worker ID should be in the host part of the URI)",
-                path
+                "Unsupported URI path pattern '{path}'. Expected path like /objects/{{object_id...}} (worker ID should be in the host part of the URI)"
             )))
         }
     }
@@ -183,16 +181,14 @@ impl Address {
     /// `true` if the address's worker matches the provided ID, `false` otherwise.
     pub fn is_local<W: Into<WorkerId>>(&self, current_worker_id: W) -> bool {
         let c_worker_id_val: WorkerId = current_worker_id.into();
-        self.worker
-            .as_ref()
-            .map_or(false, |w| w == &c_worker_id_val)
+        self.worker.as_ref() == Some(&c_worker_id_val)
     }
 }
 
-impl Into<String> for Address {
+impl From<Address> for String {
     /// Converts an `Address` into its string representation (URI with "probing" scheme).
-    fn into(self) -> String {
-        self.to_uri("probing")
+    fn from(val: Address) -> Self {
+        val.to_uri("probing")
     }
 }
 
@@ -203,25 +199,25 @@ impl Display for Address {
     }
 }
 
-impl Into<Address> for String {
+impl From<String> for Address {
     /// Converts a `String` into an `Address`.
     /// Attempts to parse the string as a URI. If parsing fails,
     /// creates an `Address` with `None` for worker, and the string as the object ID.
-    fn into(self) -> Address {
-        self.as_str().into()
+    fn from(val: String) -> Self {
+        val.as_str().into()
     }
 }
 
-impl Into<Address> for &str {
+impl From<&str> for Address {
     /// Converts a string slice (`&str`) into an `Address`.
     /// Attempts to parse the string as a URI. If parsing fails,
     /// creates an `Address` with `None` for worker, and the string as the object ID.
-    fn into(self) -> Address {
-        match Address::from_uri(self) {
+    fn from(val: &str) -> Self {
+        match Address::from_uri(val) {
             Ok(addr) => addr,
             Err(_) => Address {
                 worker: None,
-                object: self.to_string(),
+                object: val.to_string(),
             },
         }
     }
@@ -313,7 +309,7 @@ impl AddressAllocator {
         let mut max_score = 0;
         let mut best_worker_id = None;
 
-        for (_node_id, workers) in &self.topology.workers_per_node {
+        for workers in self.topology.workers_per_node.values() {
             for worker_id in workers {
                 let score = self.calculate_assignment_score(&addr.object, worker_id);
                 if score > max_score {
@@ -628,7 +624,7 @@ mod tests {
         assert_eq!(uri_addr.object, "test_obj");
 
         // Test display format (should use URI when possible)
-        let display_str = format!("{}", uri_addr);
+        let display_str = format!("{uri_addr}");
         assert_eq!(display_str, "probing://worker1/objects/test_obj");
     }
 
@@ -795,7 +791,7 @@ mod tests {
     #[test]
     fn test_display_trait() {
         let addr = Address::new("worker1", "obj1".into());
-        let display_str = format!("{}", addr);
+        let display_str = format!("{addr}");
         assert_eq!(display_str, "probing://worker1/objects/obj1");
     }
 }

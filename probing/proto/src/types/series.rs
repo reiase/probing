@@ -531,8 +531,7 @@ mod test {
             println!("512 {} nbytes: {}", type_name, series.nbytes());
             assert!(
                 series.nbytes() * 5 < 512 * type_size,
-                "Compression not effective enough for {} type",
-                type_name
+                "Compression not effective enough for {type_name} type"
             );
         }
 

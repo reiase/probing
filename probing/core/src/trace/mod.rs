@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use std::sync::PoisonError;
 use std::thread::ThreadId;
 
+/// Type alias for span statistics map to reduce type complexity
+pub type SpanStatisticsMap = HashMap<(Option<String>, String, SpanStatus), span::SpanStats>;
+
 // --- Custom Error Type ---
 
 /// Represents errors that can occur during tracing operations.
@@ -39,9 +42,9 @@ impl<T> From<PoisonError<T>> for TraceError {
 ///
 /// * `name`: A human-readable name for the span (e.g., "database_query", "process_request").
 /// * `kind`: An optional string categorizing the span (e.g., "client", "server", "producer", "consumer").
-///           This can be used by tracing systems for semantic interpretation.
+///   This can be used by tracing systems for semantic interpretation.
 /// * `code_path`: An optional string representing the code location where the span is initiated
-///                (e.g., "my_module::my_function").
+///   (e.g., "my_module::my_function").
 ///
 /// # Returns
 ///
@@ -133,7 +136,7 @@ pub fn end_span_with_status(status: SpanStatus) -> Result<(), TraceError> {
 ///
 /// * `key`: The attribute key (e.g., "http.method", "db.statement").
 /// * `value`: The attribute value, which can be any type that implements `Into<Ele>`.
-///            `Ele` is an enum representing various primitive telemetry data types.
+///   `Ele` is an enum representing various primitive telemetry data types.
 ///
 /// # Returns
 ///
@@ -219,8 +222,7 @@ pub fn list_spans() -> Result<Vec<span::Span>, TraceError> {
 ///   about the span (e.g., count, total duration).
 ///
 /// Returns a `TraceError` if an error occurs (e.g., `TraceError::LockPoisoned`).
-pub fn get_span_statistics(
-) -> Result<HashMap<(Option<String>, String, span::SpanStatus), span::SpanStats>, TraceError> {
+pub fn get_span_statistics() -> Result<SpanStatisticsMap, TraceError> {
     LOCAL_TRACER.with(|tracer| {
         let tracer_guard = tracer.read()?;
         Ok(tracer_guard.get_statistics())

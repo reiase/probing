@@ -65,7 +65,7 @@ impl TimeSeries {
         Ok(())
     }
 
-    pub fn iter(&self) -> TimeSeriesIter {
+    pub fn iter(&'_ self) -> TimeSeriesIter<'_> {
         TimeSeriesIter {
             timestamp: self.timestamp.iter(),
             cols: self.cols.iter().map(|s| s.iter()).collect(),

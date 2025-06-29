@@ -26,13 +26,7 @@ fn get_token_from_request(headers: &HeaderMap) -> Option<String> {
     let bearer_token = headers
         .get("Authorization")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| {
-            if value.starts_with("Bearer ") {
-                Some(value[7..].to_string())
-            } else {
-                None
-            }
-        });
+        .and_then(|value| value.strip_prefix("Bearer ").map(|s| s.to_string()));
 
     if bearer_token.is_some() {
         return bearer_token;
@@ -42,13 +36,7 @@ fn get_token_from_request(headers: &HeaderMap) -> Option<String> {
     let basic_auth = headers
         .get("Authorization")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| {
-            if value.starts_with("Basic ") {
-                Some(value[6..].to_string())
-            } else {
-                None
-            }
-        })
+        .and_then(|value| value.strip_prefix("Basic ").map(|s| s.to_string()))
         .and_then(|base64_value| BASE64.decode(base64_value).ok())
         .and_then(|decoded| String::from_utf8(decoded).ok())
         .and_then(|credentials| {
@@ -76,7 +64,7 @@ fn get_token_from_request(headers: &HeaderMap) -> Option<String> {
 fn unauthorized_response() -> Response {
     let realm = format!("Basic realm=\"{}\"", AUTH_REALM.as_str());
 
-    let response = (
+    (
         StatusCode::UNAUTHORIZED,
         [
             (
@@ -87,16 +75,14 @@ fn unauthorized_response() -> Response {
         ],
         "Unauthorized: Please login to access this resource",
     )
-        .into_response();
-
-    response
+        .into_response()
 }
 
 /// Authentication middleware
 pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, impl IntoResponse> {
     // Get the configured token
     let configured_token = config::get("server.auth_token").await.unwrap_or_default();
-    log::debug!("Configured auth token: {:?}", configured_token);
+    log::debug!("Configured auth token: {configured_token:?}");
 
     if !configured_token.is_empty() {
         // Extract token from the request

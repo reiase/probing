@@ -68,7 +68,7 @@ pub fn render_dataframe(df: &DataFrame) {
     let mut table = Table::new(ncol, nrow);
 
     for (col, name) in df.names.iter().enumerate() {
-        table.put((0 as usize, col).into(), name.clone());
+        table.put((0_usize, col).into(), name.clone());
     }
 
     for (col, col_data) in df.cols.iter().enumerate() {

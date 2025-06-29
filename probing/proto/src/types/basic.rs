@@ -36,7 +36,7 @@ impl Display for Ele {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Ele::Nil => f.write_str("nil"),
-            Ele::BOOL(x) => f.write_fmt(format_args!("{}", x)),
+            Ele::BOOL(x) => f.write_fmt(format_args!("{x}")),
             Ele::I32(x) => f.write_fmt(format_args!("{x}")),
             Ele::I64(x) => f.write_fmt(format_args!("{x}")),
             Ele::F32(x) => f.write_fmt(format_args!("{x}")),
@@ -258,6 +258,8 @@ impl Display for Value {
 
 #[cfg(test)]
 mod tests {
+    use core::f64;
+
     use super::*;
 
     #[test]
@@ -273,8 +275,8 @@ mod tests {
         assert_eq!(seq, Seq::SeqText(vec!["hello".to_string()]));
 
         let mut seq = Seq::Nil;
-        assert!(seq.append(3.14f64).is_ok());
-        assert_eq!(seq, Seq::SeqF64(vec![3.14]));
+        assert!(seq.append(f64::consts::PI).is_ok());
+        assert_eq!(seq, Seq::SeqF64(vec![f64::consts::PI]));
     }
 
     #[test]
