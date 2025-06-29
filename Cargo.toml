@@ -91,7 +91,7 @@ anyhow = { workspace = true }
 arrow = { workspace = true }
 pyo3 = { version = "0.25.1", default-features = false, features = [
     "abi3",
-    "abi3-py37",
+    "abi3-py310",
     "auto-initialize",
     "macros",
 ] }
@@ -100,7 +100,7 @@ tokio = { workspace = true }
 [profile.release]
 opt-level = "z"    # Optimize for size.
 panic = "unwind"
-strip = true       # Automatically strip symbols from the binary.
+strip = false       # Automatically strip symbols from the binary.
 lto = "thin"
 codegen-units = 16
 incremental = true

@@ -29,7 +29,7 @@ backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
 cpp_demangle = "0.3"
 pyo3 = { version = "0.25.0", default-features = false, features = [
     "abi3",
-    "abi3-py37",
+    "abi3-py310",
     # "extension-module",
     "auto-initialize",
     "macros"
