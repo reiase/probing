@@ -59,6 +59,7 @@ jobs:
       run: |
         sudo apt-get update 
         sudo apt-get install -y libunwind-dev
+        sudo apt-get install -y liblzma-dev
         export RUSTFLAGS="-L /lib/x86_64-linux-gnu"
         make ZIG=1 wheel
     # Run Tests
