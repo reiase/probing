@@ -144,7 +144,9 @@ pub fn backtrace_signal_handler() {
         }
         if has_gil && !tstate.is_null() {
             log::debug!("Restoring GIL state after signal handler.");
-            PyEval_AcquireLock(tstate);
+            if PyGILState_Check() == 0 {
+                PyEval_AcquireLock(tstate);
+            }
             // ffi::PyGC_Enable();
         }
     }
