@@ -20,8 +20,11 @@ def _get_obj_repr(obj, value=False):
         ret["shape"] = str(obj.shape)
         ret["dtype"] = str(obj.dtype)
         ret["device"] = str(obj.device)
-    if value:
-        ret["value"] = str(obj)[:150]
+        if value and "cpu" in ret["device"]:
+            ret["value"] = str(obj)[:150]
+    else:
+        if value:
+            ret["value"] = str(obj)[:150]
     return ret
 
 
