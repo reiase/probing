@@ -3,7 +3,7 @@ extern crate ctor;
 
 use anyhow::Result;
 
-use probing_python::create_probing_module;
+use probing_python::features::python_api::create_probing_module;
 use probing_server::sync_env_settings;
 
 const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
