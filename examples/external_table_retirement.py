@@ -2,32 +2,26 @@ import time
 
 import probing
 
-config_data = {
-    "chunk_size": 10000,
-    "discard_threshold": 1000000000,
-    "discard_strategy": "BaseMemorySize",
-}
 
-# config_data = {
-#     "chunk_size": 10,
-#     "discard_threshold": 10,
-#     "discard_strategy": "BaseElementCount",
-# }
+tbl_0 = probing.ExternalTable("test000", ["allreduce_count", "broadcast_count"])
+tbl_1 = probing.ExternalTable("test111", ["allreduce_count", "broadcast_count"], chunk_size=10000, discard_threshold=1000000000, discard_strategy="BaseMemorySize")
+tbl_2 = probing.ExternalTable("test222", ["allreduce_count", "broadcast_count"], chunk_size=10, discard_threshold=10, discard_strategy="BaseMemorySize")
+tbs = [tbl_0, tbl_1, tbl_2]
 
-tbl = probing.ExternalTable("test222", ["allreduce_count", "broadcast_count"], config_data)
 
-tbl.append([1, 1])
-tbl.append([2, 2])
-tbl.append([3, 3])
-tbl.append([1, 1])
-tbl.append([2, 2])
-tbl.append([3, 3])
-tbl.append([1, 1])
-tbl.append([2, 2])
-tbl.append([3, 3])
-tbl.append([1, 1])
-tbl.append([2, 2])
-tbl.append([3, 3])
+for tbl in tbs:
+    tbl.append([1, 1])
+    tbl.append([2, 2])
+    tbl.append([3, 3])
+    tbl.append([1, 1])
+    tbl.append([2, 2])
+    tbl.append([3, 3])
+    tbl.append([1, 1])
+    tbl.append([2, 2])
+    tbl.append([3, 3])
+    tbl.append([1, 1])
+    tbl.append([2, 2])
+    tbl.append([3, 3])
 
 
 while(True):

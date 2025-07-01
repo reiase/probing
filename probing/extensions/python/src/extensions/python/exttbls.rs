@@ -101,11 +101,21 @@ pub struct ExternalTable(Arc<Mutex<TimeSeries>>, usize);
 #[pymethods]
 impl ExternalTable {
     #[new]
-    fn new(name: &str, columns: Vec<String>, py_config: Option<PyExternalTableConfig>  ) -> Self {
+    #[pyo3(signature = (name, columns, chunk_size = 10000, discard_threshold = 20_000_000, discard_strategy = "BaseMemorySize".to_string()))]
+    fn new(
+        name: &str,
+        columns: Vec<String>,
+        chunk_size: usize,
+        discard_threshold: usize,
+        discard_strategy: String
+    ) -> Self {
         let ncolumn = columns.len();
-        let config: DiscardStrategy= py_config
-            .unwrap_or_default()
-            .into();           
+        let config = PyExternalTableConfig {
+            chunk_size,
+            discard_threshold,
+            discard_strategy,
+        };
+        let config: DiscardStrategy= config.into();           
         let ts = Arc::new(Mutex::new(
             TimeSeries::builder_with_config(config).with_columns(columns).build(),
         ));
@@ -132,11 +142,14 @@ impl ExternalTable {
     }
 
     #[classmethod]
+    #[pyo3(signature = (name, columns, chunk_size = 10000, discard_threshold = 20_000_000, discard_strategy = "BaseMemorySize".to_string()))]
     fn get_or_create(
         _cls: &Bound<'_, PyType>,
         name: &str,
         columns: Vec<String>,
-        py_config_param: Option<PyExternalTableConfig >,
+        chunk_size: usize,
+        discard_threshold: usize,
+        discard_strategy: String,
     ) -> PyResult<ExternalTable> {
         let mut binding = EXTERN_TABLES.lock().unwrap();
         let ts = binding.get(name);
@@ -145,9 +158,12 @@ impl ExternalTable {
             Ok(ExternalTable(ts.clone(), ncolumn))
         } else {
             let ncolumn = columns.len();
-            let config: DiscardStrategy = py_config_param
-                .unwrap_or_default()
-                .into();
+            let config = PyExternalTableConfig {
+                                                    chunk_size,
+                                                    discard_threshold,
+                                                    discard_strategy,
+                                                };
+            let config: DiscardStrategy= config.into();           
             let ts = Arc::new(Mutex::new(
                 TimeSeries::builder_with_config(config).with_columns(columns).build(),
             ));
@@ -266,12 +282,7 @@ mod tests {
                 c_str!(
                     r#"
 import probing
-config_dict = {
-    "chunk_size": 10000,
-    "discard_threshold": 20_000_000,
-    "discard_strategy": "BaseMemorySize",
-}
-table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"], config_dict)
+table3 = probing.ExternalTable.get_or_create("table3", ["a", "b"])
 table3.append([1, 2])
 table3.append([3, 4])
 table3.append([5, 6])
@@ -299,7 +310,7 @@ table3.append([5, 6])
                 c_str!(
                     r#"
 import probing
-table = probing.ExternalTable.get_or_create("table2", ["a", "b"], None)
+table = probing.ExternalTable.get_or_create("table2", ["a", "b"])
 "#
                 ),
                 None,
@@ -321,7 +332,7 @@ table = probing.ExternalTable.get_or_create("table2", ["a", "b"], None)
                 c_str!(
                     r#"
 import probing
-probing.ExternalTable.get_or_create("table2", ["a", "b"], None)
+probing.ExternalTable.get_or_create("table2", ["a", "b"])
                     "#
                 ),
                 None,
