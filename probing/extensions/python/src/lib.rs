@@ -4,8 +4,7 @@ extern crate ctor;
 mod pkg;
 
 pub mod extensions;
-pub mod flamegraph;
-pub mod pprof;
+pub mod features;
 pub mod pycode;
 pub mod python;
 pub mod repl;
@@ -29,8 +28,8 @@ use probing_proto::prelude::CallFrame;
 pub static NATIVE_CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
     Lazy::new(|| Mutex::new(None));
 
-pub static PYTHON_THREAD_RESUME: Lazy<Mutex<Option<mpsc::Receiver<()>>>> =
-    Lazy::new(|| Mutex::new(None));
+// pub static PYTHON_THREAD_RESUME: Lazy<Mutex<Option<mpsc::Receiver<()>>>> =
+//     Lazy::new(|| Mutex::new(None));
 
 use cpp_demangle::Symbol;
 
@@ -108,46 +107,46 @@ extern "C" {
 pub fn backtrace_signal_handler() {
     let native_stacks = get_native_stacks().unwrap_or_default();
 
-    unsafe {
-        use pyo3::ffi;
-        let has_gil = PyGILState_Check() != 0;
-        let tstate = if has_gil {
-            log::debug!("GIL is held, releasing GIL.");
-            // ffi::PyGC_Disable();
+    // unsafe {
+    //     use pyo3::ffi;
+    //     let has_gil = PyGILState_Check() != 0;
+    //     let tstate = if has_gil {
+    //         log::debug!("GIL is held, releasing GIL.");
+    //         // ffi::PyGC_Disable();
 
-            let tstate = ffi::PyThreadState_GET();
-            let interp = PyInterpreterState_Get();
+    //         let tstate = ffi::PyThreadState_GET();
+    //         let interp = PyInterpreterState_Get();
 
-            PyEval_ReleaseLock(interp, tstate, 0);
-            tstate
-        } else {
-            log::debug!("GIL is not held, skipping PyEval_SaveThread.");
-            std::ptr::null_mut()
-        };
+    //         PyEval_ReleaseLock(interp, tstate, 0);
+    //         tstate
+    //     } else {
+    //         log::debug!("GIL is not held, skipping PyEval_SaveThread.");
+    //         std::ptr::null_mut()
+    //     };
 
-        match PYTHON_THREAD_RESUME.lock() {
-            Ok(mut guard) => {
-                if let Some(receiver) = guard.take() {
-                    // if receiver.recv_timeout(Duration::from_secs(10)).is_err() {
-                    if receiver.recv().is_err() {
-                        error!(
-                            "Signal handler: Failed to receive from Python thread resume channel."
-                        );
-                    }
-                } else {
-                    log::trace!("No active Python thread resume receiver found.");
-                }
-            }
-            Err(e) => {
-                error!("Failed to lock PYTHON_THREAD_RESUME: {e}");
-            }
-        }
-        if has_gil && !tstate.is_null() {
-            log::debug!("Restoring GIL state after signal handler.");
-            PyEval_AcquireLock(tstate);
-            // ffi::PyGC_Enable();
-        }
-    }
+    //     match PYTHON_THREAD_RESUME.lock() {
+    //         Ok(mut guard) => {
+    //             if let Some(receiver) = guard.take() {
+    //                 // if receiver.recv_timeout(Duration::from_secs(10)).is_err() {
+    //                 if receiver.recv().is_err() {
+    //                     error!(
+    //                         "Signal handler: Failed to receive from Python thread resume channel."
+    //                     );
+    //                 }
+    //             } else {
+    //                 log::trace!("No active Python thread resume receiver found.");
+    //             }
+    //         }
+    //         Err(e) => {
+    //             error!("Failed to lock PYTHON_THREAD_RESUME: {e}");
+    //         }
+    //     }
+    //     if has_gil && !tstate.is_null() {
+    //         log::debug!("Restoring GIL state after signal handler.");
+    //         PyEval_AcquireLock(tstate);
+    //         // ffi::PyGC_Enable();
+    //     }
+    // }
 
     if !try_send_native_frames_to_channel(native_stacks, "native stacks (initial send)") {
         error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");

@@ -21,14 +21,13 @@ use pyo3::Python;
 pub use exttbls::ExternalTable;
 pub use tbls::PythonPlugin;
 
-use crate::flamegraph;
 use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
 use crate::NATIVE_CALLSTACK_SENDER_SLOT;
-use crate::PYTHON_THREAD_RESUME;
+// use crate::PYTHON_THREAD_RESUME;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
@@ -70,14 +69,14 @@ impl StackTracer for SignalTracer {
                 anyhow::anyhow!("Failed to lock call stack sender slot")
             })?
             .replace(tx);
-        let (resume_signal, resume_slot) = mpsc::channel::<()>();
-        PYTHON_THREAD_RESUME
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock PYTHON_THREAD_RESUME: {err}");
-                anyhow::anyhow!("Failed to lock Python thread resume slot")
-            })?
-            .replace(resume_slot);
+        // let (resume_signal, resume_slot) = mpsc::channel::<()>();
+        // PYTHON_THREAD_RESUME
+        //     .try_lock()
+        //     .map_err(|err| {
+        //         log::error!("Failed to lock PYTHON_THREAD_RESUME: {err}");
+        //         anyhow::anyhow!("Failed to lock Python thread resume slot")
+        //     })?
+        //     .replace(resume_slot);
 
         log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
 
@@ -91,7 +90,7 @@ impl StackTracer for SignalTracer {
         }
         let python_frames = get_python_stacks(tid);
 
-        resume_signal.send(())?;
+        // resume_signal.send(())?;
 
         let python_frames = python_frames
             .and_then(|s| {
@@ -204,7 +203,7 @@ impl EngineCall for PythonExt {
             return Ok(repl.process(code.as_str()).unwrap_or_default().into_bytes());
         }
         if path == "flamegraph" {
-            return Ok(flamegraph::flamegraph().into_bytes());
+            return Ok(crate::features::torch::flamegraph().into_bytes());
         }
         Ok("".as_bytes().to_vec())
     }
