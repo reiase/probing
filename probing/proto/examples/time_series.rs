@@ -6,7 +6,7 @@ fn main() {
             for seq in ["zero", "linear", "sin(x)", "x+sin(x)", "exp(x)"] {
                 // test for int seq
                 let mut series = Series::builder()
-                    .with_chunk_size(10000)
+                    .with_discard_strategy(probing_proto::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(10000))
                     .with_compression_threshold(100)
                     .with_compression_level(level)
                     .build();

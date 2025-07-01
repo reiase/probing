@@ -15,4 +15,4 @@ pub use compress::Decompressable;
 pub use dataframe::DataFrame;
 pub use error::ProtoError;
 pub use series::Series;
-pub use time_series::{TimeSeries, ExternalTableConfig};
+pub use time_series::TimeSeries;
