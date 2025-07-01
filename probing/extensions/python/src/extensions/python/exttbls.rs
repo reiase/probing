@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
-use probing_proto::prelude::{Ele, TimeSeries, ExternalTableConfig};
+use probing_proto::prelude::{Ele, TimeSeries};
 use probing_proto::types::series::DiscardStrategy;
 use pyo3::prelude::*;
 use pyo3::types::{PyType, PyDict};
@@ -55,16 +55,18 @@ impl FromPyObject<'_> for PyExternalTableConfig {
     }
 }
 
-impl From<PyExternalTableConfig> for ExternalTableConfig {
+impl From<PyExternalTableConfig> for DiscardStrategy {
     fn from(py_config: PyExternalTableConfig) -> Self {
-        ExternalTableConfig {
-            chunk_size: py_config.chunk_size,
-            discard_threshold: py_config.discard_threshold,
-            discard_strategy: match py_config.discard_strategy.as_str() {
-                "BaseElementCount" => DiscardStrategy::BaseElementCount,
-                "BaseMemorySize" => DiscardStrategy::BaseMemorySize,
-                _ => DiscardStrategy::None,
-            }
+        match py_config.discard_strategy.as_str() {
+            "BaseElementCount" => DiscardStrategy::BaseElementCount {
+                discard_threshold: py_config.discard_threshold,
+                chunk_size: py_config.chunk_size,
+            },
+            "BaseMemorySize" => DiscardStrategy::BaseMemorySize {
+                discard_threshold: py_config.discard_threshold,
+                chunk_size: py_config.chunk_size,
+            },
+            _ => DiscardStrategy::None,
         }
     }
 }
@@ -101,7 +103,7 @@ impl ExternalTable {
     #[new]
     fn new(name: &str, columns: Vec<String>, py_config: Option<PyExternalTableConfig>  ) -> Self {
         let ncolumn = columns.len();
-        let config: ExternalTableConfig = py_config
+        let config: DiscardStrategy= py_config
             .unwrap_or_default()
             .into();           
         let ts = Arc::new(Mutex::new(
@@ -143,7 +145,7 @@ impl ExternalTable {
             Ok(ExternalTable(ts.clone(), ncolumn))
         } else {
             let ncolumn = columns.len();
-            let config: ExternalTableConfig = py_config_param
+            let config: DiscardStrategy = py_config_param
                 .unwrap_or_default()
                 .into();
             let ts = Arc::new(Mutex::new(
