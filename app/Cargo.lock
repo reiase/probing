@@ -199,6 +199,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -1467,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "probing-proto"
-version = "0.2.0-alpha"
+version = "0.2.0-alpha1"
 dependencies = [
  "anyhow",
  "chrono",

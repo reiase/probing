@@ -50,10 +50,10 @@ impl Display for CallFrame {
                 lineno,
                 locals,
             } => {
-                write!(f, "[Python] file: {file}:{lineno} func: {func}\n")?;
-                write!(f, "\tlocals:\n")?;
+                writeln!(f, "[Python] file: {file}:{lineno} func: {func}")?;
+                writeln!(f, "\tlocals:")?;
                 for (k, v) in locals {
-                    write!(f, "\t\t{}: {}\n", k, v)?;
+                    writeln!(f, "\t\t{k}: {v}")?;
                 }
                 Ok(())
             }

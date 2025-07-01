@@ -70,7 +70,7 @@ impl Cluster {
     }
 
     pub fn get_by_addr(&self, host: &str, addr: &str) -> Option<&Node> {
-        let key = format!("{}:{}", host, addr);
+        let key = format!("{host}:{addr}");
         self.nodes.get(&key)
     }
 
@@ -83,7 +83,7 @@ impl Cluster {
     }
 
     pub fn remove_by_addr(&mut self, host: &str, addr: &str) -> Option<Node> {
-        let key = format!("{}:{}", host, addr);
+        let key = format!("{host}:{addr}");
         if let Some(node) = self.nodes.remove(&key) {
             // 同时移除rank索引
             if let Some(rank) = node.rank {

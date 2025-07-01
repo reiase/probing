@@ -320,7 +320,7 @@ impl Series {
         None
     }
 
-    pub fn iter(&self) -> SeriesIterator {
+    pub fn iter(&self) -> SeriesIterator<'_> {
         SeriesIterator::new(self)
     }
 }
@@ -371,121 +371,40 @@ pub trait ArrayType {
     fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError>;
 }
 
-impl ArrayType for i32 {
-    fn dtype() -> EleType {
-        EleType::I32
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqI32(array)
-    }
+macro_rules! impl_array_type {
+    ($type:ty, $ele_type:ident, $seq_variant:ident) => {
+        impl ArrayType for $type {
+            fn dtype() -> EleType {
+                EleType::$ele_type
+            }
 
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqI32(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::I32,
-                got: EleType::Nil,
-            })
+            fn create_array(data: Self, size: usize) -> Seq {
+                let mut array = Vec::with_capacity(size);
+                array.push(data);
+                Seq::$seq_variant(array)
+            }
+
+            fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
+                if let Seq::$seq_variant(arr) = array {
+                    arr.push(data);
+                    Ok(())
+                } else {
+                    Err(ProtoError::TypeMismatch {
+                        expected: EleType::$ele_type,
+                        got: EleType::Nil,
+                    })
+                }
+            }
         }
-    }
+    };
 }
 
-impl ArrayType for i64 {
-    fn dtype() -> EleType {
-        EleType::I64
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqI64(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqI64(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::I64,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
-
-impl ArrayType for f32 {
-    fn dtype() -> EleType {
-        EleType::F32
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqF32(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqF32(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::F32,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
-
-impl ArrayType for f64 {
-    fn dtype() -> EleType {
-        EleType::F64
-    }
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqF64(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqF64(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::F64,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
-
-impl ArrayType for String {
-    fn dtype() -> EleType {
-        EleType::Text
-    }
-
-    fn create_array(data: Self, size: usize) -> Seq {
-        let mut array = Vec::with_capacity(size);
-        array.push(data);
-        Seq::SeqText(array)
-    }
-
-    fn append_to_array(array: &mut Seq, data: Self) -> Result<(), ProtoError> {
-        if let Seq::SeqText(arr) = array {
-            arr.push(data);
-            Ok(())
-        } else {
-            Err(ProtoError::TypeMismatch {
-                expected: EleType::F64,
-                got: EleType::Nil,
-            })
-        }
-    }
-}
+// 使用宏实现所有基本类型
+impl_array_type!(i32, I32, SeqI32);
+impl_array_type!(i64, I64, SeqI64);
+impl_array_type!(f32, F32, SeqF32);
+impl_array_type!(f64, F64, SeqF64);
+impl_array_type!(String, Text, SeqText);
 
 pub struct SeriesIterator<'a> {
     current_btree_iter: std::collections::btree_map::Iter<'a, usize, Slice>,
@@ -508,6 +427,43 @@ impl<'a> SeriesIterator<'a> {
             cache: Seq::Nil,
         }
     }
+
+    fn get_value_from_slice(&mut self, slice: &Slice) -> Option<Ele> {
+        if self.elem_idx >= slice.length {
+            return None;
+        }
+
+        // Handle decompression for compressed slices on first access
+        if self.elem_idx == 0 {
+            if let Page::Compressed {
+                dtype,
+                buffer,
+                codebook,
+            } = &slice.data
+            {
+                if let Some(page) = slice
+                    .data
+                    .decompress_buffer(dtype.clone(), buffer, codebook)
+                {
+                    self.cache = if let Page::Raw(array) = page {
+                        array
+                    } else {
+                        Seq::Nil
+                    }
+                }
+            }
+        }
+
+        let array = match &slice.data {
+            Page::Raw(array) => array,
+            Page::Compressed { .. } => &self.cache,
+            Page::Ref => return Some(Ele::Nil),
+        };
+
+        let value = array.get(self.elem_idx);
+        self.elem_idx += 1;
+        Some(value)
+    }
 }
 
 impl Iterator for SeriesIterator<'_> {
@@ -516,48 +472,18 @@ impl Iterator for SeriesIterator<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         // Process BTreeMap slices first
         while let Some((_, slice)) = self.current_btree_slice {
-            if self.elem_idx < slice.length {
-                if self.elem_idx == 0 {
-                    if let Page::Compressed {
-                        dtype,
-                        buffer,
-                        codebook,
-                    } = &slice.data
-                    {
-                        if let Some(page) =
-                            slice
-                                .data
-                                .decompress_buffer(dtype.clone(), buffer, codebook)
-                        {
-                            self.cache = if let Page::Raw(array) = page {
-                                array
-                            } else {
-                                Seq::Nil
-                            }
-                        }
-                    }
-                }
-                let array = if let Page::Raw(ref array) = slice.data {
-                    array
-                } else {
-                    &self.cache
-                };
-                let value = array.get(self.elem_idx);
-                self.elem_idx += 1;
+            if let Some(value) = self.get_value_from_slice(slice) {
                 return Some(value);
             }
+            // Move to next slice
             self.current_btree_slice = self.current_btree_iter.next();
             self.elem_idx = 0;
         }
 
         // Then try current_slice
         if let Some(slice) = self.current_slice {
-            if self.elem_idx < slice.length {
-                if let Page::Raw(ref array) = slice.data {
-                    let value = array.get(self.elem_idx);
-                    self.elem_idx += 1;
-                    return Some(value);
-                }
+            if let Some(value) = self.get_value_from_slice(slice) {
+                return Some(value);
             }
             // Done with current_slice
             self.current_slice = None;
@@ -662,49 +588,47 @@ mod test {
 
     #[test]
     fn test_series_nbytes() {
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
-            .build();
+        /// Test compression effectiveness for different data types
+        fn test_nbytes_for_type<T>(
+            values: impl Iterator<Item = T> + Clone,
+            type_name: &str,
+            type_size: usize,
+        ) where
+            T: super::ArrayType,
+        {
+            let mut series = super::Series::builder()
+                .with_compression_threshold(8)
+                .with_chunk_size(256)
+                .build();
 
-        for i in 0..512 {
-            series.append(i as i64).unwrap();
+            for value in values {
+                series.append(value).unwrap();
+            }
+
+            println!("512 {} nbytes: {}", type_name, series.nbytes());
+            assert!(
+                series.nbytes() * 5 < 512 * type_size,
+                "Compression not effective enough for {type_name} type"
+            );
         }
-        println!("512 i64 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i64>());
 
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
-            .build();
-
-        for i in 0..512 {
-            series.append(i).unwrap();
-        }
-        println!("512 i32 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<i32>());
-
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
-            .build();
-
-        for i in 0..512 {
-            series.append(i as f32).unwrap();
-        }
-        println!("512 f32 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f32>());
-
-        let mut series = super::Series::builder()
-            .with_compression_threshold(8)
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
-            .build();
-
-        for i in 0..512 {
-            series.append(i as f64).unwrap();
-        }
-        println!("512 f64 nbytes: {}", series.nbytes());
-        assert!(series.nbytes() * 5 < 512 * std::mem::size_of::<f64>());
+        // Test different data types with their respective iterators and sizes
+        test_nbytes_for_type(
+            (0..512).map(|i| i as i64),
+            "i64",
+            std::mem::size_of::<i64>(),
+        );
+        test_nbytes_for_type(0..512, "i32", std::mem::size_of::<i32>());
+        test_nbytes_for_type(
+            (0..512).map(|i| i as f32),
+            "f32",
+            std::mem::size_of::<f32>(),
+        );
+        test_nbytes_for_type(
+            (0..512).map(|i| i as f64),
+            "f64",
+            std::mem::size_of::<f64>(),
+        );
     }
 
     #[test]

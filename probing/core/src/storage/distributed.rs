@@ -265,11 +265,8 @@ impl EntityStore for DistributedEntityStore {
             .read()
             .await
             .allocate_replica_addresses(&addr, 3)?;
-        self.remove::<T>(
-            &id,
-            replicas.iter().map(|a| a).collect::<Vec<_>>().as_slice(),
-        )
-        .await?;
+        self.remove::<T>(id, replicas.iter().collect::<Vec<_>>().as_slice())
+            .await?;
         Ok(())
     }
 

@@ -81,31 +81,28 @@ pub struct Settings {
 impl Settings {
     pub fn to_cfg(&self) -> Option<String> {
         let mut cfg = String::new();
-        if let Some(probing_mode) = &self.probing_mode {
-            cfg.push_str(&format!("set probing={};", probing_mode));
+        macro_rules! set_if_some {
+            ($field:expr, $key:expr) => {
+                if let Some(value) = &$field {
+                    cfg.push_str(&format!("set {}={};", $key, value));
+                }
+            };
+            ($field:expr, $key:expr, $formatter:expr) => {
+                if let Some(value) = &$field {
+                    cfg.push_str(&format!("set {}={};", $key, $formatter(value)));
+                }
+            };
         }
-        if let Some(log_level) = &self.loglevel {
-            cfg.push_str(&format!("set server.log_level={};", log_level));
-        }
-        if let Some(assets_root) = &self.assets_root {
-            cfg.push_str(&format!("set server.assets_root={};", assets_root));
-        }
-        if let Some(server_port) = &self.server_port {
-            // Convert port to full address format
-            cfg.push_str(&format!("set server.address=0.0.0.0:{};", server_port));
-        }
-        if let Some(torch_profiling_mode) = &self.torch_profiling_mode {
-            cfg.push_str(&format!(
-                "set torch.profiling_mode={};",
-                torch_profiling_mode
-            ));
-        }
-        if let Some(torch_sample_rate) = &self.torch_sample_rate {
-            cfg.push_str(&format!("set torch.sample_rate={};", torch_sample_rate));
-        }
-        if let Some(torch_watch_variables) = &self.torch_watch_vars {
-            cfg.push_str(&format!("set torch.watch_vars={};", torch_watch_variables));
-        }
+
+        set_if_some!(self.probing_mode, "probing");
+        set_if_some!(self.loglevel, "server.log_level");
+        set_if_some!(self.assets_root, "server.assets_root");
+        set_if_some!(self.server_port, "server.address", |p| format!(
+            "0.0.0.0:{p}"
+        ));
+        set_if_some!(self.torch_profiling_mode, "torch.profiling_mode");
+        set_if_some!(self.torch_sample_rate, "torch.sample_rate");
+        set_if_some!(self.torch_watch_vars, "torch.watch_vars");
 
         if cfg.is_empty() {
             None

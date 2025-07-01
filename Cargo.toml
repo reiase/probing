@@ -13,7 +13,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0-alpha"
+version = "0.2.0-alpha1"
 authors = ["reiase <reiase@gmail.com>"]
 edition = "2021"
 license = "GPL-3.0"
@@ -22,7 +22,11 @@ description = "Performance and Stability Diagnostic Tool for AI Applications"
 [workspace.dependencies]
 anyhow = "1.0"
 arrow = { version = "55.1.0", default-features = false, features = ["csv"] }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+ctor = { version = "0.4.1", features = [] }
+env_logger = { version = "0.11.6", default-features = false, features = [
+    "humantime",
+] }
 log = "0.4"
 nix = { version = "0.30.1", default-features = false, features = [
     "ptrace",
@@ -64,7 +68,10 @@ crate-type = ["cdylib"]
 
 [features]
 use-mimalloc = ["dep:mimalloc"]
-extension-module = ["probing-python/extension-module", "probing-server/extension-module"]
+extension-module = [
+    "probing-python/extension-module",
+    "probing-server/extension-module",
+]
 default = ["extension-module", "use-mimalloc"]
 
 [dependencies]
@@ -73,35 +80,31 @@ probing-server = { path = "probing/server", default-features = false }
 probing-python = { path = "probing/extensions/python", default-features = false }
 
 anyhow = { workspace = true }
+ctor = { workspace = true }
+env_logger = { workspace = true }
 log = { workspace = true }
-ctor = { version = "0.4.1", features = [] }
-env_logger = { version = "0.11.6", default-features = false, features = [
-    "humantime",
-] }
 nix = { workspace = true }
 mimalloc = { version = "0.1.47", optional = true }
 
 [dev-dependencies]
-# probing-cli = { path = "probing/cli" }
-
 anyhow = { workspace = true }
 arrow = { workspace = true }
-pyo3 = { version = "0.25.0", default-features = false, features = [
+pyo3 = { version = "0.25.1", default-features = false, features = [
     "abi3",
     "abi3-py37",
     "auto-initialize",
-    "macros"
+    "macros",
 ] }
 tokio = { workspace = true }
 
 [profile.release]
-opt-level = "z"   # Optimize for size.
+opt-level = "z"    # Optimize for size.
 panic = "unwind"
-strip = true      # Automatically strip symbols from the binary.
+strip = false       # Automatically strip symbols from the binary.
 lto = "thin"
 codegen-units = 16
 incremental = true
 
 [profile.dev]
 incremental = true
-debug = 1  # 设置为较小的调试信息，而不是完整信息
+debug = 1          # 设置为较小的调试信息，而不是完整信息

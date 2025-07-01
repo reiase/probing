@@ -63,13 +63,13 @@ impl ProbeEndpoint {
     pub async fn backtrace(&self, tid: Option<i32>) -> Result<()> {
         let mut url = "/apis/pythonext/callstack".to_string();
         if let Some(tid) = tid {
-            url = format!("/apis/pythonext/callstack?tid={}", tid);
+            url = format!("/apis/pythonext/callstack?tid={tid}");
         }
         let reply = request(self.clone(), &url, None).await?;
         match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
             Ok(msg) => {
                 for f in msg {
-                    println!("{}", f)
+                    println!("{f}")
                 }
                 Ok(())
             }
@@ -109,7 +109,7 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
         ProbeEndpoint::Ptrace { pid } | ProbeEndpoint::Local { pid } => {
             eprintln!("sending ctrl commands via unix socket...");
             let prefix = "\0".to_string();
-            let path = format!("{}probing-{}", prefix, pid);
+            let path = format!("{prefix}probing-{pid}");
 
             let stream = tokio::net::UnixStream::connect(path).await?;
             let io = TokioIo::new(stream);
@@ -130,7 +130,7 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
                 connection
                     .await
                     .map_err(|err| {
-                        eprintln!("error: {}", err);
+                        eprintln!("error: {err}");
                     })
                     .unwrap();
             });

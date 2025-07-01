@@ -178,7 +178,8 @@ impl TableProvider for LazyTableSource {
             ));
         }
         let schema = data[0].schema();
-        let srccfg = MemorySourceConfig::try_new(&[data.clone()], schema, projection.cloned())?;
+        let srccfg =
+            MemorySourceConfig::try_new(std::slice::from_ref(data), schema, projection.cloned())?;
         let exec = DataSourceExec::new(Arc::new(srccfg));
         Ok(Arc::new(exec))
     }

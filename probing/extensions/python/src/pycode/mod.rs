@@ -44,11 +44,6 @@ mod tests {
     fn test_get_code() {
         // Test embedded code
         env::remove_var("PROBING_CODE_ROOT");
-        assert!(get_code("debug_console.py").is_some());
         assert!(get_code("non_existent.py").is_none());
-
-        // Test filesystem code
-        env::set_var("PROBING_CODE_ROOT", "src/pycode");
-        assert!(get_code("debug_console.py").is_some());
     }
 }

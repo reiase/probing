@@ -279,7 +279,7 @@ impl Engine {
             let state: SessionState = self.context.state();
             plugin.register_namespace(catalog, &state)?;
             if let Ok(mut maps) = self.plugins.write() {
-                maps.insert(format!("probe.{}", namespace), plugin);
+                maps.insert(format!("probe.{namespace}"), plugin);
             }
         } else if plugin.kind() == PluginType::Table {
             // In DataFusion, schemas are used to implement namespaces
@@ -291,7 +291,7 @@ impl Engine {
                 catalog.schema(namespace.as_str())
             }
             .ok_or_else(|| {
-                DataFusionError::Internal(format!("namespace `{}` not found", namespace))
+                DataFusionError::Internal(format!("namespace `{namespace}` not found"))
             })?;
             let state: SessionState = self.context.state();
             plugin.register_table(schema, &state)?;
@@ -474,7 +474,7 @@ mod tests {
             _limit: Option<usize>,
         ) -> Result<Arc<dyn ExecutionPlan>> {
             let srccfg = MemorySourceConfig::try_new(
-                &[self.batches.clone()],
+                std::slice::from_ref(&self.batches),
                 self.schema.clone(),
                 projection.cloned(),
             )?;

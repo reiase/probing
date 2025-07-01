@@ -15,7 +15,7 @@ pub fn cleanup() -> anyhow::Result<()> {
     let prefix = std::env::var("PROBING_CTRL_ROOT").unwrap_or("/tmp/probing/".to_string());
 
     let pid = std::process::id();
-    let path = format!("{}/{}", prefix, pid);
+    let path = format!("{prefix}/{pid}");
     let path = std::path::Path::new(&path);
     if path.exists() {
         std::fs::remove_file(path)?;

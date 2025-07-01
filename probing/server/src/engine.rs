@@ -1,5 +1,4 @@
 use anyhow::{self, Result};
-use log;
 use probing_proto::prelude::*;
 
 use crate::extensions as se;
@@ -40,15 +39,15 @@ pub async fn handle_query(request: Query) -> Result<QueryDataFormat> {
             if trimmed_q.is_empty() {
                 continue;
             }
-            log::debug!("Executing SET statement: {}", trimmed_q);
+            log::debug!("Executing SET statement: {trimmed_q}");
             // Execute the SQL statement asynchronously
             match engine.sql(trimmed_q).await {
                 Ok(_) => {
-                    log::debug!("Successfully executed: {}", trimmed_q);
+                    log::debug!("Successfully executed: {trimmed_q}");
                 }
                 Err(e) => {
                     // Log the error and potentially return it
-                    log::error!("Error executing SET statement '{}': {}", trimmed_q, e);
+                    log::error!("Error executing SET statement '{trimmed_q}': {e}");
                     // Depending on requirements, you might want to stop processing
                     // or collect errors. For now, just log and continue.
                     // Or return an error immediately:
@@ -59,12 +58,12 @@ pub async fn handle_query(request: Query) -> Result<QueryDataFormat> {
         // Return Nil even if some SET statements failed (adjust if needed)
         Ok(QueryDataFormat::Nil)
     } else {
-        log::debug!("Executing SELECT query: {}", expr);
+        log::debug!("Executing SELECT query: {expr}");
         // Use the fully async query method and await it
         match engine.async_query(&expr).await {
             Ok(dataframe) => Ok(QueryDataFormat::DataFrame(dataframe)),
             Err(e) => {
-                log::error!("Error executing SELECT query '{}': {}", expr, e);
+                log::error!("Error executing SELECT query '{expr}': {e}");
                 // Convert DataFusionError/EngineError into anyhow::Error
                 Err(e.into())
             }
@@ -78,7 +77,7 @@ pub async fn query(req: String) -> ApiResult<String> {
     let request = match request {
         Ok(request) => request.payload,
         Err(err) => {
-            log::error!("Failed to deserialize query request: {}", err);
+            log::error!("Failed to deserialize query request: {err}");
             return Err(anyhow::anyhow!("Invalid request format: {}", err).into());
         }
     };
@@ -101,7 +100,7 @@ pub async fn query(req: String) -> ApiResult<String> {
 
     // Serialize the response message
     serde_json::to_string(&reply_message).map_err(|e| {
-        log::error!("Failed to serialize query response: {}", e);
+        log::error!("Failed to serialize query response: {e}");
         anyhow::anyhow!("Failed to create response: {}", e).into() // Convert to ApiError
     })
 }
