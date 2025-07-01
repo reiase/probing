@@ -1,13 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::mpsc;
-use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
 
-use nix::libc;
 use probing_core::core::EngineCall;
 use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
@@ -21,92 +17,19 @@ use pyo3::Python;
 pub use exttbls::ExternalTable;
 pub use tbls::PythonPlugin;
 
+use crate::features::stack_tracer::{SignalTracer, StackTracer};
 use crate::python::enable_crash_handler;
 use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
-use crate::features::stack_tracer::NATIVE_CALLSTACK_SENDER_SLOT;
-// use crate::PYTHON_THREAD_RESUME;
-use lazy_static::lazy_static;
-use std::collections::HashSet;
-
 /// Define a static Mutex for the backtrace function
-static BACKTRACE_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
 mod exttbls;
 mod stack;
 mod tbls;
 
 pub use stack::get_python_stacks;
 pub use tbls::PythonNamespace;
-
-#[async_trait]
-pub trait StackTracer: Send + Sync + std::fmt::Debug {
-    fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
-}
-
-#[derive(Debug)]
-pub struct SignalTracer;
-
-#[async_trait]
-impl StackTracer for SignalTracer {
-    fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
-        log::debug!("Collecting backtrace for TID: {tid:?}");
-
-        let pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-        let tid = tid.unwrap_or(pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
-
-        let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
-            log::error!("Failed to acquire BACKTRACE_MUTEX: {e}");
-            anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
-        })?;
-
-        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-        NATIVE_CALLSTACK_SENDER_SLOT
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {err}");
-                anyhow::anyhow!("Failed to lock call stack sender slot")
-            })?
-            .replace(tx);
-        // let (resume_signal, resume_slot) = mpsc::channel::<()>();
-        // PYTHON_THREAD_RESUME
-        //     .try_lock()
-        //     .map_err(|err| {
-        //         log::error!("Failed to lock PYTHON_THREAD_RESUME: {err}");
-        //         anyhow::anyhow!("Failed to lock Python thread resume slot")
-        //     })?
-        //     .replace(resume_slot);
-
-        log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
-
-        let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
-        if ret != 0 {
-            let last_error = std::io::Error::last_os_error();
-            let error_msg =
-                format!("Failed to send SIGUSR2 to process {pid} (thread: {tid}): {last_error}");
-            log::error!("{error_msg}");
-            return Err(anyhow::anyhow!(error_msg));
-        }
-        let python_frames = get_python_stacks(tid);
-
-        // resume_signal.send(())?;
-
-        let python_frames = python_frames
-            .and_then(|s| {
-                serde_json::from_str::<Vec<CallFrame>>(&s)
-                    .map_err(|e| {
-                        log::error!("Failed to deserialize Python call stacks: {e}");
-                        e
-                    })
-                    .ok()
-            })
-            .unwrap_or_default();
-        let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
-
-        Ok(merge_python_native_stacks(python_frames, cpp_frames))
-    }
-}
 
 /// Collection of Python extensions loaded into the system
 #[derive(Debug, Default)]
@@ -392,70 +315,4 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
     SignalTracer.trace(tid)
-}
-
-// Moved from lib.rs
-fn merge_python_native_stacks(
-    python_stacks: Vec<CallFrame>,
-    native_stacks: Vec<CallFrame>,
-) -> Vec<CallFrame> {
-    let mut merged = vec![];
-    let mut python_frame_index = 0;
-
-    enum MergeType {
-        Ignore,
-        MergeNativeFrame,
-        MergePythonFrame,
-    }
-
-    fn get_merge_strategy(frame: &CallFrame) -> MergeType {
-        lazy_static! {
-            static ref WHITELISTED_PREFIXES_SET: HashSet<&'static str> = {
-                const PREFIXES: &[&str] = &[
-                    "time",
-                    "sys",
-                    "gc",
-                    "os",
-                    "unicode",
-                    "thread",
-                    "stringio",
-                    "sre",
-                    "PyGilState",
-                    "PyThread",
-                    "lock",
-                ];
-                PREFIXES.iter().cloned().collect()
-            };
-        }
-        let symbol = match frame {
-            CallFrame::CFrame { func, .. } => func,
-            CallFrame::PyFrame { func, .. } => func,
-        };
-        let mut tokens = symbol.split(['_', '.']).filter(|s| !s.is_empty());
-        match tokens.next() {
-            Some("PyEval") => match tokens.next() {
-                Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,
-                _ => MergeType::Ignore,
-            },
-            Some(prefix) if WHITELISTED_PREFIXES_SET.contains(prefix) => {
-                MergeType::MergeNativeFrame
-            }
-            _ => MergeType::MergeNativeFrame,
-        }
-    }
-
-    for frame in native_stacks {
-        // log::debug!("Processing native frame: {:?}", frame);
-        match get_merge_strategy(&frame) {
-            MergeType::Ignore => {} // Do nothing
-            MergeType::MergeNativeFrame => merged.push(frame),
-            MergeType::MergePythonFrame => {
-                if let Some(py_frame) = python_stacks.get(python_frame_index) {
-                    merged.push(py_frame.clone());
-                }
-                python_frame_index += 1; // Advance index regardless of whether a Python frame was available
-            }
-        }
-    }
-    merged
 }
