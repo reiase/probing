@@ -1,4 +1,4 @@
-use probing_proto::prelude::Series;
+use probing_proto::prelude::{Series, DiscardStrategy};
 
 /// Data type information for series benchmarking
 #[derive(Clone, Copy)]
@@ -81,7 +81,7 @@ fn create_series(
     count: usize,
 ) -> Series {
     let mut series = Series::builder()
-        .with_chunk_size(10000)
+        .with_discard_strategy(DiscardStrategy::base_memory_size_with_custom_chunk(10000))
         .with_compression_threshold(100)
         .with_compression_level(level)
         .build();

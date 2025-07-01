@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::error::ProtoError;
-use super::series::SeriesIterator;
+use super::series::{DiscardStrategy, SeriesIterator};
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
+
 
 #[derive(Debug, Error)]
 pub enum TimeSeriesError {
@@ -39,11 +40,22 @@ pub struct TimeSeries {
 
 impl TimeSeries {
     pub fn builder() -> TimeSeriesConfig {
-        Default::default()
+        let ts_config = TimeSeriesConfig::default();
+        ts_config
+    }
+
+    pub fn builder_with_config(ext_config: DiscardStrategy) -> TimeSeriesConfig {
+        let ts_config = TimeSeriesConfig::default()
+            .with_discard_strategy(ext_config);
+        ts_config
     }
 
     pub fn len(&self) -> usize {
         self.timestamp.len()
+    }
+
+    pub fn cnts(&self) -> usize {
+        self.timestamp.ncounts()
     }
 
     #[must_use]
@@ -93,10 +105,6 @@ impl TimeSeriesConfig {
         self.series_config = self.series_config.with_dtype(dtype);
         self
     }
-    pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
-        self.series_config = self.series_config.with_chunk_size(chunk_size);
-        self
-    }
     pub fn with_compression_level(mut self, compression_level: usize) -> Self {
         self.series_config = self.series_config.with_compression_level(compression_level);
         self
@@ -107,8 +115,8 @@ impl TimeSeriesConfig {
             .with_compression_threshold(compression_threshold);
         self
     }
-    pub fn with_discard_threshold(mut self, discard_threshold: usize) -> Self {
-        self.series_config = self.series_config.with_discard_threshold(discard_threshold);
+    pub fn with_discard_strategy(mut self, discard_strategy: DiscardStrategy) -> Self {
+        self.series_config = self.series_config.with_discard_strategy(discard_strategy);
         self
     }
     pub fn with_columns(mut self, names: Vec<String>) -> Self {
@@ -150,14 +158,14 @@ impl Iterator for TimeSeriesIter<'_> {
 
 #[cfg(test)]
 mod test {
+    use super::super::series::DiscardStrategy;
+
     #[test]
     fn test_timeseries_create() {
         let _ = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_chunk_size(10)
+            .with_discard_strategy(DiscardStrategy::BaseMemorySize{discard_threshold: 10, chunk_size: 10})
             .with_compression_level(1)
-            .with_compression_threshold(10)
-            .with_discard_threshold(10)
             .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
     }
@@ -166,10 +174,9 @@ mod test {
     fn test_timeseries_append() {
         let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_chunk_size(10)
+            .with_discard_strategy(DiscardStrategy::BaseMemorySize{discard_threshold: 10, chunk_size: 10})
             .with_compression_level(1)
             .with_compression_threshold(10)
-            .with_discard_threshold(10)
             .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
         let _ = ts.append(
@@ -177,14 +184,31 @@ mod test {
             vec![super::Ele::I64(1), super::Ele::I64(2)],
         );
     }
+
+    #[test]
+    fn test_timeseries_limit() {
+        let mut ts = super::TimeSeries::builder()
+            .with_dtype(super::EleType::I64)
+            .with_discard_strategy(DiscardStrategy::BaseElementCount{discard_threshold: 10, chunk_size: 10})
+            .with_columns(vec!["a".to_string(), "b".to_string()])
+            .build();
+
+        for _ in 0..16 {
+            let _ = ts.append(
+                super::Ele::I64(1),
+                vec![super::Ele::I64(77), super::Ele::I64(88)],
+            );
+        }
+        assert_eq!(ts.cnts(), 6);
+    }
+
     #[test]
     fn test_timeseries_iter() {
         let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_chunk_size(10)
+            .with_discard_strategy(DiscardStrategy::BaseMemorySize{discard_threshold: 10, chunk_size: 10})
             .with_compression_level(1)
             .with_compression_threshold(10)
-            .with_discard_threshold(10)
             .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
 
