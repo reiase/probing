@@ -298,7 +298,7 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], None);
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], 10000, 20000000, "BaseMemorySize".to_string());
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 
