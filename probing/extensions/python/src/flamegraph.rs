@@ -90,7 +90,7 @@ pub fn flamegraph() -> String {
     let mut graph: Vec<u8> = vec![];
     let lines = query_profiling();
     if let Err(e) = lines {
-        println!("Error: {}", e);
+        println!("Error: {e}");
         return String::default();
     }
     if let Ok(lines) = lines {
@@ -101,7 +101,7 @@ pub fn flamegraph() -> String {
         // opt.factor = 0.001;
         match inferno::flamegraph::from_lines(&mut opt, lines, &mut graph) {
             Ok(_) => return String::from_utf8(graph).unwrap(),
-            Err(e) => println!("Error: {}", e),
+            Err(e) => println!("Error: {e}"),
         }
     };
     String::from_utf8(graph).unwrap()

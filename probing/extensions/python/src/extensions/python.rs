@@ -6,7 +6,6 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 use nix::libc;
 use probing_core::core::EngineCall;
@@ -29,16 +28,87 @@ use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
-use crate::CALLSTACK_SENDER_SLOT;
+use crate::NATIVE_CALLSTACK_SENDER_SLOT;
+use crate::PYTHON_THREAD_RESUME;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
 /// Define a static Mutex for the backtrace function
-static BACKTRACE_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static BACKTRACE_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
 mod exttbls;
+mod stack;
 mod tbls;
 
+pub use stack::get_python_stacks;
 pub use tbls::PythonNamespace;
+
+#[async_trait]
+pub trait StackTracer: Send + Sync + std::fmt::Debug {
+    fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
+}
+
+#[derive(Debug)]
+pub struct SignalTracer;
+
+#[async_trait]
+impl StackTracer for SignalTracer {
+    fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>> {
+        log::debug!("Collecting backtrace for TID: {tid:?}");
+
+        let pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
+        let tid = tid.unwrap_or(pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
+
+        let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
+            log::error!("Failed to acquire BACKTRACE_MUTEX: {e}");
+            anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
+        })?;
+
+        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+        NATIVE_CALLSTACK_SENDER_SLOT
+            .try_lock()
+            .map_err(|err| {
+                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {err}");
+                anyhow::anyhow!("Failed to lock call stack sender slot")
+            })?
+            .replace(tx);
+        let (resume_signal, resume_slot) = mpsc::channel::<()>();
+        PYTHON_THREAD_RESUME
+            .try_lock()
+            .map_err(|err| {
+                log::error!("Failed to lock PYTHON_THREAD_RESUME: {err}");
+                anyhow::anyhow!("Failed to lock Python thread resume slot")
+            })?
+            .replace(resume_slot);
+
+        log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
+
+        let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
+        if ret != 0 {
+            let last_error = std::io::Error::last_os_error();
+            let error_msg =
+                format!("Failed to send SIGUSR2 to process {pid} (thread: {tid}): {last_error}");
+            log::error!("{error_msg}");
+            return Err(anyhow::anyhow!(error_msg));
+        }
+        let python_frames = get_python_stacks(tid);
+
+        resume_signal.send(())?;
+
+        let python_frames = python_frames
+            .and_then(|s| {
+                serde_json::from_str::<Vec<CallFrame>>(&s)
+                    .map_err(|e| {
+                        log::error!("Failed to deserialize Python call stacks: {e}");
+                        e
+                    })
+                    .ok()
+            })
+            .unwrap_or_default();
+        let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
+
+        Ok(merge_python_native_stacks(python_frames, cpp_frames))
+    }
+}
 
 /// Collection of Python extensions loaded into the system
 #[derive(Debug, Default)]
@@ -49,10 +119,10 @@ impl Display for PyExtList {
         let mut first = true;
         for ext in self.0.keys() {
             if first {
-                write!(f, "{}", ext)?;
+                write!(f, "{ext}")?;
                 first = false;
             } else {
-                write!(f, ", {}", ext)?;
+                write!(f, ", {ext}")?;
             }
         }
         Ok(())
@@ -60,7 +130,7 @@ impl Display for PyExtList {
 }
 
 /// Python integration with the probing system
-#[derive(Debug, Default, EngineExtension)]
+#[derive(Debug, EngineExtension)]
 pub struct PythonExt {
     /// Path to Python crash handler script (executed when interpreter crashes)
     #[option(aliases = ["crash.handler"])]
@@ -77,6 +147,20 @@ pub struct PythonExt {
     /// Disable Python extension by setting `python.disabled=<extension_statement>`
     #[option()]
     disabled: Maybe<String>,
+
+    tracer: Box<dyn StackTracer>,
+}
+
+impl Default for PythonExt {
+    fn default() -> Self {
+        Self {
+            crash_handler: Default::default(),
+            monitoring: Default::default(),
+            enabled: Default::default(),
+            disabled: Default::default(),
+            tracer: Box::new(SignalTracer),
+        }
+    }
 }
 
 #[async_trait]
@@ -96,26 +180,26 @@ impl EngineCall for PythonExt {
         if path == "callstack" {
             let frames = if params.contains_key("tid") {
                 let tid = params.get("tid").unwrap().parse::<i32>().unwrap();
-                backtrace(Some(tid))
+                self.tracer.trace(Some(tid))
             } else {
-                backtrace(None)
+                self.tracer.trace(None)
             }
             .map_err(|e| {
-                log::error!("Failed to get call stack: {}", e);
-                EngineError::PluginError(format!("Failed to get call stack: {}", e))
+                log::error!("Failed to get call stack: {e}");
+                EngineError::PluginError(format!("Failed to get call stack: {e}"))
             })?;
             return serde_json::to_vec(&frames).map_err(|e| {
-                log::error!("Failed to serialize call stack: {}", e);
-                EngineError::PluginError(format!("Failed to serialize call stack: {}", e))
+                log::error!("Failed to serialize call stack: {e}");
+                EngineError::PluginError(format!("Failed to serialize call stack: {e}"))
             });
         }
         if path == "eval" {
             let code = String::from_utf8(body.to_vec()).map_err(|e| {
-                log::error!("Failed to convert body to UTF-8 string: {}", e);
-                EngineError::PluginError(format!("Failed to convert body to UTF-8 string: {}", e))
+                log::error!("Failed to convert body to UTF-8 string: {e}");
+                EngineError::PluginError(format!("Failed to convert body to UTF-8 string: {e}"))
             })?;
 
-            log::debug!("Python eval code: {}", code);
+            log::debug!("Python eval code: {code}");
 
             let mut repl = PythonRepl::default();
             return Ok(repl.process(code.as_str()).unwrap_or_default().into_bytes());
@@ -155,11 +239,11 @@ impl PythonExt {
                     CRASH_HANDLER.lock().unwrap().replace(handler.to_string());
                     match enable_crash_handler() {
                         Ok(_) => {
-                            log::info!("Python crash handler enabled: {}", handler);
+                            log::info!("Python crash handler enabled: {handler}");
                             Ok(())
                         }
                         Err(e) => {
-                            log::error!("Failed to enable crash handler '{}': {}", handler, e);
+                            log::error!("Failed to enable crash handler '{handler}': {e}");
                             Err(EngineError::InvalidOptionValue(
                                 Self::OPTION_CRASH_HANDLER.to_string(),
                                 handler.to_string(),
@@ -173,7 +257,7 @@ impl PythonExt {
 
     /// Set up Python monitoring
     fn set_monitoring(&mut self, monitoring: Maybe<String>) -> Result<(), EngineError> {
-        log::debug!("Setting Python monitoring: {}", monitoring);
+        log::debug!("Setting Python monitoring: {monitoring}");
         match self.monitoring {
             Maybe::Just(_) => Err(EngineError::ReadOnlyOption(
                 Self::OPTION_MONITORING.to_string(),
@@ -187,11 +271,11 @@ impl PythonExt {
                     self.monitoring = monitoring.clone();
                     match enable_monitoring(handler) {
                         Ok(_) => {
-                            log::info!("Python monitoring enabled: {}", handler);
+                            log::info!("Python monitoring enabled: {handler}");
                             Ok(())
                         }
                         Err(e) => {
-                            log::error!("Failed to enable monitoring '{}': {}", handler, e);
+                            log::error!("Failed to enable monitoring '{handler}': {e}");
                             Err(EngineError::InvalidOptionValue(
                                 Self::OPTION_MONITORING.to_string(),
                                 handler.to_string(),
@@ -219,8 +303,7 @@ impl PythonExt {
         // Check if extension is already loaded
         if self.enabled.0.contains_key(ext) {
             return Err(EngineError::PluginError(format!(
-                "Python extension '{}' is already enabled",
-                ext
+                "Python extension '{ext}' is already enabled"
             )));
         }
 
@@ -230,7 +313,7 @@ impl PythonExt {
 
         // Store the extension
         self.enabled.0.insert(ext.clone(), pyext);
-        log::info!("Python extension enabled: {}", ext);
+        log::info!("Python extension enabled: {ext}");
         log::debug!("Current enabled extensions: {}", self.enabled);
 
         Ok(())
@@ -251,28 +334,25 @@ impl PythonExt {
 
         // Remove extension if it exists
         if let Some(pyext) = self.enabled.0.remove(ext) {
-            log::info!("Disabling Python extension: {}", ext);
+            log::info!("Disabling Python extension: {ext}");
 
             // Call deinit method on extension object
             Python::with_gil(|py| {
                 // Call the Python object's deinit method
                 match pyext.call_method0(py, "deinit") {
                     Ok(_) => {
-                        log::debug!("Extension '{}' deinitialized successfully", ext);
+                        log::debug!("Extension '{ext}' deinitialized successfully");
                         Ok(())
                     }
                     Err(e) => {
-                        let error_msg = format!("Failed to call deinit method on '{}': {}", ext, e);
-                        log::error!("{}", error_msg);
+                        let error_msg = format!("Failed to call deinit method on '{ext}': {e}");
+                        log::error!("{error_msg}");
                         Err(EngineError::PluginError(error_msg))
                     }
                 }
             })
         } else {
-            log::debug!(
-                "Python extension '{}' was not enabled, nothing to disable",
-                ext
-            );
+            log::debug!("Python extension '{ext}' was not enabled, nothing to disable");
             // Extension wasn't found, not an error
             Ok(())
         }
@@ -292,12 +372,12 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
         let result = pkg
             .unwrap()
             .call_method1("load_extension", (code,))
-            .map_err(|e| format!("Error loading Python plugin: {}", e))?;
+            .map_err(|e| format!("Error loading Python plugin: {e}"))?;
 
         // Verify the object has an init method
         if !result
             .hasattr("init")
-            .map_err(|e| format!("Unable to check `init` method: {}", e))?
+            .map_err(|e| format!("Unable to check `init` method: {e}"))?
         {
             return Err("Plugin must have an `init` method".to_string());
         }
@@ -305,83 +385,15 @@ pub fn execute_python_code(code: &str) -> Result<pyo3::Py<pyo3::PyAny>, String> 
         // Initialize the plugin
         result
             .call_method0("init")
-            .map_err(|e| format!("Error calling `init` method: {}", e))?;
+            .map_err(|e| format!("Error calling `init` method: {e}"))?;
 
-        log::info!("Python extension loaded successfully: {}", code);
+        log::info!("Python extension loaded successfully: {code}");
         Ok(result.unbind())
     })
 }
 
 fn backtrace(tid: Option<i32>) -> Result<Vec<CallFrame>> {
-    // Acquire the lock at the beginning of the function
-    let _guard = BACKTRACE_MUTEX.try_lock().map_err(|e| {
-        log::error!("Failed to acquire BACKTRACE_MUTEX: {}", e);
-        anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
-    })?;
-
-    let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-    CALLSTACK_SENDER_SLOT
-        .try_lock()
-        .map_err(|err| {
-            log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {}", err);
-            anyhow::anyhow!("Failed to lock call stack sender slot")
-        })?
-        .replace(tx);
-
-    // Determine PID and TID for the tgkill syscall.
-    // tgkill sends a signal to a specific thread (target_tid) within a specific thread group (process_pid).
-    let process_pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
-    let target_tid = tid.unwrap_or(process_pid); // Target thread ID, or current process's PID if tid_param is None (signals the main thread)
-
-    log::debug!("Sending SIGUSR2 signal to process {process_pid} (thread: {target_tid})");
-
-    let ret = unsafe { libc::syscall(libc::SYS_tgkill, process_pid, target_tid, libc::SIGUSR2) };
-
-    if ret != 0 {
-        let last_error = std::io::Error::last_os_error();
-        let error_msg = format!(
-            "Failed to send SIGUSR2 to process {process_pid} (thread: {target_tid}): {last_error}"
-        );
-        log::error!("{}", error_msg);
-        return Err(anyhow::anyhow!(error_msg));
-    }
-
-    // Attempt to receive C++ frames
-    let cpp_frames = match rx.recv_timeout(Duration::from_secs(2)) {
-        Ok(frames) => {
-            log::debug!("Received C++ frames successfully.");
-            frames
-        }
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            log::warn!("Timeout waiting for C++ call stack from signal handler");
-            return Err(anyhow::anyhow!("No C++ call stack received: timeout"));
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => {
-            log::error!("Call stack channel disconnected while waiting for C++ frames.");
-            return Err(anyhow::anyhow!(
-                "C++ call stack channel disconnected before any frames received"
-            ));
-        }
-    };
-
-    // Attempt to receive Python frames
-    let python_frames = match rx.recv_timeout(Duration::from_secs(3)) {
-        Ok(frames) => {
-            log::debug!("Received Python frames successfully.");
-            frames
-        }
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            log::warn!("Timeout waiting for Python call stack from signal handler. Proceeding with C++ frames only.");
-            Vec::new() // Use empty Python frames
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => {
-            log::warn!("Call stack channel disconnected while waiting for Python frames. Proceeding with C++ frames only.");
-            Vec::new() // Use empty Python frames
-        }
-    };
-
-    // Merge C++ frames with (potentially empty) Python frames
-    Ok(merge_python_native_stacks(python_frames, cpp_frames))
+    SignalTracer.trace(tid)
 }
 
 // Moved from lib.rs
@@ -401,7 +413,7 @@ fn merge_python_native_stacks(
     fn get_merge_strategy(frame: &CallFrame) -> MergeType {
         lazy_static! {
             static ref WHITELISTED_PREFIXES_SET: HashSet<&'static str> = {
-                const PREFIXES: &[&'static str] = &[
+                const PREFIXES: &[&str] = &[
                     "time",
                     "sys",
                     "gc",
@@ -421,9 +433,7 @@ fn merge_python_native_stacks(
             CallFrame::CFrame { func, .. } => func,
             CallFrame::PyFrame { func, .. } => func,
         };
-        let mut tokens = symbol
-            .split(|c| c == '_' || c == '.')
-            .filter(|s| !s.is_empty());
+        let mut tokens = symbol.split(['_', '.']).filter(|s| !s.is_empty());
         match tokens.next() {
             Some("PyEval") => match tokens.next() {
                 Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,
@@ -437,7 +447,7 @@ fn merge_python_native_stacks(
     }
 
     for frame in native_stacks {
-        log::debug!("Processing native frame: {:?}", frame);
+        // log::debug!("Processing native frame: {:?}", frame);
         match get_merge_strategy(&frame) {
             MergeType::Ignore => {} // Do nothing
             MergeType::MergeNativeFrame => merged.push(frame),

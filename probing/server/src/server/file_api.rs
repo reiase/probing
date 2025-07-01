@@ -53,13 +53,13 @@ pub async fn read_file(
 
     // Validate the path
     let safe_path = validate_path(path).map_err(|e| {
-        log::warn!("Path validation failed for '{}': {}", path, e);
+        log::warn!("Path validation failed for '{path}': {e}");
         anyhow::anyhow!("Invalid path: {}", e)
     })?;
 
     // Check file size before reading
     let metadata = tokio::fs::metadata(&safe_path).await.map_err(|e| {
-        log::warn!("Failed to get metadata for {:?}: {}", safe_path, e);
+        log::warn!("Failed to get metadata for {safe_path:?}: {e}");
         anyhow::anyhow!("Cannot access file")
     })?;
 
@@ -70,10 +70,10 @@ pub async fn read_file(
 
     // Read file content asynchronously
     let content = tokio::fs::read_to_string(&safe_path).await.map_err(|e| {
-        log::warn!("Failed to read file {:?}: {}", safe_path, e);
+        log::warn!("Failed to read file {safe_path:?}: {e}");
         anyhow::anyhow!("Cannot read file")
     })?;
 
-    log::info!("Successfully read file: {:?}", safe_path);
+    log::info!("Successfully read file: {safe_path:?}");
     Ok(content)
 }

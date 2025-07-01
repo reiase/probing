@@ -4,7 +4,6 @@ use probing_core::storage::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 struct TestEntity {
@@ -39,7 +38,9 @@ async fn create_test_cluster() -> Result<Vec<Arc<DistributedEntityStore>>> {
     let topology = TopologyView::new(workers_per_node, 2);
     let mut stores = Vec::new();
 
-    let mems = vec![Arc::new(MemoryStore::new()); 3];
+    let mems = (0..3)
+        .map(|_| Arc::new(MemoryStore::new()))
+        .collect::<Vec<_>>();
 
     // Create coordinators for each node
     for (idx, (node_id, workers)) in topology.workers_per_node.iter().enumerate() {
@@ -91,8 +92,7 @@ async fn test_multi_node_storage_and_retrieval() -> Result<()> {
         let retrieved = store.get::<TestEntity>(&entity.id).await?;
         assert!(
             retrieved.is_some(),
-            "Node {} should be able to retrieve entity",
-            i
+            "Node {i} should be able to retrieve entity",
         );
         assert_eq!(
             retrieved.unwrap(),
@@ -166,8 +166,8 @@ async fn test_concurrent_operations() -> Result<()> {
         let store_clone = store.clone();
         let handle = tokio::spawn(async move {
             let entity = TestEntity {
-                id: format!("concurrent-test-{}", i),
-                data: format!("concurrent data {}", i),
+                id: format!("concurrent-test-{i}"),
+                data: format!("concurrent data {i}"),
                 version: 1,
             };
 
