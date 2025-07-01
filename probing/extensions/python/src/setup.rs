@@ -14,5 +14,8 @@ where
 
 #[ctor]
 fn setup() {
-    register_signal_handler(nix::libc::SIGUSR2, crate::backtrace_signal_handler);
+    register_signal_handler(
+        nix::libc::SIGUSR2,
+        crate::features::stack_tracer::backtrace_signal_handler,
+    );
 }

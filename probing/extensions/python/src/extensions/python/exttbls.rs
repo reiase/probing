@@ -171,7 +171,8 @@ impl ExternalTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{create_probing_module, extensions::python::PythonPlugin};
+    use crate::features::python_api::create_probing_module;
+    use crate::extensions::python::PythonPlugin;
     use probing_cc::extensions::envs::EnvPlugin;
     use probing_cc::extensions::files::FilesPlugin;
     use probing_core::core::Engine;

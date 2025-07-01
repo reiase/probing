@@ -26,7 +26,7 @@ use crate::python::enable_monitoring;
 use crate::python::CRASH_HANDLER;
 use crate::repl::PythonRepl;
 
-use crate::NATIVE_CALLSTACK_SENDER_SLOT;
+use crate::features::stack_tracer::NATIVE_CALLSTACK_SENDER_SLOT;
 // use crate::PYTHON_THREAD_RESUME;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
