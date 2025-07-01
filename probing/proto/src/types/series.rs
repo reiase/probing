@@ -598,7 +598,7 @@ mod test {
         {
             let mut series = super::Series::builder()
                 .with_compression_threshold(8)
-                .with_chunk_size(256)
+                .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
                 .build();
 
             for value in values {
