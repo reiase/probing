@@ -3,8 +3,11 @@ use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 use probing_proto::prelude::{Ele, TimeSeries};
-use pyo3::types::PyType;
+use probing_proto::types::series::DiscardStrategy;
+use pyo3::prelude::*;
+use pyo3::types::{PyType, PyDict};
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
+
 
 fn value_to_object(py: Python, v: &Ele) -> PyObject {
     let ret = match v {
@@ -21,6 +24,73 @@ fn value_to_object(py: Python, v: &Ele) -> PyObject {
     ret.map(|x| x.unbind()).unwrap_or(py.None())
 }
 
+#[pyclass]
+pub struct PyExternalTableConfig {
+    #[pyo3(get)]
+    chunk_size: usize,
+    #[pyo3(get)]
+    discard_threshold: usize,
+    #[pyo3(get)]
+    discard_strategy: String,
+}
+
+impl Default for PyExternalTableConfig {
+    fn default() -> Self {
+        PyExternalTableConfig {
+            chunk_size: 10000,
+            discard_threshold: 20_000_000,
+            discard_strategy: "BaseMemorySize".to_string(),
+        }
+    }
+}
+
+impl FromPyObject<'_> for PyExternalTableConfig {
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let chunk_size: usize = ob.get_item("chunk_size")?.extract()?;
+        let discard_threshold: usize = ob.get_item("discard_threshold")?.extract()?;
+        let discard_strategy: String = ob
+            .get_item("discard_strategy")
+            .map_or(Ok("None".to_string()), |v| v.extract())?;
+        Ok(PyExternalTableConfig { chunk_size, discard_threshold, discard_strategy })
+    }
+}
+
+impl From<PyExternalTableConfig> for DiscardStrategy {
+    fn from(py_config: PyExternalTableConfig) -> Self {
+        match py_config.discard_strategy.as_str() {
+            "BaseElementCount" => DiscardStrategy::BaseElementCount {
+                discard_threshold: py_config.discard_threshold,
+                chunk_size: py_config.chunk_size,
+            },
+            "BaseMemorySize" => DiscardStrategy::BaseMemorySize {
+                discard_threshold: py_config.discard_threshold,
+                chunk_size: py_config.chunk_size,
+            },
+            _ => DiscardStrategy::None,
+        }
+    }
+}
+
+#[pymethods]
+impl PyExternalTableConfig {
+    #[new]
+    fn new(chunk_size: usize, discard_threshold: usize, discard_strategy: String) -> Self {
+        PyExternalTableConfig { 
+            chunk_size, 
+            discard_threshold, 
+            discard_strategy,
+        }
+    }
+
+    fn into_py(&self, py: Python<'_>) -> PyObject {
+        let dict = PyDict::new(py);
+        dict.set_item("chunk_size", &self.chunk_size).unwrap();
+        dict.set_item("discard_threshold", self.discard_threshold).unwrap();
+        dict.set_item("discard_strategy", &self.discard_strategy).unwrap();
+        dict.into()
+    }
+}
+
 pub static EXTERN_TABLES: Lazy<Mutex<HashMap<String, Arc<Mutex<TimeSeries>>>>> =
     Lazy::new(|| Mutex::new(Default::default()));
 
@@ -31,10 +101,23 @@ pub struct ExternalTable(Arc<Mutex<TimeSeries>>, usize);
 #[pymethods]
 impl ExternalTable {
     #[new]
-    fn new(name: &str, columns: Vec<String>) -> Self {
+    #[pyo3(signature = (name, columns, chunk_size = 10000, discard_threshold = 20_000_000, discard_strategy = "BaseMemorySize".to_string()))]
+    fn new(
+        name: &str,
+        columns: Vec<String>,
+        chunk_size: usize,
+        discard_threshold: usize,
+        discard_strategy: String
+    ) -> Self {
         let ncolumn = columns.len();
+        let config = PyExternalTableConfig {
+            chunk_size,
+            discard_threshold,
+            discard_strategy,
+        };
+        let config: DiscardStrategy= config.into();           
         let ts = Arc::new(Mutex::new(
-            TimeSeries::builder().with_columns(columns).build(),
+            TimeSeries::builder_with_config(config).with_columns(columns).build(),
         ));
         EXTERN_TABLES
             .lock()
@@ -58,10 +141,14 @@ impl ExternalTable {
     }
 
     #[classmethod]
+    #[pyo3(signature = (name, columns, chunk_size = 10000, discard_threshold = 20_000_000, discard_strategy = "BaseMemorySize".to_string()))]
     fn get_or_create(
         _cls: &Bound<'_, PyType>,
         name: &str,
         columns: Vec<String>,
+        chunk_size: usize,
+        discard_threshold: usize,
+        discard_strategy: String,
     ) -> PyResult<ExternalTable> {
         let mut binding = EXTERN_TABLES.lock().unwrap();
         let ts = binding.get(name);
@@ -70,8 +157,14 @@ impl ExternalTable {
             Ok(ExternalTable(ts.clone(), ncolumn))
         } else {
             let ncolumn = columns.len();
+            let config = PyExternalTableConfig {
+                                                    chunk_size,
+                                                    discard_threshold,
+                                                    discard_strategy,
+                                                };
+            let config: DiscardStrategy= config.into();           
             let ts = Arc::new(Mutex::new(
-                TimeSeries::builder().with_columns(columns).build(),
+                TimeSeries::builder_with_config(config).with_columns(columns).build(),
             ));
             binding.insert(name.to_string(), ts.clone());
             Ok(ExternalTable(ts, ncolumn))
@@ -204,7 +297,7 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()]);
+        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], 10000, 20000000, "BaseMemorySize".to_string());
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 
