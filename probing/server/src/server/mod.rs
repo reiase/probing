@@ -30,7 +30,7 @@ async fn get_config_value_handler(
         Ok(value) => (StatusCode::OK, value).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Error retrieving config '{}': {}", config_key, e),
+            format!("Error retrieving config '{config_key}': {e}"),
         )
             .into_response(),
     }
@@ -99,7 +99,7 @@ async fn query(body: String) -> impl IntoResponse {
 pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
-    eprintln!("Starting local server at {}", socket_path);
+    eprintln!("Starting local server at {socket_path}");
 
     let app = build_app(false);
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
@@ -121,7 +121,7 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
     use nu_ansi_term::Color::{Green, Red};
 
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
-    log::info!("Starting probe server at {}", addr);
+    log::info!("Starting probe server at {addr}");
 
     let app = build_app(true);
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -175,7 +175,7 @@ pub fn sync_env_settings() {
     SERVER_RUNTIME.spawn(async move {
         for (k, v) in env_vars {
             let k = k.replace("_", ".").to_lowercase();
-            let setting = format!("set {}={}", k, v);
+            let setting = format!("set {k}={v}");
             // Since handle_query might not be async itself, but interacts with
             // components managed by the runtime, it's safer to run it within
             // the runtime's context. If handle_query becomes async, add .await
@@ -186,10 +186,10 @@ pub fn sync_env_settings() {
             .await
             {
                 Ok(_) => {
-                    log::debug!("Synced env setting: {}", k);
+                    log::debug!("Synced env setting: {k}");
                 }
                 Err(err) => {
-                    error!("Failed to sync env settings: set {}={}, {err}", k, v);
+                    error!("Failed to sync env settings: set {k}={v}, {err}");
                 }
             };
         }

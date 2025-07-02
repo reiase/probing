@@ -98,8 +98,7 @@ impl Settings {
         set_if_some!(self.loglevel, "server.log_level");
         set_if_some!(self.assets_root, "server.assets_root");
         set_if_some!(self.server_port, "server.address", |p| format!(
-            "0.0.0.0:{}",
-            p
+            "0.0.0.0:{p}"
         ));
         set_if_some!(self.torch_profiling_mode, "torch.profiling_mode");
         set_if_some!(self.torch_sample_rate, "torch.sample_rate");

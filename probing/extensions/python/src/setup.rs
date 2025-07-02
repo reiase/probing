@@ -7,12 +7,15 @@ where
             Ok(_) => {
                 log::debug!("Registered signal handler for signal {sig}");
             }
-            Err(e) => log::error!("Failed to register signal handler: {}", e),
+            Err(e) => log::error!("Failed to register signal handler: {e}"),
         }
     };
 }
 
 #[ctor]
 fn setup() {
-    register_signal_handler(nix::libc::SIGUSR2, crate::backtrace_signal_handler);
+    register_signal_handler(
+        nix::libc::SIGUSR2,
+        crate::features::stack_tracer::backtrace_signal_handler,
+    );
 }

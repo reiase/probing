@@ -127,7 +127,7 @@ impl EngineError {
 // Generic lock poison error conversion
 impl<T> From<std::sync::PoisonError<T>> for EngineError {
     fn from(err: std::sync::PoisonError<T>) -> Self {
-        EngineError::ConcurrencyError(format!("Lock poisoned: {}", err))
+        EngineError::ConcurrencyError(format!("Lock poisoned: {err}"))
     }
 }
 

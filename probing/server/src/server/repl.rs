@@ -1,8 +1,5 @@
-use axum::extract::{
-    ws::{Message, WebSocket},
-    WebSocketUpgrade,
-};
-use futures_util::{Sink, SinkExt, Stream, StreamExt};
+use axum::extract::ws::Message;
+use futures_util::{SinkExt, StreamExt};
 use probing_python::repl::Repl;
 
 pub async fn ws_handler(

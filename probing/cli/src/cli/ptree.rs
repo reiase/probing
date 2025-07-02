@@ -74,8 +74,8 @@ fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
             let socket_name_full = fields[7]; // e.g., @probing-12345
 
             // Check for the new naming convention: @probing-<pid>
-            if socket_name_full.starts_with("@probing-") {
-                let pid_str = &socket_name_full[9..]; // Skip "@probing-"
+            if let Some(pid_str) = socket_name_full.strip_prefix("@probing-") {
+                // Skip "@probing-"
                 if let Ok(pid) = pid_str.parse::<i32>() {
                     result.push((pid, socket_name_full.to_string()));
                 } else {
@@ -121,7 +121,7 @@ pub async fn get_process_info(pid: i32, socket_name: Option<String>) -> Result<P
 
 /// Read parent PID from /proc/{pid}/status
 fn read_parent_pid(pid: i32) -> Result<i32, std::io::Error> {
-    let status_path = format!("/proc/{}/status", pid);
+    let status_path = format!("/proc/{pid}/status");
 
     if !Path::new(&status_path).exists() {
         return Ok(0);
@@ -144,7 +144,7 @@ fn read_parent_pid(pid: i32) -> Result<i32, std::io::Error> {
 
 /// Read process command line
 fn read_process_cmdline(pid: i32) -> Result<String, std::io::Error> {
-    let cmdline_path = format!("/proc/{}/cmdline", pid);
+    let cmdline_path = format!("/proc/{pid}/cmdline");
 
     if !Path::new(&cmdline_path).exists() {
         return Ok(String::from("[unknown]"));
@@ -156,7 +156,7 @@ fn read_process_cmdline(pid: i32) -> Result<String, std::io::Error> {
     let cmd = cmdline.replace('\0', " ").trim().to_string();
 
     if cmd.is_empty() {
-        let comm_path = format!("/proc/{}/comm", pid);
+        let comm_path = format!("/proc/{pid}/comm");
         if Path::new(&comm_path).exists() {
             let comm = std::fs::read_to_string(comm_path)?;
             return Ok(comm.trim().to_string());

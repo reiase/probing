@@ -55,11 +55,11 @@ impl StoreCommand {
         match &self.command {
             StoreSubCommand::Set { key, value } => {
                 store.set(key, value).await?;
-                println!("Set key '{}'", key); // Add confirmation
+                println!("Set key '{key}'"); // Add confirmation
             }
             StoreSubCommand::Get { key } => {
                 let value = store.get(key).await?;
-                println!("{}", value);
+                println!("{value}");
             }
         }
         Ok(())

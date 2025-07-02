@@ -23,7 +23,7 @@ impl TCPStore {
             .build()
             .unwrap()
             .block_on(self.store.set(key, value));
-        ret.map_err(|e| PyErr::new::<PyException, _>(format!("Set error: {}", e)))
+        ret.map_err(|e| PyErr::new::<PyException, _>(format!("Set error: {e}")))
     }
 
     pub fn get(&mut self, key: &str) -> PyResult<String> {
@@ -32,6 +32,6 @@ impl TCPStore {
             .build()
             .unwrap()
             .block_on(self.store.get(key));
-        ret.map_err(|e| PyErr::new::<PyException, _>(format!("Get error: {}", e)))
+        ret.map_err(|e| PyErr::new::<PyException, _>(format!("Get error: {e}")))
     }
 }
