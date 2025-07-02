@@ -179,16 +179,8 @@ impl StackTracer for SignalTracer {
         }
         let python_frames = get_python_stacks(tid);
 
-        let python_frames = python_frames
-            .and_then(|s| {
-                serde_json::from_str::<Vec<CallFrame>>(&s)
-                    .map_err(|e| {
-                        log::error!("Failed to deserialize Python call stacks: {e}");
-                        e
-                    })
-                    .ok()
-            })
-            .unwrap_or_default();
+        let python_frames = python_frames.unwrap();
+        
         let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
 
         Ok(Self::merge_python_native_stacks(python_frames, cpp_frames))
