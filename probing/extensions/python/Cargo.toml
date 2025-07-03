@@ -24,6 +24,7 @@ once_cell = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 
+py-spy= { version = "0.4.0"}
 include_dir = "=0.7.4"
 backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
 cpp_demangle = "0.3"

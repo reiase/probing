@@ -57,7 +57,14 @@ jobs:
     # Build the package
     - name: Build package
       run: |
-        make ZIG=1 wheel
+        sudo apt-get update 
+        sudo apt-get install -y libunwind-dev
+        sudo apt-get install -y liblzma-dev
+        if [ $? -ne 0 ]; then
+          echo "Failed to install liblzma-dev"
+          exit 1
+        fi
+        RUSTFLAGS="-L /lib/x86_64-linux-gnu -L /usr/lib/x86_64-linux-gnu" make ZIG=1 wheel
     # Run Tests
     - name: Run make test
       run: make test

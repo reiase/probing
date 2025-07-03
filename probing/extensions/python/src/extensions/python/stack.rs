@@ -1,34 +1,60 @@
-use std::ffi::CString;
+use probing_proto::prelude::{CallFrame, Value};
+use std::collections::HashMap;
+use py_spy::stack_trace::LocalVariable;
 
-use log::error;
-use pyo3::{prelude::*, types::PyDict};
 
-const STACK_THREADS: &str = include_str!("stack_get_threads.py");
+pub fn get_python_stacks(pid: py_spy::Pid) -> Option<Vec<CallFrame>> {
+    let mut frames = vec![];
 
-pub fn get_python_stacks(tid: i32) -> Option<String> {
-    log::debug!("Collecting python backtrace for TID: {tid:?}");
+    // Create a new PythonSpy object with the default config options
+    let mut config = py_spy::Config::default();
+    config.blocking = py_spy::config::LockingStrategy::NonBlocking;
+    let process = py_spy::PythonSpy::new(pid, &config);
 
-    Python::with_gil(|py| {
-        log::debug!("Start calling backtrace for TID: {tid:?}");
-        let global = PyDict::new(py);
-        global.set_item("tid", tid).unwrap_or_else(|err| {
-            error!("Failed to set 'tid' in Python global dict: {err}");
-        });
-        let script_cstr = CString::new(STACK_THREADS).unwrap_or_default();
-        if let Err(err) = py.run(&script_cstr, Some(&global), Some(&global)) {
-            error!("Failed to execute Python stack dump script: {err}");
+    // get stack traces for each thread in the process
+    let traces = match process.unwrap().get_stack_traces() {
+        Ok(traces) => traces,
+        Err(e) => {
+            log::error!("Failed to get stack traces: {}", e);
             return None;
         }
-        match global.get_item("retval") {
-            Ok(Some(frames_str)) => frames_str.extract::<String>().ok(),
-            Ok(None) => {
-                error!("Python stack dump script did not return 'retval'");
-                None
-            }
-            Err(err) => {
-                error!("Failed to get 'retval' from Python stack dump: {err}");
-                None
-            }
+    };
+
+    // figure out the python stack for each thread
+    for trace in traces {
+        log::debug!("!!!!Thread {:#X} ({})", trace.thread_id, trace.status_str());
+        for frame in &trace.frames {
+            log::debug!("!!!!!\t {} ({}:{})", frame.name, frame.filename, frame.line);
+            frames.push(CallFrame::PyFrame {
+                file: frame.filename.clone(),
+                func: frame.name.clone(),
+                lineno: frame.line as i64,
+                locals: convert_locals_to_map(frame.locals.clone()),
+            });
         }
-    })
+    }
+
+    Some(frames)
+}
+
+pub fn convert_locals_to_map(locals: Option<Vec<LocalVariable>>) -> HashMap<String, Value> {
+    log::debug!("Converting locals to map...{:#?}", locals);
+    let mut map = HashMap::new();
+    
+    if let Some(local_vars) = locals {
+        for var in local_vars {
+            let value = Value {
+                id: var.addr as u64,
+                class: "Variable".to_string(),
+                shape: None, 
+                dtype: None, 
+                device: None, 
+                value: var.repr,
+            };
+            
+            map.insert(var.name, value);
+        }
+    }
+    log::debug!("Converted locals to map: {:?}", map);
+    map
 }
