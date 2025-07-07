@@ -1,5 +1,4 @@
 import time
-
 import probing
 
 
@@ -10,9 +9,9 @@ class RDMAMonitor():
     This class extends probing.ExternalTable to provide a structured way to
     manage RDMA-related data.
     """
-    def __init__(self):
+    def __init__(self, hca_name="mlx5_cx6_0", tbl_name="rdma_monitor_0"):
         self.table = probing.ExternalTable(
-            "rdma_monitor", 
+            tbl_name, 
             [
                 "port_rcv_packets", 
                 "port_rcv_data", 
@@ -28,6 +27,7 @@ class RDMAMonitor():
             discard_threshold=10,
             discard_strategy="BaseElementCount"
         )
+        self.hca_name = hca_name
         self._previous_port_rcv_packets = None
         self._previous_port_xmit_packets = None
         self._last_measurement_time = None
@@ -36,19 +36,19 @@ class RDMAMonitor():
         """从/sys/class/infiniband目录读取指定的计数器值"""
         try:
             if counter_name == "np_cnp_sent" or counter_name == "np_ecn_marked_roce_packets":
-                with open(f"/sys/class/infiniband/mlx5_cx6_0/ports/1/hw_counters/{counter_name}", 'r') as f:
+                with open(f"/sys/class/infiniband/{self.hca_name}/ports/1/hw_counters/{counter_name}", 'r') as f:
                     return int(f.read().strip())
             else:
-                with open(f"/sys/class/infiniband/mlx5_cx6_0/ports/1/counters/{counter_name}", 'r') as f:
+                with open(f"/sys/class/infiniband/{self.hca_name}/ports/1/counters/{counter_name}", 'r') as f:
                     return int(f.read().strip())
         except Exception as e:
             print(f"Error reading counter {counter_name}: {e}")
-            return None
+            return 0
 
     def calculate_rate(self, current, previous, interval):
         if current is None or previous is None:
             return 0.0
-        # 处理计数器回绕情况
+        
         if current < previous:
             current += 2**64 
         return (current - previous) / interval
@@ -98,7 +98,8 @@ class RDMAMonitor():
     
 
 if __name__ == "__main__":
-    monitor = RDMAMonitor()
+    monitor = RDMAMonitor(tbl_name="rdma_monitor_mlx0", hca_name="mlx5_cx6_0")
     while True:
         monitor.obtain_newset()
         time.sleep(5)
+        
