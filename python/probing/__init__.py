@@ -1,5 +1,6 @@
 from .repl import DebugConsole
 from .trace import probe
+from .rdma import RDMADataCollector
 
 _ALL_ = [
     "init",

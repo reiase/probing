@@ -2,7 +2,7 @@ import threading
 import time
 import os
 from typing import Callable, Dict, Any
-from external_table_rdma import RDMAMonitor
+from .external_table_rdma import RDMAMonitor
 
 class RDMADataCollector:
     ENABLED_ENV_VAR = "RDMA_COLLECTOR_ENABLED"
