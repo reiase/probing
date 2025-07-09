@@ -4,15 +4,20 @@ import os
 from typing import Callable, Dict, Any
 from external_table_rdma import RDMAMonitor
 
-class DataCollector:
+class RDMADataCollector:
     ENABLED_ENV_VAR = "RDMA_COLLECTOR_ENABLED"
     INTERVAL_ENV_VAR = "RDMA_COLLECTOR_INTERVAL"
     
-    def __init__(self, default_config: Dict[str, Any] = None):
+    def __init__(self, default_config: Dict[str, Any] = None, 
+                 tbl_name: str = "rdma_monitor_mlx0", 
+                 hca_name: str = "mlx5_cx6_0"):
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread = None
-        self._collector_fn = self._default_collector
+
+        self._rdma_monitor = RDMAMonitor(hca_name, tbl_name)
+        self._collector_fn = self._rdma_monitor.obtain_newset
+
         
         self._config = self._load_config_from_env(default_config or {})
         
@@ -20,6 +25,9 @@ class DataCollector:
             self._start_collector()
             
     def _load_config_from_env(self, default_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Load configuration from environment variables, falling back to defaults.
+        """
         config = default_config.copy()
         
         enabled_str = os.getenv(self.ENABLED_ENV_VAR, str(config.get("enabled", "false"))).lower()
@@ -35,6 +43,8 @@ class DataCollector:
         return config
     
     def refresh_config_from_env(self) -> None:
+        """
+        Refresh the configuration from environment variables && Adjust collector state."""
         with self._lock:
             old_config = self._config.copy()
             self._config = self._load_config_from_env(old_config)
@@ -82,17 +92,13 @@ class DataCollector:
         with self._lock:
             self._config["enabled"] = False
             self._stop_collector()
-
+    
 
 if __name__ == "__main__":
     os.environ["RDMA_COLLECTOR_ENABLED"] = "true"
     os.environ["RDMA_COLLECTOR_INTERVAL"] = "3.0"
     
-    collector = DataCollector()
-    
-    monitor = RDMAMonitor(tbl_name="rdma_monitor_mlx0", hca_name="mlx5_cx6_0")
-
-    collector.register_collector(monitor.obtain_newset)
+    collector = RDMADataCollector(tbl_name="rdma_monitor_mlx0", hca_name="mlx5_cx6_0")
     
     time.sleep(15)
     
