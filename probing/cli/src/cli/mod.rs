@@ -147,6 +147,10 @@ impl Cli {
                 .await
             }
             Commands::Backtrace { tid } => ctrl.backtrace(*tid).await,
+            Commands::Rdma { hca_name } => {
+                let hca_name = hca_name.clone().unwrap_or_default();
+                ctrl.rdma(hca_name).await
+            }
             Commands::Eval { code } => ctrl.eval(code.clone()).await,
             Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())).await,
             // These commands are handled in run() method and don't need a target

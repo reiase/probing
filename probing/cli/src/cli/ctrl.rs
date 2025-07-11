@@ -77,6 +77,14 @@ impl ProbeEndpoint {
         }
     }
 
+    pub async fn rdma(&self, hca_name: String) -> Result<()> {
+        let reply = request(self.clone(), "/apis/rdmaextension", Some(hca_name)).await?;
+
+        println!("{}", String::from_utf8(reply)?);
+
+        Ok(())
+    }
+
     pub async fn eval(&self, code: String) -> Result<()> {
         let reply = request(self.clone(), "/apis/pythonext/eval", Some(code)).await?;
 
