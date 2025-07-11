@@ -26,8 +26,8 @@ impl EngineCall for RdmaExtension {
         params: &HashMap<String, String>,
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
-        if path == "/rdmaextension" {
-            // 处理 /rdma 路径的逻辑
+        println!("!!!RdmaExtension call with path: {}, params: {:?}, body: {:?}", path, params, body);
+        if path == "" {
             println!("Handling RDMA request with params: {:?}", params);
             return Ok("RDMA request handled successfully".as_bytes().to_vec());
         }
@@ -53,7 +53,6 @@ impl RdmaExtension {
     }
 
     fn set_hca_name(&mut self, hca_name: Maybe<String>) -> Result<(), EngineError> {
-        // TODO: Add validation for watch variables format
         self.hca_name = hca_name;
         Ok(())
     }

@@ -309,6 +309,7 @@ impl EngineExtensionManager {
         name: String,
         extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>,
     ) {
+        println!("00000!!!EngineExtensionManager::register extension: {name}");
         self.extensions.insert(name, extension);
     }
 
@@ -375,6 +376,7 @@ impl EngineExtensionManager {
         params: &HashMap<String, String>,
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
+        println!("!!!EngineExtensionManager::call with path: {}, params: {:?}, body: {:?}", path, params, body);
         for extension in self.extensions.values() {
             let ext = extension.lock().await;
             let name = ext.name();
