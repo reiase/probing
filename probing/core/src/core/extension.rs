@@ -309,7 +309,6 @@ impl EngineExtensionManager {
         name: String,
         extension: Arc<Mutex<dyn EngineExtension + Send + Sync>>,
     ) {
-        println!("00000!!!EngineExtensionManager::register extension: {name}");
         self.extensions.insert(name, extension);
     }
 
