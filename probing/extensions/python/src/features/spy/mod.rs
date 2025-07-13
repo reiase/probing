@@ -1,16 +1,17 @@
 pub(crate) mod python_bindings;
 
+pub(crate) mod python_interpreters;
+
 pub use python_bindings::version::Version;
+
+use crate::features::spy::python_interpreters::{BytesObject, CodeObject, StringObject};
 
 /// 获取当前线程执行的Python frame指针
 /// 这个函数适用于在信号处理函数中调用
 #[inline(always)]
 pub unsafe fn get_current_frame(ver: &Version) -> Option<usize> {
     // 获取当前线程状态
-    let threadstate: usize = match get_current_threadstate() {
-        Some(ts) => ts,
-        None => return None,
-    };
+    let threadstate: usize = get_current_threadstate()?;
 
     match (ver.major, ver.minor) {
         (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
@@ -76,7 +77,7 @@ pub unsafe fn get_current_threadstate() -> Option<usize> {
     extern "C" {
         fn PyThreadState_Get() -> *mut std::ffi::c_void;
     }
-    
+
     let threadstate = PyThreadState_Get();
     if !threadstate.is_null() {
         Some(threadstate as usize)
@@ -114,11 +115,91 @@ pub unsafe fn parse_frame(ver: &Version, addr: usize) -> (usize, i32) {
         (3, 11) | (3, 12) => {
             // Python 3.10 and later
             let iframe = addr as *const super::spy::python_bindings::v3_12_0::_PyInterpreterFrame;
-            let code = unsafe { (*iframe).f_code };
-            let lineno = unsafe { (*iframe).stacktop };
-            (code as usize, lineno)
+            unsafe {
+                let code = (*iframe).f_code;
+                let co_code = code as *const _ as *const u8;
+                let lasti = (*iframe).prev_instr as *const u8 as usize - co_code as usize;
+                (code as usize, lasti as i32)
+            }
         }
         _ => (0, 0),
+    }
+}
+
+#[inline(always)]
+pub unsafe fn parse_location(ver: &Version, code: usize, lasti: i32) -> (String, String, i32) {
+    match (ver.major, ver.minor) {
+        (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
+            let code = code as *const super::spy::python_bindings::v3_11_0::PyCodeObject;
+            parse_location_raw(code, lasti)
+        }
+        (3, 11) => {
+            let code = code as *const super::spy::python_bindings::v3_11_0::PyCodeObject;
+            parse_location_raw(code, lasti)
+        }
+        (3, 12) => {
+            let code = code as *const super::spy::python_bindings::v3_12_0::PyCodeObject;
+            parse_location_raw(code, lasti)
+        }
+        (3, 13) => {
+            let code = code as *const super::spy::python_bindings::v3_13_0::PyCodeObject;
+            parse_location_raw(code, lasti)
+        }
+        _ => Default::default(),
+    }
+}
+
+unsafe fn parse_location_raw<T: CodeObject>(code: *const T, lasti: i32) -> (String, String, i32) {
+    let filename = (*code).filename();
+    let funcname = (*code).name();
+    let line_table_ptr = (*code).line_table();
+    let line_table_size = (*line_table_ptr).size();
+
+    let mut line_table_bytes: Vec<u8> = Vec::with_capacity(line_table_size);
+    std::ptr::copy_nonoverlapping(
+        line_table_ptr as *const _,
+        line_table_bytes.as_mut_ptr(),
+        line_table_size,
+    );
+    line_table_bytes.set_len(line_table_size);
+
+    let filename = copy_string(
+        (*filename).address(filename as usize) as *const u8,
+        (*filename).size() * (*filename).kind() as usize,
+        (*filename).kind(),
+        (*filename).ascii(),
+    );
+
+    let funcname = copy_string(
+        (*funcname).address(funcname as usize) as *const u8,
+        (*funcname).size() * (*funcname).kind() as usize,
+        (*funcname).kind(),
+        (*funcname).ascii(),
+    );
+
+    let lineno = (*code).get_line_number(lasti, &line_table_bytes.as_slice());
+    (filename, funcname, lineno)
+}
+
+fn copy_string(addr: *const u8, len: usize, kind: u32, ascii: bool) -> String {
+    match (kind, ascii) {
+        (4, _) => {
+            let chars = unsafe { std::slice::from_raw_parts(addr as *const char, len / 4) };
+            chars.iter().collect()
+        }
+        (2, _) => {
+            let chars = unsafe { std::slice::from_raw_parts(addr as *const u16, len / 2) };
+            String::from_utf16(chars).unwrap_or_default()
+        }
+        (1, true) => {
+            let slice = unsafe { std::slice::from_raw_parts(addr, len) };
+            String::from_utf8_lossy(slice).to_string()
+        }
+        (1, false) => {
+            let slice = unsafe { std::slice::from_raw_parts(addr, len) };
+            String::from_utf8_lossy(slice).to_string()
+        }
+        _ => String::new(),
     }
 }
 

@@ -36,7 +36,7 @@ impl Version {
             };
 
             let version = std::str::from_utf8(&cap[0])?;
-            log::info!("Found matching version string '{}'", version);
+            log::info!("Found matching version string '{version}'");
             #[cfg(windows)]
             {
                 if version.contains("32 bit") {
@@ -68,7 +68,7 @@ impl std::fmt::Display for Version {
             self.major, self.minor, self.patch, self.release_flags
         )?;
         if let Some(build_metadata) = &self.build_metadata {
-            write!(f, "+{}", build_metadata,)?
+            write!(f, "+{build_metadata}",)?
         }
         Ok(())
     }
