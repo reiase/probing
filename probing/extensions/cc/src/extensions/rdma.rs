@@ -29,13 +29,13 @@ impl CustomTable for RdmaTable {
     fn schema() -> datafusion::arrow::datatypes::SchemaRef {
         SchemaRef::new(Schema::new(vec![
             Field::new("hca_name", DataType::Utf8, false),
-            Field::new("port_rcv_packets", DataType::UInt64, false),
-            Field::new("port_rcv_data", DataType::UInt64, false),
-            Field::new("port_xmit_packets", DataType::UInt64, false),
-            Field::new("port_xmit_data", DataType::UInt64, false),
-            Field::new("link_downed", DataType::UInt64, false),
-            Field::new("np_cnp_sent", DataType::UInt64, false),
-            Field::new("np_ecn_marked_roce_packets", DataType::UInt64, false),
+            Field::new("port_rcv_packets", DataType::Float64, false),
+            Field::new("port_rcv_data", DataType::Float64, false),
+            Field::new("port_xmit_packets", DataType::Float64, false),
+            Field::new("port_xmit_data", DataType::Float64, false),
+            Field::new("link_downed", DataType::Float64, false),
+            Field::new("np_cnp_sent", DataType::Float64, false),
+            Field::new("np_ecn_marked_roce_packets", DataType::Float64, false),
             Field::new("rcv_pkts_rate", DataType::Float64, false),
             Field::new("snd_pkts_rate", DataType::Float64, false),
         ]))
@@ -46,13 +46,13 @@ impl CustomTable for RdmaTable {
         monitor.obtain_newset();
 
         let mut hca_name = GenericStringBuilder::<i32>::new();
-        let mut port_rcv_packets = datafusion::arrow::array::UInt64Builder::new();
-        let mut port_rcv_data = datafusion::arrow::array::UInt64Builder::new();
-        let mut port_xmit_packets = datafusion::arrow::array::UInt64Builder::new();
-        let mut port_xmit_data = datafusion::arrow::array::UInt64Builder::new();
-        let mut link_downed = datafusion::arrow::array::UInt64Builder::new();
-        let mut np_cnp_sent = datafusion::arrow::array::UInt64Builder::new();
-        let mut np_ecn_marked_roce_packets = datafusion::arrow::array::UInt64Builder::new();
+        let mut port_rcv_packets = datafusion::arrow::array::Float64Builder::new();
+        let mut port_rcv_data = datafusion::arrow::array::Float64Builder::new();
+        let mut port_xmit_packets = datafusion::arrow::array::Float64Builder::new();
+        let mut port_xmit_data = datafusion::arrow::array::Float64Builder::new();
+        let mut link_downed = datafusion::arrow::array::Float64Builder::new();
+        let mut np_cnp_sent = datafusion::arrow::array::Float64Builder::new();
+        let mut np_ecn_marked_roce_packets = datafusion::arrow::array::Float64Builder::new();
         let mut rcv_pkts_rate = datafusion::arrow::array::Float64Builder::new();
         let mut snd_pkts_rate = datafusion::arrow::array::Float64Builder::new();
         hca_name.append_value(monitor.hca_name.clone());
@@ -175,8 +175,8 @@ impl RdmaExtension {
 
 struct RDMAMonitor {
     hca_name: String,
-    previous_port_rcv_packets: Option<u64>,
-    previous_port_xmit_packets: Option<u64>,
+    previous_port_rcv_packets: Option<f64>,
+    previous_port_xmit_packets: Option<f64>,
     last_measurement_time: Option<Instant>,
 }
 
@@ -190,23 +190,23 @@ impl RDMAMonitor {
         }
     }
 
-    fn read_counter(&self, counter_name: &str) -> u64 {
+    fn read_counter(&self, counter_name: &str) -> f64 {
         let path = if counter_name == "np_cnp_sent" || counter_name == "np_ecn_marked_roce_packets" {
             format!("/sys/class/infiniband/{}/ports/1/hw_counters/{}", self.hca_name, counter_name)
         } else {
             format!("/sys/class/infiniband/{}/ports/1/counters/{}", self.hca_name, counter_name)
         };
 
-        match read_file_to_u64(&path) {
+        match read_file_to_f64(&path) {
             Ok(value) => value,
             Err(e) => {
                 println!("Error reading counter {}: {}", counter_name, e);
-                0
+                0.0
             }
         }
     }
 
-    fn calculate_rate(&self, current: Option<u64>, previous: Option<u64>, interval: Option<Duration>) -> f64 {
+    fn calculate_rate(&self, current: Option<f64>, previous: Option<f64>, interval: Option<Duration>) -> f64 {
         if current.is_none() || previous.is_none() || interval.is_none() {
             return 0.0;
         }
@@ -216,12 +216,12 @@ impl RDMAMonitor {
         let interval = interval.unwrap().as_secs_f64();
 
         let diff = if current < previous {
-            current.wrapping_add(2u64.pow(64)) - previous
+        current + 2u64.pow(64) as f64 - previous
         } else {
-            current - previous
+        current - previous
         };
 
-        diff as f64 / interval
+        diff / interval
     }
 
     fn obtain_newset(&mut self) {
@@ -276,9 +276,9 @@ impl RDMAMonitor {
     }
 }
 
-fn read_file_to_u64(path: &str) -> io::Result<u64> {
+fn read_file_to_f64(path: &str) -> io::Result<f64> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    contents.trim().parse::<u64>().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    contents.trim().parse::<f64>().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
