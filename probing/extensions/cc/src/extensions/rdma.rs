@@ -1,9 +1,15 @@
-use probing_core::core::EngineCall;
-use probing_core::core::EngineDatasource;
 use probing_core::core::EngineError;
 use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
+
+use datafusion::arrow::array::{GenericStringBuilder, RecordBatch};
+use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+
+use probing_core::core::{CustomTable, EngineCall, EngineDatasource, TablePluginHelper};
+
+use std::sync::Arc;
+use std::thread;
 
 use std::collections::HashMap;
 use async_trait::async_trait;
@@ -11,6 +17,103 @@ use async_trait::async_trait;
 use std::fs::File;
 use std::io::{self, Read};
 use std::time::{Duration, Instant};
+
+#[derive(Default, Debug)]
+pub struct RdmaTable {}
+
+impl CustomTable for RdmaTable {
+    fn name() -> &'static str {
+        "mlx5_cx6_0"
+    }
+
+    fn schema() -> datafusion::arrow::datatypes::SchemaRef {
+        SchemaRef::new(Schema::new(vec![
+            Field::new("hca_name", DataType::Utf8, false),
+            Field::new("port_rcv_packets", DataType::UInt64, false),
+            Field::new("port_rcv_data", DataType::UInt64, false),
+            Field::new("port_xmit_packets", DataType::UInt64, false),
+            Field::new("port_xmit_data", DataType::UInt64, false),
+            Field::new("link_downed", DataType::UInt64, false),
+            Field::new("np_cnp_sent", DataType::UInt64, false),
+            Field::new("np_ecn_marked_roce_packets", DataType::UInt64, false),
+            Field::new("rcv_pkts_rate", DataType::Float64, false),
+            Field::new("snd_pkts_rate", DataType::Float64, false),
+        ]))
+    }
+
+    fn data() -> Vec<datafusion::arrow::array::RecordBatch> {
+        let mut monitor = RDMAMonitor::new("mlx5_cx6_0");
+        monitor.obtain_newset();
+
+        let mut hca_name = GenericStringBuilder::<i32>::new();
+        let mut port_rcv_packets = datafusion::arrow::array::UInt64Builder::new();
+        let mut port_rcv_data = datafusion::arrow::array::UInt64Builder::new();
+        let mut port_xmit_packets = datafusion::arrow::array::UInt64Builder::new();
+        let mut port_xmit_data = datafusion::arrow::array::UInt64Builder::new();
+        let mut link_downed = datafusion::arrow::array::UInt64Builder::new();
+        let mut np_cnp_sent = datafusion::arrow::array::UInt64Builder::new();
+        let mut np_ecn_marked_roce_packets = datafusion::arrow::array::UInt64Builder::new();
+        let mut rcv_pkts_rate = datafusion::arrow::array::Float64Builder::new();
+        let mut snd_pkts_rate = datafusion::arrow::array::Float64Builder::new();
+        hca_name.append_value(monitor.hca_name.clone());
+        port_rcv_packets.append_value(monitor.read_counter("port_rcv_packets"));
+        port_rcv_data.append_value(monitor.read_counter("port_rcv_data"));
+        port_xmit_packets.append_value(monitor.read_counter("port_xmit_packets"));
+        port_xmit_data.append_value(monitor.read_counter("port_xmit_data"));
+        link_downed.append_value(monitor.read_counter("link_downed"));
+        np_cnp_sent.append_value(monitor.read_counter("np_cnp_sent"));
+        np_ecn_marked_roce_packets.append_value(monitor.read_counter("np_ecn_marked_roce_packets"));
+
+        thread::sleep(Duration::from_secs(3));
+
+        rcv_pkts_rate.append_value(monitor.calculate_rate(
+            Some(monitor.read_counter("port_rcv_packets")),
+            monitor.previous_port_rcv_packets,
+            monitor.last_measurement_time.map(|t| t.elapsed()),
+        ));
+        snd_pkts_rate.append_value(monitor.calculate_rate(
+            Some(monitor.read_counter("port_xmit_packets")),
+            monitor.previous_port_xmit_packets,
+            monitor.last_measurement_time.map(|t| t.elapsed()),
+        ));
+        let rbs = RecordBatch::try_new(
+            Self::schema(),
+            vec![
+                Arc::new(hca_name.finish()),
+                Arc::new(port_rcv_packets.finish()),
+                Arc::new(port_rcv_data.finish()),
+                Arc::new(port_xmit_packets.finish()),
+                Arc::new(port_xmit_data.finish()),
+                Arc::new(link_downed.finish()),
+                Arc::new(np_cnp_sent.finish()),
+                Arc::new(np_ecn_marked_roce_packets.finish()),
+                Arc::new(rcv_pkts_rate.finish()),
+                Arc::new(snd_pkts_rate.finish()),
+            ],
+        );
+        if let Ok(rbs) = rbs {
+            vec![rbs]
+        } else {
+            Default::default()
+        }
+    }
+}
+
+
+pub type RdmaPlugin = TablePluginHelper<RdmaTable>;
+
+impl EngineDatasource for RdmaExtension {
+    fn datasrc(
+        &self,
+        namespace: &str,
+        name: Option<&str>,
+    ) -> Option<std::sync::Arc<dyn probing_core::core::Plugin + Sync + Send>> {
+        match name {
+            Some(name) => Some(RdmaPlugin::create(namespace, name)),
+            None => None,
+        }
+    }
+}
 
 #[derive(Debug, Default, EngineExtension)]
 pub struct RdmaExtension {
@@ -48,9 +151,6 @@ impl EngineCall for RdmaExtension {
         Err(EngineError::UnsupportedCall)
     }
 }
-
-
-impl EngineDatasource for RdmaExtension {}
 
 impl RdmaExtension {
     fn set_sample_rate(&mut self, sample_rate: Maybe<f64>) -> Result<(), EngineError> {

@@ -14,3 +14,6 @@ pub use files::FilesExtension;
 pub mod kmsg;
 #[cfg(feature = "kmsg")]
 pub use kmsg::KMsgExtension;
+
+pub mod rdma;
+pub use rdma::RdmaExtension;
