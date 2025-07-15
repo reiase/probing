@@ -8,7 +8,7 @@ use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use probing_core::core::{CustomTable, EngineCall, EngineDatasource, TablePluginHelper};
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 
 use std::collections::HashMap;
@@ -18,12 +18,17 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::time::{Duration, Instant};
 
+
+static GLOBAL_HCA_NAME: OnceLock<Mutex<String>> = OnceLock::new();
+static GLOBAL_HCA_SAMPLE_RATE: OnceLock<Mutex<f64>> = OnceLock::new();
+
+
 #[derive(Default, Debug)]
 pub struct RdmaTable {}
 
 impl CustomTable for RdmaTable {
     fn name() -> &'static str {
-        "mlx5_cx6_0"
+        "mlx_hca"
     }
 
     fn schema() -> datafusion::arrow::datatypes::SchemaRef {
@@ -42,7 +47,11 @@ impl CustomTable for RdmaTable {
     }
 
     fn data() -> Vec<datafusion::arrow::array::RecordBatch> {
-        let mut monitor = RDMAMonitor::new("mlx5_cx6_0");
+        let string = GLOBAL_HCA_NAME.get_or_init(|| Mutex::new(String::new()));
+        let guard = string.lock().unwrap();
+        let hca_name = guard.clone();
+
+        let mut monitor = RDMAMonitor::new(&hca_name);
         monitor.obtain_newset();
 
         let mut hca_name = GenericStringBuilder::<i32>::new();
@@ -63,8 +72,12 @@ impl CustomTable for RdmaTable {
         link_downed.append_value(monitor.read_counter("link_downed"));
         np_cnp_sent.append_value(monitor.read_counter("np_cnp_sent"));
         np_ecn_marked_roce_packets.append_value(monitor.read_counter("np_ecn_marked_roce_packets"));
+        
+        let f64_val = GLOBAL_HCA_SAMPLE_RATE.get_or_init(|| Mutex::new(0.0));
+        let guard = f64_val.lock().unwrap();
+        let sleep_time = guard.clone() as u64;
 
-        thread::sleep(Duration::from_secs(3));
+        thread::sleep(Duration::from_secs(sleep_time));
 
         rcv_pkts_rate.append_value(monitor.calculate_rate(
             Some(monitor.read_counter("port_rcv_packets")),
@@ -132,10 +145,12 @@ impl EngineCall for RdmaExtension {
         params: &HashMap<String, String>,
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
-        println!("!!!RdmaExtension call with path: {}, params: {:?}, body: {:?}", path, params, body);
         if path == "" {
-            println!("Handling RDMA request with params: {:?}", params);
-            let mut monitor = RDMAMonitor::new("mlx5_cx6_0");
+            let string = GLOBAL_HCA_NAME.get_or_init(|| Mutex::new(String::new()));
+            let guard = string.lock().unwrap();
+            let hca_name = guard.clone();
+
+            let mut monitor = RDMAMonitor::new(&hca_name);
 
             const TEST_CALL: u32 = 5;
             let mut call_cnt = 0;
@@ -145,7 +160,6 @@ impl EngineCall for RdmaExtension {
                 monitor.obtain_newset();
                 std::thread::sleep(Duration::from_millis(1000));
             }
-            monitor.shutdown();
             return Ok("RDMA request handled successfully".as_bytes().to_vec());
         }
         Err(EngineError::UnsupportedCall)
@@ -155,19 +169,39 @@ impl EngineCall for RdmaExtension {
 impl RdmaExtension {
     fn set_sample_rate(&mut self, sample_rate: Maybe<f64>) -> Result<(), EngineError> {
         if let Maybe::Just(rate) = sample_rate {
-            if !(0.0..=1.0).contains(&rate) {
+            if !(0.0..=20.0).contains(&rate) {
                 return Err(EngineError::InvalidOptionValue(
                     Self::OPTION_SAMPLE_RATE.to_string(),
                     rate.to_string(),
                 ));
             }
+
+            let f64_val = GLOBAL_HCA_SAMPLE_RATE.get_or_init(|| Mutex::new(0.0));
+            let mut guard = f64_val.lock().unwrap();
+            *guard = rate;
         }
+
         self.sample_rate = sample_rate;
+        
         Ok(())
     }
 
     fn set_hca_name(&mut self, hca_name: Maybe<String>) -> Result<(), EngineError> {
         self.hca_name = hca_name;
+        
+        if let Maybe::Just(ref name) = self.hca_name {
+            if name.is_empty() {
+                return Err(EngineError::InvalidOptionValue(
+                    Self::OPTION_HCA_NAME.to_string(),
+                    "HCA name cannot be empty".to_string(),
+                ));
+            }
+
+            let string = GLOBAL_HCA_NAME.get_or_init(|| Mutex::new(String::new()));
+            let mut guard = string.lock().unwrap();
+            *guard = name.clone();
+        }
+
         Ok(())
     }
 }
@@ -265,14 +299,6 @@ impl RDMAMonitor {
         ];
 
         println!("New RDMA data: {:?}", new_data);
-
-        //TODO : send data to probe
-
-        
-    }
-
-    fn shutdown(&self) {
-        //TODO: shutdown
     }
 }
 

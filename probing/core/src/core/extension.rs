@@ -375,7 +375,6 @@ impl EngineExtensionManager {
         params: &HashMap<String, String>,
         body: &[u8],
     ) -> Result<Vec<u8>, EngineError> {
-        println!("!!!EngineExtensionManager::call with path: {}, params: {:?}, body: {:?}", path, params, body);
         for extension in self.extensions.values() {
             let ext = extension.lock().await;
             let name = ext.name();
