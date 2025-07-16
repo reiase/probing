@@ -55,6 +55,27 @@ static mut PYSTACKS: Vec<(u64, i32)> = Vec::new();
 static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = rust_eval_frame;
 
 #[allow(static_mut_refs)]
+pub fn initialize_globals() {
+    Python::with_gil(|py| {
+        let ver = py.version_info();
+        unsafe {
+            if PYVERSION.major == 0 {
+                PYVERSION = python_bindings::version::Version {
+                    major: ver.major as u64,
+                    minor: ver.minor as u64,
+                    patch: ver.patch as u64,
+                    release_flags: ver.suffix.unwrap_or_default().to_string(),
+                    build_metadata: Default::default(),
+                };
+            }
+            if PYSTACKS.capacity() == 0 {
+                PYSTACKS.reserve(1024);
+            }
+        }
+    });
+}
+
+#[allow(static_mut_refs)]
 #[inline(always)]
 extern "C" fn rust_eval_frame(
     ts: *mut pyo3::ffi::PyThreadState,
@@ -73,29 +94,19 @@ extern "C" fn rust_eval_frame(
 #[allow(static_mut_refs)]
 #[pyfunction]
 pub fn enable_tracer() -> PyResult<()> {
-    Python::with_gil(|py| {
-        let ver = py.version_info();
-        unsafe {
-            PYVERSION = python_bindings::version::Version {
-                major: ver.major as u64,
-                minor: ver.minor as u64,
-                patch: ver.patch as u64,
-                release_flags: ver.suffix.unwrap_or_default().to_string(),
-                build_metadata: Default::default(),
-            };
-            if PYSTACKS.capacity() == 0 {
-                PYSTACKS.reserve(1024);
-            }
-        }
-    });
     unsafe {
-        if PYVERSION.major != 0 {
+        if PYVERSION.major == 3 && PYVERSION.minor >= 10 {
             let interp = ffi::PyInterpreterState_Get();
             let old_eval_frame = ffi::_PyInterpreterState_GetEvalFrameFunc(interp);
             if old_eval_frame as usize != rust_eval_frame as usize {
                 PYFRAMEEVAL = old_eval_frame;
             }
             ffi::_PyInterpreterState_SetEvalFrameFunc(interp, rust_eval_frame);
+        } else {
+            return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Python version {}.{} does not support tracer",
+                PYVERSION.major, PYVERSION.minor
+            )));
         }
     }
     Ok(())
@@ -145,21 +156,6 @@ pub fn _get_python_stacks(py: Python) -> PyResult<PyObject> {
 #[pyfunction]
 pub fn _get_python_frames(py: Python) -> PyResult<PyObject> {
     use pyo3::types::{PyDict, PyList};
-    Python::with_gil(|py| {
-        let ver = py.version_info();
-        unsafe {
-            PYVERSION = python_bindings::version::Version {
-                major: ver.major as u64,
-                minor: ver.minor as u64,
-                patch: ver.patch as u64,
-                release_flags: ver.suffix.unwrap_or_default().to_string(),
-                build_metadata: Default::default(),
-            };
-            if PYSTACKS.capacity() == 0 {
-                PYSTACKS.reserve(1024);
-            }
-        }
-    });
     unsafe {
         let py_list = PyList::empty(py);
 

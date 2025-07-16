@@ -2,7 +2,9 @@ use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
 use crate::extensions;
-use crate::features::vm_tracer::{disable_tracer, enable_tracer, _get_python_stacks, _get_python_frames};
+use crate::features::vm_tracer::{
+    _get_python_frames, _get_python_stacks, disable_tracer, enable_tracer, initialize_globals,
+};
 use crate::pkg::TCPStore;
 use probing_core::ENGINE;
 
@@ -20,6 +22,7 @@ fn query_json(_py: Python, sql: String) -> PyResult<String> {
 }
 
 pub fn create_probing_module() -> PyResult<()> {
+    initialize_globals();
     Python::with_gil(|py| -> PyResult<()> {
         let sys = PyModule::import(py, "sys")?;
         let modules = sys.getattr("modules")?;
