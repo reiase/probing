@@ -29,8 +29,7 @@ pub unsafe fn get_current_frame(ver: &Version) -> Option<usize> {
             let ts = threadstate as *const super::spy::python_bindings::v3_11_0::PyThreadState;
             let cframe = unsafe { (*ts).cframe };
             if !cframe.is_null() {
-                let cframe_obj = unsafe { &*cframe };
-                let current_frame = cframe_obj.current_frame;
+                let current_frame = (*cframe).current_frame;
                 if !current_frame.is_null() {
                     Some(current_frame as usize)
                 } else {
@@ -45,8 +44,7 @@ pub unsafe fn get_current_frame(ver: &Version) -> Option<usize> {
             let ts = threadstate as *const super::spy::python_bindings::v3_12_0::PyThreadState;
             let cframe = unsafe { (*ts).cframe };
             if !cframe.is_null() {
-                let cframe_obj = unsafe { &*cframe };
-                let current_frame = cframe_obj.current_frame;
+                let current_frame = (*cframe).current_frame;
                 if !current_frame.is_null() {
                     Some(current_frame as usize)
                 } else {
@@ -62,6 +60,40 @@ pub unsafe fn get_current_frame(ver: &Version) -> Option<usize> {
             let current_frame = unsafe { (*ts).current_frame };
             if !current_frame.is_null() {
                 Some(current_frame as usize)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+#[inline(always)]
+pub fn get_next_frame(ver: &Version, frame_addr: usize) -> Option<usize> {
+    match (ver.major, ver.minor) {
+        (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
+            let frame = frame_addr as *const super::spy::python_bindings::v3_10_0::_frame;
+            let next_frame = unsafe { (*frame).f_back };
+            if !next_frame.is_null() {
+                Some(next_frame as usize)
+            } else {
+                None
+            }
+        }
+        (3, 11) => {
+            let iframe = frame_addr as *const super::spy::python_bindings::v3_11_0::_PyInterpreterFrame;
+            let next_frame = unsafe { (*iframe).previous };
+            if !next_frame.is_null() {
+                Some(next_frame as usize)
+            } else {
+                None
+            }
+        }
+        (3, 12) => {
+            let iframe = frame_addr as *const super::spy::python_bindings::v3_12_0::_PyInterpreterFrame;
+            let next_frame = unsafe { (*iframe).previous };
+            if !next_frame.is_null() {
+                Some(next_frame as usize)
             } else {
                 None
             }
@@ -109,16 +141,23 @@ pub unsafe fn parse_frame(ver: &Version, addr: usize) -> (usize, i32) {
             // Python 3.4 to 3.9
             let frame = addr as *const super::spy::python_bindings::v3_10_0::_frame;
             let code = unsafe { (*frame).f_code };
-            let lineno = unsafe { (*frame).f_lineno };
-            (code as usize, lineno)
+            let lasti = unsafe { (*frame).f_lasti };
+            (code as usize, lasti)
         }
-        (3, 11) | (3, 12) => {
+        (3, 11) => {
+            let iframe = addr as *const super::spy::python_bindings::v3_11_0::_PyInterpreterFrame;
+            unsafe {
+                let code = (*iframe).f_code;
+                let lasti = ((*iframe).prev_instr as *const u8).offset_from(code as *const u8);
+                (code as usize, lasti as i32)
+            }
+        }
+        (3, 12) => {
             // Python 3.10 and later
             let iframe = addr as *const super::spy::python_bindings::v3_12_0::_PyInterpreterFrame;
             unsafe {
                 let code = (*iframe).f_code;
-                let co_code = code as *const _ as *const u8;
-                let lasti = (*iframe).prev_instr as *const u8 as usize - co_code as usize;
+                let lasti = ((*iframe).prev_instr as *const u8).offset_from(code as *const u8);
                 (code as usize, lasti as i32)
             }
         }
@@ -176,12 +215,12 @@ unsafe fn parse_location_raw<T: CodeObject>(code: *const T, lasti: i32) -> (Stri
         (*funcname).kind(),
         (*funcname).ascii(),
     );
-
-    let lineno = (*code).get_line_number(lasti, &line_table_bytes.as_slice());
+    let lineno = (*code).get_line_number(lasti, line_table_bytes.as_slice());
     (filename, funcname, lineno)
 }
 
 fn copy_string(addr: *const u8, len: usize, kind: u32, ascii: bool) -> String {
+    let len = if len > 1024 {1024} else {len};
     match (kind, ascii) {
         (4, _) => {
             let chars = unsafe { std::slice::from_raw_parts(addr as *const char, len / 4) };
