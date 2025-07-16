@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
 use crate::extensions;
-use crate::features::tracer::{disable_tracer, enable_tracer};
+use crate::features::vm_tracer::{disable_tracer, enable_tracer, _get_python_stacks, _get_python_frames};
 use crate::pkg::TCPStore;
 use probing_core::ENGINE;
 
@@ -39,6 +39,8 @@ pub fn create_probing_module() -> PyResult<()> {
         m.add_function(wrap_pyfunction!(query_json, py)?)?;
         m.add_function(wrap_pyfunction!(enable_tracer, py)?)?;
         m.add_function(wrap_pyfunction!(disable_tracer, py)?)?;
+        m.add_function(wrap_pyfunction!(_get_python_stacks, py)?)?;
+        m.add_function(wrap_pyfunction!(_get_python_frames, py)?)?;
         Ok(())
     })
 }
