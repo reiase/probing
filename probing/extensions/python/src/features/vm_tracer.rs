@@ -120,32 +120,28 @@ pub fn disable_tracer() -> PyResult<()> {
 pub fn _get_python_stacks(py: Python) -> PyResult<PyObject> {
     use pyo3::types::{PyDict, PyList};
 
-    match get_python_stacks() {
-        Some(stacks) => {
-            let py_list = PyList::empty(py);
-            for frame in stacks {
-                if let CallFrame::PyFrame {
-                    file,
-                    func,
-                    lineno,
-                    lasti,
-                    ..
-                } = frame
-                {
-                    let dict = PyDict::new(py);
-                    dict.set_item("file", file)?;
-                    dict.set_item("func", func)?;
-                    dict.set_item("lineno", lineno)?;
-                    dict.set_item("lasti", lasti)?;
-                    py_list.append(dict)?;
-                }
-            }
-            Ok(py_list.into())
+    let py_list = PyList::empty(py);
+    for frame in get_python_stacks_raw() {
+        if let CallFrame::PyFrame {
+            file,
+            func,
+            lineno,
+            lasti,
+            ..
+        } = frame
+        {
+            let dict = PyDict::new(py);
+            dict.set_item("file", file)?;
+            dict.set_item("func", func)?;
+            dict.set_item("lineno", lineno)?;
+            dict.set_item("lasti", lasti)?;
+            py_list.append(dict)?;
         }
-        None => Ok(py.None()),
     }
+    Ok(py_list.into())
 }
 
+#[allow(static_mut_refs)]
 #[pyfunction]
 pub fn _get_python_frames(py: Python) -> PyResult<PyObject> {
     use pyo3::types::{PyDict, PyList};
@@ -167,7 +163,7 @@ pub fn _get_python_frames(py: Python) -> PyResult<PyObject> {
     unsafe {
         let py_list = PyList::empty(py);
 
-        for frame in get_python_current_frame(&PYVERSION) {
+        for frame in get_python_frames_raw(&PYVERSION) {
             if let CallFrame::PyFrame {
                 file,
                 func,
@@ -189,14 +185,14 @@ pub fn _get_python_frames(py: Python) -> PyResult<PyObject> {
 }
 
 #[allow(static_mut_refs)]
-#[inline(always)]
-pub fn get_python_stacks() -> Option<Vec<CallFrame>> {
+pub fn get_python_stacks_raw() -> Vec<CallFrame> {
     unsafe {
         if PYSTACKS.capacity() == 0 {
-            return None;
+            return vec![];
         }
         PYSTACKS
-            .iter().rev()
+            .iter()
+            .rev()
             .map(|(code, lasti)| {
                 let (filename, funcname, lineno) =
                     parse_location(&PYVERSION, *code as usize, *lasti);
@@ -209,12 +205,10 @@ pub fn get_python_stacks() -> Option<Vec<CallFrame>> {
                 }
             })
             .collect::<Vec<_>>()
-            .into()
     }
 }
 
-#[inline(always)]
-pub fn get_python_current_frame(ver: &Version) -> Vec<CallFrame> {
+pub fn get_python_frames_raw(ver: &Version) -> Vec<CallFrame> {
     let mut frames = vec![];
     let mut current_frame_addr = unsafe { get_current_frame(ver) };
     while let Some(addr) = current_frame_addr {
