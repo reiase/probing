@@ -13,6 +13,7 @@ pub async fn initialize_engine() -> Result<()> {
     let builder = probing_core::create_engine()
         .with_extension(py::PprofExtension::default(), "pprof", None)
         .with_extension(py::TorchExtension::default(), "torch", None)
+        .with_extension(cc::RdmaExtension::default(), "rdma", Some("flow"))
         .with_extension(se::ServerExtension::default(), "server", None)
         .with_extension(py::PythonExt::default(), "python", None)
         .with_extension(cc::TaskStatsExtension::default(), "taskstats", None)

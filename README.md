@@ -73,6 +73,9 @@ probing -t <pid> flamegraph
 
 # Interactive Python REPL (connect to running process)
 probing -t <pid> repl
+
+# RDMA Flow Analysis
+probing -t <pid> rdma
 ```
 
 ## Advanced Features
@@ -169,6 +172,8 @@ probing -t <pid> config
 # Dynamic configuration updates
 probing -t <pid> config probing.sample_rate=0.05
 probing -t <pid> config probing.max_memory=1GB
+probing -t <pid> config probing.rdma.hca.name='mlx5_cx6_0'"
+probing -t <pid> config probing.rdma.sample.rate='5'"
 ```
 
 ## Development
