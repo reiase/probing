@@ -21,7 +21,7 @@ ctor = { workspace = true }
 log = { workspace = true }
 nix = { workspace = true }
 once_cell = { workspace = true }
-regex = ">=1.6.0"
+regex = "=1.6.0"
 serde_json = { workspace = true }
 tokio = { workspace = true }
 
