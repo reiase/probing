@@ -76,6 +76,12 @@ pub struct Settings {
     /// ```
     #[arg(long, env = "PROBING_TORCH_WATCH_VARS")]
     torch_watch_vars: Option<String>,
+
+    #[arg(long, env = "PROBING_RDMA_SAMPLE_RATE")]
+    rdma_sample_rate: Option<f64>,
+
+    #[arg(long, env = "PROBING_RDMA_HCA_NAME")]
+    rdma_hca_name: Option<String>,
 }
 
 impl Settings {
@@ -103,6 +109,11 @@ impl Settings {
         set_if_some!(self.torch_profiling_mode, "torch.profiling_mode");
         set_if_some!(self.torch_sample_rate, "torch.sample_rate");
         set_if_some!(self.torch_watch_vars, "torch.watch_vars");
+
+        set_if_some!(self.rdma_sample_rate, "rdma.sample_rate", |r| {
+            format!("{r:.2}")
+        });
+        set_if_some!(self.rdma_hca_name, "rdma.hca_name");
 
         if cfg.is_empty() {
             None
@@ -139,6 +150,10 @@ pub enum Commands {
     /// Show the backtrace of the target process or thread
     #[command(visible_aliases = ["bt", "b"])]
     Backtrace { tid: Option<i32> },
+
+    /// Get RDMA flow of the target process or thread
+    #[command(visible_aliases = ["rd", "rdma"])]
+    Rdma { hca_name: Option<String> },
 
     /// Evaluate Python code in the target process
     #[command(visible_aliases = ["e"])]
