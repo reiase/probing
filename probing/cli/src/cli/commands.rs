@@ -80,9 +80,8 @@ pub struct Settings {
     #[arg(long, env = "PROBING_RDMA_SAMPLE_RATE")]
     rdma_sample_rate: Option<f64>,
 
-     #[arg(long, env = "PROBING_RDMA_HCA_NAME")]
+    #[arg(long, env = "PROBING_RDMA_HCA_NAME")]
     rdma_hca_name: Option<String>,
-
 }
 
 impl Settings {

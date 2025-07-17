@@ -15,9 +15,9 @@ pub mod prelude {
     pub use crate::types::DataFrame;
     pub use crate::types::Ele;
     pub use crate::types::Seq;
-    pub use crate::types::{Series, DiscardStrategy};
     pub use crate::types::TimeSeries;
     pub use crate::types::Value;
+    pub use crate::types::{DiscardStrategy, Series};
 
     // --- Error Handling ---
     pub use crate::types::ProtoError;

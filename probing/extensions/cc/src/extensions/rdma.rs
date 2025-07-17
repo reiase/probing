@@ -11,17 +11,15 @@ use probing_core::core::{CustomTable, EngineCall, EngineDatasource, TablePluginH
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 
-use std::collections::HashMap;
 use async_trait::async_trait;
+use std::collections::HashMap;
 
 use std::fs::File;
 use std::io::{self, Read};
 use std::time::{Duration, Instant};
 
-
 static GLOBAL_HCA_NAME: OnceLock<Mutex<String>> = OnceLock::new();
 static GLOBAL_HCA_SAMPLE_RATE: OnceLock<Mutex<f64>> = OnceLock::new();
-
 
 #[derive(Default, Debug)]
 pub struct RdmaTable {}
@@ -72,7 +70,7 @@ impl CustomTable for RdmaTable {
         link_downed.append_value(monitor.read_counter("link_downed"));
         np_cnp_sent.append_value(monitor.read_counter("np_cnp_sent"));
         np_ecn_marked_roce_packets.append_value(monitor.read_counter("np_ecn_marked_roce_packets"));
-        
+
         let f64_val = GLOBAL_HCA_SAMPLE_RATE.get_or_init(|| Mutex::new(0.0));
         let guard = f64_val.lock().unwrap();
         let sleep_time = guard.clone() as u64;
@@ -111,7 +109,6 @@ impl CustomTable for RdmaTable {
         }
     }
 }
-
 
 pub type RdmaPlugin = TablePluginHelper<RdmaTable>;
 
@@ -182,13 +179,13 @@ impl RdmaExtension {
         }
 
         self.sample_rate = sample_rate;
-        
+
         Ok(())
     }
 
     fn set_hca_name(&mut self, hca_name: Maybe<String>) -> Result<(), EngineError> {
         self.hca_name = hca_name;
-        
+
         if let Maybe::Just(ref name) = self.hca_name {
             if name.is_empty() {
                 return Err(EngineError::InvalidOptionValue(
@@ -205,7 +202,6 @@ impl RdmaExtension {
         Ok(())
     }
 }
-
 
 struct RDMAMonitor {
     hca_name: String,
@@ -225,10 +221,17 @@ impl RDMAMonitor {
     }
 
     fn read_counter(&self, counter_name: &str) -> f64 {
-        let path = if counter_name == "np_cnp_sent" || counter_name == "np_ecn_marked_roce_packets" {
-            format!("/sys/class/infiniband/{}/ports/1/hw_counters/{}", self.hca_name, counter_name)
+        let path = if counter_name == "np_cnp_sent" || counter_name == "np_ecn_marked_roce_packets"
+        {
+            format!(
+                "/sys/class/infiniband/{}/ports/1/hw_counters/{}",
+                self.hca_name, counter_name
+            )
         } else {
-            format!("/sys/class/infiniband/{}/ports/1/counters/{}", self.hca_name, counter_name)
+            format!(
+                "/sys/class/infiniband/{}/ports/1/counters/{}",
+                self.hca_name, counter_name
+            )
         };
 
         match read_file_to_f64(&path) {
@@ -240,7 +243,12 @@ impl RDMAMonitor {
         }
     }
 
-    fn calculate_rate(&self, current: Option<f64>, previous: Option<f64>, interval: Option<Duration>) -> f64 {
+    fn calculate_rate(
+        &self,
+        current: Option<f64>,
+        previous: Option<f64>,
+        interval: Option<Duration>,
+    ) -> f64 {
         if current.is_none() || previous.is_none() || interval.is_none() {
             return 0.0;
         }
@@ -250,9 +258,9 @@ impl RDMAMonitor {
         let interval = interval.unwrap().as_secs_f64();
 
         let diff = if current < previous {
-        current + 2u64.pow(64) as f64 - previous
+            current + 2u64.pow(64) as f64 - previous
         } else {
-        current - previous
+            current - previous
         };
 
         diff / interval
@@ -268,7 +276,9 @@ impl RDMAMonitor {
         let np_ecn_marked_roce_packets = self.read_counter("np_ecn_marked_roce_packets");
 
         let current_time = Instant::now();
-        let interval = self.last_measurement_time.map(|t| current_time.duration_since(t));
+        let interval = self
+            .last_measurement_time
+            .map(|t| current_time.duration_since(t));
 
         let rcv_pkts_rate = self.calculate_rate(
             Some(port_rcv_packets),
@@ -306,5 +316,8 @@ fn read_file_to_f64(path: &str) -> io::Result<f64> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    contents.trim().parse::<f64>().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    contents
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }

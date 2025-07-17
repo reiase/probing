@@ -14,5 +14,5 @@ pub use compress::Compressable;
 pub use compress::Decompressable;
 pub use dataframe::DataFrame;
 pub use error::ProtoError;
-pub use series::{Series, DiscardStrategy};
+pub use series::{DiscardStrategy, Series};
 pub use time_series::TimeSeries;

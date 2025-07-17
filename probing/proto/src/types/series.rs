@@ -111,8 +111,14 @@ const CHUNK_SIZE_DEFAULT: usize = 10000;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum DiscardStrategy {
-    BaseMemorySize{discard_threshold: usize, chunk_size: usize},
-    BaseElementCount{discard_threshold: usize, chunk_size: usize},
+    BaseMemorySize {
+        discard_threshold: usize,
+        chunk_size: usize,
+    },
+    BaseElementCount {
+        discard_threshold: usize,
+        chunk_size: usize,
+    },
     None,
 }
 
@@ -123,7 +129,7 @@ impl DiscardStrategy {
             chunk_size: CHUNK_SIZE_DEFAULT,
         }
     }
-    
+
     pub fn base_memory_size_with_custom_chunk(chunk_size: usize) -> Self {
         DiscardStrategy::BaseMemorySize {
             discard_threshold: DISCARD_THRESHOLD_DEFAULT,
@@ -135,8 +141,8 @@ impl DiscardStrategy {
 impl DiscardStrategy {
     fn get_chunk_size(&self) -> Option<usize> {
         match self {
-            DiscardStrategy::BaseMemorySize {chunk_size , ..} => Some(*chunk_size),
-            DiscardStrategy::BaseElementCount {chunk_size, ..} => Some(*chunk_size),
+            DiscardStrategy::BaseMemorySize { chunk_size, .. } => Some(*chunk_size),
+            DiscardStrategy::BaseElementCount { chunk_size, .. } => Some(*chunk_size),
             DiscardStrategy::None => None,
         }
     }
@@ -225,7 +231,7 @@ impl Series {
             if let Page::Raw(ref mut array) = slice.data {
                 T::append_to_array(array, data)?;
                 slice.length += 1;
-                if let DiscardStrategy::BaseElementCount {..} = self.config.discard_strategy {
+                if let DiscardStrategy::BaseElementCount { .. } = self.config.discard_strategy {
                     self.commit_counts += 1;
                 }
                 if slice.length == self.config.discard_strategy.get_chunk_size().unwrap() {
@@ -237,7 +243,8 @@ impl Series {
         } else {
             self.config.dtype = T::dtype();
 
-            let array = T::create_array(data, self.config.discard_strategy.get_chunk_size().unwrap());
+            let array =
+                T::create_array(data, self.config.discard_strategy.get_chunk_size().unwrap());
             let page = Page::Raw(array);
             let offset = self.offset;
 
@@ -247,13 +254,13 @@ impl Series {
                 data: page,
             });
 
-            if let DiscardStrategy::BaseElementCount {..} = self.config.discard_strategy {
+            if let DiscardStrategy::BaseElementCount { .. } = self.config.discard_strategy {
                 self.commit_counts += 1;
             }
         }
 
         self.offset = self.offset.saturating_add(1);
-        
+
         Ok(())
     }
 
@@ -339,9 +346,11 @@ impl Series {
             self.commit_nbytes += slice.nbytes();
             self.slices.insert(slice.offset, slice);
         }
-        
+
         match self.config.discard_strategy {
-            DiscardStrategy::BaseMemorySize{discard_threshold, ..} => {
+            DiscardStrategy::BaseMemorySize {
+                discard_threshold, ..
+            } => {
                 while self.nbytes() > discard_threshold {
                     if let Some((_offset, slice)) = self.slices.pop_first() {
                         self.dropped += slice.offset + slice.length;
@@ -349,7 +358,9 @@ impl Series {
                     }
                 }
             }
-            DiscardStrategy::BaseElementCount{discard_threshold, ..} => {
+            DiscardStrategy::BaseElementCount {
+                discard_threshold, ..
+            } => {
                 while self.ncounts() >= (discard_threshold - 1) {
                     if let Some((_offset, slice)) = self.slices.pop_first() {
                         self.dropped += slice.offset + slice.length;
@@ -358,9 +369,7 @@ impl Series {
                     }
                 }
             }
-            DiscardStrategy::None => {
-                !todo!("Discard strategy is set to None, no action taken")
-            }
+            DiscardStrategy::None => !todo!("Discard strategy is set to None, no action taken"),
         }
     }
 }
@@ -499,7 +508,10 @@ mod test {
     #[test]
     fn test_series_limit() {
         let mut series = super::Series::builder()
-            .with_discard_strategy(crate::types::series::DiscardStrategy::BaseElementCount{discard_threshold:10, chunk_size:10})
+            .with_discard_strategy(crate::types::series::DiscardStrategy::BaseElementCount {
+                discard_threshold: 10,
+                chunk_size: 10,
+            })
             .build();
         for i in 0..16 {
             series.append(i as i64).unwrap();
@@ -512,14 +524,20 @@ mod test {
     #[test]
     fn test_new_series() {
         let series = super::Series::builder().build();
-        assert_eq!(series.config.discard_strategy.get_chunk_size().unwrap(), 10000);
+        assert_eq!(
+            series.config.discard_strategy.get_chunk_size().unwrap(),
+            10000
+        );
         assert!(series.slices.is_empty());
     }
 
     #[test]
     fn test_series_append() {
         let mut series = super::Series::builder()
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256)).build();
+            .with_discard_strategy(
+                crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256),
+            )
+            .build();
         for i in 0..512 {
             series.append(i).unwrap();
         }
@@ -535,7 +553,10 @@ mod test {
     #[test]
     fn test_series_get() {
         let mut series = super::Series::builder()
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256)).build();
+            .with_discard_strategy(
+                crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256),
+            )
+            .build();
 
         for i in 0..512 {
             series.append(i as i64).unwrap();
@@ -550,7 +571,9 @@ mod test {
     fn test_series_get_from_compressed() {
         let mut series = super::Series::builder()
             .with_compression_threshold(8)
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
+            .with_discard_strategy(
+                crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256),
+            )
             .build();
 
         for i in 0..512 {
@@ -565,7 +588,10 @@ mod test {
     #[test]
     fn test_series_iter() {
         let mut series = super::Series::builder()
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256)).build();
+            .with_discard_strategy(
+                crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256),
+            )
+            .build();
         let mut expected_sum = 0;
         for i in 0..512 {
             series.append(i).unwrap();
@@ -598,7 +624,9 @@ mod test {
         {
             let mut series = super::Series::builder()
                 .with_compression_threshold(8)
-                .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
+                .with_discard_strategy(
+                    crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256),
+                )
                 .build();
 
             for value in values {
@@ -634,7 +662,10 @@ mod test {
     #[test]
     fn test_drop_history() {
         let mut series = super::Series::builder()
-            .with_discard_strategy(crate::types::series::DiscardStrategy::BaseMemorySize{discard_threshold:200, chunk_size:256})
+            .with_discard_strategy(crate::types::series::DiscardStrategy::BaseMemorySize {
+                discard_threshold: 200,
+                chunk_size: 256,
+            })
             .with_compression_threshold(128)
             .build();
 
@@ -665,7 +696,9 @@ mod test {
     fn test_series_serialization() {
         // Create a series and add some data
         let mut original_series = super::Series::builder()
-            .with_discard_strategy(crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256))
+            .with_discard_strategy(
+                crate::types::series::DiscardStrategy::base_memory_size_with_custom_chunk(256),
+            )
             .with_compression_threshold(5)
             .build();
 

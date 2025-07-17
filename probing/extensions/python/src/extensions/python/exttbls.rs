@@ -5,9 +5,8 @@ use once_cell::sync::Lazy;
 use probing_proto::prelude::{Ele, TimeSeries};
 use probing_proto::types::series::DiscardStrategy;
 use pyo3::prelude::*;
-use pyo3::types::{PyType, PyDict};
+use pyo3::types::{PyDict, PyType};
 use pyo3::{pyclass, pymethods, Bound, IntoPyObjectExt, PyObject, PyResult, Python};
-
 
 fn value_to_object(py: Python, v: &Ele) -> PyObject {
     let ret = match v {
@@ -51,7 +50,11 @@ impl FromPyObject<'_> for PyExternalTableConfig {
         let discard_strategy: String = ob
             .get_item("discard_strategy")
             .map_or(Ok("None".to_string()), |v| v.extract())?;
-        Ok(PyExternalTableConfig { chunk_size, discard_threshold, discard_strategy })
+        Ok(PyExternalTableConfig {
+            chunk_size,
+            discard_threshold,
+            discard_strategy,
+        })
     }
 }
 
@@ -75,9 +78,9 @@ impl From<PyExternalTableConfig> for DiscardStrategy {
 impl PyExternalTableConfig {
     #[new]
     fn new(chunk_size: usize, discard_threshold: usize, discard_strategy: String) -> Self {
-        PyExternalTableConfig { 
-            chunk_size, 
-            discard_threshold, 
+        PyExternalTableConfig {
+            chunk_size,
+            discard_threshold,
             discard_strategy,
         }
     }
@@ -85,8 +88,10 @@ impl PyExternalTableConfig {
     fn into_py(&self, py: Python<'_>) -> PyObject {
         let dict = PyDict::new(py);
         dict.set_item("chunk_size", &self.chunk_size).unwrap();
-        dict.set_item("discard_threshold", self.discard_threshold).unwrap();
-        dict.set_item("discard_strategy", &self.discard_strategy).unwrap();
+        dict.set_item("discard_threshold", self.discard_threshold)
+            .unwrap();
+        dict.set_item("discard_strategy", &self.discard_strategy)
+            .unwrap();
         dict.into()
     }
 }
@@ -107,7 +112,7 @@ impl ExternalTable {
         columns: Vec<String>,
         chunk_size: usize,
         discard_threshold: usize,
-        discard_strategy: String
+        discard_strategy: String,
     ) -> Self {
         let ncolumn = columns.len();
         let config = PyExternalTableConfig {
@@ -115,9 +120,11 @@ impl ExternalTable {
             discard_threshold,
             discard_strategy,
         };
-        let config: DiscardStrategy= config.into();           
+        let config: DiscardStrategy = config.into();
         let ts = Arc::new(Mutex::new(
-            TimeSeries::builder_with_config(config).with_columns(columns).build(),
+            TimeSeries::builder_with_config(config)
+                .with_columns(columns)
+                .build(),
         ));
         EXTERN_TABLES
             .lock()
@@ -158,13 +165,15 @@ impl ExternalTable {
         } else {
             let ncolumn = columns.len();
             let config = PyExternalTableConfig {
-                                                    chunk_size,
-                                                    discard_threshold,
-                                                    discard_strategy,
-                                                };
-            let config: DiscardStrategy= config.into();           
+                chunk_size,
+                discard_threshold,
+                discard_strategy,
+            };
+            let config: DiscardStrategy = config.into();
             let ts = Arc::new(Mutex::new(
-                TimeSeries::builder_with_config(config).with_columns(columns).build(),
+                TimeSeries::builder_with_config(config)
+                    .with_columns(columns)
+                    .build(),
             ));
             binding.insert(name.to_string(), ts.clone());
             Ok(ExternalTable(ts, ncolumn))
@@ -264,8 +273,8 @@ impl ExternalTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::python_api::create_probing_module;
     use crate::extensions::python::PythonPlugin;
+    use crate::features::python_api::create_probing_module;
     use probing_cc::extensions::envs::EnvPlugin;
     use probing_cc::extensions::files::FilesPlugin;
     use probing_core::core::Engine;
@@ -298,7 +307,13 @@ table3.append([5, 6])
     #[test]
     fn test_create_new_table() {
         setup();
-        let table = ExternalTable::new("table1", vec!["a".to_string(), "b".to_string()], 10000, 20000000, "BaseMemorySize".to_string());
+        let table = ExternalTable::new(
+            "table1",
+            vec!["a".to_string(), "b".to_string()],
+            10000,
+            20000000,
+            "BaseMemorySize".to_string(),
+        );
         assert_eq!(table.names(), vec!["a", "b"]);
     }
 

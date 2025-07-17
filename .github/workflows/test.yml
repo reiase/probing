@@ -55,6 +55,8 @@ jobs:
         key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
     
     # Build the package
+    - name: Code style checking
+      run: cargo fmt --all -- --check
     - name: Build package
       run: |
         make ZIG=1 wheel
