@@ -200,7 +200,6 @@ cargo install trunk
 cargo install cargo-zigbuild
 pip install ziglang
 sudo apt-get install libunwind-dev
-export RUSTFLAGS="-L /lib/x86_64-linux-gnu"
 ```
 
 ### Building from Source

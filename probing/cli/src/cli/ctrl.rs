@@ -61,11 +61,6 @@ impl ProbeEndpoint {
     }
 
     pub async fn backtrace(&self, tid: Option<i32>, cpp: bool, py: bool) -> Result<()> {
-        // Return an error if both --cpp and --py options are enabled simultaneously
-        if cpp && py {
-            return Err(anyhow::anyhow!("Cannot use both --cpp and --py options simultaneously."));
-        }
-    
         // Construct the URL for the API request
         let mut url = "/apis/pythonext/callstack".to_string();
         if let Some(tid) = tid {
