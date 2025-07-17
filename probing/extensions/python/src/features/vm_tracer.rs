@@ -134,18 +134,13 @@ pub fn _get_python_stacks(py: Python) -> PyResult<PyObject> {
     let py_list = PyList::empty(py);
     for frame in get_python_stacks_raw() {
         if let CallFrame::PyFrame {
-            file,
-            func,
-            lineno,
-            lasti,
-            ..
+            file, func, lineno, ..
         } = frame
         {
             let dict = PyDict::new(py);
             dict.set_item("file", file)?;
             dict.set_item("func", func)?;
             dict.set_item("lineno", lineno)?;
-            dict.set_item("lasti", lasti)?;
             py_list.append(dict)?;
         }
     }
@@ -161,18 +156,13 @@ pub fn _get_python_frames(py: Python) -> PyResult<PyObject> {
 
         for frame in get_python_frames_raw(&PYVERSION) {
             if let CallFrame::PyFrame {
-                file,
-                func,
-                lineno,
-                lasti,
-                ..
+                file, func, lineno, ..
             } = frame
             {
                 let dict = PyDict::new(py);
                 dict.set_item("file", file)?;
                 dict.set_item("func", func)?;
                 dict.set_item("lineno", lineno)?;
-                dict.set_item("lasti", lasti)?;
                 py_list.append(dict)?;
             }
         }
@@ -196,7 +186,6 @@ pub fn get_python_stacks_raw() -> Vec<CallFrame> {
                     file: filename,
                     func: funcname,
                     lineno: lineno as i64,
-                    lasti: *lasti as i64,
                     locals: Default::default(),
                 }
             })
@@ -216,7 +205,6 @@ pub fn get_python_frames_raw(ver: &Version) -> Vec<CallFrame> {
                     file: filename,
                     func: funcname,
                     lineno: lineno as i64,
-                    lasti: lasti as i64,
                     locals: Default::default(),
                 });
             }
