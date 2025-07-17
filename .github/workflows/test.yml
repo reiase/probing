@@ -21,6 +21,7 @@ jobs:
       uses: dtolnay/rust-toolchain@nightly # Changed from stable in pypi.yml, user kept nightly
       with:
         target: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
+        components: rustfmt
     # - name: Install Zig toolchain
     #   uses: mlugg/setup-zig@v2
 
