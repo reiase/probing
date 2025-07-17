@@ -60,16 +60,30 @@ impl ProbeEndpoint {
         Ok(String::from_utf8(bytes)?)
     }
 
-    pub async fn backtrace(&self, tid: Option<i32>) -> Result<()> {
+    pub async fn backtrace(&self, tid: Option<i32>, cpp: bool, py: bool) -> Result<()> {
+        // Return an error if both --cpp and --py options are enabled simultaneously
+        if cpp && py {
+            return Err(anyhow::anyhow!("Cannot use both --cpp and --py options simultaneously."));
+        }
+    
+        // Construct the URL for the API request
         let mut url = "/apis/pythonext/callstack".to_string();
         if let Some(tid) = tid {
             url = format!("/apis/pythonext/callstack?tid={tid}");
         }
+        
+        // Send the request and handle the response
         let reply = request(self.clone(), &url, None).await?;
         match serde_json::from_slice::<Vec<CallFrame>>(&reply) {
             Ok(msg) => {
-                for f in msg {
-                    println!("{f}")
+                // Iterate through each call frame and print based on the specified options
+                for f in &msg {
+                    match (cpp, py, f) {
+                        (true, false, &CallFrame::CFrame { .. }) => println!("{f:?}"), // Print C++ frames if --cpp is enabled
+                        (false, true, &CallFrame::PyFrame { .. }) => println!("{f:?}"), // Print Python frames if --py is enabled
+                        (false, false, _) => println!("{f:?}"), // Print all frames if neither option is enabled
+                        _ => continue, // Skip frames that don't match the specified options
+                    }
                 }
                 Ok(())
             }

@@ -28,6 +28,7 @@ py-spy= { version = "0.4.0"}
 include_dir = "=0.7.4"
 backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
 cpp_demangle = "0.3"
+regex = "1.10"
 pyo3 = { version = "0.25.1", default-features = false, features = [
     "abi3",
     "abi3-py37",

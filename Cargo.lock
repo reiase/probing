@@ -3560,6 +3560,7 @@ dependencies = [
  "py-spy",
  "pyo3",
  "pyo3-build-config",
+ "regex",
  "serde_json",
  "signal-hook-registry",
  "tokio",

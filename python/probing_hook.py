@@ -107,7 +107,7 @@ def init_probing():
 try:
     import re
 
-    if re.search("torchrun", current_script) is None:
+    if re.fullmatch("torchrun", current_script) is None:
         init_probing()
 except Exception as e:
     print(f"Error in probing hook: {e}", file=sys.stderr)

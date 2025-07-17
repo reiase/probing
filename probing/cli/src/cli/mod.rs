@@ -146,7 +146,13 @@ impl Cli {
                 )
                 .await
             }
-            Commands::Backtrace { tid } => ctrl.backtrace(*tid).await,
+            Commands::Backtrace { tid, cpp, py } => {
+                if *cpp && *py {
+                    eprintln!("Cannot use both --cpp and --py options simultaneously.");
+                    return Err(anyhow::anyhow!("Invalid options"));
+                }
+                ctrl.backtrace(*tid, *cpp, *py).await
+            }
             Commands::Eval { code } => ctrl.eval(code.clone()).await,
             Commands::Query { query } => ctrl::query(ctrl, Query::new(query.clone())).await,
             // These commands are handled in run() method and don't need a target

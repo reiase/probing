@@ -100,7 +100,7 @@ tokio = { workspace = true }
 [profile.release]
 opt-level = "z"    # Optimize for size.
 panic = "unwind"
-strip = false       # Automatically strip symbols from the binary.
+strip = true       # Automatically strip symbols from the binary.
 lto = "thin"
 codegen-units = 16
 incremental = true

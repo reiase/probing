@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::env;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -24,6 +25,13 @@ pub struct SignalTracer;
 impl SignalTracer {
     fn get_native_stacks() -> Option<Vec<CallFrame>> {
         let mut frames = vec![];
+    
+        // Read and parse the CPPSTACK_SIMPLIFY environment variable, default to 0 if invalid or not set
+        let cppstack_simplify = env::var("CPPSTACK_SIMPLIFY")
+            .ok()
+            .and_then(|s| s.parse::<u8>().ok())
+            .unwrap_or(0);
+    
         backtrace::trace(|frame| {
             let ip = frame.ip();
             let symbol_address = frame.symbol_address(); // Keep as *mut c_void for formatting
@@ -32,18 +40,27 @@ impl SignalTracer {
                     .name()
                     .and_then(|name| name.as_str())
                     .map(|raw_name| {
-                        cpp_demangle::Symbol::new(raw_name)
-                            .ok()
-                            .map(|demangled| demangled.to_string())
-                            .unwrap_or_else(|| raw_name.to_string())
+                        if cppstack_simplify == 1 {
+                            // Simplify C++ function names when environment variable is set to 1
+                            cpp_demangle::Symbol::new(raw_name)
+                                .ok()
+                                .map(|demangled| simplify_cpp_name(&demangled.to_string()))
+                                .unwrap_or_else(|| simplify_cpp_name(raw_name))
+                        } else {
+                            // Only demangle without simplification when environment variable is not 1
+                            cpp_demangle::Symbol::new(raw_name)
+                                .ok()
+                                .map(|demangled| demangled.to_string())
+                                .unwrap_or_else(|| raw_name.to_string())
+                        }
                     })
                     .unwrap_or_else(|| format!("unknown@{symbol_address:p}"));
-
+    
                 let file_name = symbol
                     .filename()
                     .map(|path| path.to_string_lossy().into_owned())
                     .unwrap_or_default();
-
+    
                 frames.push(CallFrame::CFrame {
                     ip: format!("{ip:p}"),
                     file: file_name,
@@ -115,7 +132,9 @@ impl SignalTracer {
                 CallFrame::CFrame { func, .. } => func,
                 CallFrame::PyFrame { func, .. } => func,
             };
-            let mut tokens = symbol.split(['_', '.']).filter(|s| !s.is_empty());
+            let mut tokens = symbol
+                .split(|c| c == '_' || c == '.')
+                .filter(|s| !s.is_empty());
             match tokens.next() {
                 Some("PyEval") => match tokens.next() {
                     Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,
@@ -143,6 +162,117 @@ impl SignalTracer {
         }
         merged
     }
+}
+
+
+/// A simplified version of the input C++ function name.
+fn simplify_cpp_name(name: &str) -> String {
+    /// Represents the state of the simplification process.
+    enum State {
+        /// Normal state, not inside any special structure.
+        Normal,
+        /// Inside a template, with the nested depth as a parameter.
+        Template(u32),
+        /// Inside a function argument list, with the nested depth as a parameter.
+        Paren(u32),
+        /// Inside a lambda expression, with the nested depth as a parameter.
+        Lambda(u32),
+    }
+    
+    // Initialize the state to normal.
+    let mut state = State::Normal;
+    // Initialize the result string to store the simplified name.
+    let mut result = String::new();
+    
+    // Create a peekable iterator to handle characters and avoid index issues.
+    let mut chars = name.chars().peekable();
+    
+    // Iterate through each character in the input name.
+    while let Some(c) = chars.next() {
+        match state {
+            State::Normal => {
+                match c {
+                    // Handle templates: replace template parameters with '...'.
+                    '<' => {
+                        result.push('<');
+                        result.push_str("...");
+                        state = State::Template(1);
+                    }
+                    // Handle function argument lists: replace arguments with '...'.
+                    '(' => {
+                        result.push('(');
+                        result.push_str("...");
+                        state = State::Paren(1);
+                    }
+                    // Handle lambda expressions: simplify to '{lambda...}'.
+                    '[' => {
+                        result.push_str("{lambda...}");
+                        state = State::Lambda(1);
+                    }
+                    // Handle colons (including '::') without special processing.
+                    ':' => {
+                        result.push(c);
+                        // If the next character is also a colon, add it directly.
+                        if let Some(&':') = chars.peek() {
+                            result.push(':');
+                            chars.next();  // Consume the next colon to avoid duplicate processing.
+                        }
+                    }
+                    // Keep other characters as they are.
+                    _ => result.push(c),
+                }
+            }
+            // Skip template content until the nesting depth reaches 0.
+            State::Template(depth) => {
+                if c == '<' {
+                    state = State::Template(depth + 1);
+                } else if c == '>' {
+                    if depth == 1 {
+                        result.push('>');  // Close the template.
+                        state = State::Normal;
+                    } else {
+                        state = State::Template(depth - 1);
+                    }
+                }
+            }
+            // Skip function argument list content until the nesting depth reaches 0.
+            State::Paren(depth) => {
+                if c == '(' {
+                    state = State::Paren(depth + 1);
+                } else if c == ')' {
+                    if depth == 1 {
+                        result.push(')');  // Close the argument list.
+                        state = State::Normal;
+                    } else {
+                        state = State::Paren(depth - 1);
+                    }
+                }
+            }
+            // Skip lambda expression content until the nesting depth reaches 0.
+            State::Lambda(depth) => {
+                if c == '[' {
+                    state = State::Lambda(depth + 1);
+                } else if c == ']' {
+                    if depth == 1 {
+                        state = State::Normal;  // Lambda has been simplified, no additional characters needed.
+                    } else {
+                        state = State::Lambda(depth - 1);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Clean up potentially incomplete symbols (only handle template/argument related, not '::').
+    if result.ends_with("<...") {
+        result.truncate(result.len() - 3);
+        result.push('>');  // Complete the closing symbol.
+    } else if result.ends_with("(...") {
+        result.truncate(result.len() - 3);
+        result.push(')');  // Complete the closing symbol.
+    }
+    
+    result
 }
 
 #[async_trait]
