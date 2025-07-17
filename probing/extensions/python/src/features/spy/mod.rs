@@ -81,7 +81,8 @@ pub fn get_next_frame(ver: &Version, frame_addr: usize) -> Option<usize> {
             }
         }
         (3, 11) => {
-            let iframe = frame_addr as *const super::spy::python_bindings::v3_11_0::_PyInterpreterFrame;
+            let iframe =
+                frame_addr as *const super::spy::python_bindings::v3_11_0::_PyInterpreterFrame;
             let next_frame = unsafe { (*iframe).previous };
             if !next_frame.is_null() {
                 Some(next_frame as usize)
@@ -90,7 +91,8 @@ pub fn get_next_frame(ver: &Version, frame_addr: usize) -> Option<usize> {
             }
         }
         (3, 12) => {
-            let iframe = frame_addr as *const super::spy::python_bindings::v3_12_0::_PyInterpreterFrame;
+            let iframe =
+                frame_addr as *const super::spy::python_bindings::v3_12_0::_PyInterpreterFrame;
             let next_frame = unsafe { (*iframe).previous };
             if !next_frame.is_null() {
                 Some(next_frame as usize)
@@ -220,7 +222,7 @@ unsafe fn parse_location_raw<T: CodeObject>(code: *const T, lasti: i32) -> (Stri
 }
 
 fn copy_string(addr: *const u8, len: usize, kind: u32, ascii: bool) -> String {
-    let len = if len > 1024 {1024} else {len};
+    let len = if len > 1024 { 1024 } else { len };
     match (kind, ascii) {
         (4, _) => {
             let chars = unsafe { std::slice::from_raw_parts(addr as *const char, len / 4) };
