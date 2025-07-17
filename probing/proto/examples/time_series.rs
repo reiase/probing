@@ -1,4 +1,4 @@
-use probing_proto::prelude::{Series, DiscardStrategy};
+use probing_proto::prelude::{DiscardStrategy, Series};
 
 /// Data type information for series benchmarking
 #[derive(Clone, Copy)]

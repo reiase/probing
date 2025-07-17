@@ -9,10 +9,6 @@ jobs:
     - uses: actions/checkout@v3
 
     # Set up the environment
-    - name: Trunk install
-      uses: jetli/trunk-action@v0.5.0
-      with:
-        version: 'latest'
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
@@ -21,6 +17,7 @@ jobs:
       uses: dtolnay/rust-toolchain@nightly # Changed from stable in pypi.yml, user kept nightly
       with:
         target: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
+        components: rustfmt
     # - name: Install Zig toolchain
     #   uses: mlugg/setup-zig@v2
 
@@ -43,6 +40,7 @@ jobs:
         # test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
         test -e ~/.cargo/bin/rnr || cargo install rnr
         test -e ~/.cargo/bin/cargo-nextest || cargo install cargo-nextest
+        test -e ~/.cargo/bin/trunk || cargo install trunk --locked
     - name: Save Cargo Cache
       id: cache-save
       uses: actions/cache/save@v4
@@ -55,6 +53,8 @@ jobs:
         key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
     
     # Build the package
+    - name: Code style checking
+      run: cargo fmt --all -- --check
     - name: Build package
       run: |
         make ZIG=1 wheel

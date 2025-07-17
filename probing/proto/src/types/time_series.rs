@@ -6,7 +6,6 @@ use super::error::ProtoError;
 use super::series::{DiscardStrategy, SeriesIterator};
 use super::{basic::EleType, series::SeriesConfig, Ele, Series};
 
-
 #[derive(Debug, Error)]
 pub enum TimeSeriesError {
     #[error("column count mismatch")]
@@ -45,8 +44,7 @@ impl TimeSeries {
     }
 
     pub fn builder_with_config(ext_config: DiscardStrategy) -> TimeSeriesConfig {
-        let ts_config = TimeSeriesConfig::default()
-            .with_discard_strategy(ext_config);
+        let ts_config = TimeSeriesConfig::default().with_discard_strategy(ext_config);
         ts_config
     }
 
@@ -164,7 +162,10 @@ mod test {
     fn test_timeseries_create() {
         let _ = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_discard_strategy(DiscardStrategy::BaseMemorySize{discard_threshold: 10, chunk_size: 10})
+            .with_discard_strategy(DiscardStrategy::BaseMemorySize {
+                discard_threshold: 10,
+                chunk_size: 10,
+            })
             .with_compression_level(1)
             .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
@@ -174,7 +175,10 @@ mod test {
     fn test_timeseries_append() {
         let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_discard_strategy(DiscardStrategy::BaseMemorySize{discard_threshold: 10, chunk_size: 10})
+            .with_discard_strategy(DiscardStrategy::BaseMemorySize {
+                discard_threshold: 10,
+                chunk_size: 10,
+            })
             .with_compression_level(1)
             .with_compression_threshold(10)
             .with_columns(vec!["a".to_string(), "b".to_string()])
@@ -189,7 +193,10 @@ mod test {
     fn test_timeseries_limit() {
         let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_discard_strategy(DiscardStrategy::BaseElementCount{discard_threshold: 10, chunk_size: 10})
+            .with_discard_strategy(DiscardStrategy::BaseElementCount {
+                discard_threshold: 10,
+                chunk_size: 10,
+            })
             .with_columns(vec!["a".to_string(), "b".to_string()])
             .build();
 
@@ -206,7 +213,10 @@ mod test {
     fn test_timeseries_iter() {
         let mut ts = super::TimeSeries::builder()
             .with_dtype(super::EleType::I64)
-            .with_discard_strategy(DiscardStrategy::BaseMemorySize{discard_threshold: 10, chunk_size: 10})
+            .with_discard_strategy(DiscardStrategy::BaseMemorySize {
+                discard_threshold: 10,
+                chunk_size: 10,
+            })
             .with_compression_level(1)
             .with_compression_threshold(10)
             .with_columns(vec!["a".to_string(), "b".to_string()])
