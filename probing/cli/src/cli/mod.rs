@@ -146,7 +146,13 @@ impl Cli {
                 )
                 .await
             }
-            Commands::Backtrace { tid } => ctrl.backtrace(*tid).await,
+            Commands::Backtrace { tid, cpp, py } => {
+                if *cpp && *py {
+                    eprintln!("Cannot use both --cpp and --py options simultaneously.");
+                    return Err(anyhow::anyhow!("Invalid options"));
+                }
+                ctrl.backtrace(*tid, *cpp, *py).await
+            }
             Commands::Rdma { hca_name } => {
                 let hca_name = hca_name.clone().unwrap_or_default();
                 ctrl.rdma(hca_name).await

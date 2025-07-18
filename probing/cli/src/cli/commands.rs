@@ -149,7 +149,15 @@ pub enum Commands {
 
     /// Show the backtrace of the target process or thread
     #[command(visible_aliases = ["bt", "b"])]
-    Backtrace { tid: Option<i32> },
+    Backtrace {
+        tid: Option<i32>,
+        /// Show only C++ stack trace
+        #[arg(long)]
+        cpp: bool,
+        /// Show only Python stack trace
+        #[arg(long)]
+        py: bool,
+    },
 
     /// Get RDMA flow of the target process or thread
     #[command(visible_aliases = ["rd", "rdma"])]

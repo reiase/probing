@@ -199,6 +199,7 @@ cargo install trunk
 # Install cross-compilation tools (optional, for distribution builds)
 cargo install cargo-zigbuild
 pip install ziglang
+sudo apt-get install libunwind-dev
 ```
 
 ### Building from Source

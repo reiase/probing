@@ -57,6 +57,13 @@ jobs:
       run: cargo fmt --all -- --check
     - name: Build package
       run: |
+        sudo apt-get update 
+        sudo apt-get install -y libunwind-dev
+        sudo apt-get install -y liblzma-dev
+        if [ $? -ne 0 ]; then
+          echo "Failed to install liblzma-dev"
+          exit 1
+        fi
         make ZIG=1 wheel
     # Run Tests
     - name: Run make test
