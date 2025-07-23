@@ -46,7 +46,7 @@ pub fn get_hostname() -> Result<String> {
 #[ctor]
 fn setup() {
     let pid = std::process::id();
-    eprintln!("Initializing libprobing for process {pid} ...",);
+    log::info!("Initializing libprobing for process {pid} ...",);
 
     // initialize logging
     env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOGLEVEL));

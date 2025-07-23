@@ -15,7 +15,15 @@ based on the PROBING environment variable:
 
 import os
 import sys
+import logging
 
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+logger = logging.getLogger(__name__)
 
 def get_current_script_name():
     """Get the name of the current running script."""
@@ -48,19 +56,15 @@ def init_probing():
             del os.environ["PROBING"]
 
         if probe_value.lower() in ["1", "followed"]:
-            print(
-                f"Activating probing in 'followed' mode (current process only)",
-                file=sys.stderr,
-            )
+            logger.debug("Activating probing in 'followed' mode (current process only)")
+            
             import probing
             execute_init_script()
             # Environment variable is intentionally not preserved
 
         elif probe_value.lower() in ["2", "nested"]:
-            print(
-                f"Activating probing in 'nested' mode (all child processes)",
-                file=sys.stderr,
-            )
+            logger.debug("Activating probing in 'nested' mode (all child processes)")
+            
             import probing
 
             # Preserve for child processes
@@ -73,10 +77,10 @@ def init_probing():
                 import re
 
                 if re.search(pattern, current_script) is not None:
-                    print(
-                        f"Activating probing for script matching '{pattern}'",
-                        file=sys.stderr,
+                    logger.debug(
+                        f"Activating probing for script matching '{pattern}'"
                     )
+                    
                     import probing
                     execute_init_script()
                 # Always preserve valid regex patterns for child processes
@@ -88,10 +92,10 @@ def init_probing():
         elif probe_value != "0":
             # Script name comparison
             if probe_value == current_script:
-                print(
-                    f"Activating probing for '{current_script}' (current process only)",
-                    file=sys.stderr,
+                logger.debug(
+                    f"Activating probing for '{current_script}' (current process only)"
                 )
+               
                 import probing
                 execute_init_script()
             # Always preserve the script name filter for child processes

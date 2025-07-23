@@ -1,8 +1,18 @@
 import code
 import io
+import os
+import logging
 from contextlib import redirect_stderr, redirect_stdout
 from types import CodeType
 from typing import Any, Dict, List, Type
+
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+logger = logging.getLogger(__name__)
 
 class DebugConsole(code.InteractiveConsole):
     def resetoutput(self):
@@ -58,6 +68,6 @@ class DebugConsole(code.InteractiveConsole):
 try:
     from .magics import DebugConsole
 except:
-    print("DebugConsole not found, using default DebugConsole")
+    logger.debug("DebugConsole not found, using default DebugConsole")
     
 debug_console = DebugConsole()

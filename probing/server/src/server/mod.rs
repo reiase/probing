@@ -99,7 +99,7 @@ async fn query(body: String) -> impl IntoResponse {
 pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
-    eprintln!("Starting local server at {socket_path}");
+    log::info!("Starting local server at {socket_path}");
 
     let app = build_app(false);
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
