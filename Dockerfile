@@ -20,8 +20,8 @@ RUN cargo install --locked cargo-zigbuild
 RUN CARGO_ZIGBUILD_ZIG_PATH=/usr/local/zig/zig cargo zigbuild --target x86_64-unknown-linux-gnu -r
 RUN CARGO_ZIGBUILD_ZIG_PATH=/usr/local/zig/zig cargo zigbuild --target x86_64-unknown-linux-gnu -r --package probing-cli
 
-
-#FROM 10.200.53.208/public/xmegatron:v1.2.0
+#此处添加你实际使用的基础镜像
+#如FROM 10.200.53.208/cd/nh-llm-train:v0.1.0-nhtorch0.1.1v-nhllmops0.5.0v-rc1-zccl-1.4.2-2025061801
 FROM 10.200.53.208/cd/nh-llm-train:v0.1.0-nhtorch0.1.1v-nhllmops0.5.0v-rc1-zccl-1.4.2-2025061801
 ARG TARGET_DIR=target/release/
 RUN [ -d "$TARGET_DIR" ] || mkdir -p "$TARGET_DIR"
@@ -32,7 +32,7 @@ COPY Cargo.toml Cargo.toml
 COPY README.md README.md
 COPY python/ python/
 COPY examples/ examples/
-
+#此处添加你实际使用的python环境，如使用了conda环境需要pip安装到conda虚拟环境中
 RUN /root/miniconda/envs/python310_torch25_cuda/bin/pip install toml
 RUN /root/miniconda/envs/python310_torch25_cuda/bin/python make_wheel.py
 RUN /root/miniconda/envs/python310_torch25_cuda/bin/pip install dist/*
