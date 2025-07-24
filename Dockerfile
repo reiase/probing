@@ -23,6 +23,7 @@ RUN CARGO_ZIGBUILD_ZIG_PATH=/usr/local/zig/zig cargo zigbuild --target x86_64-un
 #此处添加你实际使用的基础镜像
 #如FROM 10.200.53.208/cd/nh-llm-train:v0.1.0-nhtorch0.1.1v-nhllmops0.5.0v-rc1-zccl-1.4.2-2025061801
 FROM 10.200.53.208/cd/nh-llm-train:v0.1.0-nhtorch0.1.1v-nhllmops0.5.0v-rc1-zccl-1.4.2-2025061801
+WORKDIR /home
 ARG TARGET_DIR=target/release/
 RUN [ -d "$TARGET_DIR" ] || mkdir -p "$TARGET_DIR"
 COPY --from=builder /workspace/target/x86_64-unknown-linux-gnu/release/libprobing.so $TARGET_DIR
