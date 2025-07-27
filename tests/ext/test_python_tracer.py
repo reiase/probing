@@ -17,7 +17,7 @@ def bar():
             print(f"Frame: {frame['func']} in {frame['file']}:{frame['lineno']}")
     for frame in frames:
         if frame["func"] in ["foo", "bar"]:
-            print(f"Frame: {frame['func']} in {frame['file']}:{frame['lineno']} (lasti={frame['lasti']})")
+            print(f"Frame: {frame['func']} in {frame['file']}:{frame['lineno']}")
 
 def test_python_tracer():
     import probing

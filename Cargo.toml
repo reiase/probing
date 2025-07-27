@@ -77,7 +77,7 @@ default = ["extension-module", "use-mimalloc"]
 [dependencies]
 probing-core = { path = "probing/core" }
 probing-server = { path = "probing/server", default-features = false }
-probing-python = { path = "probing/extensions/python", default-features = false }
+probing-python = { path = "probing/extensions/python", default-features = false, features=["tracing"] }
 
 anyhow = { workspace = true }
 ctor = { workspace = true }

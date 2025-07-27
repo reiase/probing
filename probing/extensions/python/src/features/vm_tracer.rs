@@ -55,7 +55,7 @@ static mut PYSTACKS: Vec<(u64, i32)> = Vec::new();
 static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = ffi::_PyEval_EvalFrameDefault;
 
 #[allow(static_mut_refs)]
-pub fn initialize_globals() {
+pub fn initialize_globals() -> bool {
     Python::with_gil(|py| {
         let ver = py.version_info();
         unsafe {
@@ -67,12 +67,15 @@ pub fn initialize_globals() {
                     release_flags: ver.suffix.unwrap_or_default().to_string(),
                     build_metadata: Default::default(),
                 };
-            }
-            if PYSTACKS.capacity() == 0 {
-                PYSTACKS.reserve(1024);
+                if PYSTACKS.capacity() == 0 {
+                    PYSTACKS.reserve(1024);
+                }
+                true
+            } else {
+                false
             }
         }
-    });
+    })
 }
 
 #[allow(static_mut_refs)]
