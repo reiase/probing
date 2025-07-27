@@ -12,7 +12,7 @@ use python_bindings::version::Version;
 mod ffi {
     use core::ffi::c_int;
 
-    pub type _PyFrameEvalFunction = extern "C" fn(
+    pub type _PyFrameEvalFunction = unsafe extern "C" fn(
         *mut pyo3::ffi::PyThreadState,
         *mut pyo3::ffi::PyFrameObject,
         c_int,
@@ -52,7 +52,7 @@ static mut PYVERSION: Version = Version {
 static mut PYSTACKS: Vec<(u64, i32)> = Vec::new();
 
 #[thread_local]
-static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = rust_eval_frame;
+static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = ffi::_PyEval_EvalFrameDefault;
 
 #[allow(static_mut_refs)]
 pub fn initialize_globals() {
@@ -77,18 +77,16 @@ pub fn initialize_globals() {
 
 #[allow(static_mut_refs)]
 #[inline(always)]
-extern "C" fn rust_eval_frame(
+unsafe extern "C" fn rust_eval_frame(
     ts: *mut pyo3::ffi::PyThreadState,
     frame: *mut pyo3::ffi::PyFrameObject,
     extra: c_int,
 ) -> *mut pyo3::ffi::PyObject {
-    unsafe {
-        let (code, lineno) = parse_frame(&PYVERSION, frame as usize);
-        PYSTACKS.push((code as u64, lineno));
-        let ret = PYFRAMEEVAL(ts, frame, extra);
-        PYSTACKS.pop();
-        ret
-    }
+    let (code, lineno) = parse_frame(&PYVERSION, frame as usize);
+    PYSTACKS.push((code as u64, lineno));
+    let ret = PYFRAMEEVAL(ts, frame, extra);
+    PYSTACKS.pop();
+    ret
 }
 
 #[allow(static_mut_refs)]
@@ -151,23 +149,22 @@ pub fn _get_python_stacks(py: Python) -> PyResult<PyObject> {
 #[pyfunction]
 pub fn _get_python_frames(py: Python) -> PyResult<PyObject> {
     use pyo3::types::{PyDict, PyList};
-    unsafe {
-        let py_list = PyList::empty(py);
 
-        for frame in get_python_frames_raw(&PYVERSION) {
-            if let CallFrame::PyFrame {
-                file, func, lineno, ..
-            } = frame
-            {
-                let dict = PyDict::new(py);
-                dict.set_item("file", file)?;
-                dict.set_item("func", func)?;
-                dict.set_item("lineno", lineno)?;
-                py_list.append(dict)?;
-            }
+    let py_list = PyList::empty(py);
+
+    for frame in get_python_frames_raw(None) {
+        if let CallFrame::PyFrame {
+            file, func, lineno, ..
+        } = frame
+        {
+            let dict = PyDict::new(py);
+            dict.set_item("file", file)?;
+            dict.set_item("func", func)?;
+            dict.set_item("lineno", lineno)?;
+            py_list.append(dict)?;
         }
-        Ok(py_list.into())
     }
+    Ok(py_list.into())
 }
 
 #[allow(static_mut_refs)]
@@ -193,13 +190,18 @@ pub fn get_python_stacks_raw() -> Vec<CallFrame> {
     }
 }
 
-pub fn get_python_frames_raw(ver: &Version) -> Vec<CallFrame> {
+#[allow(static_mut_refs)]
+pub fn get_python_frames_raw(current_frame: Option<usize>) -> Vec<CallFrame> {
     let mut frames = vec![];
-    let mut current_frame_addr = unsafe { get_current_frame(ver) };
+    let mut current_frame_addr = match current_frame {
+        Some(addr) => Some(addr),
+        None => unsafe { get_current_frame(&PYVERSION) },
+    };
+
     while let Some(addr) = current_frame_addr {
-        let (code, lasti) = unsafe { parse_frame(ver, addr) };
+        let (code, lasti) = unsafe { parse_frame(&PYVERSION, addr) };
         if code != 0 {
-            let (filename, funcname, lineno) = unsafe { parse_location(ver, code, lasti) };
+            let (filename, funcname, lineno) = unsafe { parse_location(&PYVERSION, code, lasti) };
             if filename != "<shim>" || funcname != "<interpreter trampoline>" {
                 frames.push(CallFrame::PyFrame {
                     file: filename,
@@ -208,9 +210,8 @@ pub fn get_python_frames_raw(ver: &Version) -> Vec<CallFrame> {
                     locals: Default::default(),
                 });
             }
-            current_frame_addr = get_next_frame(ver, addr);
+            current_frame_addr = unsafe { get_next_frame(&PYVERSION, addr) };
         }
     }
-
     frames
 }

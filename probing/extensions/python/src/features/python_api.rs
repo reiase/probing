@@ -23,6 +23,10 @@ fn query_json(_py: Python, sql: String) -> PyResult<String> {
 
 pub fn create_probing_module() -> PyResult<()> {
     initialize_globals();
+
+    #[cfg(feature = "tracing")]
+    enable_tracer()?;
+
     Python::with_gil(|py| -> PyResult<()> {
         let sys = PyModule::import(py, "sys")?;
         let modules = sys.getattr("modules")?;

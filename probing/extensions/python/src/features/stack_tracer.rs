@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 
 use probing_proto::prelude::CallFrame;
 
-use super::super::extensions::python::get_python_stacks;
+use crate::features::vm_tracer::get_python_stacks_raw;
 
 #[async_trait]
 pub trait StackTracer: Send + Sync + std::fmt::Debug {
@@ -56,26 +56,17 @@ impl SignalTracer {
         Some(frames)
     }
 
-    fn try_send_native_frames_to_channel(frames: Vec<CallFrame>, context_msg: &str) -> bool {
-        log::debug!("Attempting to send native {} frames.", frames.len());
+    fn send_frames(frames: Vec<CallFrame>) -> Result<()> {
         match NATIVE_CALLSTACK_SENDER_SLOT.try_lock() {
             Ok(guard) => {
                 if let Some(sender) = guard.as_ref() {
-                    if sender.send(frames).is_ok() {
-                        true
-                    } else {
-                        log::error!("Failed to send frames for {context_msg} via channel.");
-                        false
-                    }
+                    sender.send(frames)?;
+                    Ok(())
                 } else {
-                    log::trace!("No active callstack sender found for {context_msg}.");
-                    true
+                    Err(anyhow::anyhow!("No sender available in channel slot"))
                 }
             }
-            Err(e) => {
-                log::error!("Failed to lock NATIVE_CALLSTACK_SENDER_SLOT for {context_msg}: {e}");
-                false
-            }
+            Err(_) => Err(anyhow::anyhow!("Failed to send frames via channel")),
         }
     }
 
@@ -177,32 +168,25 @@ impl StackTracer for SignalTracer {
             log::error!("{error_msg}");
             return Err(anyhow::anyhow!(error_msg));
         }
-        let python_frames = get_python_stacks(tid);
 
-        let python_frames = python_frames
-            .and_then(|s| {
-                serde_json::from_str::<Vec<CallFrame>>(&s)
-                    .map_err(|e| {
-                        log::error!("Failed to deserialize Python call stacks: {e}");
-                        e
-                    })
-                    .ok()
-            })
-            .unwrap_or_default();
-        let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
+        let native_frames = rx.recv_timeout(Duration::from_secs(2))?;
+        let python_frames = rx.recv_timeout(Duration::from_secs(2))?;
 
-        Ok(Self::merge_python_native_stacks(python_frames, cpp_frames))
+        Ok(Self::merge_python_native_stacks(
+            python_frames,
+            native_frames,
+        ))
     }
 }
 
 pub fn backtrace_signal_handler() {
     let native_stacks = SignalTracer::get_native_stacks().unwrap_or_default();
-
-    if !SignalTracer::try_send_native_frames_to_channel(
-        native_stacks,
-        "native stacks (initial send)",
-    ) {
+    let python_stacks = get_python_stacks_raw();
+    if SignalTracer::send_frames(native_stacks).is_err() {
         log::error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");
+    }
+    if SignalTracer::send_frames(python_stacks).is_err() {
+        log::error!("Signal handler: CRITICAL - Failed to send Python stacks. Receiver might timeout or get incomplete data.");
     }
 }
 
