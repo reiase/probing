@@ -7,7 +7,10 @@ use probing_proto::prelude::CallFrame;
 use crate::features::spy::{get_current_frame, get_next_frame, parse_location};
 
 use super::spy::{parse_frame, python_bindings};
-use python_bindings::version::Version;
+
+use crate::features::spy::PYFRAMEEVAL;
+use crate::features::spy::PYSTACKS;
+use crate::features::spy::PYVERSION;
 
 mod ffi {
     use core::ffi::c_int;
@@ -39,20 +42,6 @@ mod ffi {
         ) -> *mut pyo3::ffi::PyObject;
     }
 }
-
-static mut PYVERSION: Version = Version {
-    major: 0,
-    minor: 0,
-    patch: 0,
-    release_flags: String::new(),
-    build_metadata: None,
-};
-
-#[thread_local]
-static mut PYSTACKS: Vec<(u64, i32)> = Vec::new();
-
-#[thread_local]
-static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = ffi::_PyEval_EvalFrameDefault;
 
 #[allow(static_mut_refs)]
 pub fn initialize_globals() -> bool {
@@ -87,7 +76,8 @@ unsafe extern "C" fn rust_eval_frame(
 ) -> *mut pyo3::ffi::PyObject {
     let (code, lineno) = parse_frame(&PYVERSION, frame as usize);
     PYSTACKS.push((code as u64, lineno));
-    let ret = PYFRAMEEVAL(ts, frame, extra);
+    let ret =
+        std::mem::transmute::<usize, ffi::_PyFrameEvalFunction>(PYFRAMEEVAL)(ts, frame, extra);
     PYSTACKS.pop();
     ret
 }
@@ -100,7 +90,7 @@ pub fn enable_tracer() -> PyResult<()> {
             let interp = ffi::PyInterpreterState_Get();
             let old_eval_frame = ffi::_PyInterpreterState_GetEvalFrameFunc(interp);
             if old_eval_frame as usize != rust_eval_frame as usize {
-                PYFRAMEEVAL = old_eval_frame;
+                PYFRAMEEVAL = old_eval_frame as usize;
             }
             ffi::_PyInterpreterState_SetEvalFrameFunc(interp, rust_eval_frame);
         } else {
@@ -120,7 +110,10 @@ pub fn disable_tracer() -> PyResult<()> {
         let interp = ffi::PyInterpreterState_Get();
         let old_eval_frame = ffi::_PyInterpreterState_GetEvalFrameFunc(interp);
         if old_eval_frame as usize == rust_eval_frame as usize {
-            ffi::_PyInterpreterState_SetEvalFrameFunc(interp, PYFRAMEEVAL);
+            ffi::_PyInterpreterState_SetEvalFrameFunc(
+                interp,
+                std::mem::transmute::<usize, ffi::_PyFrameEvalFunction>(PYFRAMEEVAL),
+            );
         }
         PYSTACKS.clear();
         PYSTACKS.shrink_to_fit();
