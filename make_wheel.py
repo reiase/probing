@@ -8,6 +8,9 @@ from zipfile import ZIP_DEFLATED, ZipInfo
 import toml
 from wheel.wheelfile import WheelFile
 
+target_dir = "debug" if "DEBUG" in os.environ else "release"
+if target_dir == "debug":
+    print("Building in debug mode...")
 
 def make_message(headers, payload=None):
     msg = EmailMessage()
@@ -86,8 +89,8 @@ def write_probing_wheel(
         out_dir_path.mkdir(parents=True)
 
     for name, path in {
-        "probing": "target/x86_64-unknown-linux-gnu/release/probing",
-        "libprobing.so": "target/x86_64-unknown-linux-gnu/release/libprobing.so",
+        "probing": f"target/x86_64-unknown-linux-gnu/{target_dir}/probing",
+        "libprobing.so": f"target/x86_64-unknown-linux-gnu/{target_dir}/libprobing.so",
         "probing-repl": "python/probing-repl",
     }.items():
         zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")

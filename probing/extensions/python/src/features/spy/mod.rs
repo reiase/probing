@@ -3,10 +3,11 @@ pub(crate) mod python_bindings;
 pub(crate) mod python_interpreters;
 
 pub(crate) mod call;
+pub(crate) mod ffi;
 
 pub use python_bindings::version::Version;
 
-use crate::features::spy::python_interpreters::{BytesObject, CodeObject, StringObject};
+use crate::features::spy::{call::RawCallLocation, python_interpreters::{BytesObject, CodeObject, StringObject}};
 
 pub(crate) static mut PYVERSION: Version = Version {
     major: 0,
@@ -17,10 +18,10 @@ pub(crate) static mut PYVERSION: Version = Version {
 };
 
 #[thread_local]
-pub(crate) static mut PYSTACKS: Vec<(u64, i32)> = Vec::new();
+pub(crate) static mut PYSTACKS: Vec<RawCallLocation> = Vec::new();
 
 #[thread_local]
-pub(crate) static mut PYFRAMEEVAL: usize = 0;
+pub(crate) static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = ffi::_PyEval_EvalFrameDefault;
 
 /// 获取当前线程执行的Python frame指针
 /// 这个函数适用于在信号处理函数中调用

@@ -18,6 +18,10 @@ impl RawCallLocation {
         }
     }
 
+    pub fn resolve(&self) -> Result<CallLocation, std::io::Error> {
+        CallLocation::try_from(self)
+    }
+
     pub fn from_frame(addr: usize) -> RawCallLocation {
         match unsafe { (PYVERSION.major, PYVERSION.minor) } {
             (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
@@ -49,10 +53,11 @@ impl RawCallLocation {
     }
 }
 
+#[derive(Debug, Default)]
 pub(crate) struct Symbol {
-    name: String,
-    file: String,
-    line: i32,
+    pub name: String,
+    pub file: String,
+    pub line: i32,
 }
 
 impl<T> TryFrom<*const T> for Symbol
@@ -86,16 +91,17 @@ where
                     (*file).kind(),
                     (*file).ascii(),
                 ),
-                line: line,
+                line,
             })
         }
     }
 }
 
+#[derive(Debug, Default)]
 pub(crate) struct CallLocation {
-    callee: Symbol,
-    caller: Option<Symbol>,
-    lineno: i32,
+    pub callee: Symbol,
+    pub caller: Option<Symbol>,
+    pub lineno: i32,
 }
 
 impl CallLocation {
@@ -115,8 +121,10 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_10_0::PyCodeObject).try_into()?;
-                let caller: Option<Symbol> =
-                    (value.caller as *const python_bindings::v3_10_0::PyCodeObject).try_into().ok();
+                let caller: Option<Symbol> = (value.caller
+                    as *const python_bindings::v3_10_0::PyCodeObject)
+                    .try_into()
+                    .ok();
                 let lineno = parse_lineno(
                     value.caller as *const python_bindings::v3_10_0::PyCodeObject,
                     value.offset,
@@ -126,8 +134,10 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 11) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_11_0::PyCodeObject).try_into()?;
-                let caller:  Option<Symbol>  =
-                    (value.caller as *const python_bindings::v3_11_0::PyCodeObject).try_into().ok();
+                let caller: Option<Symbol> = (value.caller
+                    as *const python_bindings::v3_11_0::PyCodeObject)
+                    .try_into()
+                    .ok();
                 let lineno = parse_lineno(
                     value.caller as *const python_bindings::v3_11_0::PyCodeObject,
                     value.offset,
@@ -137,8 +147,10 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 12) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_12_0::PyCodeObject).try_into()?;
-                let caller:  Option<Symbol>  =
-                    (value.caller as *const python_bindings::v3_12_0::PyCodeObject).try_into().ok();
+                let caller: Option<Symbol> = (value.caller
+                    as *const python_bindings::v3_12_0::PyCodeObject)
+                    .try_into()
+                    .ok();
                 let lineno = parse_lineno(
                     value.caller as *const python_bindings::v3_12_0::PyCodeObject,
                     value.offset,
@@ -148,8 +160,10 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 13) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_13_0::PyCodeObject).try_into()?;
-                let caller:  Option<Symbol>  =
-                    (value.caller as *const python_bindings::v3_13_0::PyCodeObject).try_into().ok();
+                let caller: Option<Symbol> = (value.caller
+                    as *const python_bindings::v3_13_0::PyCodeObject)
+                    .try_into()
+                    .ok();
                 let lineno = parse_lineno(
                     value.caller as *const python_bindings::v3_13_0::PyCodeObject,
                     value.offset,
@@ -168,6 +182,9 @@ impl TryFrom<&RawCallLocation> for CallLocation {
 }
 
 fn parse_lineno<T: CodeObject>(code: *const T, lasti: i32) -> i32 {
+    if code.is_null() {
+        return 0;
+    }
     unsafe {
         let line_table_ptr = (*code).line_table();
         let line_table_size = (*line_table_ptr).size();
