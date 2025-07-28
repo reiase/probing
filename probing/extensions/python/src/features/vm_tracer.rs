@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use probing_proto::prelude::CallFrame;
 
 use crate::features::spy::call::RawCallLocation;
-use crate::features::spy::{get_current_frame, get_next_frame};
+use crate::features::spy::{get_current_frame, get_prev_frame};
 
 use super::spy::python_bindings;
 
@@ -45,7 +45,7 @@ unsafe extern "C" fn rust_eval_frame(
     frame: *mut pyo3::ffi::PyFrameObject,
     extra: c_int,
 ) -> *mut pyo3::ffi::PyObject {
-    PYSTACKS.push(RawCallLocation::from_frame(frame as usize));
+    PYSTACKS.push(RawCallLocation::from_frame(frame as usize, PYSTACKS.len()));
     let ret = PYFRAMEEVAL(ts, frame, extra);
     PYSTACKS.pop();
     ret
@@ -159,8 +159,9 @@ pub fn get_python_frames_raw(current_frame: Option<usize>) -> Vec<CallFrame> {
         None => unsafe { get_current_frame(&PYVERSION) },
     };
 
-    while let Some(addr) = current_frame_addr {
-        let location = RawCallLocation::from_frame(addr).resolve();
+    if let Some(addr) = current_frame_addr {
+        let location = RawCallLocation::from_frame(addr, 1).resolve();
+        log::debug!("Current frame address: {addr:#x}, location: {location:?}");
         if let Ok(location) = location {
             let filename = location.callee.file;
             let funcname = location.callee.name;
@@ -172,7 +173,24 @@ pub fn get_python_frames_raw(current_frame: Option<usize>) -> Vec<CallFrame> {
                     locals: Default::default(),
                 });
             }
-            current_frame_addr = unsafe { get_next_frame(&PYVERSION, addr) };
+        }
+    }
+
+    while let Some(addr) = current_frame_addr {
+        let location = RawCallLocation::from_frame(addr, 1).resolve();
+        log::debug!("Current frame address: {addr:#x}, location: {location:?}");
+        if let Ok(location) = location {
+            if let Some(caller) = location.caller {
+                if caller.file != "<shim>" && caller.name != "<interpreter trampoline>" {
+                    frames.push(CallFrame::PyFrame {
+                        file: caller.file,
+                        func: caller.name,
+                        lineno: location.lineno as i64,
+                        locals: Default::default(),
+                    });
+                }
+            }
+            current_frame_addr = unsafe { get_prev_frame(&PYVERSION, addr) };
         }
     }
     frames

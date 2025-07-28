@@ -1,4 +1,6 @@
+use crate::features::spy::get_prev_frame;
 use crate::features::spy::python_bindings;
+use crate::features::spy::python_interpreters::FrameObject;
 use crate::features::spy::PYVERSION;
 
 use crate::features::spy::python_interpreters::{BytesObject, CodeObject, StringObject};
@@ -22,32 +24,60 @@ impl RawCallLocation {
         CallLocation::try_from(self)
     }
 
-    pub fn from_frame(addr: usize) -> RawCallLocation {
+    pub fn from_frame(addr: usize, depth: usize) -> RawCallLocation {
         match unsafe { (PYVERSION.major, PYVERSION.minor) } {
-            (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
+            (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => unsafe {
                 // Python 3.4 to 3.9
                 let frame = addr as *const python_bindings::v3_10_0::_frame;
-                let code = unsafe { (*frame).f_code };
-                let lasti = unsafe { (*frame).f_lasti };
-                RawCallLocation::new(code as usize, 0, lasti)
-            }
-            (3, 11) => {
+                let callee = (*frame).f_code;
+                let prev = (*frame).back();
+                if depth > 0 && !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    let caller = (*prev).code();
+                    let lasti = (*prev).lasti();
+                    RawCallLocation::new(callee as usize, caller as usize, lasti)
+                } else {
+                    RawCallLocation::new(callee as usize, 0, 0)
+                }
+                // RawCallLocation::new(code as usize, 0, lasti)
+            },
+            (3, 11) => unsafe {
                 let iframe = addr as *const python_bindings::v3_11_0::_PyInterpreterFrame;
-                unsafe {
-                    let code = (*iframe).f_code;
-                    let lasti = ((*iframe).prev_instr as *const u8).offset_from(code as *const u8);
-                    RawCallLocation::new(code as usize, 0, lasti as i32)
+                let callee = (*iframe).code();
+                let prev = (*iframe).back();
+                if depth > 0 && !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    let caller = (*prev).code();
+                    let lasti = (*prev).lasti();
+                    RawCallLocation::new(callee as usize, caller as usize, lasti)
+                } else {
+                    RawCallLocation::new(callee as usize, 0, 0)
                 }
-            }
-            (3, 12) => {
-                // Python 3.10 and later
+                // let lasti = ((*iframe).prev_instr as *const u8).offset_from(callee as *const u8);
+                // RawCallLocation::new(callee as usize, 0, lasti as i32)
+            },
+            (3, 12) => unsafe {
                 let iframe = addr as *const python_bindings::v3_12_0::_PyInterpreterFrame;
-                unsafe {
-                    let code = (*iframe).f_code;
-                    let lasti = ((*iframe).prev_instr as *const u8).offset_from(code as *const u8);
-                    RawCallLocation::new(code as usize, 0, lasti as i32)
+                let callee = (*iframe).code();
+                let prev = (*iframe).back();
+                if depth > 0 && !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    let caller = (*prev).code();
+                    let lasti = (*prev).lasti();
+                    RawCallLocation::new(callee as usize, caller as usize, lasti)
+                } else {
+                    RawCallLocation::new(callee as usize, 0, 0)
                 }
-            }
+            },
+            (3, 13) => unsafe {
+                let iframe = addr as *const python_bindings::v3_13_0::_PyInterpreterFrame;
+                let callee = (*iframe).f_executable;
+                let prev = (*iframe).back();
+                if depth > 0 && !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    let caller = (*prev).code();
+                    let lasti = (*prev).lasti();
+                    RawCallLocation::new(callee as usize, caller as usize, lasti)
+                } else {
+                    RawCallLocation::new(callee as usize, 0, 0)
+                }
+            },
             _ => RawCallLocation::new(0, 0, 0),
         }
     }
