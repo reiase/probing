@@ -7,7 +7,10 @@ pub(crate) mod ffi;
 
 pub use python_bindings::version::Version;
 
-use crate::features::spy::{call::RawCallLocation, python_interpreters::{BytesObject, CodeObject, StringObject}};
+use crate::features::spy::{
+    call::RawCallLocation,
+    python_interpreters::{BytesObject, CodeObject, StringObject},
+};
 
 pub(crate) static mut PYVERSION: Version = Version {
     major: 0,
