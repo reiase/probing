@@ -5,59 +5,72 @@ on: [pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.13"
+          - "3.12"
+          - "3.11"
+          - "3.10"
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    # Set up the environment
-    - name: Set up Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.x'
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@nightly # Changed from stable in pypi.yml, user kept nightly
-      with:
-        target: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
-        components: rustfmt
-    # - name: Install Zig toolchain
-    #   uses: mlugg/setup-zig@v2
+      # Set up the environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly # Changed from stable in pypi.yml, user kept nightly
+        with:
+          target: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
+          components: rustfmt
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      # - name: Install Zig toolchain
+      #   uses: mlugg/setup-zig@v2
 
-    # Cache and Install Dependencies
-    - name: Restore Cargo Cache
-      id: cache-restore
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-        key: ${{ runner.os }}-cargo-tools
-    - name: Install system and Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build wheel toml zig-bin==0.13.0 ziglang==0.13.0 cargo-zigbuild
-        # Install cargo-zigbuild and rnr if not already cached
-        # test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
-        test -e ~/.cargo/bin/rnr || cargo install rnr
-        test -e ~/.cargo/bin/cargo-nextest || cargo install cargo-nextest
-        test -e ~/.cargo/bin/trunk || cargo install trunk --locked
-    - name: Save Cargo Cache
-      id: cache-save
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-        key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
-    
-    # Build the package
-    - name: Code style checking
-      run: cargo fmt --all -- --check
-    - name: Build package
-      run: |
-        make ZIG=1 wheel
-    # Run Tests
-    - name: Run make test
-      run: make test
+      # Cache and Install Dependencies
+      - name: Restore Cargo Cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-tools
+      - name: Install system and Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel toml zig-bin==0.13.0 ziglang==0.13.0 cargo-zigbuild
+          # Install cargo-zigbuild and rnr if not already cached
+          # test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
+          test -e ~/.cargo/bin/rnr || cargo install rnr
+          test -e ~/.cargo/bin/cargo-nextest || cargo install cargo-nextest
+          test -e ~/.cargo/bin/trunk || cargo install trunk --locked
+      - name: Save Cargo Cache
+        id: cache-save
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
+
+      # Build the package
+      - name: Code style checking
+        run: cargo fmt --all -- --check
+
+      - name: Build package
+        run: |
+          make ZIG=1 wheel
+
+      - name: Run Rust Test
+        run: make test
+
+      - name: Run Python Test
+        run: make pytest

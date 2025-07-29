@@ -1,11 +1,11 @@
-from .repl import DebugConsole
-from .trace import probe
+# from .repl import DebugConsole
+# from .trace import probe
 
-_ALL_ = [
-    "init",
-    "probe",
-    "DebugConsole",
-]
+# _ALL_ = [
+#     "init",
+#     "probe",
+#     # "DebugConsole",
+# ]
 
 VERSION = "0.2.0"
 

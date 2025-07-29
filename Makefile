@@ -54,8 +54,17 @@ bootstrap:
 
 pytest:
 	PYTHONPATH=python/ uv run --python ${PYTHON} \
-	    -w dist/*.whl \
 		-w pytest \
 		-w websockets \
 		-w pandas \
+		-w torch \
+		-w ipykernel \
+	-- python -m pytest --doctest-modules python/probing
+
+	PYTHONPATH=python/ uv run --python ${PYTHON} \
+		-w pytest \
+		-w websockets \
+		-w pandas \
+		-w torch \
+		-w ipykernel \
 	-- python -m pytest --doctest-modules tests
