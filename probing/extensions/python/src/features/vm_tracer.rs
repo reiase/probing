@@ -4,58 +4,18 @@ use pyo3::prelude::*;
 
 use probing_proto::prelude::CallFrame;
 
-use crate::features::spy::{get_current_frame, get_next_frame, parse_location};
+use crate::features::spy::call::RawCallLocation;
+use crate::features::spy::{get_current_frame, get_prev_frame};
 
-use super::spy::{parse_frame, python_bindings};
-use python_bindings::version::Version;
+use super::spy::python_bindings;
 
-mod ffi {
-    use core::ffi::c_int;
-
-    pub type _PyFrameEvalFunction = unsafe extern "C" fn(
-        *mut pyo3::ffi::PyThreadState,
-        *mut pyo3::ffi::PyFrameObject,
-        c_int,
-    ) -> *mut pyo3::ffi::PyObject;
-
-    extern "C" {
-        /// Get the frame evaluation function.
-        pub fn _PyInterpreterState_GetEvalFrameFunc(
-            interp: *mut pyo3::ffi::PyInterpreterState,
-        ) -> _PyFrameEvalFunction;
-
-        ///Set the frame evaluation function.
-        pub fn _PyInterpreterState_SetEvalFrameFunc(
-            interp: *mut pyo3::ffi::PyInterpreterState,
-            eval_frame: _PyFrameEvalFunction,
-        );
-
-        pub fn PyInterpreterState_Get() -> *mut pyo3::ffi::PyInterpreterState;
-
-        pub fn _PyEval_EvalFrameDefault(
-            ts: *mut pyo3::ffi::PyThreadState,
-            frame: *mut pyo3::ffi::PyFrameObject,
-            extra: c_int,
-        ) -> *mut pyo3::ffi::PyObject;
-    }
-}
-
-static mut PYVERSION: Version = Version {
-    major: 0,
-    minor: 0,
-    patch: 0,
-    release_flags: String::new(),
-    build_metadata: None,
-};
-
-#[thread_local]
-static mut PYSTACKS: Vec<(u64, i32)> = Vec::new();
-
-#[thread_local]
-static mut PYFRAMEEVAL: ffi::_PyFrameEvalFunction = ffi::_PyEval_EvalFrameDefault;
+use crate::features::spy::ffi;
+use crate::features::spy::PYFRAMEEVAL;
+use crate::features::spy::PYSTACKS;
+use crate::features::spy::PYVERSION;
 
 #[allow(static_mut_refs)]
-pub fn initialize_globals() {
+pub fn initialize_globals() -> bool {
     Python::with_gil(|py| {
         let ver = py.version_info();
         unsafe {
@@ -67,12 +27,15 @@ pub fn initialize_globals() {
                     release_flags: ver.suffix.unwrap_or_default().to_string(),
                     build_metadata: Default::default(),
                 };
-            }
-            if PYSTACKS.capacity() == 0 {
-                PYSTACKS.reserve(1024);
+                if PYSTACKS.capacity() == 0 {
+                    PYSTACKS.reserve(1024);
+                }
+                true
+            } else {
+                false
             }
         }
-    });
+    })
 }
 
 #[allow(static_mut_refs)]
@@ -82,8 +45,7 @@ unsafe extern "C" fn rust_eval_frame(
     frame: *mut pyo3::ffi::PyFrameObject,
     extra: c_int,
 ) -> *mut pyo3::ffi::PyObject {
-    let (code, lineno) = parse_frame(&PYVERSION, frame as usize);
-    PYSTACKS.push((code as u64, lineno));
+    PYSTACKS.push(RawCallLocation::from(frame as usize, Some(ts as usize)));
     let ret = PYFRAMEEVAL(ts, frame, extra);
     PYSTACKS.pop();
     ret
@@ -176,13 +138,12 @@ pub fn get_python_stacks_raw() -> Vec<CallFrame> {
         PYSTACKS
             .iter()
             .rev()
-            .map(|(code, lasti)| {
-                let (filename, funcname, lineno) =
-                    parse_location(&PYVERSION, *code as usize, *lasti);
+            .map(|location| {
+                let location = location.resolve().unwrap_or_default();
                 CallFrame::PyFrame {
-                    file: filename,
-                    func: funcname,
-                    lineno: lineno as i64,
+                    file: location.callee.file,
+                    func: location.callee.name,
+                    lineno: location.callee.line as i64,
                     locals: Default::default(),
                 }
             })
@@ -198,19 +159,38 @@ pub fn get_python_frames_raw(current_frame: Option<usize>) -> Vec<CallFrame> {
         None => unsafe { get_current_frame(&PYVERSION) },
     };
 
-    while let Some(addr) = current_frame_addr {
-        let (code, lasti) = unsafe { parse_frame(&PYVERSION, addr) };
-        if code != 0 {
-            let (filename, funcname, lineno) = unsafe { parse_location(&PYVERSION, code, lasti) };
+    if let Some(addr) = current_frame_addr {
+        let location = RawCallLocation::from(addr, None).resolve();
+        log::debug!("Current frame address: {addr:#x}, location: {location:?}");
+        if let Ok(location) = location {
+            let filename = location.callee.file;
+            let funcname = location.callee.name;
             if filename != "<shim>" || funcname != "<interpreter trampoline>" {
                 frames.push(CallFrame::PyFrame {
                     file: filename,
                     func: funcname,
-                    lineno: lineno as i64,
+                    lineno: location.callee.line as i64,
                     locals: Default::default(),
                 });
             }
-            current_frame_addr = unsafe { get_next_frame(&PYVERSION, addr) };
+        }
+    }
+
+    while let Some(addr) = current_frame_addr {
+        let location = RawCallLocation::from(addr, None).resolve();
+        log::debug!("Current frame address: {addr:#x}, location: {location:?}");
+        if let Ok(location) = location {
+            if let Some(caller) = location.caller {
+                if caller.file != "<shim>" && caller.name != "<interpreter trampoline>" {
+                    frames.push(CallFrame::PyFrame {
+                        file: caller.file,
+                        func: caller.name,
+                        lineno: location.lineno as i64,
+                        locals: Default::default(),
+                    });
+                }
+            }
+            current_frame_addr = unsafe { get_prev_frame(&PYVERSION, addr) };
         }
     }
     frames
