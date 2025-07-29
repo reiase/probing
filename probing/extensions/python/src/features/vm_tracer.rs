@@ -45,7 +45,7 @@ unsafe extern "C" fn rust_eval_frame(
     frame: *mut pyo3::ffi::PyFrameObject,
     extra: c_int,
 ) -> *mut pyo3::ffi::PyObject {
-    PYSTACKS.push(RawCallLocation::from_frame(frame as usize, PYSTACKS.len()));
+    PYSTACKS.push(RawCallLocation::from_frame(frame as usize, ts as usize));
     let ret = PYFRAMEEVAL(ts, frame, extra);
     PYSTACKS.pop();
     ret
