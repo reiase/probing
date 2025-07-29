@@ -27,6 +27,8 @@ jobs:
           components: rustfmt
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
       # - name: Install Zig toolchain
       #   uses: mlugg/setup-zig@v2
 
