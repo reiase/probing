@@ -39,10 +39,11 @@ def collective_hook():
     from probing.profiling.collective import trace_all_collectives
 
     import os
-    start_trace = os.getenv("PROBING_COLLECTIVE_START_TRACE", "False")
+    enble = os.getenv("PB_COLL_ENABLE_TRACE", "False")
+    trace_verbose = os.getenv("PB_COLL_TRACE_VERBOSE", "False")
 
-    if is_true(start_trace):
-        trace_all_collectives()
+    if is_true(enble):
+        trace_all_collectives(verbose=is_true(trace_verbose))
 
 
 def init():
