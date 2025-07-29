@@ -16,26 +16,21 @@ jobs:
         with:
           python-version: 3.12
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly # Changed from stable in pypi.yml, user kept nightly
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
           components: rustfmt
+      - name: Rustfmt Check
+        uses: actions-rust-lang/rustfmt@v1
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - name: Install Zig toolchain
         uses: mlugg/setup-zig@v2
-      - name: Install cargo tools
-        run: |
-          pip install build wheel toml cargo-zigbuild
-          test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
-          test -e ~/.cargo/bin/rnr || cargo install rnr
-          test -e ~/.cargo/bin/cargo-nextest || cargo install cargo-nextest
-          test -e ~/.cargo/bin/trunk || cargo install trunk --locked
-      - name: Save Cargo Cache
+      - name: Cache dependencies
         id: cache-deps
-        uses: actions/cache/save@v4
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -43,7 +38,25 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             ~/zig
-          key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install cargo tools
+        run: |
+          pip install build wheel toml
+          test -e ~/.cargo/bin/cargo-zigbuild || cargo install cargo-zigbuild
+          test -e ~/.cargo/bin/rnr || cargo install rnr
+          test -e ~/.cargo/bin/cargo-nextest || cargo install cargo-nextest
+          test -e ~/.cargo/bin/trunk || cargo install trunk --locked
+      # - name: Save Cargo Cache
+      #   id: cache-deps
+      #   uses: actions/cache/save@v4
+      #   with:
+      #     path: |
+      #       ~/.cargo/bin/
+      #       ~/.cargo/registry/index/
+      #       ~/.cargo/registry/cache/
+      #       ~/.cargo/git/db/
+      #       ~/zig
+      #     key: ${{ steps.cache-restore.outputs.cache-primary-key || format('{0}-cargo-{1}', runner.os, github.run_id) }} # Fallback key
 
   build:
     name: Build Package
@@ -51,8 +64,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Restore dependencies cache
-        uses: actions/cache@v3
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -71,7 +85,7 @@ jobs:
         run: |
           make ZIG=1 wheel
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheel
           path: python
@@ -88,8 +102,9 @@ jobs:
           - "3.10"
     steps:
       - uses: actions/checkout@v4
-      - name: Restore dependencies cache
-        uses: actions/cache@v3
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
