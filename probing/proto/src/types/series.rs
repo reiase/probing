@@ -369,7 +369,9 @@ impl Series {
                     }
                 }
             }
-            DiscardStrategy::None => !todo!("Discard strategy is set to None, no action taken"),
+            DiscardStrategy::None => {
+                // No action needed
+            }
         }
     }
 }
