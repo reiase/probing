@@ -24,28 +24,37 @@ impl RawCallLocation {
         CallLocation::try_from(self)
     }
 
-    pub fn from_frame(addr: usize, ts: usize) -> RawCallLocation {
+    pub fn from(addr: usize, ts: Option<usize>) -> RawCallLocation {
         match unsafe { (PYVERSION.major, PYVERSION.minor) } {
             (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => unsafe {
                 // Python 3.4 to 3.9
                 let frame = addr as *const python_bindings::v3_10_0::_frame;
                 let callee = (*frame).f_code;
 
-                let ts = ts as *const python_bindings::v3_10_0::PyThreadState;
-                let prev = &(*(*ts).frame);
-                let caller = (*prev).code();
-                let lasti = (*prev).lasti();
-                RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+                if let Some(ts) = ts {
+                    let ts = ts as *const python_bindings::v3_10_0::PyThreadState;
+                    let prev = &(*(*ts).frame);
+                    let caller = (*prev).code();
+                    let lasti = (*prev).lasti();
+                    RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+                } else {
+                    RawCallLocation::new(callee as usize, None, 0)
+                }
             },
             (3, 11) => unsafe {
                 let iframe = addr as *const python_bindings::v3_11_0::_PyInterpreterFrame;
                 let callee = (*iframe).code();
-                let ts = ts as *const python_bindings::v3_11_0::PyThreadState;
-                let prev = (*(*ts).cframe).current_frame;
-                if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
-                    let caller = (*prev).code();
-                    let lasti = (*prev).lasti();
-                    RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+
+                if let Some(ts) = ts {
+                    let ts = ts as *const python_bindings::v3_11_0::PyThreadState;
+                    let prev = (*(*ts).cframe).current_frame;
+                    if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                        let caller = (*prev).code();
+                        let lasti = (*prev).lasti();
+                        RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+                    } else {
+                        RawCallLocation::new(callee as usize, None, 0)
+                    }
                 } else {
                     RawCallLocation::new(callee as usize, None, 0)
                 }
@@ -53,12 +62,17 @@ impl RawCallLocation {
             (3, 12) => unsafe {
                 let iframe = addr as *const python_bindings::v3_12_0::_PyInterpreterFrame;
                 let callee = (*iframe).code();
-                let ts = ts as *const python_bindings::v3_12_0::PyThreadState;
-                let prev = (*(*ts).cframe).current_frame;
-                if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
-                    let caller = (*prev).code();
-                    let lasti = (*prev).lasti();
-                    RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+
+                if let Some(ts) = ts {
+                    let ts = ts as *const python_bindings::v3_12_0::PyThreadState;
+                    let prev = (*(*ts).cframe).current_frame;
+                    if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                        let caller = (*prev).code();
+                        let lasti = (*prev).lasti();
+                        RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+                    } else {
+                        RawCallLocation::new(callee as usize, None, 0)
+                    }
                 } else {
                     RawCallLocation::new(callee as usize, None, 0)
                 }
@@ -66,12 +80,17 @@ impl RawCallLocation {
             (3, 13) => unsafe {
                 let iframe = addr as *const python_bindings::v3_13_0::_PyInterpreterFrame;
                 let callee = (*iframe).f_executable;
-                let ts = ts as *const python_bindings::v3_13_0::PyThreadState;
-                let prev = (*ts).current_frame;
-                if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
-                    let caller = (*prev).code();
-                    let lasti = (*prev).lasti();
-                    RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+
+                if let Some(ts) = ts {
+                    let ts = ts as *const python_bindings::v3_13_0::PyThreadState;
+                    let prev = (*ts).current_frame;
+                    if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                        let caller = (*prev).code();
+                        let lasti = (*prev).lasti();
+                        RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
+                    } else {
+                        RawCallLocation::new(callee as usize, None, 0)
+                    }
                 } else {
                     RawCallLocation::new(callee as usize, None, 0)
                 }
@@ -149,13 +168,11 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_10_0::PyCodeObject).try_into()?;
-                let caller: Option<Symbol> = value
-                    .caller
-                    .and_then(|c| {
-                        (c as *const python_bindings::v3_10_0::PyCodeObject)
-                            .try_into()
-                            .ok()
-                    });
+                let caller: Option<Symbol> = value.caller.and_then(|c| {
+                    (c as *const python_bindings::v3_10_0::PyCodeObject)
+                        .try_into()
+                        .ok()
+                });
                 let lineno = value.caller.map(|c| {
                     parse_lineno(
                         c as *const python_bindings::v3_10_0::PyCodeObject,
@@ -167,13 +184,11 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 11) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_11_0::PyCodeObject).try_into()?;
-                let caller: Option<Symbol> = value
-                    .caller
-                    .and_then(|c| {
-                        (c as *const python_bindings::v3_11_0::PyCodeObject)
-                            .try_into()
-                            .ok()
-                    });
+                let caller: Option<Symbol> = value.caller.and_then(|c| {
+                    (c as *const python_bindings::v3_11_0::PyCodeObject)
+                        .try_into()
+                        .ok()
+                });
                 let lineno = value.caller.map(|c| {
                     parse_lineno(
                         c as *const python_bindings::v3_11_0::PyCodeObject,
@@ -185,13 +200,11 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 12) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_12_0::PyCodeObject).try_into()?;
-                let caller: Option<Symbol> = value
-                    .caller
-                    .and_then(|c| {
-                        (c as *const python_bindings::v3_12_0::PyCodeObject)
-                            .try_into()
-                            .ok()
-                    });
+                let caller: Option<Symbol> = value.caller.and_then(|c| {
+                    (c as *const python_bindings::v3_12_0::PyCodeObject)
+                        .try_into()
+                        .ok()
+                });
                 let lineno = value.caller.map(|c| {
                     parse_lineno(
                         c as *const python_bindings::v3_12_0::PyCodeObject,
@@ -203,13 +216,11 @@ impl TryFrom<&RawCallLocation> for CallLocation {
             (3, 13) => {
                 let callee: Symbol =
                     (value.callee as *const python_bindings::v3_13_0::PyCodeObject).try_into()?;
-                let caller: Option<Symbol> = value
-                    .caller
-                    .and_then(|c| {
-                        (c as *const python_bindings::v3_13_0::PyCodeObject)
-                            .try_into()
-                            .ok()
-                    });
+                let caller: Option<Symbol> = value.caller.and_then(|c| {
+                    (c as *const python_bindings::v3_13_0::PyCodeObject)
+                        .try_into()
+                        .ok()
+                });
                 let lineno = value.caller.map(|c| {
                     parse_lineno(
                         c as *const python_bindings::v3_13_0::PyCodeObject,

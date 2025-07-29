@@ -45,7 +45,7 @@ unsafe extern "C" fn rust_eval_frame(
     frame: *mut pyo3::ffi::PyFrameObject,
     extra: c_int,
 ) -> *mut pyo3::ffi::PyObject {
-    PYSTACKS.push(RawCallLocation::from_frame(frame as usize, ts as usize));
+    PYSTACKS.push(RawCallLocation::from(frame as usize, Some(ts as usize)));
     let ret = PYFRAMEEVAL(ts, frame, extra);
     PYSTACKS.pop();
     ret
@@ -160,7 +160,7 @@ pub fn get_python_frames_raw(current_frame: Option<usize>) -> Vec<CallFrame> {
     };
 
     if let Some(addr) = current_frame_addr {
-        let location = RawCallLocation::from_frame(addr, 1).resolve();
+        let location = RawCallLocation::from(addr, None).resolve();
         log::debug!("Current frame address: {addr:#x}, location: {location:?}");
         if let Ok(location) = location {
             let filename = location.callee.file;
@@ -177,7 +177,7 @@ pub fn get_python_frames_raw(current_frame: Option<usize>) -> Vec<CallFrame> {
     }
 
     while let Some(addr) = current_frame_addr {
-        let location = RawCallLocation::from_frame(addr, 1).resolve();
+        let location = RawCallLocation::from(addr, None).resolve();
         log::debug!("Current frame address: {addr:#x}, location: {location:?}");
         if let Ok(location) = location {
             if let Some(caller) = location.caller {
