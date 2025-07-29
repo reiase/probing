@@ -12,6 +12,7 @@ pub struct RawCallLocation {
 }
 
 impl RawCallLocation {
+    #[inline(always)]
     pub fn new(callee: usize, caller: Option<usize>, offset: i32) -> RawCallLocation {
         RawCallLocation {
             callee,
@@ -24,6 +25,7 @@ impl RawCallLocation {
         CallLocation::try_from(self)
     }
 
+    #[inline(always)]
     pub fn from(addr: usize, ts: Option<usize>) -> RawCallLocation {
         match unsafe { (PYVERSION.major, PYVERSION.minor) } {
             (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => unsafe {
