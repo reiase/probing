@@ -48,7 +48,7 @@ impl RawCallLocation {
                 if let Some(ts) = ts {
                     let ts = ts as *const python_bindings::v3_11_0::PyThreadState;
                     let prev = (*(*ts).cframe).current_frame;
-                    if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    if !prev.is_null() {
                         let caller = (*prev).code();
                         let lasti = (*prev).lasti();
                         RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
@@ -66,7 +66,7 @@ impl RawCallLocation {
                 if let Some(ts) = ts {
                     let ts = ts as *const python_bindings::v3_12_0::PyThreadState;
                     let prev = (*(*ts).cframe).current_frame;
-                    if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    if !prev.is_null() {
                         let caller = (*prev).code();
                         let lasti = (*prev).lasti();
                         RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
@@ -84,7 +84,7 @@ impl RawCallLocation {
                 if let Some(ts) = ts {
                     let ts = ts as *const python_bindings::v3_13_0::PyThreadState;
                     let prev = (*ts).current_frame;
-                    if !prev.is_null() && prev.is_aligned() && prev as usize > 0xffffff {
+                    if !prev.is_null() {
                         let caller = (*prev).code();
                         let lasti = (*prev).lasti();
                         RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
