@@ -26,7 +26,7 @@ def initialize_probing():
 
     paths = [
         pathlib.Path(sys.executable).parent / "libprobing.so",
-        current_file.parent / ".." / ".." / ".." / ".." / "bin" / "libprobing.so",
+        current_file.parent / "libprobing.so",
         pathlib.Path.cwd() / "libprobing.so",
         pathlib.Path.cwd() / "target" / "debug" / "libprobing.so",
         pathlib.Path.cwd() / "target" / "release" / "libprobing.so",
