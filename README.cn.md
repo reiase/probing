@@ -35,7 +35,7 @@ pip install probing
 1. **通过命令行注入**
 
 ```shell
-probing <pid> inject [OPTIONS]
+probing -t <pid> inject [OPTIONS]
 ```
 
 选项：`-P,--pprof` 启用 profiling；`-c,--crash` 启用崩溃处理；`-l,--listen <ADDRESS>` 在指定地址服务监听远程连接。
@@ -45,7 +45,7 @@ probing <pid> inject [OPTIONS]
 通过环境变量，可以快速为Python进程启用`probing`
 
 ``` bash
-PROBE=1 python script.py
+PROBING=1 python script.py
 ```
 
 PROBE 环境变量作为激活和配置探针功能的主要机制，支持以下值和行为：
@@ -67,7 +67,7 @@ Probing CLI - A performance and stability diagnostic tool for AI applications
 Usage: probing [OPTIONS] [TARGET] [COMMAND]
 
 Commands:
-  inject     Inject into the target process [aliases: inj, i]
+  inject     Inject into the target process [aliases: in, i]
   config     Display or modify the configuration
   backtrace  Show the backtrace of the target process or thread [aliases: bt]
   eval       Evaluate Python code in the target process

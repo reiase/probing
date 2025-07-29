@@ -172,8 +172,8 @@ probing -t <pid> config
 # Dynamic configuration updates
 probing -t <pid> config probing.sample_rate=0.05
 probing -t <pid> config probing.max_memory=1GB
-probing -t <pid> config probing.rdma.hca.name='mlx5_cx6_0'"
-probing -t <pid> config probing.rdma.sample.rate='5'"
+probing -t <pid> config "probing.rdma.hca.name='mlx5_cx6_0'"
+probing -t <pid> config "probing.rdma.sample.rate='5'"
 ```
 
 ## Development
@@ -224,15 +224,22 @@ pip install dist/probing-*.whl --force-reinstall
 
 ### Testing
 
+prepare your environment:
+
+```bash
+# Install dependencies
+cargo install cargo-nextest --locked
+```
+
 ```bash
 # Run all tests
 make test
 
 # Test with a simple example
-PROBE=1 python examples/test_probing.py
+PROBING=1 python examples/test_probing.py
 
 # Advanced testing with variable tracking
-PROBE_TORCH_EXPRS="loss@train,acc1@train" PROBE=1 python examples/imagenet.py
+PROBING_TORCH_WATCH_VARS="loss@train,acc1@train" PROBE=1 python examples/imagenet.py
 ```
 
 ### Project Structure
