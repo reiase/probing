@@ -28,14 +28,12 @@ impl RawCallLocation {
     #[inline(always)]
     pub fn from(addr: usize, ts: Option<usize>) -> RawCallLocation {
         match unsafe { (PYVERSION.major, PYVERSION.minor) } {
-            (3, 4) | (3, 5) | (3, 6) | (3, 7) | (3, 8) | (3, 9) | (3, 10) => unsafe {
-                // Python 3.4 to 3.9
+            (3, 10) => unsafe {
                 let frame = addr as *const python_bindings::v3_10_0::_frame;
                 let callee = (*frame).f_code;
 
-                if let Some(ts) = ts {
-                    let ts = ts as *const python_bindings::v3_10_0::PyThreadState;
-                    let prev = &(*(*ts).frame);
+                if !(*frame).f_back.is_null() {
+                    let prev = (*frame).f_back;
                     let caller = (*prev).code();
                     let lasti = (*prev).lasti();
                     RawCallLocation::new(callee as usize, Some(caller as usize), lasti)
