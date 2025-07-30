@@ -36,13 +36,14 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
 
 
 def collective_hook():
-    from probing.profiling.collective import trace_all_collectives
 
     import os
-    enble = os.getenv("PB_COLL_ENABLE_TRACE", "False")
-    trace_verbose = os.getenv("PB_COLL_TRACE_VERBOSE", "False")
+    enble = os.getenv("PB_COLL_ENABLE_TRACE", "False") # set to True to enable collective profiling
+    trace_verbose = os.getenv("PB_COLL_TRACE_VERBOSE", "False")  # set to True to see the detailed trace output
 
     if is_true(enble):
+        from probing.profiling.collective import trace_all_collectives
+
         trace_all_collectives(verbose=is_true(trace_verbose))
 
 
