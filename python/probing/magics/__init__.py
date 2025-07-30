@@ -9,16 +9,10 @@ The results of executions are encapsulated in an `ExecutionResult` object,
 which can be easily serialized to JSON.
 """
 
-from ipykernel.inprocess.manager import InProcessKernelManager
-from jupyter_client.session import Session
+# from jupyter_client.session import Session
 from typing import Union, List, Optional
 from dataclasses import dataclass, field, asdict
 import json
-
-from .torch_magic import TorchMagic
-from .debug_magic import DebugMagic
-from .stack_magic import StackMagic
-from .handle_magic import HandleMagic
 
 
 @dataclass
@@ -109,6 +103,8 @@ class CodeExecutor:
     """
 
     def __init__(self):
+        from ipykernel.inprocess.manager import InProcessKernelManager
+
         self.km = InProcessKernelManager()
         self.km.start_kernel()
 
@@ -116,6 +112,11 @@ class CodeExecutor:
         self.kc.start_channels()
 
         if self.km.has_kernel:
+            from .torch_magic import TorchMagic
+            from .debug_magic import DebugMagic
+            from .stack_magic import StackMagic
+            from .handle_magic import HandleMagic
+
             shell = self.km.kernel.shell
             shell.register_magics(TorchMagic(shell=shell))
             shell.register_magics(DebugMagic(shell=shell))
@@ -221,7 +222,7 @@ class DebugConsole(code.InteractiveConsole):
     def __init__(self):
         self.code_executor = CodeExecutor()
         super().__init__()
-            
+
     def runsource(self, source):
         try:
             code = self.compile(source, "<input>", "single")
@@ -230,17 +231,17 @@ class DebugConsole(code.InteractiveConsole):
             retval = self.code_executor.execute(source)
             self.resetbuffer()
             return retval
-        
+
         if code is None: #incomplete code
             return None
-        
+
         retval = self.code_executor.execute(source)
         self.resetbuffer()
         return retval
-    
+
     def push(self, code: str):
         """Pushes code to the executor and executes it.
-        
+
         Examples
         --------
         >>> console = DebugConsole()

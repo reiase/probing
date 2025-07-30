@@ -1,4 +1,4 @@
-data_scripts_dir := probing.data/scripts/
+data_scripts_dir := python/probing
 ifndef DEBUG
 	CARGO_FLAGS := -r
 	TARGET_DIR := release
@@ -14,6 +14,10 @@ else
 	CARGO_BUILD_CMD := zigbuild --target x86_64-unknown-linux-gnu.2.17
 	TARGET_DIR_PREFIX := target/x86_64-unknown-linux-gnu
 endif
+
+PYTHON ?= 3.12
+
+.PHONY: all wheel test pytest clean
 
 all: wheel
 
@@ -41,6 +45,26 @@ ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist
 	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
 
-.PHONY: test
+# .PHONY: test
 test:
 	cargo nextest run --workspace --no-default-features --nff
+
+bootstrap:
+	uv python install 3.8 3.9 3.10 3.11 3.12 3.13
+
+pytest:
+	PYTHONPATH=python/ uv run --python ${PYTHON} \
+		-w pytest \
+		-w websockets \
+		-w pandas \
+		-w torch \
+		-w ipykernel \
+	-- python -m pytest --doctest-modules python/probing
+
+	PYTHONPATH=python/ uv run --python ${PYTHON} \
+		-w pytest \
+		-w websockets \
+		-w pandas \
+		-w torch \
+		-w ipykernel \
+	-- python -m pytest --doctest-modules tests

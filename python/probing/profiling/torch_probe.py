@@ -183,15 +183,15 @@ class Sampler:
         >>> tracer.mode, tracer.rate
         ('ordered', 1.0)
 
-        >>> tracer.set_sampling("random:0.1")
+        >>> tracer.set_sampling_mode("random:0.1")
         >>> tracer.mode, tracer.rate
         ('random', 0.1)
 
-        >>> tracer.set_sampling("ordered:0.5")
+        >>> tracer.set_sampling_mode("ordered:0.5")
         >>> tracer.mode, tracer.rate
         ('ordered', 0.5)
 
-        >>> tracer.set_sampling("invalid:1.5")
+        >>> tracer.set_sampling_mode("invalid:1.5")
         >>> tracer.mode, tracer.rate
         ('ordered', 1.0)
         """
