@@ -35,15 +35,12 @@ ${data_scripts_dir}:
 	test -e ${data_scripts_dir}|| mkdir -p ${data_scripts_dir}
 
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing
-${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing:
 	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probing-cli
-	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
-	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${data_scripts_dir}
 
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
-${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: app/dist
 	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
-	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
 
 # .PHONY: test
 test:
@@ -68,3 +65,6 @@ pytest:
 		-w torch \
 		-w ipykernel \
 	-- python -m pytest --doctest-modules tests
+
+clean:
+	rm -rf target dist

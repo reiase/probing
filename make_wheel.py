@@ -29,7 +29,7 @@ def write_wheel_file(filename, contents):
     with WheelFile(filename, "w") as wheel:
         for member_info, member_source in contents.items():
             if not isinstance(member_info, ZipInfo):
-                member_info = ZipInfo(member_info)
+                member_info = ZipInfo(str(member_info))
                 member_info.external_attr = 0o644 << 16
             member_info.file_size = len(member_source)
             member_info.compress_type = ZIP_DEFLATED
@@ -85,38 +85,34 @@ def write_probing_wheel(
 
     # Create the output directory if it does not exist
     out_dir_path = pathlib.Path(out_dir)
-    if not out_dir_path.exists():
-        out_dir_path.mkdir(parents=True)
+    out_dir_path.mkdir(parents=True, exist_ok=True)
 
     if "ZIG" in os.environ:
-        target_dir_prefix = f"target/x86_64-unknown-linux-gnu/{target_dir}"
+        target_dir_prefix = pathlib.Path(f"target/x86_64-unknown-linux-gnu/{target_dir}")
     else:
-        target_dir_prefix = f"target/{target_dir}"
+        target_dir_prefix = pathlib.Path(f"target/{target_dir}")
 
-    for name, path in {
-        "probing": f"{target_dir_prefix}/probing",
-        "libprobing.so": f"{target_dir_prefix}/libprobing.so",
-        "probing-repl": "python/probing-repl",
+    # Add executables and the shared library directly from the build directory
+    for dest, src in {
+        pathlib.Path(f"probing-{metadata['version']}.data/scripts/probing"):target_dir_prefix / "probing",
+        pathlib.Path(f"probing-{metadata['version']}.data/scripts/probing-repl"):pathlib.Path("python/probing-repl"),
+        pathlib.Path("probing/libprobing.so"): target_dir_prefix / "libprobing.so",
     }.items():
-        zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")
-        zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
-        with open(path, "rb") as f:
+        zip_info = ZipInfo(str(dest))
+        if ".data/scripts/" in str(dest):
+            zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
+        else:
+            zip_info.external_attr = (stat.S_IFREG | 0o644) << 16
+
+        with open(src, "rb") as f:
             contents[zip_info] = f.read()
-                    
-    def add_python_files_recursively(directory, contents, base_dir):
-        """Recursively add Python files from directory to contents.
-        
-        Args:
-            directory: The directory to process
-            contents: The dict to add files to
-            base_dir: The base directory for relative paths
-        """
+
+    def add_package_files_recursively(directory, contents, base_dir):
+        """Recursively add package files from directory to contents."""
         dir_path = pathlib.Path(directory)
-        
-        # Process all entries in the directory
+
         for entry in dir_path.iterdir():
             if entry.is_file() and entry.suffix == '.py':
-                # Handle Python file
                 pkg_path = entry.relative_to(base_dir)
                 with open(entry, "rb") as f:
                     zip_info = ZipInfo(str(pkg_path))
@@ -124,13 +120,12 @@ def write_probing_wheel(
                     contents[zip_info] = f.read()
                     print(f"add file: {pkg_path}")
             elif entry.is_dir():
-                # Recursively process subdirectory
-                add_python_files_recursively(entry, contents, base_dir)
-    
-    python_dir = pathlib.Path("python")
-    add_python_files_recursively(python_dir, contents, python_dir)
+                add_package_files_recursively(entry, contents, base_dir)
 
-    pth_info = ZipInfo(f"probing.pth")
+    python_dir = pathlib.Path("python")
+    add_package_files_recursively(python_dir, contents, python_dir)
+
+    pth_info = ZipInfo("probing.pth")
     contents[pth_info] = "import probing_hook".encode("utf-8")
 
     with open("README.md", "rb") as f:
