@@ -4,11 +4,11 @@ use crate::features::spy::PYVERSION;
 
 use crate::features::spy::python_interpreters::{BytesObject, CodeObject, StringObject};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct RawCallLocation {
-    callee: usize,
-    caller: Option<usize>,
-    offset: i32,
+    pub callee: usize,
+    pub caller: Option<usize>,
+    pub offset: i32,
 }
 
 impl RawCallLocation {
