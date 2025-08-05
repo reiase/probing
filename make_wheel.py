@@ -88,9 +88,14 @@ def write_probing_wheel(
     if not out_dir_path.exists():
         out_dir_path.mkdir(parents=True)
 
+    if "ZIG" in os.environ:
+        target_dir_prefix = f"target/x86_64-unknown-linux-gnu/{target_dir}"
+    else:
+        target_dir_prefix = f"target/{target_dir}"
+
     for name, path in {
-        "probing": f"target/x86_64-unknown-linux-gnu/{target_dir}/probing",
-        "libprobing.so": f"target/x86_64-unknown-linux-gnu/{target_dir}/libprobing.so",
+        "probing": f"{target_dir_prefix}/probing",
+        "libprobing.so": f"{target_dir_prefix}/libprobing.so",
         "probing-repl": "python/probing-repl",
     }.items():
         zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")
