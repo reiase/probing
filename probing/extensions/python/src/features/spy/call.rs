@@ -102,7 +102,7 @@ impl RawCallLocation {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct Symbol {
     pub name: String,
     pub file: String,
@@ -126,7 +126,12 @@ where
             let name = (*value).name();
             let file = (*value).filename();
             let line = (*value).first_lineno();
-
+            // if name.is_null() || !name.is_aligned() || file.is_null() || !file.is_aligned() {
+            //     return Err(std::io::Error::new(
+            //         std::io::ErrorKind::InvalidData,
+            //         "Name or file pointer is null",
+            //     ));
+            // }
             Ok(Symbol {
                 name: copy_string(
                     (*name).address(name as usize) as *const u8,
@@ -146,7 +151,7 @@ where
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct CallLocation {
     pub callee: Symbol,
     pub caller: Option<Symbol>,
@@ -267,8 +272,8 @@ fn parse_lineno<T: CodeObject>(code: *const T, lasti: i32) -> i32 {
     }
 }
 
-fn copy_string(addr: *const u8, len: usize, kind: u32, ascii: bool) -> String {
-    let len = if len > 1024 { 1024 } else { len };
+fn copy_string(addr: *const u8, length: usize, kind: u32, ascii: bool) -> String {
+    let len = if length > 1024 { 1024 } else { length };
     match (kind, ascii) {
         (4, _) => {
             let chars = unsafe { std::slice::from_raw_parts(addr as *const char, len / 4) };

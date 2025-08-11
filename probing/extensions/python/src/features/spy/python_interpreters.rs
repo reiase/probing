@@ -251,12 +251,18 @@ macro_rules! PythonCodeObjectImpl {
 
 fn read_varint(index: &mut usize, table: &[u8]) -> usize {
     let mut ret: usize;
+    if *index >= table.len() {
+        return 0;
+    }
     let mut byte = table[*index];
     let mut shift = 0;
     *index += 1;
     ret = (byte & 63) as usize;
 
     while byte & 64 != 0 {
+        if *index >= table.len() {
+            return 0;
+        }
         byte = table[*index];
         *index += 1;
         shift += 6;
