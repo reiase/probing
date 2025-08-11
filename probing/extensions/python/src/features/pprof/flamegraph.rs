@@ -1,4 +1,4 @@
-use crate::features::pprof::{PPROF_CACHE, PPROF_RECORDS};
+use crate::features::pprof::PPROF_CACHE;
 use probing_proto::prelude::CallFrame;
 
 pub(crate) struct Report {
