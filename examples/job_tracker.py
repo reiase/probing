@@ -34,7 +34,7 @@ def start_job_hook():
     response.raise_for_status()
 
 def end_job_hook():
-    if int(os.getenv('GROUP_RANK')) == 0 and int(os.getenv('LOCAL_RANK')) == 0:
+    if int(rank) == 0:
         """
         记录作业结束信息 (通过 atexit 注册)
         """
