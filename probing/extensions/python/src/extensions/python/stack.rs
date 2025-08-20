@@ -20,17 +20,25 @@ pub fn get_python_stacks(pid: py_spy::Pid) -> Option<Vec<CallFrame>> {
         }
     };
 
-    // figure out the python stack for each thread
+    // Determine the Python stack for each thread
     for trace in traces {
         log::debug!("!!!!Thread {:#X} ({})", trace.thread_id, trace.status_str());
-        for frame in &trace.frames {
-            log::debug!("!!!!!\t {} ({}:{})", frame.name, frame.filename, frame.line);
-            frames.push(CallFrame::PyFrame {
-                file: frame.filename.clone(),
-                func: frame.name.clone(),
-                lineno: frame.line as i64,
-                locals: convert_locals_to_map(frame.locals.clone()),
-            });
+        
+        // Check if <module> is the last frame in the current thread's stack
+        let has_module_as_last_frame = trace.frames.last()
+            .map_or(false, |frame| frame.name.contains("<module>"));
+        
+        // If the last frame is <module>, add all frames of this thread to frames
+        if has_module_as_last_frame {
+            for frame in &trace.frames {
+                log::debug!("!!!!!\t {} ({}:{})", frame.name, frame.filename, frame.line);
+                frames.push(CallFrame::PyFrame {
+                    file: frame.filename.clone(),
+                    func: frame.name.clone(),
+                    lineno: frame.line as i64,
+                    locals: convert_locals_to_map(frame.locals.clone()),
+                });
+            }
         }
     }
 

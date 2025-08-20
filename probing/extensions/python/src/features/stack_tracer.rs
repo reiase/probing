@@ -10,6 +10,10 @@ use nix::libc;
 use once_cell::sync::Lazy;
 
 use probing_proto::prelude::CallFrame;
+use std::fs;
+use std::env;
+use std::io::Write;
+use chrono::Local;
 
 use super::super::extensions::python::get_python_stacks;
 
@@ -195,6 +199,64 @@ pub fn backtrace_signal_handler() {
         "native stacks (initial send)",
     ) {
         log::error!("Signal handler: CRITICAL - Failed to send native stacks. Receiver might timeout or get incomplete data.");
+    }
+}
+
+pub extern "C" fn exit_segvsignal_handler(_signum: libc::c_int) {
+    exit_signal_handler();
+    std::process::exit(1);
+}
+
+pub fn exit_signal_handler() {    
+    let pid = nix::unistd::getpid().as_raw(); // PID of the current process (thread group ID)
+
+    // Get rank number, use "unknown" if retrieval fails
+    let rank = env::var("RANK").unwrap_or_else(|_| "unknown".to_string());
+
+    let cpp_frames = SignalTracer::get_native_stacks().unwrap_or_default();
+    let python_frames = get_python_stacks(pid);
+    let python_frames = python_frames.unwrap();
+
+    let merged_frames = SignalTracer::merge_python_native_stacks(python_frames, cpp_frames);
+
+    // Convert merged stack information to string
+    let merged_str = serde_json::to_string_pretty(&merged_frames)
+        .map_err(|e| {
+            log::error!("Failed to serialize merged frames to JSON: {}", e);
+        })
+        .unwrap_or_default();
+
+    // Prioritize using OUTPUT_DIR environment variable, fallback to default path
+    let log_dir = env::var("OUTPUT_DIR").unwrap_or_else(|_| "/tmp/probing_log".to_string());
+    
+    // Ensure log directory exists
+    if let Err(e) = fs::create_dir_all(&log_dir) {
+        log::error!("Failed to create log directory: {}", e);
+        return;
+    }
+
+    // Generate timestamp with date (format: YYYYMMDD_HHMMSS)
+    let timestamp = Local::now().format("%Y%m%d_%H%M").to_string();
+    // Create output_xxx folder under the log directory
+    let output_dir = format!("{}/output_{}", log_dir, timestamp);
+    if let Err(e) = fs::create_dir_all(&output_dir) {
+        log::error!("Failed to create output directory {}: {}", output_dir, e);
+        return;
+    }
+
+    // Write mergedstack_rank{}.json into output_xxx folder
+    let merged_file_name = format!("{}/mergedstack_rank{}.json", output_dir, rank);
+
+    // Write merged stack information to file
+    if let Err(e) = fs::File::create(&merged_file_name)
+        .and_then(|mut file| file.write_all(merged_str.as_bytes())) 
+    {
+        log::error!("Failed to write merged stack to file {}: {}", merged_file_name, e);
+    } else {
+        log::info!(
+            "[rank{}] exited signal recieved, merged stacks has been 
+            Successfully written to the directory {}", rank, output_dir
+        );
     }
 }
 
