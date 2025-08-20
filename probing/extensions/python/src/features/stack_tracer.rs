@@ -249,13 +249,11 @@ pub fn exit_signal_handler() {
 
     // Write merged stack information to file
     if let Err(e) = fs::File::create(&merged_file_name)
-        .and_then(|mut file| file.write_all(merged_str.as_bytes())) 
-    {
+        .and_then(|mut file| file.write_all(merged_str.as_bytes())) {
         log::error!("Failed to write merged stack to file {}: {}", merged_file_name, e);
     } else {
-        log::info!(
-            "[rank{}] exited signal recieved, merged stacks has been 
-            Successfully written to the directory {}", rank, output_dir
+        println!(
+            "[rank{}] exited signal recieved, merged stacks has been Successfully written to the directory {}", rank, output_dir
         );
     }
 }
