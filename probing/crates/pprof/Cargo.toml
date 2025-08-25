@@ -12,4 +12,5 @@ crate-type = ["rlib"]
 nix = {workspace = true}
 ctor = {workspace = true}
 log = { workspace = true }
+once_cell = { workspace = true }
 signal-hook-registry = "1.4.2"

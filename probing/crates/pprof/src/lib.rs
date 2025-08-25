@@ -9,12 +9,21 @@ pub use signal::set_pprof_signal_handler;
 pub use signal::SignalHandler;
 pub use timer::reset_pprof_timer;
 
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
 #[derive(Default)]
 pub struct PProf {
     freq: i64,
 }
 
 impl PProf {
+    pub fn new() -> Self {
+        PProf {
+            freq: 0,
+        }
+    }
+
     pub fn start(&mut self, freq: Option<i64>) {
         if let Some(freq) = freq {
             self.freq = freq;
@@ -34,4 +43,7 @@ impl PProf {
     }
 }
 
-pub static mut PPROF: std::sync::LazyLock<PProf> = std::sync::LazyLock::new(Default::default);
+// pub static mut PPROF: std::sync::LazyLock<PProf> = std::sync::LazyLock::new(Default::default);
+pub static PPROF: Lazy<Mutex<PProf>> = Lazy::new(|| {
+    Mutex::new(PProf::new())
+});

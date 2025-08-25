@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use anyhow::Result;
+use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
@@ -18,8 +19,12 @@ use crate::features::spy::call::CallLocation;
 use crate::features::spy::PYSTACKS;
 use crate::features::stack_tracer::merge_python_native_stacks;
 
-static mut PPROF_CHANNEL: LazyLock<(mpsc::Sender<PProfRecord>, mpsc::Receiver<PProfRecord>)> =
-    LazyLock::new(|| mpsc::channel(100));
+// static mut PPROF_CHANNEL: LazyLock<(mpsc::Sender<PProfRecord>, mpsc::Receiver<PProfRecord>)> =
+//     LazyLock::new(|| mpsc::channel(100));
+static PPROF_CHANNEL: Lazy<Mutex<(mpsc::Sender<PProfRecord>, mpsc::Receiver<PProfRecord>)>> = Lazy::new(|| {
+    let (sender, receiver) = mpsc::channel(100);
+    Mutex::new((sender, receiver))
+});
 
 pub static mut PPROF_CACHE: LazyLock<RwLock<LinkedList<PProfRecord>>> =
     LazyLock::new(|| RwLock::new(LinkedList::new()));
@@ -98,22 +103,30 @@ unsafe extern "C" fn pprof_handler() {
         .iter()
         .map(|f| f.resolve().ok())
         .collect::<Vec<_>>();
+    
+    let channel_result = PPROF_CHANNEL.try_lock();
 
-    match PPROF_CHANNEL.0.try_send(PProfRecord {
+    if let Ok(channel_guard) = channel_result {
+        match channel_guard.0.try_send(PProfRecord {
         thread,
         cframes,
-        pyframes,
-    }) {
-        Ok(_) => {}
-        Err(e) => {
-            log::debug!("Failed to send pprof record: {}", e);
+        pyframes,}) {
+            Ok(_) => {
+            
+            }
+            Err(e) => {
+                eprintln!("Warning: PProf channel send failed: {}", e);
+            }
         }
-    };
+    } else {
+        eprint!("Warning: PProf channel lock failed");
+    }
 }
 
 #[allow(static_mut_refs)]
 pub async fn pprof_task() {
-    let receiver = unsafe { &mut PPROF_CHANNEL.1 };
+    let mut channel = PPROF_CHANNEL.try_lock().unwrap();
+    let receiver = &mut channel.1;
 
     log::debug!("Starting pprof task to receive records");
     let backtrace_id: u64 = 0;
@@ -136,10 +149,9 @@ pub async fn pprof_task() {
 #[allow(static_mut_refs)]
 pub fn setup(freq: i64) {
     log::debug!("Setting up pprof with frequency: {}", freq);
-    unsafe {
-        PPROF.set_handler(pprof_handler);
-        PPROF.start(Some(freq));
-    }
+    let mut pprof = PPROF.lock().unwrap();
+    pprof.set_handler(pprof_handler);
+    pprof.start(Some(freq));
 }
 
 pub fn flamegraph() -> Result<String> {
