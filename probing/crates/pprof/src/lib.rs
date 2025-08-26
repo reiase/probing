@@ -19,9 +19,7 @@ pub struct PProf {
 
 impl PProf {
     pub fn new() -> Self {
-        PProf {
-            freq: 0,
-        }
+        PProf { freq: 0 }
     }
 
     pub fn start(&mut self, freq: Option<i64>) {
@@ -44,6 +42,4 @@ impl PProf {
 }
 
 // pub static mut PPROF: std::sync::LazyLock<PProf> = std::sync::LazyLock::new(Default::default);
-pub static PPROF: Lazy<Mutex<PProf>> = Lazy::new(|| {
-    Mutex::new(PProf::new())
-});
+pub static PPROF: Lazy<Mutex<PProf>> = Lazy::new(|| Mutex::new(PProf::new()));

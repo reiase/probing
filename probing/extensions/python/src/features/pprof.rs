@@ -23,7 +23,7 @@ use crate::features::stack_tracer::merge_python_native_stacks;
 struct ChannelManager {
     sender: mpsc::Sender<PProfRecord>,
     receiver: mpsc::Receiver<PProfRecord>,
-    is_closed: bool, // Check if the channel is closed
+    is_closed: bool,    // Check if the channel is closed
     buffer_size: usize, // Buffer size for the channel
     receiver_taken: bool,
 }
@@ -56,9 +56,9 @@ impl ChannelManager {
             log::warn!("Receiver Is Already Taken, this is a single consumer model.");
             return None;
         }
-        
+
         self.receiver_taken = true;
-        
+
         // Replace the existing receiver with a new one to prevent further use
         let (_, empty_receiver) = mpsc::channel(100);
         Some(std::mem::replace(&mut self.receiver, empty_receiver))
@@ -66,9 +66,8 @@ impl ChannelManager {
 }
 
 lazy_static! {
-    static ref CHANNEL_MANAGER: Arc<Mutex<ChannelManager>> = Arc::new(Mutex::new(
-        ChannelManager::new(100)
-    ));
+    static ref CHANNEL_MANAGER: Arc<Mutex<ChannelManager>> =
+        Arc::new(Mutex::new(ChannelManager::new(100)));
 }
 
 async fn get_sender() -> Option<mpsc::Sender<PProfRecord>> {
@@ -85,10 +84,11 @@ async fn get_sender() -> Option<mpsc::Sender<PProfRecord>> {
 pub static mut PPROF_CACHE: LazyLock<RwLock<LinkedList<PProfRecord>>> =
     LazyLock::new(|| RwLock::new(LinkedList::new()));
 
-
 pub async fn send_record(record: PProfRecord) -> Result<(), String> {
     // Asynchronously get the sender
-    let sender = get_sender().await.ok_or("Channel is not healthy, cannot get sender")?;
+    let sender = get_sender()
+        .await
+        .ok_or("Channel is not healthy, cannot get sender")?;
 
     // Try to send the record with 3 retries
     for attempt in 1..=3 {
@@ -123,8 +123,13 @@ pub struct PProfRecord {
 
 impl fmt::Display for PProfRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PProfRecord {{ thread: {}, cframes: {}, pyframes: {} }}", 
-               self.thread, self.cframes.len(), self.pyframes.len())
+        write!(
+            f,
+            "PProfRecord {{ thread: {}, cframes: {}, pyframes: {} }}",
+            self.thread,
+            self.cframes.len(),
+            self.pyframes.len()
+        )
     }
 }
 
@@ -195,13 +200,13 @@ unsafe extern "C" fn pprof_handler() {
         .iter()
         .map(|f| f.resolve().ok())
         .collect::<Vec<_>>();
-    
+
     let record = PProfRecord {
         thread,
         cframes,
         pyframes,
     };
-    
+
     // Use a separate async runtime to send the record
     let _ = tokio::runtime::Runtime::new()
         .unwrap()
@@ -221,7 +226,7 @@ pub async fn pprof_task() {
     };
 
     log::info!("Receiver start work...");
-    
+
     let mut receiver = receiver;
     while let Some(record) = receiver.recv().await {
         log::info!("[RECEIVED]: {}", record);
