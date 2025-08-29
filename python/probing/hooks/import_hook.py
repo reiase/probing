@@ -2,6 +2,7 @@ import importlib.abc
 import importlib.util
 import sys
 
+from probing.ext.torch import init as torch_init
 from probing.ext.iteroutput_hook import init as iteroutput_init
 from probing.ext.checkpoint_log import init as checkpoint_log_init
 from probing.ext.error_log import init as error_log_init
@@ -9,7 +10,7 @@ from probing.ext.iter_log import init as iter_log_init
 # Mapping from module names to callback functions
 register = {
     #  "torch": iteroutput_init, 
-    "torch": [iter_log_init,checkpoint_log_init],
+    "torch": [torch_init,iter_log_init,checkpoint_log_init],
     # "megatron.training": checkpoint_log_init,
 }
 # Record modules that have been triggered
