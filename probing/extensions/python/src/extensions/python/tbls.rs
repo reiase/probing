@@ -167,7 +167,7 @@ impl CustomNamespace for PythonNamespace {
     fn list() -> Vec<String> {
         let mut tables = super::exttbls::EXTERN_TABLES.lock().map_or_else(
             |e| {
-                log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
+                log::error!("Failed to lock EXTERN_TABLES: {e:?}");
                 vec![]
             },
             |binding| binding.keys().cloned().collect(),
@@ -181,7 +181,7 @@ impl CustomNamespace for PythonNamespace {
             match Self::get_backtrace_data() {
                 Ok(batches) => batches,
                 Err(e) => {
-                    error!("Error getting backtrace data: {:?}", e);
+                    error!("Error getting backtrace data: {e:?}");
                     vec![]
                 }
             }
@@ -189,7 +189,7 @@ impl CustomNamespace for PythonNamespace {
             match Self::data_from_extern(expr) {
                 Ok(batches) => batches,
                 Err(e) => {
-                    error!("Error getting data from extern: {:?}", e);
+                    error!("Error getting data from extern: {e:?}");
                     vec![]
                 }
             }
@@ -197,7 +197,7 @@ impl CustomNamespace for PythonNamespace {
             match Self::data_from_python(expr) {
                 Ok(batches) => batches,
                 Err(e) => {
-                    error!("Error getting data from Python: {:?}", e);
+                    error!("Error getting data from Python: {e:?}");
                     vec![]
                 }
             }
@@ -221,7 +221,7 @@ impl CustomNamespace for PythonNamespace {
 
         let binding = super::exttbls::EXTERN_TABLES.lock().map_or_else(
             |e| {
-                log::error!("Failed to lock EXTERN_TABLES: {:?}", e);
+                log::error!("Failed to lock EXTERN_TABLES: {e:?}");
                 Default::default()
             },
             |binding| binding.clone(),

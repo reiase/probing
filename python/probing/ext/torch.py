@@ -34,11 +34,23 @@ def optimizer_step_post_hook(optimizer, *args, **kwargs):
 
         next_step()
 
+def collective_hook():
+
+    import os
+    enble = os.getenv("PB_COLL_TRACE", "False") # set to True to enable collective profiling
+    trace_verbose = os.getenv("PB_COLL_TRACE_VERBOSE", "False")  # set to True to see the detailed trace output
+
+    if is_true(enble):
+        from collective_trace import trace_all_collectives
+
+        trace_all_collectives(verbose=is_true(trace_verbose))
 
 def init():
     from torch.optim.optimizer import register_optimizer_step_post_hook
 
     register_optimizer_step_post_hook(optimizer_step_post_hook)
+
+    collective_hook()
 
 
 def deinit():

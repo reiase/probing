@@ -1,7 +1,5 @@
 // build.rs
-use vergen::{
-    BuildBuilder, Emitter, RustcBuilder,
-};
+use vergen::{BuildBuilder, Emitter, RustcBuilder};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let build = BuildBuilder::all_build()?;

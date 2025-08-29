@@ -79,11 +79,7 @@ impl Decompressable for Seq {
             EleType::BOOL => {
                 let data = simple_decompress::<i32>(data)
                     .map_err(|e| ProtoError::CompressError(e.to_string()))?;
-                Seq::SeqBOOL(
-                    data.iter()
-                        .map(|&x| if x != 0 { true } else { false })
-                        .collect(),
-                )
+                Seq::SeqBOOL(data.iter().map(|&x| x != 0).collect())
             }
             EleType::I32 => Seq::SeqI32(
                 simple_decompress::<i32>(data)

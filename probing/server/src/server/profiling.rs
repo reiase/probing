@@ -1,11 +1,10 @@
 use axum::response::IntoResponse;
-use probing_python::{flamegraph::flamegraph, pprof::PPROF_HOLDER};
 
 use super::error::ApiResult;
 
 /// Generate flamegraph using torch profiler
 pub async fn get_torch_flamegraph() -> ApiResult<impl IntoResponse> {
-    let graph = flamegraph();
+    let graph = probing_python::features::torch::flamegraph();
     Ok((
         [
             ("Content-Type", "image/svg+xml"),
@@ -17,7 +16,7 @@ pub async fn get_torch_flamegraph() -> ApiResult<impl IntoResponse> {
 
 /// Generate flamegraph using pprof
 pub async fn get_pprof_flamegraph() -> ApiResult<impl IntoResponse> {
-    match PPROF_HOLDER.flamegraph() {
+    match probing_python::features::pprof::flamegraph() {
         Ok(graph) => Ok((
             [
                 ("Content-Type", "image/svg+xml"),

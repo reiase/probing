@@ -5,8 +5,6 @@ use probing_core::core::EngineExtension;
 use probing_core::core::EngineExtensionOption;
 use probing_core::core::Maybe;
 
-use crate::pprof::PPROF_HOLDER;
-
 #[derive(Debug, Default, EngineExtension)]
 pub struct PprofExtension {
     /// CPU profiling sample frequency in Hz (higher values increase overhead)
@@ -38,7 +36,12 @@ impl PprofExtension {
                         ));
                     }
                     self.sample_freq = pprof_sample_freq.clone();
-                    PPROF_HOLDER.setup(freq);
+                    crate::features::pprof::setup(freq as u64).map_err(|e| {
+                        EngineError::InvalidOptionValue(
+                            Self::OPTION_SAMPLE_FREQ.to_string(),
+                            e.to_string(),
+                        )
+                    })?;
                     Ok(())
                 }
             },

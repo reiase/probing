@@ -1,4 +1,6 @@
 mod apis;
+mod repl;
+
 pub mod cluster;
 pub mod config;
 pub mod error;
@@ -15,6 +17,7 @@ use once_cell::sync::Lazy;
 
 use crate::asset::{index, static_files};
 use crate::engine::{handle_query, initialize_engine};
+use crate::server::repl::ws_handler;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use middleware::{request_logging_middleware, request_size_limit_middleware};
@@ -27,7 +30,7 @@ async fn get_config_value_handler(
         Ok(value) => (StatusCode::OK, value).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Error retrieving config '{}': {}", config_key, e),
+            format!("Error retrieving config '{config_key}': {e}"),
         )
             .into_response(),
     }
@@ -68,6 +71,7 @@ fn build_app(auth: bool) -> axum::Router {
             axum::routing::get(get_config_value_handler),
         )
         .nest_service("/apis", apis_route())
+        .route("/ws", axum::routing::get(ws_handler))
         .fallback(static_files)
         // Apply request size limiting middleware
         .layer(axum::middleware::from_fn(request_size_limit_middleware))
@@ -95,7 +99,7 @@ async fn query(body: String) -> impl IntoResponse {
 pub async fn local_server() -> Result<()> {
     let socket_path = format!("\0probing-{}", std::process::id());
 
-    eprintln!("Starting local server at {}", socket_path);
+    log::info!("Starting local server at {socket_path}");
 
     let app = build_app(false);
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;
@@ -117,7 +121,7 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
     use nu_ansi_term::Color::{Green, Red};
 
     let addr = addr.unwrap_or_else(|| "0.0.0.0:0".to_string());
-    log::info!("Starting probe server at {}", addr);
+    log::info!("Starting probe server at {addr}");
 
     let app = build_app(true);
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -128,15 +132,13 @@ pub async fn remote_server(addr: Option<String>) -> Result<()> {
                 let mut probing_address = crate::vars::PROBING_ADDRESS.write().unwrap();
                 *probing_address = addr.to_string();
             }
-            eprintln!("{}", Red.bold().paint("probing server is available on:"));
-            eprintln!("\t{}", Green.bold().underline().paint(addr.to_string()));
+            log::info!("probing server is available on:");
+            log::info!("\t{}",addr.to_string());
             probing_core::config::set("server.address", &addr.to_string()).await?;
         }
         Err(err) => {
-            eprintln!(
-                "{}",
-                Red.bold()
-                    .paint(format!("error getting server address: {err}"))
+            log::info!(
+                "error getting server address: {err}"
             );
         }
     }
@@ -171,7 +173,7 @@ pub fn sync_env_settings() {
     SERVER_RUNTIME.spawn(async move {
         for (k, v) in env_vars {
             let k = k.replace("_", ".").to_lowercase();
-            let setting = format!("set {}={}", k, v);
+            let setting = format!("set {k}={v}");
             // Since handle_query might not be async itself, but interacts with
             // components managed by the runtime, it's safer to run it within
             // the runtime's context. If handle_query becomes async, add .await
@@ -182,10 +184,10 @@ pub fn sync_env_settings() {
             .await
             {
                 Ok(_) => {
-                    log::debug!("Synced env setting: {}", k);
+                    log::debug!("Synced env setting: {k}");
                 }
                 Err(err) => {
-                    error!("Failed to sync env settings: set {}={}, {err}", k, v);
+                    error!("Failed to sync env settings: set {k}={v}, {err}");
                 }
             };
         }

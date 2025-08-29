@@ -26,14 +26,10 @@ pub async fn request_size_limit_middleware(
     // If content-length is present and exceeds limit, reject immediately
     if let Some(length) = content_length {
         if length > max_size {
-            log::warn!(
-                "Request rejected: Content-Length {} exceeds limit {}",
-                length,
-                max_size
-            );
+            log::warn!("Request rejected: Content-Length {length} exceeds limit {max_size}");
             return Err((
                 StatusCode::PAYLOAD_TOO_LARGE,
-                format!("Request body too large (max {} bytes allowed)", max_size),
+                format!("Request body too large (max {max_size} bytes allowed)"),
             )
                 .into_response());
         }
@@ -47,10 +43,10 @@ pub async fn request_size_limit_middleware(
     let body_bytes = match collect_body_with_limit(body, max_size).await {
         Ok(bytes) => bytes,
         Err(e) => {
-            log::warn!("Request body collection failed: {}", e);
+            log::warn!("Request body collection failed: {e}");
             return Err((
                 StatusCode::PAYLOAD_TOO_LARGE,
-                format!("Request body too large (max {} bytes allowed)", max_size),
+                format!("Request body too large (max {max_size} bytes allowed)"),
             )
                 .into_response());
         }
@@ -85,7 +81,7 @@ pub async fn request_logging_middleware(request: Request, next: Next) -> Respons
     let uri = request.uri().to_string();
     let start = std::time::Instant::now();
 
-    log::debug!("Incoming request: {} {}", method, uri);
+    log::debug!("Incoming request: {method} {uri}");
 
     let response = next.run(request).await;
     let duration = start.elapsed();

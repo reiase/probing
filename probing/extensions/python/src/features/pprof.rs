@@ -15,7 +15,7 @@ impl PprofHolder {
     }
 
     pub fn setup(&self, freq: i32) {
-        log::debug!("setup pprof with sample freq: {}", freq);
+        log::debug!("setup pprof with sample freq: {freq}");
         let _ = self.0.lock().map(|mut holder| {
             match ProfilerGuardBuilder::default().frequency(freq).build() {
                 Ok(ph) => holder.replace(ph),
@@ -56,4 +56,13 @@ pub static PPROF_HOLDER: Lazy<PprofHolder> = Lazy::new(|| PprofHolder(Mutex::new
 
 pub fn pprof_handler() {
     PPROF_HOLDER.setup(100);
+}
+
+pub fn setup(freq: u64) -> Result<()> {
+    PPROF_HOLDER.setup(freq as i32);
+    Ok(())
+}
+
+pub fn flamegraph() -> Result<String> {
+    PPROF_HOLDER.flamegraph()
 }

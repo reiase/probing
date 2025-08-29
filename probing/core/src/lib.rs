@@ -1,5 +1,6 @@
 pub mod config;
 pub mod core;
+pub mod storage;
 pub mod trace;
 
 use self::core::Engine;
@@ -19,7 +20,7 @@ pub async fn initialize_engine(builder: EngineBuilder) -> Result<()> {
     let engine = match builder.build() {
         Ok(engine) => engine,
         Err(e) => {
-            log::error!("Error creating engine: {}", e);
+            log::error!("Error creating engine: {e}");
             return Err(e.into());
         }
     };

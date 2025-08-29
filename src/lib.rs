@@ -3,13 +3,11 @@ extern crate ctor;
 
 use anyhow::Result;
 
-use probing_python::create_probing_module;
+use probing_python::features::python_api::create_probing_module;
 use probing_server::sync_env_settings;
 
 const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
-
-const DEFAULT_PORT: u16 = 9700;
 
 #[cfg(feature = "use-mimalloc")]
 #[global_allocator]
@@ -48,7 +46,7 @@ pub fn get_hostname() -> Result<String> {
 #[ctor]
 fn setup() {
     let pid = std::process::id();
-    eprintln!("Initializing libprobing for process {pid} ...",);
+    log::info!("Initializing libprobing for process {pid} ...",);
 
     // initialize logging
     env_logger::init_from_env(env_logger::Env::new().filter(ENV_PROBING_LOGLEVEL));
@@ -71,8 +69,7 @@ fn setup() {
                 match port_env_val.parse::<u16>() {
                     Ok(port_number) => {
                         log::debug!(
-                            "ENV_PROBING_PORT specifies port: {}. PROBING_SERVER_ADDR will be set.",
-                            port_number
+                            "ENV_PROBING_PORT specifies port: {port_number}. PROBING_SERVER_ADDR will be set."
                         );
                         report_port_basis = Some(port_number);
 
@@ -81,27 +78,29 @@ fn setup() {
                             .parse()
                             .unwrap_or(0);
                         let serving_port = port_number.saturating_add(local_rank);
-                        // let hostname = if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
-                        //     "0.0.0.0".to_string()
-                        // } else {
-                        //     get_hostname().unwrap_or_else(|err| {
-                        //         log::warn!("Failed to get hostname: {}, defaulting to localhost", err);
-                        //         "localhost".to_string()
-                        //     })
-                        // };
-                        
-                        // 所有rank都绑定到0.0.0.0，而不是只有rank=0
-                        let hostname = "0.0.0.0".to_string();
-                        std::env::set_var("PROBING_SERVER_ADDR", format!("'{}:{}'", hostname, serving_port));
+
+                        let hostname =
+                            if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
+                                "0.0.0.0".to_string()
+                            } else {
+                                get_hostname().unwrap_or_else(|err| {
+                                    log::warn!(
+                                        "Failed to get hostname: {err}, defaulting to localhost"
+                                    );
+                                    "localhost".to_string()
+                                })
+                            };
+                        std::env::set_var(
+                            "PROBING_SERVER_ADDR",
+                            format!("'{hostname}:{serving_port}'"),
+                        );
                         log::debug!(
-                            "PROBING_SERVER_ADDR set to {}:{} (base: {}, local_rank: {}).",
-                            hostname, serving_port, port_number, local_rank
+                            "PROBING_SERVER_ADDR set to {hostname}:{serving_port} (base: {port_number}, local_rank: {local_rank})."
                         );
                     }
                     Err(_) => {
                         log::warn!(
-                            "ENV_PROBING_PORT value '{}' is not 'RANDOM' and not a valid port number. PROBING_SERVER_ADDR will not be set. Remote server not started by sync_env_settings.",
-                            port_env_val
+                            "ENV_PROBING_PORT value '{port_env_val}' is not 'RANDOM' and not a valid port number. PROBING_SERVER_ADDR will not be set. Remote server not started by sync_env_settings."
                         );
                         // PROBING_SERVER_ADDR is not set
                     }
@@ -117,11 +116,12 @@ fn setup() {
     // Setup reporting address only if a base port was determined (specific port, not RANDOM)
     if let Some(base_port_for_reporting) = report_port_basis {
         if let Ok(master_addr) = std::env::var("MASTER_ADDR") {
-            if !master_addr.is_empty() { // Ensure MASTER_ADDR is not empty
-                log::debug!("Configuring PROBING_SERVER_REPORT_ADDR to {}:{} based on MASTER_ADDR and base port", master_addr, base_port_for_reporting);
+            if !master_addr.is_empty() {
+                // Ensure MASTER_ADDR is not empty
+                log::debug!("Configuring PROBING_SERVER_REPORT_ADDR to {master_addr}:{base_port_for_reporting} based on MASTER_ADDR and base port");
                 std::env::set_var(
                     "PROBING_SERVER_REPORT_ADDR",
-                    format!("'{}:{}'", master_addr, base_port_for_reporting),
+                    format!("'{master_addr}:{base_port_for_reporting}'"),
                 );
             }
         }
@@ -135,6 +135,6 @@ fn setup() {
 #[dtor]
 fn cleanup() {
     if let Err(e) = probing_server::cleanup() {
-        log::error!("Failed to cleanup unix socket: {}", e);
+        log::error!("Failed to cleanup unix socket: {e}");
     }
 }

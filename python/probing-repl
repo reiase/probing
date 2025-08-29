@@ -1,0 +1,5 @@
+#!/bin/env python
+
+import probing.cli
+
+probing.cli.main()

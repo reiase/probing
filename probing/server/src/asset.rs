@@ -59,6 +59,6 @@ pub async fn static_files(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
         return Err(StatusCode::NOT_FOUND);
     }
 
-    log::debug!("serving file: {}", path);
+    log::debug!("serving file: {path}");
     Ok(([(header::CONTENT_TYPE, get_content_type(path))], get(path)))
 }
