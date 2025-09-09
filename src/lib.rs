@@ -79,17 +79,17 @@ fn setup() {
                             .unwrap_or(0);
                         let serving_port = port_number.saturating_add(local_rank);
 
-                        let hostname =
-                            if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
-                                "0.0.0.0".to_string()
-                            } else {
-                                get_hostname().unwrap_or_else(|err| {
-                                    log::warn!(
-                                        "Failed to get hostname: {err}, defaulting to localhost"
-                                    );
-                                    "localhost".to_string()
-                                })
-                            };
+                        let hostname ="0.0.0.0".to_string();
+                            // if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
+                            //     "0.0.0.0".to_string()
+                            // } else {
+                            //     get_hostname().unwrap_or_else(|err| {
+                            //         log::warn!(
+                            //             "Failed to get hostname: {err}, defaulting to localhost"
+                            //         );
+                            //         "localhost".to_string()
+                            //     })
+                            // };
                         std::env::set_var(
                             "PROBING_SERVER_ADDR",
                             format!("'{hostname}:{serving_port}'"),
