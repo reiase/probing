@@ -10,8 +10,8 @@ from probing.ext.iter_log import init as iter_log_init
 # Mapping from module names to callback functions
 register = {
     #  "torch": iteroutput_init, 
-    "torch": [torch_init,iter_log_init,checkpoint_log_init],
-    # "megatron.training": checkpoint_log_init,
+    "torch": [torch_init],
+    "megatron": [iter_log_init, checkpoint_log_init],
 }
 # Record modules that have been triggered
 triggered = {}
