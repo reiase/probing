@@ -97,9 +97,24 @@ async fn query(body: String) -> impl IntoResponse {
 }
 
 pub async fn local_server() -> Result<()> {
+    #[cfg(target_os = "linux")]
     let socket_path = format!("\0probing-{}", std::process::id());
+    #[cfg(not(target_os = "linux"))]
+    let socket_path = {
+        let pid = std::process::id();
+        let temp_dir = std::env::temp_dir();
+        let path = temp_dir.join(format!("probing-{}.sock", pid));
+        // Clean up old socket file if it exists
+        if path.exists() {
+            let _ = std::fs::remove_file(&path);
+        }
+        path.to_string_lossy().to_string()
+    };
 
-    eprintln!("Starting local server at {socket_path}");
+    eprintln!(
+        "Starting local server at {}",
+        socket_path.replace('\0', "@")
+    );
 
     let app = build_app(false);
     axum::serve(tokio::net::UnixListener::bind(socket_path)?, app).await?;

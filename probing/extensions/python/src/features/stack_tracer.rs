@@ -160,7 +160,12 @@ impl StackTracer for SignalTracer {
 
         log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
 
+        #[cfg(target_os = "linux")]
         let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
+
+        #[cfg(target_os = "macos")]
+        let ret = unsafe { libc::kill(tid, libc::SIGUSR2) };
+
         if ret != 0 {
             let last_error = std::io::Error::last_os_error();
             let error_msg =

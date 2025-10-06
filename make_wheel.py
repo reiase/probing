@@ -2,6 +2,7 @@ import hashlib
 import os
 import pathlib
 import stat
+import sys
 from email.message import EmailMessage
 from zipfile import ZIP_DEFLATED, ZipInfo
 
@@ -11,6 +12,7 @@ from wheel.wheelfile import WheelFile
 target_dir = "debug" if "DEBUG" in os.environ else "release"
 if target_dir == "debug":
     print("Building in debug mode...")
+
 
 def make_message(headers, payload=None):
     msg = EmailMessage()
@@ -66,18 +68,36 @@ def write_wheel(out_dir, *, name, version, tag, metadata, description, contents)
     )
 
 
-def write_probing_wheel(
-    out_dir, *, platform="manylinux_2_12_x86_64.manylinux2010_x86_64"
-):
+def get_platform_tag():
+    """Gets the appropriate platform tag for the wheel."""
+    if sys.platform == "darwin":
+        import platform
+
+        # For macOS, use a baseline version for better compatibility, especially for arm64
+        if platform.machine() == "arm64":
+            return "macosx_11_0_arm64"
+        else:
+            # For x86_64, you might want to target an older version as well
+            return f"macosx_10_9_{platform.machine()}"
+    elif sys.platform.startswith("linux"):
+        return "manylinux_2_12_x86_64.manylinux2010_x86_64"
+    # Add other platforms as needed
+    raise RuntimeError(f"Unsupported platform: {sys.platform}")
+
+
+def write_probing_wheel(out_dir):
+    platform = get_platform_tag()
     contents = {}
     meta = toml.load("Cargo.toml")
     package_meta = meta.get("package", {})
     workspace_meta = meta.get("workspace", {}).get("package", {})
     metadata = {
-        "version": workspace_meta.get("version").replace("-", "") or package_meta.get("version").replace("-", ""),
+        "version": workspace_meta.get("version").replace("-", "")
+        or package_meta.get("version").replace("-", ""),
         "authors": workspace_meta.get("authors", []) or package_meta.get("authors", []),
         "license": workspace_meta.get("license") or package_meta.get("license", ""),
-        "description": workspace_meta.get("description", "") or package_meta.get("description", ""),  # Only in package
+        "description": workspace_meta.get("description", "")
+        or package_meta.get("description", ""),  # Only in package
         "repository": package_meta.get("repository", ""),  # Only in package
         "homepage": package_meta.get("homepage", ""),  # Only in package
         "keywords": package_meta.get("keywords", []),  # Only in package
@@ -93,29 +113,31 @@ def write_probing_wheel(
     else:
         target_dir_prefix = f"target/{target_dir}"
 
+    lib_ext = "dylib" if sys.platform == "darwin" else "so"
+    lib_name = f"libprobing.{lib_ext}"
     for name, path in {
         "probing": f"{target_dir_prefix}/probing",
-        "libprobing.so": f"{target_dir_prefix}/libprobing.so",
+        lib_name: f"{target_dir_prefix}/{lib_name}",
         "probing-repl": "python/probing-repl",
     }.items():
         zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")
         zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
         with open(path, "rb") as f:
             contents[zip_info] = f.read()
-                    
+
     def add_python_files_recursively(directory, contents, base_dir):
         """Recursively add Python files from directory to contents.
-        
+
         Args:
             directory: The directory to process
             contents: The dict to add files to
             base_dir: The base directory for relative paths
         """
         dir_path = pathlib.Path(directory)
-        
+
         # Process all entries in the directory
         for entry in dir_path.iterdir():
-            if entry.is_file() and entry.suffix == '.py':
+            if entry.is_file() and entry.suffix == ".py":
                 # Handle Python file
                 pkg_path = entry.relative_to(base_dir)
                 with open(entry, "rb") as f:
@@ -126,7 +148,7 @@ def write_probing_wheel(
             elif entry.is_dir():
                 # Recursively process subdirectory
                 add_python_files_recursively(entry, contents, base_dir)
-    
+
     python_dir = pathlib.Path("python")
     add_python_files_recursively(python_dir, contents, python_dir)
 
