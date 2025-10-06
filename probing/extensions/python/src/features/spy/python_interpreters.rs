@@ -251,12 +251,18 @@ macro_rules! PythonCodeObjectImpl {
 
 fn read_varint(index: &mut usize, table: &[u8]) -> usize {
     let mut ret: usize;
+    if *index >= table.len() {
+        return 0;
+    }
     let mut byte = table[*index];
     let mut shift = 0;
     *index += 1;
     ret = (byte & 63) as usize;
 
     while byte & 64 != 0 {
+        if *index >= table.len() {
+            return 0;
+        }
         byte = table[*index];
         *index += 1;
         shift += 6;
@@ -719,7 +725,8 @@ impl CodeObject for v3_10_0::PyCodeObject {
         let mut bytecode_address: i32 = 0;
         while (i + 1) < size {
             let delta: u8 = table[i];
-            let line_delta: i8 = unsafe { std::mem::transmute(table[i + 1]) };
+            //let line_delta: i8 = unsafe { std::mem::transmute(table[i + 1]) };
+            let line_delta: i8 = table[i + 1].try_into().unwrap();
             i += 2;
 
             if line_delta == -128 {

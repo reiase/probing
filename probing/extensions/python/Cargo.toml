@@ -16,6 +16,7 @@ probing-cc = { path = "../cc" }
 probing-core = { path = "../../core" }
 probing-proto = { path = "../../proto" }
 probing-store = { path = "../../crates/store" }
+probing-pprof = { path = "../../crates/pprof" }
 
 anyhow = { workspace = true }
 ctor = { workspace = true }
@@ -27,7 +28,7 @@ tokio = { workspace = true }
 
 include_dir = "=0.7.4"
 backtrace = { version = "0.3", features = ["cpp_demangle", "std"] }
-cpp_demangle = "0.3"
+cpp_demangle = "0.4.4"
 pyo3 = { version = "0.25.1", default-features = false, features = [
     "abi3",
     "abi3-py310",
@@ -39,15 +40,11 @@ inferno = { version = "0.12.1", default-features = false, features = [
     "nameattr",
     "multithreaded",
 ] }
-pprof = { version = "0.14.0", features = [
-    "cpp",
-    "flamegraph",
-    "frame-pointer",
-] }
 lazy_static = "1.4.0"
 async-trait = "0.1.83"
 signal-hook-registry = "1.4.2"
 regex = ">=1.6.0"
+smallvec = "1.7"
 
 [dev-dependencies]
 tokio = { workspace = true }

@@ -10,6 +10,7 @@ members = [
     "probing/extensions/python",
     "probing/server",
     "probing/crates/store",
+    "probing/crates/pprof",
 ]
 
 [workspace.package]
