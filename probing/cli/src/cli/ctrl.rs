@@ -116,9 +116,14 @@ pub async fn request(ctrl: ProbeEndpoint, url: &str, body: Option<String>) -> Re
     let mut sender = match ctrl {
         ProbeEndpoint::Ptrace { pid } | ProbeEndpoint::Local { pid } => {
             eprintln!("sending ctrl commands via unix socket...");
-            let prefix = "\0".to_string();
-            let path = format!("{prefix}probing-{pid}");
-
+            #[cfg(target_os = "linux")]
+            let path = format!("\0probing-{}", pid);
+            #[cfg(not(target_os = "linux"))]
+            let path = {
+                let temp_dir = std::env::temp_dir();
+                let file_path = temp_dir.join(format!("probing-{}.sock", pid));
+                file_path.to_string_lossy().to_string()
+            };
             let stream = tokio::net::UnixStream::connect(path).await?;
             let io = TokioIo::new(stream);
 

@@ -125,6 +125,7 @@ impl Settings {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    #[cfg(target_os = "linux")]
     #[command(visible_aliases = ["in", "i"])]
     Inject(super::inject::InjectCommand),
 

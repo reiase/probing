@@ -1,8 +1,11 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
+
+#[cfg(target_os = "linux")]
+use std::fs::File;
+#[cfg(target_os = "linux")]
+use std::io::{BufRead, BufReader};
 
 use crate::cli::ctrl::{self, ProbeEndpoint};
 
@@ -52,7 +55,8 @@ pub async fn collect_probe_processes() -> Result<Vec<ProcessInfo>> {
     Ok(processes)
 }
 
-/// Find all abstract unix sockets related to probing
+/// Find all probe-related sockets.
+#[cfg(target_os = "linux")]
 fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
     let mut result = Vec::new();
 
@@ -75,12 +79,12 @@ fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
 
             // Check for the new naming convention: @probing-<pid>
             if let Some(pid_str) = socket_name_full.strip_prefix("@probing-") {
-                // Skip "@probing-"
                 if let Ok(pid) = pid_str.parse::<i32>() {
                     result.push((pid, socket_name_full.to_string()));
                 } else {
                     log::warn!(
-                        "Failed to parse PID from socket name: {socket_name_full}. Expected format @probing-<pid>."
+                        "Failed to parse PID from socket name: {}. Expected format @probing-<pid>.",
+                        socket_name_full
                     );
                 }
             }
@@ -88,6 +92,41 @@ fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
     }
 
     Ok(result)
+}
+
+#[cfg(target_os = "macos")]
+fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
+    let mut result = Vec::new();
+    let temp_dir = std::env::temp_dir();
+
+    for entry in std::fs::read_dir(temp_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+            if file_name.starts_with("probing-") && file_name.ends_with(".sock") {
+                // Extract PID from "probing-<pid>.sock"
+                if let Some(pid_str) = file_name
+                    .strip_prefix("probing-")
+                    .and_then(|s| s.strip_suffix(".sock"))
+                {
+                    if let Ok(pid) = pid_str.parse::<i32>() {
+                        result.push((pid, path.to_string_lossy().to_string()));
+                    } else {
+                        log::warn!("Failed to parse PID from socket file: {}", file_name);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn find_probe_sockets() -> Result<Vec<(i32, String)>, std::io::Error> {
+    log::warn!("find_probe_sockets is not implemented for this OS. Returning empty list.");
+    Ok(Vec::new())
 }
 
 /// Get information about a process
@@ -119,11 +158,13 @@ pub async fn get_process_info(pid: i32, socket_name: Option<String>) -> Result<P
     })
 }
 
-/// Read parent PID from /proc/{pid}/status
+/// Read parent PID. Implementation is OS-specific.
+#[cfg(target_os = "linux")]
 fn read_parent_pid(pid: i32) -> Result<i32, std::io::Error> {
     let status_path = format!("/proc/{pid}/status");
 
     if !Path::new(&status_path).exists() {
+        // Process might have terminated
         return Ok(0);
     }
 
@@ -140,6 +181,76 @@ fn read_parent_pid(pid: i32) -> Result<i32, std::io::Error> {
     }
 
     Ok(0)
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct ExternProc {
+    pub p_forw: *mut ExternProc,
+    pub p_back: *mut ExternProc,
+    pub p_vmspace: *mut libc::c_void,
+    pub p_sigacts: *mut libc::c_void,
+    pub p_flag: libc::c_int,
+    pub p_stat: libc::c_char,
+    pub p_pid: libc::c_int,
+    pub p_ppid: libc::c_int,
+    // ... other fields omitted for brevity
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct Eproc {
+    pub e_paddr: *mut ExternProc,
+    pub e_sess: *mut libc::c_void,
+    pub e_pcred: [u8; 24], // size may vary, not used here
+    pub e_ucred: *mut libc::c_void,
+    pub e_vm: [u8; 16], // size may vary, not used here
+    pub e_ppid: libc::c_int,
+    // ... other fields omitted for brevity
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct KinfoProc {
+    pub kp_proc: ExternProc,
+    pub kp_eproc: Eproc,
+}
+
+#[cfg(target_os = "macos")]
+fn read_parent_pid(pid: i32) -> Result<i32, std::io::Error> {
+    use std::mem;
+
+    let mut mib: [libc::c_int; 4] = [libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_PID, pid];
+    let mut proc_info: KinfoProc = unsafe { mem::zeroed() };
+    let mut size = mem::size_of::<KinfoProc>() as libc::size_t;
+
+    let ret = unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            4,
+            &mut proc_info as *mut _ as *mut libc::c_void,
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+
+    if ret == 0 {
+        // On macOS, the ppid is in `kp_eproc.e_ppid`
+        Ok(proc_info.kp_eproc.e_ppid)
+    } else {
+        // If sysctl fails, it might mean the process doesn't exist.
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn read_parent_pid(pid: i32) -> Result<i32, std::io::Error> {
+    log::warn!(
+        "read_parent_pid is not implemented for this OS. Returning 0 for PID {}.",
+        pid
+    );
+    Ok(0) // Default fallback
 }
 
 /// Read process command line

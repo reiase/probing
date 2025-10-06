@@ -22,7 +22,6 @@ nix = { workspace = true }
 once_cell = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-procfs = { workspace = true }
 
 bytes = "1"
 include_dir = "=0.7.4"
@@ -41,3 +40,6 @@ axum = { version = "0.8.1", default-features = false, features = [
 http-body-util = { version = "0.1" }
 serde_urlencoded = "0.7.1"
 futures-util = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+procfs = { version = "0.17.0", default-features = false, features = ["chrono"] }

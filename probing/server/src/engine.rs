@@ -13,13 +13,17 @@ pub async fn initialize_engine() -> Result<()> {
     let builder = probing_core::create_engine()
         .with_extension(py::PprofExtension::default(), "pprof", None)
         .with_extension(py::TorchExtension::default(), "torch", None)
-        .with_extension(cc::RdmaExtension::default(), "rdma", Some("flow"))
         .with_extension(se::ServerExtension::default(), "server", None)
         .with_extension(py::PythonExt::default(), "python", None)
-        .with_extension(cc::TaskStatsExtension::default(), "taskstats", None)
         .with_extension(cc::ClusterExtension::default(), "cluster", Some("nodes"))
         .with_extension(cc::EnvExtension::default(), "process", Some("envs"))
         .with_extension(cc::FilesExtension::default(), "files", None);
+
+    #[cfg(target_os = "linux")]
+    let builder = builder.with_extension(cc::RdmaExtension::default(), "taskstats", None);
+
+    #[cfg(target_os = "linux")]
+    let builder = builder.with_extension(cc::TaskStatsExtension::default(), "rdma", Some("flow"));
 
     probing_core::initialize_engine(builder).await
 }

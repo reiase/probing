@@ -7,8 +7,9 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-default = ["kmsg"]
+default = ["kmsg", "taskstats"]
 kmsg = ["dep:rmesg"]
+taskstats = []
 
 [dependencies]
 probing-proto = { path = "../../proto" }
@@ -17,9 +18,11 @@ probing-core = { path = "../../core" }
 anyhow = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
-procfs = { workspace = true }
 thiserror = { workspace = true }
 
 async-trait = "0.1.83"
 rmesg = { version = "1.0.21", optional = true }
 datafusion = { version = "47.0.0", default-features = false, features = [] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+procfs = { version = "0.17.0", default-features = false, features = ["chrono"] }

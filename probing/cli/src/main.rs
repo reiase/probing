@@ -3,8 +3,10 @@ use clap::Parser;
 use env_logger::Env;
 
 mod cli;
-mod inject;
 mod table;
+
+#[cfg(target_os = "linux")]
+mod inject;
 
 const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
 

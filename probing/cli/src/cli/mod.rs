@@ -1,13 +1,20 @@
 use anyhow::Result;
 use clap::Parser;
 use probing_proto::prelude::Query;
-use process_monitor::ProcessMonitor;
 
 pub mod commands;
 pub mod ctrl;
-pub mod inject;
-pub mod process_monitor;
+
 pub mod store;
+
+#[cfg(target_os = "linux")]
+pub mod inject;
+
+#[cfg(target_os = "linux")]
+pub mod process_monitor;
+
+#[cfg(target_os = "linux")]
+use process_monitor::ProcessMonitor;
 
 mod ptree;
 
@@ -60,6 +67,7 @@ impl Cli {
             Some(Commands::List { verbose, tree }) => {
                 return self.handle_list_command(*verbose, *tree).await;
             }
+            #[cfg(target_os = "linux")]
             Some(Commands::Launch { recursive, args }) => {
                 return ProcessMonitor::new(args, *recursive)?.monitor().await;
             }
@@ -103,11 +111,14 @@ impl Cli {
 
     async fn execute_command(&self, ctrl: ProbeEndpoint) -> Result<()> {
         if self.command.is_none() {
+            #[cfg(target_os = "linux")]
             inject::InjectCommand::default().run(ctrl.clone()).await?;
+
             return Ok(());
         }
         let command = self.command.as_ref().unwrap();
         match command {
+            #[cfg(target_os = "linux")]
             Commands::Inject(cmd) => cmd.run(ctrl).await,
             Commands::Config { options, setting } => {
                 let options_cfg = options.to_cfg();
