@@ -4,21 +4,26 @@ use anyhow::Context;
 use anyhow::Result;
 use std::os::unix::ffi::OsStringExt;
 
-/// The x64 shellcode that will be injected into the tracee.
-const SHELLCODE: [u8; 6] = [
-    // Nop slide to make up for the fact that jumping is imprecise.
-    0x90, 0x90, // nop; nop
-    // The tracer does most of the work by putting the arguments into the
-    // relevant registers, and the function pointer into `r9`.
-    0x41, 0xff, 0xd1, // call r9
-    // Trap so that the tracer can set up the next call.
-    0xcc, // int3
+/// The aarch64 shellcode that will be injected into the tracee.
+/// 
+/// This shellcode:
+/// 1. Calls the function pointed to by x8 (function address)
+/// 2. Uses x0, x1, x2, x3 as arguments (first 4 arguments)
+/// 3. Traps with BRK instruction for the tracer to handle
+const SHELLCODE_AARCH64: [u8; 16] = [
+    // NOP instructions for alignment and safety
+    0x1f, 0x20, 0x03, 0xd5, // nop
+    0x1f, 0x20, 0x03, 0xd5, // nop
+    // Call the function pointed to by x8
+    0x00, 0x01, 0x3f, 0xd6, // blr x8
+    // Trap instruction for the tracer
+    0x00, 0x00, 0x20, 0xd4, // brk #0
 ];
 
 /// A type for managing the injection, execution and removal of shellcode in a
-/// target process (tracee).
+/// target process (tracee) on aarch64 platforms.
 #[derive(Debug)]
-pub struct Injection<'a> {
+pub struct InjectionAarch64<'a> {
     /// The state of the tracee's registers before the injection.
     saved_registers: pete::Registers,
     /// The original state of the memory that was overwritten by the injection.
@@ -37,7 +42,7 @@ pub struct Injection<'a> {
     removed: bool,
 }
 
-impl<'a> Injection<'a> {
+impl<'a> InjectionAarch64<'a> {
     /// Inject the shellcode into the given tracee.
     pub(crate) fn inject(
         proc: &Process,
@@ -47,15 +52,15 @@ impl<'a> Injection<'a> {
         let injected_at = proc
             .find_executable_space()
             .context("couldn't find region to write shellcode")?;
-        log::debug!("Injecting shellcode at {injected_at:x}");
+        log::debug!("Injecting aarch64 shellcode at {injected_at:x}");
         let saved_memory = tracee
-            .read_memory(injected_at, SHELLCODE.len())
+            .read_memory(injected_at, SHELLCODE_AARCH64.len())
             .context("failed to read memory we were going to overwrite")?;
         log::trace!("Read memory to overwrite: {saved_memory:x?}");
         tracee
-            .write_memory(injected_at, &SHELLCODE)
+            .write_memory(injected_at, &SHELLCODE_AARCH64)
             .context("failed to write shellcode to tracee")?;
-        log::trace!("Written shellcode");
+        log::trace!("Written aarch64 shellcode");
         let saved_registers = tracee
             .registers()
             .context("failed to save original tracee registers")?;
@@ -63,7 +68,7 @@ impl<'a> Injection<'a> {
         let libc = LibcAddrs::for_process(proc)
             .context("couldn't get libc function addresses for tracee")?;
         log::trace!("Found libc addresses: {libc:x?}");
-        log::debug!("Injected shellcode into tracee");
+        log::debug!("Injected aarch64 shellcode into tracee");
         Ok(Self {
             saved_registers,
             saved_memory,
@@ -84,7 +89,7 @@ impl<'a> Injection<'a> {
             .context("failed to load library in tracee")?;
         self.free_alloc(address)
             .context("failed to free memory we stored the library filename in")?;
-        log::debug!("Executed injected shellcode to load library");
+        log::debug!("Executed injected aarch64 shellcode to load library");
         Ok(())
     }
 
@@ -99,9 +104,9 @@ impl<'a> Injection<'a> {
             .into_vec();
         // Null-terminate the filename.
         filename.push(0);
-        // RSI is unused, 0 is arbitrary.
+        // x1 is unused, 0 is arbitrary.
         let address = self
-            .call_function(self.libc.malloc, filename.len() as u64, 0)
+            .call_function(self.libc.malloc, filename.len() as u64, 0, 0)
             .context("calling malloc in tracee failed")?;
         if address == 0 {
             return Err(anyhow::anyhow!("malloc within tracee returned NULL"));
@@ -121,7 +126,7 @@ impl<'a> Injection<'a> {
     /// stored in the tracee's address space, at `filename_address`.
     fn open_library(&mut self, filename_address: u64) -> Result<()> {
         let result = self
-            .call_function(self.libc.dlopen, filename_address, 1) // flags = RTLD_LAZY
+            .call_function(self.libc.dlopen, filename_address, 1, 0) // flags = RTLD_LAZY
             .context("calling dlopen in tracee failed")?;
         log::debug!("Called dlopen in tracee, result = {result:x}");
         if result == 0 {
@@ -133,9 +138,9 @@ impl<'a> Injection<'a> {
 
     /// Free memory allocated in the tracee.
     fn free_alloc(&mut self, address: u64) -> Result<()> {
-        // Apparently RSI has to be 0 or free might try to free that address too?
+        // x1, x2, x3 are unused for free
         let result = self
-            .call_function(self.libc.free, address, 0)
+            .call_function(self.libc.free, address, 0, 0)
             .context("calling free in tracee failed")?;
         log::debug!("Freed memory in tracee, result = {result:x}");
         // Freeing is an optional cleanup step, don't check the result.
@@ -150,7 +155,7 @@ impl<'a> Injection<'a> {
             let value_address = self
                 .write_str(value)
                 .context("failed to allocate memory for env value")?;
-            let _ = self.call_function3(self.libc.setenv, name_address, value_address, 1);
+            let _ = self.call_function4(self.libc.setenv, name_address, value_address, 1, 0);
             self.free_alloc(name_address)
                 .context("failed to free memory storing the env name")?;
             self.free_alloc(value_address)
@@ -166,7 +171,7 @@ impl<'a> Injection<'a> {
         let mut s = s.as_bytes().to_vec();
         s.push(0);
         let address = self
-            .call_function(self.libc.malloc, s.len() as u64, 0)
+            .call_function(self.libc.malloc, s.len() as u64, 0, 0)
             .context("calling malloc in tracee failed")?;
         if address == 0 {
             return Err(anyhow::anyhow!("malloc within tracee returned NULL"));
@@ -183,22 +188,26 @@ impl<'a> Injection<'a> {
     }
 
     /// Make a function call in the tracee via the injected shellcode.
-    fn call_function(&mut self, fn_address: u64, rdi: u64, rsi: u64) -> Result<u64> {
-        log::trace!("Calling function at {fn_address:x} with rdi = {rdi:x}, rsi = {rsi:x}");
+    /// 
+    /// On aarch64, the calling convention uses:
+    /// - x0, x1, x2, x3 for the first 4 arguments
+    /// - x8 for the function address
+    /// - x0 for the return value
+    fn call_function(&mut self, fn_address: u64, x0: u64, x1: u64, x2: u64) -> Result<u64> {
+        log::trace!("Calling function at {fn_address:x} with x0 = {x0:x}, x1 = {x1:x}, x2 = {x2:x}");
         self.tracee
             .set_registers(pete::Registers {
-                // Jump to the start of the shellcode. `rip` seems to be
-                // decremented when the tracee is resumed, so we make up for that.
-                rip: self.injected_at + 2,
-                // The shellcode calls whatever is pointed to by `r9`.
-                r9: fn_address,
-                // The relevant functions seem to take their arguments in these
-                // registers.
-                rdi,
-                rsi,
+                // Jump to the start of the shellcode
+                pc: self.injected_at,
+                // The shellcode calls whatever is pointed to by x8
+                x8: fn_address,
+                // The relevant functions take their arguments in these registers
+                x0,
+                x1,
+                x2,
                 // Ensure that the stack pointer is aligned to a 16 byte boundary, as required by
-                // the x86-64 ABI.
-                rsp: self.saved_registers.rsp & !0xf,
+                // the aarch64 ABI
+                sp: self.saved_registers.sp & !0xf,
                 ..self.saved_registers
             })
             .context("setting tracee registers to run shellcode failed")?;
@@ -208,29 +217,28 @@ impl<'a> Injection<'a> {
             .tracee
             .registers()
             .context("reading shellcode call result from tracee registers failed")?
-            .rax;
+            .x0;
         log::trace!("Function returned {result:x}");
         Ok(result)
     }
 
-    /// Make a function call with 3 arguments
-    fn call_function3(&mut self, fn_address: u64, rdi: u64, rsi: u64, rdx: u64) -> Result<u64> {
-        log::trace!("Calling function at {fn_address:x} with rdi = {rdi:x}, rsi = {rsi:x}");
+    /// Make a function call with 4 arguments
+    fn call_function4(&mut self, fn_address: u64, x0: u64, x1: u64, x2: u64, x3: u64) -> Result<u64> {
+        log::trace!("Calling function at {fn_address:x} with x0 = {x0:x}, x1 = {x1:x}, x2 = {x2:x}, x3 = {x3:x}");
         self.tracee
             .set_registers(pete::Registers {
-                // Jump to the start of the shellcode. `rip` seems to be
-                // decremented when the tracee is resumed, so we make up for that.
-                rip: self.injected_at + 2,
-                // The shellcode calls whatever is pointed to by `r9`.
-                r9: fn_address,
-                // The relevant functions seem to take their arguments in these
-                // registers.
-                rdi,
-                rsi,
-                rdx,
+                // Jump to the start of the shellcode
+                pc: self.injected_at,
+                // The shellcode calls whatever is pointed to by x8
+                x8: fn_address,
+                // The relevant functions take their arguments in these registers
+                x0,
+                x1,
+                x2,
+                x3,
                 // Ensure that the stack pointer is aligned to a 16 byte boundary, as required by
-                // the x86-64 ABI.
-                rsp: self.saved_registers.rsp & !0xf,
+                // the aarch64 ABI
+                sp: self.saved_registers.sp & !0xf,
                 ..self.saved_registers
             })
             .context("setting tracee registers to run shellcode failed")?;
@@ -240,7 +248,7 @@ impl<'a> Injection<'a> {
             .tracee
             .registers()
             .context("reading shellcode call result from tracee registers failed")?
-            .rax;
+            .x0;
         log::trace!("Function returned {result:x}");
         Ok(result)
     }
@@ -265,9 +273,9 @@ impl<'a> Injection<'a> {
                     return Ok(());
                 }
                 pete::Stop::SignalDelivery { signal } | pete::Stop::Group { signal } => {
-                    let rip = tracee.registers().unwrap().rip;
+                    let pc = tracee.registers().unwrap().pc;
                     return Err(anyhow::anyhow!(
-                        "shellcode running in tracee sent unexpected signal {signal:?} at rip={rip:x}",
+                        "shellcode running in tracee sent unexpected signal {signal:?} at pc={pc:x}",
                     ));
                 }
                 _ => {
@@ -305,27 +313,27 @@ impl<'a> Injection<'a> {
             .set_registers(self.saved_registers)
             .context("restoring original registers to tracee failed")?;
         log::trace!("Restored tracee registers");
-        log::debug!("Removed injection");
+        log::debug!("Removed aarch64 injection");
         self.removed = true;
         Ok(())
     }
 }
 
-impl Drop for Injection<'_> {
+impl Drop for InjectionAarch64<'_> {
     fn drop(&mut self) {
         if !self.removed {
-            log::warn!("Injection dropped without being removed, removing now");
+            log::warn!("Aarch64 injection dropped without being removed, removing now");
         }
         if let Err(e) = self
             .remove_internal()
-            .context("removing injection from drop impl failed")
+            .context("removing aarch64 injection from drop impl failed")
         {
-            log::error!("Failed to remove injection: {e}");
+            log::error!("Failed to remove aarch64 injection: {e}");
         }
     }
 }
 
-impl InjectionTrait for Injection<'_> {
+impl InjectionTrait for InjectionAarch64<'_> {
     fn inject(
         proc: &crate::inject::Process,
         tracer: &mut pete::Ptracer,

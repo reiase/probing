@@ -59,13 +59,19 @@
 )]
 use anyhow::Context;
 use anyhow::Result;
-use injection::Injection;
 pub use libc_addresses::LibcAddrs;
 pub use process::Process;
 
-mod injection;
+// Common modules
+mod injection_trait;
 mod libc_addresses;
 mod process;
+
+// Platform-specific injection modules
+#[cfg(target_arch = "x86_64")]
+mod injection;
+#[cfg(target_arch = "aarch64")]
+mod injection_aarch64;
 
 /// A type capable of loading libraries into a ptrace'd target process.
 ///
@@ -154,29 +160,49 @@ impl Injector {
             ));
         };
         log::trace!("Attached to process with ID {}", tracee.pid);
-        let mut injection = Injection::inject(&self.proc, &mut self.tracer, tracee)
-            .context("failed to inject shellcode")?;
-
-        for setting in settings {
-            if let Some((name, value)) = setting.split_once('=') {
-                let name = name.to_uppercase();
-                let value = value.to_string();
-
-                injection
-                    .setenv(Some(&name), Some(&value))
-                    .context("failed to prepare env string")?;
-            }
-        }
-
-        injection
-            .execute(library)
-            .context("failed to execute shellcode")?;
-        injection.remove().context("failed to remove shellcode")?;
+        
+        // Platform-specific injection logic
+        self.inject_platform_specific(library, settings, tracee)?;
+        
         log::info!(
             "Successfully injected library {} into process with PID {}",
             library.display(),
             self.proc
         );
+        Ok(())
+    }
+
+    /// Platform-specific injection implementation
+    fn inject_platform_specific(
+        &mut self, 
+        library: &std::path::Path, 
+        settings: Vec<String>, 
+        tracee: pete::Tracee
+    ) -> Result<()> {
+        use injection_trait::perform_injection;
+        
+        #[cfg(target_arch = "x86_64")]
+        {
+            use injection::Injection;
+            perform_injection::<Injection>(&self.proc, &mut self.tracer, tracee, library, settings)
+                .context("failed to perform x86_64 injection")?;
+        }
+        
+        #[cfg(target_arch = "aarch64")]
+        {
+            use injection_aarch64::InjectionAarch64;
+            perform_injection::<InjectionAarch64>(&self.proc, &mut self.tracer, tracee, library, settings)
+                .context("failed to perform aarch64 injection")?;
+        }
+        
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+        {
+            return Err(anyhow::anyhow!(
+                "Unsupported architecture: {}. Only x86_64 and aarch64 are supported.",
+                std::env::consts::ARCH
+            ));
+        }
+        
         Ok(())
     }
 
