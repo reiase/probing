@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 build = "build.rs"
 
+[lib]
+name = "probing_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "probing"
 path = "src/main.rs"
