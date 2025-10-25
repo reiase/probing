@@ -18,38 +18,38 @@ pub fn Profiler() -> impl IntoView {
     let torch_enabled = RwSignal::new(false); // torch profiler 的开关状态
     let torch_ratio = RwSignal::new("".to_string());
 
-    let _ = Effect::new_sync(
-        move || {
+    let _ = Effect::new_sync(move || {
         match config.get().as_deref() {
-        Some(Ok(df)) => {
-            assert!(df.names[0] == "name");
-            assert!(df.names[1] == "value");
+            Some(Ok(df)) => {
+                assert!(df.names[0] == "name");
+                assert!(df.names[1] == "value");
 
-            for ele in df.iter() {
-                match ele[0].to_string().as_str() {
-                    "probing.pprof.sample_freq" => {
-                        if ele[1].to_string() != "" {
-                            pprof_enabled.set(true);
-                            pprof_freq.set(ele[1].to_string());
+                for ele in df.iter() {
+                    match ele[0].to_string().as_str() {
+                        "probing.pprof.sample_freq" => {
+                            if ele[1].to_string() != "" {
+                                pprof_enabled.set(true);
+                                pprof_freq.set(ele[1].to_string());
+                            }
                         }
-                    }
-                    "probing.torch.sample_ratio" => {
-                        if ele[1].to_string() != "" {
-                            torch_enabled.set(true);
-                            torch_ratio.set(ele[1].to_string());    
+                        "probing.torch.sample_ratio" => {
+                            if ele[1].to_string() != "" {
+                                torch_enabled.set(true);
+                                torch_ratio.set(ele[1].to_string());
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
+                log::info!("config: {:?}", df);
             }
-            log::info!("config: {:?}", df);
-        }
-        Some(Err(e)) => {
-            log::warn!("Failed to read config: {}", e);
-        }
-        None => {
-            log::warn!("Failed to read probing config");
-        }};
+            Some(Err(e)) => {
+                log::warn!("Failed to read config: {}", e);
+            }
+            None => {
+                log::warn!("Failed to read probing config");
+            }
+        };
     });
 
     view! {

@@ -86,25 +86,66 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Value>) -> impl IntoView {
             value: obj.value.clone(),
         })
         .map(|v| {
+            let device_text = v.device.as_ref().map(|s| s.clone()).unwrap_or_else(|| "N/A".to_string());
+
+            let shape_text = v.shape.as_ref().map(|s| s.clone()).unwrap_or_else(|| "N/A".to_string());
+            let dtype_text = v.dtype.as_ref().map(|s| s.clone()).unwrap_or_else(|| "N/A".to_string());
+            
+            let obj = Value {
+                id: v.id,
+                class: v.class.clone(),
+                shape: v.shape.clone(),
+                dtype: v.dtype.clone(),
+                device: v.device.clone(),
+                value: v.value.clone(),
+            };
+
             view! {
                 <TableRow>
                     <TableCell>
-                        <TableCellLayout truncate=true>{v.id}</TableCellLayout>
+                        <TableCellLayout truncate=true>
+                            <strong>{v.id}</strong>
+                        </TableCellLayout>
                     </TableCell>
                     <TableCell>
-                        <TableCellLayout truncate=true>{v.class}</TableCellLayout>
+                        <TableCellLayout truncate=true>
+                            <code>{v.class}</code>
+                        </TableCellLayout>
                     </TableCell>
                     <TableCell>
-                        <TableCellLayout>{v.shape}</TableCellLayout>
+                        <TableCellLayout>{shape_text}</TableCellLayout>
                     </TableCell>
                     <TableCell>
-                        <TableCellLayout>{v.dtype}</TableCellLayout>
+                        <TableCellLayout>
+                            <code>{dtype_text}</code>
+                        </TableCellLayout>
                     </TableCell>
                     <TableCell>
-                        <TableCellLayout>{v.device}</TableCellLayout>
+                        <TableCellLayout>{device_text}</TableCellLayout>
                     </TableCell>
                     <TableCell>
-                        <TableCellLayout>{v.value}</TableCellLayout>
+                        <TableCellLayout truncate=true>
+                            <span style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                                {v
+                                    .value
+                                    .as_ref()
+                                    .map(|s| s.clone())
+                                    .unwrap_or_else(|| "N/A".to_string())}
+                            </span>
+                        </TableCellLayout>
+                    </TableCell>
+                    <TableCell>
+                        <TableCellLayout>
+                            <Button
+                                appearance=ButtonAppearance::Transparent
+                                on_click=move |_| {
+                                    log::info!("Viewing object: {}", obj.id);
+                                }
+                            >
+                                <Icon icon=icondata::AiEyeOutlined />
+                                "View"
+                            </Button>
+                        </TableCellLayout>
                     </TableCell>
                 </TableRow>
             }
@@ -112,21 +153,34 @@ pub fn ObjectList(#[prop(into)] objects: Vec<Value>) -> impl IntoView {
         .collect::<Vec<_>>();
 
     view! {
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHeaderCell resizable=true min_width=10.0 max_width=40.0>
-                        "#"
-                    </TableHeaderCell>
-                    <TableHeaderCell resizable=true>"class"</TableHeaderCell>
-                    <TableHeaderCell>"shape"</TableHeaderCell>
-                    <TableHeaderCell>"dtype"</TableHeaderCell>
-                    <TableHeaderCell>"device"</TableHeaderCell>
-                    <TableHeaderCell>"value"</TableHeaderCell>
-                </TableRow>
-            </TableHeader>
-            <TableBody>{rows}</TableBody>
-        </Table>
+        <div style="width: 100%; overflow-x: auto;">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHeaderCell resizable=true min_width=60.0 max_width=80.0>
+                            "ID"
+                        </TableHeaderCell>
+                        <TableHeaderCell resizable=true min_width=120.0>
+                            "Class"
+                        </TableHeaderCell>
+                        <TableHeaderCell resizable=true min_width=100.0>
+                            "Shape"
+                        </TableHeaderCell>
+                        <TableHeaderCell resizable=true min_width=80.0>
+                            "Dtype"
+                        </TableHeaderCell>
+                        <TableHeaderCell resizable=true min_width=100.0>
+                            "Device"
+                        </TableHeaderCell>
+                        <TableHeaderCell resizable=true>"Value"</TableHeaderCell>
+                        <TableHeaderCell resizable=true min_width=120.0>
+                            "Actions"
+                        </TableHeaderCell>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>{rows}</TableBody>
+            </Table>
+        </div>
     }
 }
 

@@ -15,12 +15,9 @@ use crate::url_read::url_read_resource;
 /// Helper function to parse environment variables string into a Table structure.
 fn parse_env_vars(envs: &HashMap<String, String>) -> Table {
     let names = vec!["name", "value"];
-    let rows = envs.iter().map(|(name, value)| {
-        vec![
-            name.to_string(),
-            value.to_string(),
-        ]
-    })
+    let rows = envs
+        .iter()
+        .map(|(name, value)| vec![name.to_string(), value.to_string()])
         .collect::<Vec<_>>();
     Table::new(names, rows)
 }
@@ -55,7 +52,8 @@ where
 #[component]
 pub fn Overview() -> impl IntoView {
     // Fetch process data once
-    let resource: LocalResource<std::result::Result<Process, AppError>> = url_read_resource::<Process>("/apis/overview");
+    let resource: LocalResource<std::result::Result<Process, AppError>> =
+        url_read_resource::<Process>("/apis/overview");
 
     view! {
         <PageLayout>

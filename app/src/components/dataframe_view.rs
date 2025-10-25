@@ -133,12 +133,12 @@ fn ChartFilterManager(
     let filter_column = RwSignal::new(String::new());
     let filter_operator = RwSignal::new("equals".to_string());
     let filter_value = RwSignal::new(String::new());
-    
+
     let add_filter = move |_: MouseEvent| {
         let col = filter_column.get();
         let op = filter_operator.get();
         let val = filter_value.get();
-        
+
         if !col.is_empty() && !val.is_empty() {
             applied_filters.update(|filters| {
                 filters.push((col.clone(), op.clone(), val.clone()));
@@ -146,12 +146,10 @@ fn ChartFilterManager(
             filter_value.set("".to_string());
         }
     };
-    
+
     let remove_filter = move |key: String| {
         applied_filters.update(|filters| {
-            filters.retain(|(col, op, val)| {
-                format!("{}-{}-{}", col, op, val) != key
-            });
+            filters.retain(|(col, op, val)| format!("{}-{}-{}", col, op, val) != key);
         });
     };
 
@@ -218,8 +216,7 @@ fn ChartFilterManager(
 
 #[component]
 fn ChartRenderer(
-    #[prop(into)]
-    chart_data: Signal<Vec<ChartDataPoint>>,
+    #[prop(into)] chart_data: Signal<Vec<ChartDataPoint>>,
     selected_y_columns: ReadSignal<Vec<String>>,
 ) -> impl IntoView {
     let chart_view = move || {
@@ -227,29 +224,28 @@ fn ChartRenderer(
         if data.is_empty() {
             return view! { <div class="no-data">"请选择有效的X轴和Y轴列"</div> }.into_any();
         }
-        
+
         let y_cols = selected_y_columns.get();
-        
+
         // 创建系列
         let series_builder = Series::new(|point: &ChartDataPoint| point.x_value);
-        
+
         // 为每个Y列添加一条线
-        let series_with_lines = y_cols.iter().fold(
-            series_builder,
-            |series, col_name| {
-                let col_name_clone = col_name.clone();
-                series.line(
-                    Line::new(move |point: &ChartDataPoint| {
-                        point.y_values.iter()
-                            .find(|(name, _)| name == &col_name_clone)
-                            .map(|(_, value)| *value)
-                            .unwrap_or(0.0)
-                    })
-                    .with_name(col_name.clone())
-                )
-            }
-        );
-        
+        let series_with_lines = y_cols.iter().fold(series_builder, |series, col_name| {
+            let col_name_clone = col_name.clone();
+            series.line(
+                Line::new(move |point: &ChartDataPoint| {
+                    point
+                        .y_values
+                        .iter()
+                        .find(|(name, _)| name == &col_name_clone)
+                        .map(|(_, value)| *value)
+                        .unwrap_or(0.0)
+                })
+                .with_name(col_name.clone()),
+            )
+        });
+
         view! {
             <Chart
                 aspect_ratio=AspectRatio::from_outer_ratio(800.0, 400.0)
@@ -269,7 +265,8 @@ fn ChartRenderer(
                 series=series_with_lines
                 data=Signal::derive(move || data.clone())
             />
-        }.into_any()
+        }
+        .into_any()
     };
 
     view! {
@@ -288,7 +285,7 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
     let x_column = RwSignal::new(String::new());
     let y_columns = RwSignal::new(Vec::<String>::new());
     let available_columns = RwSignal::new(df.names.clone());
-    
+
     // 过滤设置
     let applied_filters = RwSignal::new(Vec::<(String, String, String)>::new());
 
@@ -297,34 +294,36 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
         let x_col = x_column.get();
         let y_cols = y_columns.get();
         let filters = applied_filters.get();
-        
+
         if x_col.is_empty() || y_cols.is_empty() {
             return Vec::new();
         }
-        
+
         // 找出列的索引位置
         let x_idx = df.names.iter().position(|name| name == &x_col);
         let y_indices: Vec<(usize, String)> = y_cols
             .iter()
             .filter_map(|col| {
-                df.names.iter().position(|name| name == col)
+                df.names
+                    .iter()
+                    .position(|name| name == col)
                     .map(|idx| (idx, col.clone()))
             })
             .collect();
-        
+
         if x_idx.is_none() || y_indices.is_empty() {
             return Vec::new();
         }
-        
+
         let x_idx = x_idx.unwrap();
-        
+
         // 构建数据点
         let mut chart_points = Vec::new();
-        
+
         for row_idx in 0..df.len() {
             // 应用过滤器
             let mut include_row = true;
-            
+
             for (filter_col, filter_op, filter_val) in &filters {
                 if let Some(col_idx) = df.names.iter().position(|name| name == filter_col) {
                     let cell_value = df.cols[col_idx].get(row_idx);
@@ -336,7 +335,7 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
                         Ele::F64(f) => f.to_string(),
                         _ => "".to_string(),
                     };
-                    
+
                     match filter_op.as_str() {
                         "equals" => include_row = cell_str == *filter_val,
                         "contains" => include_row = cell_str.contains(filter_val),
@@ -346,27 +345,27 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
                                     include_row = cell_num > filter_num;
                                 }
                             }
-                        },
+                        }
                         "less" => {
                             if let Ok(cell_num) = cell_str.parse::<f64>() {
                                 if let Ok(filter_num) = filter_val.parse::<f64>() {
                                     include_row = cell_num < filter_num;
                                 }
                             }
-                        },
+                        }
                         _ => {}
                     }
-                    
+
                     if !include_row {
                         break;
                     }
                 }
             }
-            
+
             if !include_row {
                 continue;
             }
-            
+
             // 获取X值
             let x_ele = df.cols[x_idx].get(row_idx);
             let x_value = match x_ele {
@@ -376,7 +375,7 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
                 Ele::F64(f) => f,
                 _ => continue, // 跳过不能转换为数值的X值
             };
-            
+
             // 获取所有Y值
             let mut y_values = Vec::new();
             for (y_idx, y_name) in &y_indices {
@@ -389,13 +388,10 @@ pub fn DataFrameChartView(df: DataFrame) -> impl IntoView {
                     _ => {} // 跳过不能转换为数值的Y值
                 }
             }
-            
-            chart_points.push(ChartDataPoint {
-                x_value,
-                y_values,
-            });
+
+            chart_points.push(ChartDataPoint { x_value, y_values });
         }
-        
+
         chart_points
     };
 
