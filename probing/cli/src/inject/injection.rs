@@ -1,5 +1,5 @@
-use crate::inject::{LibcAddrs, Process};
 use crate::inject::injection_trait::InjectionTrait;
+use crate::inject::{LibcAddrs, Process};
 use anyhow::Context;
 use anyhow::Result;
 use std::os::unix::ffi::OsStringExt;

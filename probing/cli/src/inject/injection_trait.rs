@@ -77,7 +77,7 @@ where
     injection
         .execute(library)
         .context("failed to execute shellcode")?;
-    
+
     // Clean up
     injection.remove().context("failed to remove shellcode")?;
 

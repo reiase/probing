@@ -1,11 +1,11 @@
-use crate::inject::{LibcAddrs, Process};
 use crate::inject::injection_trait::InjectionTrait;
+use crate::inject::{LibcAddrs, Process};
 use anyhow::Context;
 use anyhow::Result;
 use std::os::unix::ffi::OsStringExt;
 
 /// The aarch64 shellcode that will be injected into the tracee.
-/// 
+///
 /// This shellcode:
 /// 1. Calls the function pointed to by x8 (function address)
 /// 2. Uses x0, x1, x2, x3 as arguments (first 4 arguments)
@@ -188,13 +188,15 @@ impl<'a> InjectionAarch64<'a> {
     }
 
     /// Make a function call in the tracee via the injected shellcode.
-    /// 
+    ///
     /// On aarch64, the calling convention uses:
     /// - x0, x1, x2, x3 for the first 4 arguments
     /// - x8 for the function address
     /// - x0 for the return value
     fn call_function(&mut self, fn_address: u64, x0: u64, x1: u64, x2: u64) -> Result<u64> {
-        log::trace!("Calling function at {fn_address:x} with x0 = {x0:x}, x1 = {x1:x}, x2 = {x2:x}");
+        log::trace!(
+            "Calling function at {fn_address:x} with x0 = {x0:x}, x1 = {x1:x}, x2 = {x2:x}"
+        );
         self.tracee
             .set_registers(pete::Registers {
                 // Jump to the start of the shellcode
@@ -223,7 +225,14 @@ impl<'a> InjectionAarch64<'a> {
     }
 
     /// Make a function call with 4 arguments
-    fn call_function4(&mut self, fn_address: u64, x0: u64, x1: u64, x2: u64, x3: u64) -> Result<u64> {
+    fn call_function4(
+        &mut self,
+        fn_address: u64,
+        x0: u64,
+        x1: u64,
+        x2: u64,
+        x3: u64,
+    ) -> Result<u64> {
         log::trace!("Calling function at {fn_address:x} with x0 = {x0:x}, x1 = {x1:x}, x2 = {x2:x}, x3 = {x3:x}");
         self.tracee
             .set_registers(pete::Registers {

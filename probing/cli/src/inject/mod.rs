@@ -160,10 +160,10 @@ impl Injector {
             ));
         };
         log::trace!("Attached to process with ID {}", tracee.pid);
-        
+
         // Platform-specific injection logic
         self.inject_platform_specific(library, settings, tracee)?;
-        
+
         log::info!(
             "Successfully injected library {} into process with PID {}",
             library.display(),
@@ -174,27 +174,33 @@ impl Injector {
 
     /// Platform-specific injection implementation
     fn inject_platform_specific(
-        &mut self, 
-        library: &std::path::Path, 
-        settings: Vec<String>, 
-        tracee: pete::Tracee
+        &mut self,
+        library: &std::path::Path,
+        settings: Vec<String>,
+        tracee: pete::Tracee,
     ) -> Result<()> {
         use injection_trait::perform_injection;
-        
+
         #[cfg(target_arch = "x86_64")]
         {
             use injection::Injection;
             perform_injection::<Injection>(&self.proc, &mut self.tracer, tracee, library, settings)
                 .context("failed to perform x86_64 injection")?;
         }
-        
+
         #[cfg(target_arch = "aarch64")]
         {
             use injection_aarch64::InjectionAarch64;
-            perform_injection::<InjectionAarch64>(&self.proc, &mut self.tracer, tracee, library, settings)
-                .context("failed to perform aarch64 injection")?;
+            perform_injection::<InjectionAarch64>(
+                &self.proc,
+                &mut self.tracer,
+                tracee,
+                library,
+                settings,
+            )
+            .context("failed to perform aarch64 injection")?;
         }
-        
+
         #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
         {
             return Err(anyhow::anyhow!(
@@ -202,7 +208,7 @@ impl Injector {
                 std::env::consts::ARCH
             ));
         }
-        
+
         Ok(())
     }
 
