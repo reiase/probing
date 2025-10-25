@@ -2,8 +2,8 @@
 use leptos::prelude::*;
 use leptos_meta::Style;
 
-use thaw::*;
 use crate::components::header_bar::HeaderBar;
+use thaw::*;
 
 #[component]
 pub fn PageLayout(children: Children) -> impl IntoView {

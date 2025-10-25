@@ -2,7 +2,6 @@ use leptos::prelude::*;
 
 mod app;
 mod components;
-// mod error_template;
 mod errors;
 mod pages;
 mod url_read;

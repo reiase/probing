@@ -54,7 +54,12 @@ pub fn Activity() -> impl IntoView {
 #[component]
 fn CallStackView(#[prop(into)] callstack: CallFrame) -> impl IntoView {
     match callstack {
-        CallFrame::CFrame { ip, file, func, lineno } => {
+        CallFrame::CFrame {
+            ip,
+            file,
+            func,
+            lineno,
+        } => {
             let key = format!("{ip}: {func} @ {file}: {lineno}");
             view! {
                 <AccordionItem value=key.clone()>

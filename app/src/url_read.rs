@@ -1,6 +1,6 @@
 use gloo_net::http::Request;
 use leptos::prelude::*;
-use probing_proto::prelude::{Message, Query, QueryDataFormat, DataFrame};
+use probing_proto::prelude::{DataFrame, Message, Query, QueryDataFormat};
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 
@@ -10,7 +10,7 @@ pub async fn url_read_str(url: &str) -> Result<String, AppError> {
     Request::get(url)
         .send()
         .await
-        .map_err(|e| AppError::HttpError(e.to_string()))?
+        .map_err(|e| AppError::NetworkError(e.to_string()))?
         .text()
         .await
         .map_err(|_| AppError::HttpError("Bad Response: String is Expected.".to_string()))
@@ -23,9 +23,10 @@ pub async fn url_read<T: DeserializeOwned>(url: &str) -> Result<T, AppError> {
     {
         Ok(val) => match val {
             Ok(t) => Ok(t),
-            Err(err) => Err(AppError::HttpError(
-                format!("Bad Response: {}", err).to_string(),
-            )),
+            Err(err) => Err(AppError::SerializationError(format!(
+                "Failed to deserialize response: {}",
+                err
+            ))),
         },
         Err(e) => Err(e),
     }
@@ -51,23 +52,23 @@ pub async fn read_query(query: &str) -> Result<DataFrame, AppError> {
     };
     let request = Message::new(request);
     let request = serde_json::to_string(&request)
-        .map_err(|e| AppError::HttpError(format!("Failed to serialize request: {}", e)))?;
+        .map_err(|e| AppError::SerializationError(format!("Failed to serialize request: {}", e)))?;
     let response = Request::post("/query")
         .body(request)
-        .map_err(|e| AppError::HttpError(e.to_string()))?
+        .map_err(|e| AppError::NetworkError(e.to_string()))?
         .send()
         .await
-        .map_err(|e| AppError::HttpError(e.to_string()))?
+        .map_err(|e| AppError::NetworkError(e.to_string()))?
         .text()
         .await
-        .map_err(|e| AppError::HttpError(e.to_string()))?;
+        .map_err(|e| AppError::NetworkError(e.to_string()))?;
 
-    let response: Message<QueryDataFormat> =
-        serde_json::from_str(response.as_str()).map_err(|e| AppError::HttpError(e.to_string()))?;
+    let response: Message<QueryDataFormat> = serde_json::from_str(response.as_str())
+        .map_err(|e| AppError::SerializationError(e.to_string()))?;
 
     match response.payload {
         QueryDataFormat::DataFrame(data_frame) => Ok(data_frame),
-        _ => Err(AppError::HttpError(
+        _ => Err(AppError::QueryError(
             "Bad Response: DataFrame is Expected.".to_string(),
         )),
     }

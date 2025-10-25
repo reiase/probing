@@ -4,6 +4,7 @@ use thaw::*;
 
 use crate::components::dataframe_view::{DataFrameChartView, DataFrameView};
 use crate::components::page_layerout::PageLayout;
+use crate::errors::AppError;
 use crate::url_read::read_query_resource;
 
 #[component]
@@ -100,17 +101,19 @@ fn SqlQueryPanel() -> impl IntoView {
         move || query_trigger.get(),
         move |trigger_value| async move {
             if trigger_value == 0 {
-                return Err("请在上方输入 SQL 查询并点击执行".to_string());
+                return Err(AppError::QueryError(
+                    "请在上方输入 SQL 查询并点击执行".to_string(),
+                ));
             }
 
             let query_text = sql.get();
             if query_text.trim().is_empty() {
-                return Err("请输入 SQL 查询".to_string());
+                return Err(AppError::QueryError("请输入 SQL 查询".to_string()));
             }
 
             read_query_resource(&query_text)
                 .await
-                .map_err(|e| format!("查询执行失败: {}", e))
+                .map_err(|e| AppError::QueryError(format!("查询执行失败: {}", e)))
         },
     );
 
@@ -150,7 +153,7 @@ fn SqlQueryPanel() -> impl IntoView {
                         }
                             .into_any()
                     }
-                    Some(Err(e)) => view! { <p class="error-text">{e}</p> }.into_any(),
+                    Some(Err(e)) => view! { <p class="error-text">{e.to_string()}</p> }.into_any(),
                     None => view! { <p class="loading-text">"加载中..."</p> }.into_any(),
                 }}
             </Suspense>

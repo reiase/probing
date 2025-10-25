@@ -5,8 +5,8 @@ use leptos_router::path;
 use thaw::*;
 
 use crate::pages::profiler::Profiler;
-use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
 use crate::pages::timeseries::Timeseries;
+use crate::pages::{activity::Activity, cluster::Cluster, overview::Overview, python::Python};
 
 #[component]
 pub fn App() -> impl IntoView {
