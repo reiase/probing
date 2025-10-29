@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate ctor;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use std::net::UdpSocket;
 
 use probing_python::features::python_api::create_probing_module;
 use probing_server::sync_env_settings;
@@ -14,33 +15,35 @@ const ENV_PROBING_PORT: &str = "PROBING_PORT";
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 pub fn get_hostname() -> Result<String> {
-    let ips = nix::ifaddrs::getifaddrs()?
-        .filter_map(|addr| addr.address)
-        .filter_map(|addr| addr.as_sockaddr_in().cloned())
-        .filter_map(|addr| {
-            let ip_addr = addr.ip();
-            match ip_addr.is_unspecified() {
-                true => None,
-                false => Some(ip_addr.to_string()),
-            }
-        })
-        .collect::<Vec<_>>();
-
-    // Check for address pattern match from environment variable
+    // Target address (same as the Python version: 8.8.8.8:8888)
+    let target = "8.8.8.8:8888";
+    
+    // Create a UDP socket and bind to a random port
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .map_err(|e| anyhow!("Failed to create UDP socket: {}", e))?;
+    
+    // Connect to the target address (UDP is only used to determine the egress IP, no actual connection is established)
+    socket.connect(target)
+        .map_err(|e| anyhow!("Unable to connect to {}: {}", target, e))?;
+    
+    // Get the local egress IP
+    let local_addr = socket.local_addr()
+        .map_err(|e| anyhow!("Failed to get local address: {}", e))?;
+    let ip = local_addr.ip().to_string();
+    
+    log::debug!("Obtained egress IP via UDP connection: {}", ip);
+    
+    // Check the address pattern from the environment variable
     if let Ok(pattern) = std::env::var("PROBING_SERVER_ADDRPATTERN") {
-        for ip in ips.iter() {
-            if ip.starts_with(pattern.as_str()) {
-                log::debug!("Select IP address {ip} with pattern {pattern}");
-                return Ok(ip.clone());
-            }
-            log::debug!("Skip IP address {ip} with pattern {pattern}");
+        if ip.starts_with(&pattern) {
+            log::debug!("IP {} matches pattern {}", ip, pattern);
+            return Ok(ip);
+        } else {
+            log::debug!("IP {} does not match pattern {}", ip, pattern);
         }
     }
-
-    // Return first IP if no pattern match found
-    ips.first()
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("No suitable IP address found"))
+    
+    Ok(ip)
 }
 
 #[ctor]
@@ -79,17 +82,15 @@ fn setup() {
                             .unwrap_or(0);
                         let serving_port = port_number.saturating_add(local_rank);
 
-                        let hostname ="0.0.0.0".to_string();
-                            // if std::env::var("RANK").unwrap_or_else(|_| "0".to_string()) == "0" {
-                            //     "0.0.0.0".to_string()
-                            // } else {
-                            //     get_hostname().unwrap_or_else(|err| {
-                            //         log::warn!(
-                            //             "Failed to get hostname: {err}, defaulting to localhost"
-                            //         );
-                            //         "localhost".to_string()
-                            //     })
-                            // };
+                        let hostname = get_hostname().unwrap_or_else(|err| {
+                            log::warn!(
+                                "Failed to get hostname: {err}, defaulting to localhost"
+                            );
+                            "localhost".to_string()
+                        });
+                                
+                        log::debug!("--------current ip: {}--------\n", hostname);
+                        
                         std::env::set_var(
                             "PROBING_SERVER_ADDR",
                             format!("'{hostname}:{serving_port}'"),
