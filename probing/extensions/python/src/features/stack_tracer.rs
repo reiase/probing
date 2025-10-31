@@ -162,32 +162,34 @@ impl StackTracer for SignalTracer {
             anyhow::anyhow!("Failed to acquire backtrace lock: {}", e)
         })?;
 
-        let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
-        NATIVE_CALLSTACK_SENDER_SLOT
-            .try_lock()
-            .map_err(|err| {
-                log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {err}");
-                anyhow::anyhow!("Failed to lock call stack sender slot")
-            })?
-            .replace(tx);
+        // let (tx, rx) = mpsc::channel::<Vec<CallFrame>>();
+        // NATIVE_CALLSTACK_SENDER_SLOT
+        //     .try_lock()
+        //     .map_err(|err| {
+        //         log::error!("Failed to lock CALLSTACK_SENDER_SLOT: {err}");
+        //         anyhow::anyhow!("Failed to lock call stack sender slot")
+        //     })?
+        //     .replace(tx);
 
-        log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
+        // log::debug!("Sending SIGUSR2 signal to process {pid} (thread: {tid})");
 
-        let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
-        if ret != 0 {
-            let last_error = std::io::Error::last_os_error();
-            let error_msg =
-                format!("Failed to send SIGUSR2 to process {pid} (thread: {tid}): {last_error}");
-            log::error!("{error_msg}");
-            return Err(anyhow::anyhow!(error_msg));
-        }
+        // let ret = unsafe { libc::syscall(libc::SYS_tgkill, pid, tid, libc::SIGUSR2) };
+        // if ret != 0 {
+        //     let last_error = std::io::Error::last_os_error();
+        //     let error_msg =
+        //         format!("Failed to send SIGUSR2 to process {pid} (thread: {tid}): {last_error}");
+        //     log::error!("{error_msg}");
+        //     return Err(anyhow::anyhow!(error_msg));
+        // }
         let python_frames = get_python_stacks(tid);
 
         let python_frames = python_frames.unwrap();
         
-        let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
+        // let cpp_frames = rx.recv_timeout(Duration::from_secs(2))?;
 
-        Ok(Self::merge_python_native_stacks(python_frames, cpp_frames))
+        Ok(python_frames)
+
+        // Ok(Self::merge_python_native_stacks(python_frames, cpp_frames))
     }
 }
 

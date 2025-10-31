@@ -88,7 +88,7 @@ impl ServerExtension {
     fn set_report_addr(&mut self, report_addr: Maybe<String>) -> Result<(), EngineError> {
         let report_addr_str: String = report_addr.clone().into();
         let address_str: String = self.address.clone().into();
-        start_report_worker(report_addr_str, address_str);
+        //start_report_worker(report_addr_str, address_str);
         self.report_addr = report_addr;
         Ok(())
     }

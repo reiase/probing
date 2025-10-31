@@ -14,6 +14,7 @@ based on the PROBING environment variable:
 """
 
 import os
+import psutil
 import sys
 import logging
 
@@ -24,6 +25,20 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def launched_by_torchrun() -> bool:
+    try:
+        p = psutil.Process(os.getppid())
+        for _ in range(3):
+            if p.name() in ("torchrun", "python -m torch.distributed.run"):
+                return True
+            p = p.parent() if p.parent() else None
+            if p is None:
+                break
+    except Exception:
+        pass
+    return False
 
 def get_current_script_name():
     """Get the name of the current running script."""
@@ -45,9 +60,12 @@ if probe_value.startswith("init:"):
     probe_value = parts[1] if len(parts) > 1 else "0"
     
 def execute_init_script():
-    if script_init is not None:
-        with open(script_init, "r") as f:
+    if launched_by_torchrun():
+      if script_init is not None:
+          with open(script_init, "r") as f:
             exec(f.read(), globals())
+    else:
+      logger.debug("Not launched by torchrun, skipping init script execution")
 
 def init_probing():
     try:
