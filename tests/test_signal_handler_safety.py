@@ -58,57 +58,61 @@ if __name__ == "__main__":
             text=True,
             env=env
         )
-    
-    try:
-        # Wait for ready signal
-        line = proc.stdout.readline()
-        if "READY" not in line:
-            print(f"ERROR: Expected READY signal, got: {line}")
-            return False
         
-        pid = proc.pid
-        print(f"✓ Test process started (PID: {pid})")
-        
-        # Try to collect backtrace using probing CLI
-        # This will trigger the signal handler
-        result = subprocess.run(
-            ['probing', '-t', str(pid), 'backtrace'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        if result.returncode == 0:
-            print("✓ Backtrace collection succeeded")
-            print(f"  Output preview: {result.stdout[:200]}...")
-            success = True
-        else:
-            print(f"✗ Backtrace collection failed: {result.stderr}")
-            success = False
-        
-        # Wait for process to complete
         try:
-            proc.wait(timeout=5)
-            print("✓ Test process completed normally")
-        except subprocess.TimeoutExpired:
-            print("✗ Test process timed out (possible deadlock)")
-            proc.kill()
-            success = False
-        
-        return success
-        
-    except Exception as e:
-        print(f"✗ Test failed with exception: {e}")
-        proc.kill()
-        return False
+            # Wait for ready signal
+            line = proc.stdout.readline()
+            if "READY" not in line:
+                print(f"ERROR: Expected READY signal, got: {line}")
+                return False
+            
+            pid = proc.pid
+            print(f"✓ Test process started (PID: {pid})")
+            
+            # Try to collect backtrace using probing CLI
+            # This will trigger the signal handler
+            result = subprocess.run(
+                ['probing', '-t', str(pid), 'backtrace'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                print("✓ Backtrace collection succeeded")
+                print(f"  Output preview: {result.stdout[:200]}...")
+                success = True
+            else:
+                print(f"✗ Backtrace collection failed: {result.stderr}")
+                success = False
+            
+            # Wait for process to complete
+            try:
+                proc.wait(timeout=5)
+                print("✓ Test process completed normally")
+            except subprocess.TimeoutExpired:
+                print("✗ Test process timed out (possible deadlock)")
+                proc.kill()
+                success = False
+            
+            return success
+            
+        except Exception as e:
+            print(f"✗ Test failed with exception: {e}")
+            return False
+        finally:
+            # Cleanup subprocess
+            if proc.poll() is None:
+                proc.kill()
+                try:
+                    proc.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    pass
     finally:
-        # Cleanup
-        if proc.poll() is None:
-            proc.kill()
-    finally:
+        # Cleanup temp file
         try:
             os.remove(script_path)
-        except:
+        except (OSError, FileNotFoundError):
             pass
 
 def test_repeated_signals():
@@ -171,9 +175,13 @@ for i in range(20):
     finally:
         if proc.poll() is None:
             proc.kill()
+            try:
+                proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
         try:
             os.remove(script_path)
-        except:
+        except (OSError, FileNotFoundError):
             pass
 
 def main():
