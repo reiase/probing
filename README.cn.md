@@ -87,6 +87,12 @@ Options:
 
 ## 开发与构建
 
+### 重要说明：信号处理器安全性
+
+⚠️ **注意**: Probing 使用信号(SIGUSR2)来采集native堆栈信息。虽然这在大多数情况下都能正常工作，但信号处理器会调用一些非异步信号安全(non-async-signal-safe)的函数。详细说明请参阅 [docs/signal-handler-safety.md](docs/signal-handler-safety.md)。
+
+**对于生产环境的持续性能分析，我们推荐使用 `pprof` crate**，它对信号安全边界情况的处理更加健壮。
+
 ### 二进制安装
 
 `probing` 可以通过pip命令安装：
