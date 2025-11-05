@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -263,3 +264,169 @@ static BACKTRACE_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync:
 
 pub static NATIVE_CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
     Lazy::new(|| Mutex::new(None));
+
+// ============================================================================
+// Safer Alternative Implementation (Experimental)
+// ============================================================================
+//
+// This section provides a more async-signal-safe approach by capturing only
+// raw frame pointers in the signal handler and deferring all symbol resolution.
+//
+// Benefits:
+// - Minimizes signal handler work (async-signal-safer)
+// - No malloc/free in signal handler
+// - No symbol resolution in signal handler
+//
+// Trade-offs:
+// - Requires unwinding via frame pointers (may not work with all code)
+// - Currently experimental and not used by default
+// - May miss frames if frame pointers are omitted during compilation
+//
+// To enable, compile with frame pointers: RUSTFLAGS="-C force-frame-pointers=yes"
+
+const MAX_RAW_FRAMES: usize = 256;
+
+/// Pre-allocated storage for raw instruction pointers captured in signal handler
+/// 
+/// SAFETY: AtomicPtr is async-signal-safe and can be used in signal handlers
+static RAW_FRAME_BUFFER: [AtomicPtr<libc::c_void>; MAX_RAW_FRAMES] = 
+    [const { AtomicPtr::new(std::ptr::null_mut()) }; MAX_RAW_FRAMES];
+
+/// Number of frames captured in the buffer
+static RAW_FRAME_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// Capture raw frame pointers in an async-signal-safe manner
+///
+/// This function is suitable for use in signal handlers as it:
+/// - Uses only async-signal-safe atomic operations
+/// - Performs no memory allocation
+/// - Performs no I/O
+/// - Acquires no locks
+///
+/// NOTE: This requires frame pointers to be enabled during compilation.
+/// Use: `RUSTFLAGS="-C force-frame-pointers=yes cargo build"`
+#[cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "macos")))]
+unsafe fn capture_raw_frames_signal_safe() -> usize {
+    let mut count = 0;
+    let mut rbp: *mut libc::c_void;
+    
+    // Get current frame pointer (RBP register on x86_64)
+    #[cfg(target_arch = "x86_64")]
+    std::arch::asm!("mov {}, rbp", out(reg) rbp);
+    
+    // Walk the frame pointer chain
+    // Each stack frame has the structure:
+    // [saved RBP] <- RBP points here
+    // [return address]
+    // [local variables...]
+    //
+    // Frame layout (on x86_64):
+    // rbp[0] = previous frame pointer
+    // rbp[1] = return address
+    while !rbp.is_null() && count < MAX_RAW_FRAMES {
+        // Sanity check: ensure pointer is aligned and not obviously invalid
+        if (rbp as usize) < 0x1000 || (rbp as usize) & 0x7 != 0 {
+            break;
+        }
+        
+        // Cast to pointer-to-pointer to access frame layout
+        let frame_ptr = rbp as *mut *mut libc::c_void;
+        
+        // Get return address (one word above saved frame pointer)
+        let return_addr = frame_ptr.offset(1).read();
+        
+        // Store in our pre-allocated buffer
+        RAW_FRAME_BUFFER[count].store(return_addr, Ordering::Relaxed);
+        count += 1;
+        
+        // Move to previous frame
+        rbp = frame_ptr.read();
+        
+        // Prevent infinite loops
+        if rbp as usize == 0 || rbp as usize == usize::MAX {
+            break;
+        }
+    }
+    
+    count
+}
+
+/// Resolve raw frame pointers to CallFrame objects (call from safe context)
+///
+/// This function is NOT async-signal-safe and must be called outside
+/// the signal handler context. It performs symbol resolution using backtrace-rs.
+fn resolve_raw_frames(frame_count: usize) -> Vec<CallFrame> {
+    let mut frames = Vec::new();
+    
+    for i in 0..frame_count {
+        let ip = RAW_FRAME_BUFFER[i].load(Ordering::Relaxed);
+        if ip.is_null() {
+            continue;
+        }
+        
+        // Now safe to use backtrace-rs for symbol resolution
+        backtrace::resolve(ip, |symbol| {
+            let func_name = symbol
+                .name()
+                .and_then(|name| name.as_str())
+                .map(|raw_name| {
+                    cpp_demangle::Symbol::new(raw_name)
+                        .ok()
+                        .map(|demangled| demangled.to_string())
+                        .unwrap_or_else(|| raw_name.to_string())
+                })
+                .unwrap_or_else(|| format!("unknown@{ip:p}"));
+            
+            let file_name = symbol
+                .filename()
+                .map(|path| path.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            
+            frames.push(CallFrame::CFrame {
+                ip: format!("{ip:p}"),
+                file: file_name,
+                func: func_name,
+                lineno: symbol.lineno().unwrap_or(0) as i64,
+            });
+        });
+    }
+    
+    frames
+}
+
+/// Alternative safer signal handler (currently not used by default)
+///
+/// This handler is more async-signal-safe as it only captures raw frame pointers
+/// without performing symbol resolution. Symbol resolution is deferred to a safe context.
+///
+/// To use this instead of the default handler, modify the signal registration in setup.rs
+#[allow(dead_code)]
+#[cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "macos")))]
+pub fn backtrace_signal_handler_safe() {
+    // Capture raw frames using async-signal-safe method
+    let count = unsafe { capture_raw_frames_signal_safe() };
+    RAW_FRAME_COUNT.store(count, Ordering::Release);
+    
+    // Python stacks can still be collected here as they use simpler mechanisms
+    let python_stacks = get_python_stacks_raw();
+    
+    // Send Python stacks (this part is still not fully async-signal-safe due to channel operations)
+    // In a fully safe implementation, we'd also defer this
+    if SignalTracer::send_frames(python_stacks).is_err() {
+        // Can't even log safely here in a true async-signal-safe implementation
+        // In practice, we accept this small risk
+    }
+}
+
+/// Get native stacks from previously captured raw frames (safe context)
+///
+/// Call this after the signal handler has run to get the resolved stack frames
+#[allow(dead_code)]
+pub fn get_native_stacks_from_captured_frames() -> Vec<CallFrame> {
+    let count = RAW_FRAME_COUNT.swap(0, Ordering::Acquire);
+    if count == 0 {
+        return vec![];
+    }
+    
+    resolve_raw_frames(count)
+}
