@@ -18,6 +18,27 @@ pub trait StackTracer: Send + Sync + std::fmt::Debug {
     fn trace(&self, tid: Option<i32>) -> Result<Vec<CallFrame>>;
 }
 
+/// SignalTracer - Stack tracing using POSIX signals
+///
+/// This tracer uses `SIGUSR2` to interrupt a target thread and collect its stack trace.
+///
+/// ## How It Works
+///
+/// 1. Send `SIGUSR2` signal to target thread using `tgkill` syscall
+/// 2. Signal handler (`backtrace_signal_handler`) runs in target thread's context
+/// 3. Handler collects native and Python stack frames
+/// 4. Frames are sent back via channel to the requestor
+///
+/// ## Safety Considerations
+///
+/// ⚠️ **WARNING**: The signal handler performs non-async-signal-safe operations.
+/// See `backtrace_signal_handler()` documentation and `docs/signal-handler-safety.md`
+/// for detailed explanation of risks and mitigations.
+///
+/// ## Alternative: Use pprof for Production
+///
+/// For production workloads with continuous profiling, consider using the `pprof`
+/// crate which handles signal safety edge cases more robustly.
 #[derive(Debug)]
 pub struct SignalTracer;
 
@@ -184,6 +205,48 @@ impl StackTracer for SignalTracer {
     }
 }
 
+/// Signal handler for backtrace collection
+///
+/// ⚠️ **SAFETY WARNING**: This function is called from a signal handler context
+/// and performs operations that are NOT async-signal-safe according to POSIX standards.
+///
+/// ## Why This Is Unsafe
+///
+/// This handler calls:
+/// - `backtrace::trace()` - Uses malloc/free internally  
+/// - `backtrace::resolve_frame()` - May acquire locks and perform I/O
+/// - `cpp_demangle::Symbol::new()` - Complex string operations with allocations
+/// - `log::error!()` - I/O operations
+///
+/// These operations can cause:
+/// - **Deadlocks**: If the interrupted thread holds a lock that these functions need
+/// - **Memory corruption**: Reentrancy issues with malloc/free
+/// - **Crashes**: Undefined behavior from non-reentrant code
+///
+/// ## Why We Use Signals Anyway
+///
+/// Despite the risks, signals are necessary for:
+/// 1. **Asynchronous interruption**: Can interrupt any thread without cooperation
+/// 2. **Thread context**: Signal handler runs in the target thread's context
+/// 3. **Low overhead**: More efficient than alternatives like ptrace
+/// 4. **Industry standard**: Used by profilers like perf, pprof, etc.
+///
+/// ## Mitigation Strategies
+///
+/// 1. **Use pprof for production**: The `pprof` crate handles many edge cases better
+/// 2. **Limit signal frequency**: Don't send signals too frequently
+/// 3. **Monitor for hangs**: Implement timeouts for stack collection
+/// 4. **Test thoroughly**: This works reliably in most cases but can fail under specific conditions
+///
+/// ## See Also
+///
+/// - `docs/signal-handler-safety.md` - Detailed explanation and safer alternatives
+/// - POSIX signal-safety: `man 7 signal-safety`
+///
+/// ## Implementation Note
+///
+/// In practice, many production profilers (perf, pprof, etc.) make similar tradeoffs.
+/// The key is understanding and documenting the risks.
 pub fn backtrace_signal_handler() {
     let native_stacks = SignalTracer::get_native_stacks().unwrap_or_default();
     let python_stacks = get_python_stacks_raw();
