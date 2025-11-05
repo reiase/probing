@@ -286,9 +286,16 @@ pub static NATIVE_CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<Call
 
 const MAX_RAW_FRAMES: usize = 256;
 
+/// Minimum valid stack address (below this is likely invalid)
+/// Addresses below 4KB (0x1000) are typically reserved/invalid
+const MIN_VALID_STACK_ADDR: usize = 0x1000;
+
 /// Pre-allocated storage for raw instruction pointers captured in signal handler
 /// 
-/// SAFETY: AtomicPtr is async-signal-safe and can be used in signal handlers
+/// SAFETY: 
+/// - AtomicPtr is async-signal-safe (lock-free atomic operation)
+/// - const initialization avoids any runtime allocation
+/// - This pre-allocated buffer ensures no malloc/free occurs in signal handler
 static RAW_FRAME_BUFFER: [AtomicPtr<libc::c_void>; MAX_RAW_FRAMES] = 
     [const { AtomicPtr::new(std::ptr::null_mut()) }; MAX_RAW_FRAMES];
 
@@ -325,7 +332,7 @@ unsafe fn capture_raw_frames_signal_safe() -> usize {
     // rbp[1] = return address
     while !rbp.is_null() && count < MAX_RAW_FRAMES {
         // Sanity check: ensure pointer is aligned and not obviously invalid
-        if (rbp as usize) < 0x1000 || (rbp as usize) & 0x7 != 0 {
+        if (rbp as usize) < MIN_VALID_STACK_ADDR || (rbp as usize) & 0x7 != 0 {
             break;
         }
         
@@ -342,8 +349,9 @@ unsafe fn capture_raw_frames_signal_safe() -> usize {
         // Move to previous frame
         rbp = frame_ptr.read();
         
-        // Prevent infinite loops
-        if rbp as usize == 0 || rbp as usize == usize::MAX {
+        // Prevent infinite loops - check for null or obviously invalid values
+        // usize::MAX might appear if stack is corrupted or we've reached the end
+        if rbp.is_null() || rbp as usize == usize::MAX {
             break;
         }
     }
@@ -366,16 +374,16 @@ fn resolve_raw_frames(frame_count: usize) -> Vec<CallFrame> {
         
         // Now safe to use backtrace-rs for symbol resolution
         backtrace::resolve(ip, |symbol| {
-            let func_name = symbol
-                .name()
-                .and_then(|name| name.as_str())
-                .map(|raw_name| {
+            // Extract function name with demangling
+            let func_name = match symbol.name().and_then(|name| name.as_str()) {
+                Some(raw_name) => {
                     cpp_demangle::Symbol::new(raw_name)
                         .ok()
                         .map(|demangled| demangled.to_string())
                         .unwrap_or_else(|| raw_name.to_string())
-                })
-                .unwrap_or_else(|| format!("unknown@{ip:p}"));
+                }
+                None => format!("unknown@{ip:p}"),
+            };
             
             let file_name = symbol
                 .filename()
@@ -396,13 +404,19 @@ fn resolve_raw_frames(frame_count: usize) -> Vec<CallFrame> {
 
 /// Alternative safer signal handler (currently not used by default)
 ///
-/// This handler is more async-signal-safe as it only captures raw frame pointers
-/// without performing symbol resolution. Symbol resolution is deferred to a safe context.
+/// This handler is MORE async-signal-safe (though not completely) as it only 
+/// captures raw frame pointers without performing symbol resolution. 
+/// Symbol resolution is deferred to a safe context.
 ///
+/// NOTE: Still not 100% async-signal-safe due to:
+/// - Python stack collection (get_python_stacks_raw)  
+/// - Channel send operations (SignalTracer::send_frames)
+///
+/// For maximum safety, these would also need to be deferred.
 /// To use this instead of the default handler, modify the signal registration in setup.rs
 #[allow(dead_code)]
 #[cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "macos")))]
-pub fn backtrace_signal_handler_safe() {
+pub fn backtrace_signal_handler_safer() {
     // Capture raw frames using async-signal-safe method
     let count = unsafe { capture_raw_frames_signal_safe() };
     RAW_FRAME_COUNT.store(count, Ordering::Release);

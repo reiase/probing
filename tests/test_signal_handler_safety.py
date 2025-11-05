@@ -10,6 +10,7 @@ import sys
 import time
 import signal
 import subprocess
+import tempfile
 
 def busy_work():
     """Perform some CPU work to have interesting stack frames"""
@@ -40,21 +41,23 @@ if __name__ == "__main__":
     print("DONE", flush=True)
 """
     
-    # Write test script
-    with open('/tmp/test_signal_stack.py', 'w') as f:
+    # Create temporary file for test script
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        script_path = f.name
         f.write(test_script)
     
-    # Start process with probing enabled
-    env = os.environ.copy()
-    env['PROBING'] = '1'
-    
-    proc = subprocess.Popen(
-        [sys.executable, '/tmp/test_signal_stack.py'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env
-    )
+    try:
+        # Start process with probing enabled
+        env = os.environ.copy()
+        env['PROBING'] = '1'
+        
+        proc = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env
+        )
     
     try:
         # Wait for ready signal
@@ -102,8 +105,9 @@ if __name__ == "__main__":
         # Cleanup
         if proc.poll() is None:
             proc.kill()
+    finally:
         try:
-            os.remove('/tmp/test_signal_stack.py')
+            os.remove(script_path)
         except:
             pass
 
@@ -118,19 +122,22 @@ for i in range(20):
     time.sleep(0.05)
 """
     
-    with open('/tmp/test_repeated_signals.py', 'w') as f:
+    # Create temporary file for test script
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        script_path = f.name
         f.write(test_script)
     
-    env = os.environ.copy()
-    env['PROBING'] = '1'
-    
-    proc = subprocess.Popen(
-        [sys.executable, '/tmp/test_repeated_signals.py'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env
-    )
+    try:
+        env = os.environ.copy()
+        env['PROBING'] = '1'
+        
+        proc = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env
+        )
     
     try:
         time.sleep(0.1)  # Let process start
@@ -165,7 +172,7 @@ for i in range(20):
         if proc.poll() is None:
             proc.kill()
         try:
-            os.remove('/tmp/test_repeated_signals.py')
+            os.remove(script_path)
         except:
             pass
 

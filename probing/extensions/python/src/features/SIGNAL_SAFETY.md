@@ -74,7 +74,7 @@ fn setup() {
         // Replace the default handler:
         // crate::features::stack_tracer::backtrace_signal_handler,
         // With the safer one:
-        crate::features::stack_tracer::backtrace_signal_handler_safe,
+        crate::features::stack_tracer::backtrace_signal_handler_safer,
     );
 }
 ```
