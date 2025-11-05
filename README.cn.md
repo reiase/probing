@@ -89,9 +89,18 @@ Options:
 
 ### 重要说明：信号处理器安全性
 
-⚠️ **注意**: Probing 使用信号(SIGUSR2)来采集native堆栈信息。虽然这在大多数情况下都能正常工作，但信号处理器会调用一些非异步信号安全(non-async-signal-safe)的函数。详细说明请参阅 [docs/signal-handler-safety.md](docs/signal-handler-safety.md)。
+⚠️ **注意**: Probing 使用信号(SIGUSR2)来采集native堆栈信息。虽然这在大多数情况下都能正常工作，但信号处理器会调用一些非异步信号安全(non-async-signal-safe)的函数。
 
-**对于生产环境的持续性能分析，我们推荐使用 `pprof` crate**，它对信号安全边界情况的处理更加健壮。
+**文档资源**:
+- [信号处理器安全说明](docs/signal-handler-safety.md) - 技术细节和风险分析
+- [迁移升级指南](docs/migration-guide.md) - **详细的分步骤升级方案** 📋
+
+**快速总结**:
+- **生产环境性能分析**: 推荐使用 `pprof` crate
+- **开发环境最大安全性**: 使用实验性的安全处理器 (仅限 x86_64)
+- **当前默认方案**: 适用于大多数场景，但存在理论风险
+
+详细的选择和实施指南请参阅[迁移升级指南](docs/migration-guide.md)。
 
 ### 二进制安装
 

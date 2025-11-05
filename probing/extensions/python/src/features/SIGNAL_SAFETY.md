@@ -64,6 +64,11 @@ Trade-offs:
 
 ## How to Switch to Safer Handler
 
+⚠️ **详细迁移指南**: 参见 [docs/migration-guide.md](../../../docs/migration-guide.md)  
+⚠️ **Detailed Migration Guide**: See [docs/migration-guide.md](../../../docs/migration-guide.md)
+
+### Quick Switch (for development only)
+
 Edit `probing/extensions/python/src/setup.rs`:
 
 ```rust
@@ -83,6 +88,20 @@ Then compile with frame pointers:
 ```bash
 RUSTFLAGS="-C force-frame-pointers=yes" cargo build
 ```
+
+### Recommended for Production
+
+Use pprof instead:
+
+```bash
+# Set environment variable
+export PROBING_USE_PPROF=1
+
+# Restart your application
+PROBING=1 python your_app.py
+```
+
+For complete step-by-step instructions, migration strategies, testing procedures, and rollback plans, see the comprehensive [Migration Guide](../../../docs/migration-guide.md).
 
 ## Testing
 

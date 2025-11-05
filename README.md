@@ -180,14 +180,18 @@ probing -t <pid> config "probing.rdma.sample.rate='5'"
 
 ### ⚠️ Important Note: Signal Handler Safety
 
-Probing uses signals (`SIGUSR2`) to collect native stack traces. While this works reliably in most cases, the signal handler calls functions that are **not async-signal-safe** according to POSIX standards. See [docs/signal-handler-safety.md](docs/signal-handler-safety.md) for detailed explanation of:
+Probing uses signals (`SIGUSR2`) to collect native stack traces. While this works reliably in most cases, the signal handler calls functions that are **not async-signal-safe** according to POSIX standards. 
 
-- Why signals are used for stack collection
-- The risks involved (potential for deadlocks/crashes in rare cases)
-- Available mitigation strategies
-- Safer alternative implementations
+**Documentation**:
+- [Signal Handler Safety Explanation](docs/signal-handler-safety.md) - Technical details and risks
+- [Migration Guide](docs/migration-guide.md) - **Step-by-step upgrade instructions** 📋
 
-**For production profiling workloads, we recommend using the `pprof` crate**, which handles signal safety edge cases more robustly.
+**Quick Summary**:
+- **For production profiling**: Use the `pprof` crate (recommended)
+- **For development with maximum safety**: Use the experimental safer handler (x86_64 only)
+- **Current default**: Works well for most cases but has theoretical risks
+
+See the [Migration Guide](docs/migration-guide.md) for detailed instructions on choosing and implementing the best approach for your use case.
 
 ### Prerequisites
 

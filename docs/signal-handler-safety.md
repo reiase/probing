@@ -324,27 +324,119 @@ pub fn backtrace_signal_handler() {
 
 ## 迁移计划 (Migration Plan)
 
-为了安全地迁移到新的实现:
+⚠️ **详细的分步骤迁移指南请参阅**: [migration-guide.md](./migration-guide.md)
 
-To safely migrate to the new implementation:
+Detailed step-by-step migration guide available at: [migration-guide.md](./migration-guide.md)
 
-1. **短期 (Short-term)**:
-   - 添加文档警告
-   - Add documentation warnings
-   - 添加运行时检测机制
-   - Add runtime detection mechanisms
+### 快速概览 (Quick Overview)
 
-2. **中期 (Medium-term)**:
-   - 实现方案2的异步信号安全捕获
-   - Implement Solution 2's async-signal-safe capture
-   - 保持向后兼容
-   - Maintain backward compatibility
+为了安全地迁移到新的实现，我们提供三条路线：
 
-3. **长期 (Long-term)**:
-   - 完全迁移到安全实现
-   - Fully migrate to safe implementation
-   - 移除不安全的代码路径
-   - Remove unsafe code paths
+To safely migrate to the new implementation, we provide three migration paths:
+
+#### 路线 A: 迁移到 pprof (推荐生产环境)
+
+**适用场景**: 生产环境持续性能监控
+
+**优势**:
+- ✅ 最高安全性和稳定性
+- ✅ 已被广泛验证
+- ✅ 完整的火焰图支持
+- ✅ 低性能开销 (< 1%)
+
+**步骤概要**:
+1. 设置环境变量 `PROBING_USE_PPROF=1`
+2. 金丝雀部署测试
+3. 逐步扩展到全部服务器
+4. 监控性能指标
+
+**详细步骤**: 参见 [migration-guide.md - 路线A](./migration-guide.md#路线a-迁移到pprof)
+
+#### 路线 B: 启用实验性安全处理器
+
+**适用场景**: 开发环境，需要最大安全性
+
+**要求**:
+- ⚠️ 仅支持 x86_64 Linux/macOS
+- ⚠️ 需要帧指针编译: `RUSTFLAGS="-C force-frame-pointers=yes"`
+- ⚠️ 实验性功能，不推荐生产环境
+
+**步骤概要**:
+1. 配置 `.cargo/config.toml` 启用帧指针
+2. 修改 `setup.rs` 使用 `backtrace_signal_handler_safer()`
+3. 重新编译整个项目
+4. 测试验证
+
+**详细步骤**: 参见 [migration-guide.md - 路线B](./migration-guide.md#路线b-启用实验性安全处理器)
+
+#### 路线 C: 保持现状并监控
+
+**适用场景**: 开发环境，低频采样，无稳定性问题
+
+**优势**:
+- ✅ 无需任何修改
+- ✅ 支持所有平台
+- ✅ 功能完整
+
+**建议措施**:
+- 添加采样超时保护
+- 监控采样成功率
+- 限制采样频率 (< 1次/分钟)
+
+**详细步骤**: 参见 [migration-guide.md - 路线C](./migration-guide.md#路线c-保持现状并监控)
+
+### 决策树 (Decision Tree)
+
+```
+是否是生产环境？
+├─ 是 → 是否需要持续 profiling？
+│      ├─ 是 → 【路线 A: pprof】 ✓ 推荐
+│      └─ 否 → 【路线 C: 保持现状】 + 监控
+│
+└─ 否 → 是否需要最高安全性？
+       ├─ 是 + x86_64 平台 → 【路线 B: 安全处理器】
+       └─ 否 → 【路线 C: 保持现状】
+```
+
+### 迁移时间表 (Timeline)
+
+根据不同场景的建议迁移时间表：
+
+**高风险场景** (生产环境 + 高频采样):
+- 第 1 周: 评估和准备
+- 第 2 周: 金丝雀部署 (5%)
+- 第 3-4 周: 逐步扩展 (25% → 50% → 75%)
+- 第 5 周: 全量部署 (100%)
+
+**中风险场景** (开发环境 + 中频采样):
+- 第 1-2 周: 评估和测试
+- 第 3 周: 部署和验证
+
+**低风险场景** (低频采样 + 无问题):
+- 可选择保持现状
+- 定期监控即可
+
+### 验证清单 (Validation Checklist)
+
+迁移前：
+- [ ] 评估当前使用场景和风险级别
+- [ ] 选择合适的迁移路线
+- [ ] 准备回滚计划
+- [ ] 设置监控指标
+
+迁移后：
+- [ ] 功能测试通过
+- [ ] 性能基准测试通过
+- [ ] 压力测试通过
+- [ ] 24小时稳定性测试通过
+- [ ] 生产环境监控正常
+
+### 获取帮助 (Getting Help)
+
+- 📖 完整迁移指南: [migration-guide.md](./migration-guide.md)
+- 🧪 测试脚本: `tests/test_signal_handler_safety.py`
+- 📊 性能基准: 见迁移指南中的性能对比章节
+- 🔄 回滚计划: 见迁移指南中的回滚计划章节
 
 ## 参考资料 (References)
 
