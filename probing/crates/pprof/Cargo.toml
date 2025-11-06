@@ -1,0 +1,16 @@
+[package]
+name = "probing-pprof"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+nix = {workspace = true}
+ctor = {workspace = true}
+log = { workspace = true }
+once_cell = { workspace = true }
+signal-hook-registry = "1.4.2"

@@ -69,71 +69,6 @@ impl SignalTracer {
             Err(_) => Err(anyhow::anyhow!("Failed to send frames via channel")),
         }
     }
-
-    fn merge_python_native_stacks(
-        python_stacks: Vec<CallFrame>,
-        native_stacks: Vec<CallFrame>,
-    ) -> Vec<CallFrame> {
-        let mut merged = vec![];
-        let mut python_frame_index = 0;
-
-        enum MergeType {
-            Ignore,
-            MergeNativeFrame,
-            MergePythonFrame,
-        }
-
-        fn get_merge_strategy(frame: &CallFrame) -> MergeType {
-            lazy_static! {
-                static ref WHITELISTED_PREFIXES_SET: HashSet<&'static str> = {
-                    const PREFIXES: &[&str] = &[
-                        "time",
-                        "sys",
-                        "gc",
-                        "os",
-                        "unicode",
-                        "thread",
-                        "stringio",
-                        "sre",
-                        "PyGilState",
-                        "PyThread",
-                        "lock",
-                    ];
-                    PREFIXES.iter().cloned().collect()
-                };
-            }
-            let symbol = match frame {
-                CallFrame::CFrame { func, .. } => func,
-                CallFrame::PyFrame { func, .. } => func,
-            };
-            let mut tokens = symbol.split(['_', '.']).filter(|s| !s.is_empty());
-            match tokens.next() {
-                Some("PyEval") => match tokens.next() {
-                    Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,
-                    _ => MergeType::Ignore,
-                },
-                Some(prefix) if WHITELISTED_PREFIXES_SET.contains(prefix) => {
-                    MergeType::MergeNativeFrame
-                }
-                _ => MergeType::MergeNativeFrame,
-            }
-        }
-
-        for frame in native_stacks {
-            // log::debug!("Processing native frame: {:?}", frame);
-            match get_merge_strategy(&frame) {
-                MergeType::Ignore => {} // Do nothing
-                MergeType::MergeNativeFrame => merged.push(frame),
-                MergeType::MergePythonFrame => {
-                    if let Some(py_frame) = python_stacks.get(python_frame_index) {
-                        merged.push(py_frame.clone());
-                    }
-                    python_frame_index += 1; // Advance index regardless of whether a Python frame was available
-                }
-            }
-        }
-        merged
-    }
 }
 
 #[async_trait]
@@ -177,10 +112,7 @@ impl StackTracer for SignalTracer {
         let native_frames = rx.recv_timeout(Duration::from_secs(2))?;
         let python_frames = rx.recv_timeout(Duration::from_secs(2))?;
 
-        Ok(Self::merge_python_native_stacks(
-            python_frames,
-            native_frames,
-        ))
+        Ok(merge_python_native_stacks(python_frames, native_frames))
     }
 }
 
@@ -200,3 +132,70 @@ static BACKTRACE_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync:
 
 pub static NATIVE_CALLSTACK_SENDER_SLOT: Lazy<Mutex<Option<mpsc::Sender<Vec<CallFrame>>>>> =
     Lazy::new(|| Mutex::new(None));
+
+pub fn merge_python_native_stacks(
+    python_stacks: Vec<CallFrame>,
+    native_stacks: Vec<CallFrame>,
+) -> Vec<CallFrame> {
+    let mut merged = vec![];
+    let mut python_frame_index = 0;
+
+    enum MergeType {
+        Ignore,
+        MergeNativeFrame,
+        MergePythonFrame,
+    }
+
+    fn get_merge_strategy(frame: &CallFrame) -> MergeType {
+        lazy_static! {
+            static ref WHITELISTED_PREFIXES_SET: HashSet<&'static str> = {
+                const PREFIXES: &[&str] = &[
+                    "time",
+                    "sys",
+                    "gc",
+                    "os",
+                    "unicode",
+                    "thread",
+                    "stringio",
+                    "sre",
+                    "PyGilState",
+                    "PyThread",
+                    "lock",
+                ];
+                PREFIXES.iter().cloned().collect()
+            };
+        }
+        let symbol = match frame {
+            CallFrame::CFrame { func, .. } => func,
+            CallFrame::PyFrame { func, .. } => func,
+        };
+        let mut tokens = symbol.split(['_', '.']).filter(|s| !s.is_empty());
+        match tokens.next() {
+            Some("PyEval") => match tokens.next() {
+                Some("EvalFrameDefault" | "EvalFrameEx") => MergeType::MergePythonFrame,
+                _ => MergeType::Ignore,
+            },
+            Some(prefix) if WHITELISTED_PREFIXES_SET.contains(prefix) => {
+                MergeType::MergeNativeFrame
+            }
+            _ => MergeType::MergeNativeFrame,
+        }
+    }
+
+    for frame in native_stacks {
+        // log::debug!("Processing native frame: {:?}", frame);
+        match get_merge_strategy(&frame) {
+            MergeType::Ignore => {} // Do nothing
+            MergeType::MergeNativeFrame => merged.push(frame),
+            MergeType::MergePythonFrame => {
+                if let Some(py_frame) = python_stacks.get(python_frame_index) {
+                    merged.push(py_frame.clone())
+                } else {
+                    merged.push(frame.clone())
+                }
+                python_frame_index += 1; // Advance index regardless of whether a Python frame was available
+            }
+        }
+    }
+    merged
+}

@@ -15,13 +15,16 @@ use apis::apis_route;
 use log::error;
 use once_cell::sync::Lazy;
 
-use crate::asset::{index, static_files};
-use crate::engine::{handle_query, initialize_engine};
-use crate::server::repl::ws_handler;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use middleware::{request_logging_middleware, request_size_limit_middleware};
+
 use probing_proto::prelude::Query;
+use probing_python::features::pprof::pprof_task;
+
+use crate::asset::{index, static_files};
+use crate::engine::{handle_query, initialize_engine};
+use crate::server::repl::ws_handler;
 
 async fn get_config_value_handler(
     axum::extract::Path(config_key): axum::extract::Path<String>,
@@ -41,7 +44,7 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
         .unwrap_or("4".to_string())
         .parse::<usize>()
         .unwrap_or(4);
-    tokio::runtime::Builder::new_multi_thread()
+    let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(worker_threads)
         .thread_name("server runtime")
@@ -52,7 +55,10 @@ pub static SERVER_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
             );
         })
         .build()
-        .unwrap()
+        .unwrap();
+    rt.spawn(pprof_task());
+
+    rt
 });
 
 fn build_app(auth: bool) -> axum::Router {

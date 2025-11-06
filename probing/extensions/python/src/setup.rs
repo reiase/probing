@@ -18,4 +18,5 @@ fn setup() {
         nix::libc::SIGUSR2,
         crate::features::stack_tracer::backtrace_signal_handler,
     );
+    crate::features::pprof::setup(100);
 }

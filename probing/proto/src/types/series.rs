@@ -105,7 +105,6 @@ impl Slice {
 /// Configuration for Series data storage and compression
 ///
 /// Controls how Series data is chunked, compressed, and managed in memory.
-
 const DISCARD_THRESHOLD_DEFAULT: usize = 20_000_000;
 const CHUNK_SIZE_DEFAULT: usize = 10000;
 

@@ -1,4 +1,5 @@
 #![feature(thread_local)]
+#![feature(iter_map_windows)]
 
 #[macro_use]
 extern crate ctor;

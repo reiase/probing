@@ -39,13 +39,11 @@ pub struct TimeSeries {
 
 impl TimeSeries {
     pub fn builder() -> TimeSeriesConfig {
-        let ts_config = TimeSeriesConfig::default();
-        ts_config
+        TimeSeriesConfig::default()
     }
 
     pub fn builder_with_config(ext_config: DiscardStrategy) -> TimeSeriesConfig {
-        let ts_config = TimeSeriesConfig::default().with_discard_strategy(ext_config);
-        ts_config
+        TimeSeriesConfig::default().with_discard_strategy(ext_config)
     }
 
     pub fn len(&self) -> usize {

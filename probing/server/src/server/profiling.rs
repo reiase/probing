@@ -8,7 +8,7 @@ pub async fn get_torch_flamegraph() -> ApiResult<impl IntoResponse> {
     Ok((
         [
             ("Content-Type", "image/svg+xml"),
-            ("Content-Disposition", "attachment; filename=flamegraph.svg"),
+            ("Content-Disposition", "inline; filename=flamegraph.svg"),
         ],
         graph,
     ))
@@ -20,7 +20,7 @@ pub async fn get_pprof_flamegraph() -> ApiResult<impl IntoResponse> {
         Ok(graph) => Ok((
             [
                 ("Content-Type", "image/svg+xml"),
-                ("Content-Disposition", "attachment; filename=flamegraph.svg"),
+                ("Content-Disposition", "inline; filename=flamegraph.svg"),
             ],
             graph,
         )),
