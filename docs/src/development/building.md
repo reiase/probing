@@ -30,11 +30,11 @@ pip install setuptools wheel build
 ```bash
 # Ubuntu/Debian
 sudo apt update
-sudo apt install build-essential pkg-config libssl-dev
+sudo apt install build-essential pkg-config libssl-dev libunwind-dev
 
 # CentOS/RHEL/Fedora
 sudo yum groupinstall "Development Tools"
-sudo yum install openssl-devel
+sudo yum install openssl-devel libunwind-devel
 
 # macOS (with Homebrew)
 brew install pkg-config openssl
