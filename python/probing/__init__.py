@@ -31,17 +31,21 @@ def initialize_probing():
         pathlib.Path.cwd() / "target" / "release" / "libprobing.so",
     ]
 
-    # Try loading the library from each path
+    # Try loading the library from each path while preserving the actual
+    # dynamic-loader error for diagnostics.
+    load_errors = []
     for path in paths:
         if path.exists():
             try:
                 return ctypes.CDLL(str(path))
-            except Exception:
-                continue  # Try the next path if loading fails
+            except OSError as error:
+                load_errors.append(f"{path}: {error}")
 
-    # If we get here, the library wasn't found or couldn't be loaded
+    searched_paths = ", ".join(str(path) for path in paths)
+    error_details = "; ".join(load_errors) or "no candidate library exists"
     raise ImportError(
-        f"Could not find or load libprobing.so. Searched in: {', '.join(str(p) for p in paths)}"
+        f"Could not load libprobing.so. Searched in: {searched_paths}. "
+        f"Loader errors: {error_details}"
     )
 
 

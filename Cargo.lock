@@ -3573,6 +3573,7 @@ dependencies = [
  "include_dir",
  "inferno 0.12.3",
  "lazy_static",
+ "libloading",
  "log",
  "nix 0.30.1",
  "once_cell",

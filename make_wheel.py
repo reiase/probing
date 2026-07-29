@@ -85,10 +85,15 @@ def write_probing_wheel(
     if not out_dir_path.exists():
         out_dir_path.mkdir(parents=True)
 
+    build_dir = pathlib.Path(
+        os.environ.get(
+            "PROBING_BUILD_DIR", "target/x86_64-unknown-linux-gnu/release"
+        )
+    )
     for name, path in {
-        "probing": "target/x86_64-unknown-linux-gnu/release/probing",
-        "libprobing.so": "target/x86_64-unknown-linux-gnu/release/libprobing.so",
-        "probing-repl": "python/probing-repl",
+        "probing": build_dir / "probing",
+        "libprobing.so": build_dir / "libprobing.so",
+        "probing-repl": pathlib.Path("python/probing-repl"),
     }.items():
         zip_info = ZipInfo(f"probing-{metadata['version']}.data/scripts/{name}")
         zip_info.external_attr = (stat.S_IFREG | 0o755) << 16
@@ -147,7 +152,8 @@ def write_probing_wheel(
             ],
             "Keywords": ", ".join(metadata["keywords"]),
             "Author": ", ".join(metadata["authors"]),
-            "Requires-Python": ">=3.7",
+            "Requires-Python": ">=3.8",
+            "Requires-Dist": "websockets>=13.0",
         },
         description=description,
         contents=contents,

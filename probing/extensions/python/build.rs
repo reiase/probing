@@ -7,10 +7,8 @@ fn main() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     if target_os == "linux" && target_arch == "x86_64" {
-        // The ABI is declared directly in Rust so cargo-zigbuild does not need
-        // to compile C code or locate target-specific libunwind headers.
-        println!("cargo::rustc-link-lib=unwind-x86_64");
-        println!("cargo::rustc-link-lib=unwind");
+        // libunwind is loaded only when native stack collection is requested,
+        // so importing the wheel doesn't require it in the target container.
         println!("cargo::rustc-cfg=probing_snapshot_unwind");
     }
 }

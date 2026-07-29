@@ -14,7 +14,6 @@ based on the PROBING environment variable:
 """
 
 import os
-import psutil
 import sys
 import logging
 
@@ -119,9 +118,8 @@ def init_probing():
 try:
     import re
 
-    if re.fullmatch("torchrun", current_script) is None:
-        if launched_by_torchrun():
-            init_probing()
+    if re.search("torchrun", current_script) is None:
+        init_probing()
 except Exception as e:
     print(f"Error in probing hook: {e}", file=sys.stderr)
     # In case of unexpected errors, don't enable probing

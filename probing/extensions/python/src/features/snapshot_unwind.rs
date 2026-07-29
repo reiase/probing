@@ -14,6 +14,7 @@ mod supported {
     use std::time::{Duration, Instant};
 
     use anyhow::{anyhow, Result};
+    use libloading::Library;
     use nix::libc;
     use once_cell::sync::Lazy;
 
@@ -134,30 +135,99 @@ mod supported {
 
     struct UnwindContext {
         snapshot: *const Snapshot,
+        local_address_space: UnwAddrSpace,
         local_accessors: *const UnwAccessors,
     }
 
-    extern "C" {
-        #[link_name = "_Ux86_64_local_addr_space"]
-        static mut UNW_LOCAL_ADDR_SPACE: UnwAddrSpace;
-        #[link_name = "_Ux86_64_create_addr_space"]
-        fn unw_create_addr_space(accessors: *mut UnwAccessors, byte_order: c_int) -> UnwAddrSpace;
-        #[link_name = "_Ux86_64_destroy_addr_space"]
-        fn unw_destroy_addr_space(address_space: UnwAddrSpace);
-        #[link_name = "_Ux86_64_get_accessors"]
-        fn unw_get_accessors(address_space: UnwAddrSpace) -> *mut UnwAccessors;
-        #[link_name = "_Ux86_64_set_caching_policy"]
-        fn unw_set_caching_policy(address_space: UnwAddrSpace, policy: c_int) -> c_int;
-        #[link_name = "_Ux86_64_init_remote"]
-        fn unw_init_remote(
-            cursor: *mut UnwCursor,
-            address_space: UnwAddrSpace,
-            argument: *mut c_void,
-        ) -> c_int;
-        #[link_name = "_Ux86_64_get_reg"]
-        fn unw_get_reg(cursor: *mut UnwCursor, register: c_int, value: *mut UnwWord) -> c_int;
-        #[link_name = "_Ux86_64_step"]
-        fn unw_step(cursor: *mut UnwCursor) -> c_int;
+    type CreateAddrSpace = unsafe extern "C" fn(*mut UnwAccessors, c_int) -> UnwAddrSpace;
+    type DestroyAddrSpace = unsafe extern "C" fn(UnwAddrSpace);
+    type GetAccessors = unsafe extern "C" fn(UnwAddrSpace) -> *mut UnwAccessors;
+    type SetCachingPolicy = unsafe extern "C" fn(UnwAddrSpace, c_int) -> c_int;
+    type InitRemote = unsafe extern "C" fn(*mut UnwCursor, UnwAddrSpace, *mut c_void) -> c_int;
+    type GetReg = unsafe extern "C" fn(*mut UnwCursor, c_int, *mut UnwWord) -> c_int;
+    type Step = unsafe extern "C" fn(*mut UnwCursor) -> c_int;
+
+    struct Libunwind {
+        _library: Library,
+        local_address_space: usize,
+        create_addr_space: CreateAddrSpace,
+        destroy_addr_space: DestroyAddrSpace,
+        get_accessors: GetAccessors,
+        set_caching_policy: SetCachingPolicy,
+        init_remote: InitRemote,
+        get_reg: GetReg,
+        step: Step,
+    }
+
+    impl Libunwind {
+        fn load() -> std::result::Result<Self, String> {
+            // Loading happens outside the signal handler, on the first native
+            // stack request. Constructors in the target library may run here.
+            let library = match unsafe { Library::new("libunwind-x86_64.so.8") } {
+                Ok(library) => library,
+                Err(versioned_error) => {
+                    unsafe { Library::new("libunwind-x86_64.so") }.map_err(|unversioned_error| {
+                        format!(
+                            "libunwind is unavailable: libunwind-x86_64.so.8: \
+                                 {versioned_error}; libunwind-x86_64.so: {unversioned_error}"
+                        )
+                    })?
+                }
+            };
+
+            let local_address_space = {
+                // This symbol is a global variable of type unw_addr_space_t,
+                // so dlsym returns a pointer to the variable.
+                let symbol =
+                    unsafe { library.get::<*mut UnwAddrSpace>(b"_Ux86_64_local_addr_space\0") }
+                        .map_err(|error| {
+                            format!("failed to load _Ux86_64_local_addr_space: {error}")
+                        })?;
+                let symbol_address = *symbol;
+                if symbol_address.is_null() {
+                    return Err("_Ux86_64_local_addr_space symbol is null".to_string());
+                }
+                (unsafe { *symbol_address }) as usize
+            };
+
+            Ok(Self {
+                create_addr_space: load_symbol(&library, b"_Ux86_64_create_addr_space\0")?,
+                destroy_addr_space: load_symbol(&library, b"_Ux86_64_destroy_addr_space\0")?,
+                get_accessors: load_symbol(&library, b"_Ux86_64_get_accessors\0")?,
+                set_caching_policy: load_symbol(&library, b"_Ux86_64_set_caching_policy\0")?,
+                init_remote: load_symbol(&library, b"_Ux86_64_init_remote\0")?,
+                get_reg: load_symbol(&library, b"_Ux86_64_get_reg\0")?,
+                step: load_symbol(&library, b"_Ux86_64_step\0")?,
+                _library: library,
+                local_address_space,
+            })
+        }
+
+        fn local_address_space(&self) -> UnwAddrSpace {
+            self.local_address_space as UnwAddrSpace
+        }
+    }
+
+    fn load_symbol<T: Copy>(library: &Library, name: &[u8]) -> std::result::Result<T, String> {
+        // The caller supplies the exact libunwind ABI type for each symbol.
+        unsafe { library.get::<T>(name) }
+            .map(|symbol| *symbol)
+            .map_err(|error| {
+                let name = String::from_utf8_lossy(name);
+                format!(
+                    "failed to load libunwind symbol {}: {error}",
+                    name.trim_end_matches('\0')
+                )
+            })
+    }
+
+    static LIBUNWIND: Lazy<std::result::Result<Libunwind, String>> = Lazy::new(Libunwind::load);
+
+    fn libunwind() -> Result<&'static Libunwind> {
+        match &*LIBUNWIND {
+            Ok(libunwind) => Ok(libunwind),
+            Err(error) => Err(anyhow!("{error}")),
+        }
     }
 
     /// The SIGUSR2 handler only copies register/stack bytes into a nonblocking
@@ -431,10 +501,6 @@ mod supported {
         unsafe { &*argument.cast::<UnwindContext>() }
     }
 
-    unsafe fn local_address_space() -> UnwAddrSpace {
-        unsafe { UNW_LOCAL_ADDR_SPACE }
-    }
-
     unsafe extern "C" fn snapshot_find_proc_info(
         _address_space: UnwAddrSpace,
         ip: UnwWord,
@@ -447,7 +513,7 @@ mod supported {
         match accessors.find_proc_info {
             Some(callback) => unsafe {
                 callback(
-                    local_address_space(),
+                    context.local_address_space,
                     ip,
                     proc_info,
                     need_unwind_info,
@@ -466,7 +532,7 @@ mod supported {
         let context = unsafe { unwind_context(argument) };
         let accessors = unsafe { &*context.local_accessors };
         if let Some(callback) = accessors.put_unwind_info {
-            unsafe { callback(local_address_space(), proc_info, ptr::null_mut()) };
+            unsafe { callback(context.local_address_space, proc_info, ptr::null_mut()) };
         }
     }
 
@@ -478,7 +544,9 @@ mod supported {
         let context = unsafe { unwind_context(argument) };
         let accessors = unsafe { &*context.local_accessors };
         match accessors.get_dyn_info_list_addr {
-            Some(callback) => unsafe { callback(local_address_space(), address, ptr::null_mut()) },
+            Some(callback) => unsafe {
+                callback(context.local_address_space, address, ptr::null_mut())
+            },
             None => -UNW_EUNSPEC,
         }
     }
@@ -515,7 +583,13 @@ mod supported {
         let accessors = unsafe { &*context.local_accessors };
         match accessors.access_mem {
             Some(callback) => unsafe {
-                callback(local_address_space(), address, value, 0, ptr::null_mut())
+                callback(
+                    context.local_address_space,
+                    address,
+                    value,
+                    0,
+                    ptr::null_mut(),
+                )
             },
             None => -UNW_EUNSPEC,
         }
@@ -574,7 +648,7 @@ mod supported {
         match accessors.get_proc_name {
             Some(callback) => unsafe {
                 callback(
-                    local_address_space(),
+                    context.local_address_space,
                     ip,
                     buffer,
                     length,
@@ -591,8 +665,9 @@ mod supported {
             return Err(anyhow!("Invalid stack snapshot record"));
         }
 
-        let local_address_space = unsafe { local_address_space() };
-        let local_accessors = unsafe { unw_get_accessors(local_address_space) };
+        let libunwind = libunwind()?;
+        let local_address_space = libunwind.local_address_space();
+        let local_accessors = unsafe { (libunwind.get_accessors)(local_address_space) };
         if local_accessors.is_null() {
             return Err(anyhow!("libunwind local accessors are unavailable"));
         }
@@ -607,7 +682,7 @@ mod supported {
             resume: Some(snapshot_resume),
             get_proc_name: Some(snapshot_get_proc_name),
         };
-        let address_space = unsafe { unw_create_addr_space(&mut accessors, 0) };
+        let address_space = unsafe { (libunwind.create_addr_space)(&mut accessors, 0) };
         if address_space.is_null() {
             return Err(anyhow!(
                 "libunwind failed to create address space ({})",
@@ -615,23 +690,24 @@ mod supported {
             ));
         }
         unsafe {
-            unw_set_caching_policy(address_space, UNW_CACHE_NONE);
+            (libunwind.set_caching_policy)(address_space, UNW_CACHE_NONE);
         }
 
         let mut context = UnwindContext {
             snapshot,
+            local_address_space,
             local_accessors,
         };
         let mut cursor = UnwCursor { opaque: [0; 127] };
         let init_result = unsafe {
-            unw_init_remote(
+            (libunwind.init_remote)(
                 &mut cursor,
                 address_space,
                 ptr::from_mut(&mut context).cast::<c_void>(),
             )
         };
         if init_result < 0 {
-            unsafe { unw_destroy_addr_space(address_space) };
+            unsafe { (libunwind.destroy_addr_space)(address_space) };
             return Err(anyhow!(
                 "libunwind failed to initialize snapshot cursor (error {init_result})"
             ));
@@ -640,10 +716,10 @@ mod supported {
         let mut ips = Vec::with_capacity(MAX_FRAMES);
         while ips.len() < MAX_FRAMES {
             let mut ip = 0;
-            let get_reg_result = unsafe { unw_get_reg(&mut cursor, UNW_REG_IP, &mut ip) };
+            let get_reg_result = unsafe { (libunwind.get_reg)(&mut cursor, UNW_REG_IP, &mut ip) };
             if get_reg_result < 0 {
                 if ips.is_empty() {
-                    unsafe { unw_destroy_addr_space(address_space) };
+                    unsafe { (libunwind.destroy_addr_space)(address_space) };
                     return Err(anyhow!(
                         "libunwind failed to read instruction pointer (error {get_reg_result})"
                     ));
@@ -655,12 +731,12 @@ mod supported {
             }
             ips.push(ip as usize as *mut c_void);
 
-            if unsafe { unw_step(&mut cursor) } <= 0 {
+            if unsafe { (libunwind.step)(&mut cursor) } <= 0 {
                 break;
             }
         }
 
-        unsafe { unw_destroy_addr_space(address_space) };
+        unsafe { (libunwind.destroy_addr_space)(address_space) };
         Ok(ips)
     }
 
