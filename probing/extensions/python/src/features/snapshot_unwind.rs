@@ -295,12 +295,19 @@ mod supported {
     ) {
         let _ = signal;
         let _ = info;
+        // POSIX permits an async-signal-safe handler to inspect errno only if
+        // it preserves the interrupted thread's value across the handler.
+        let errno_location = unsafe { libc::__errno_location() };
+        let saved_errno = unsafe { *errno_location };
 
         if HANDLER_ACTIVE
             .compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed)
             .is_err()
         {
             HANDLER_ERROR.store(libc::EBUSY, Ordering::Release);
+            unsafe {
+                *errno_location = saved_errno;
+            }
             return;
         }
 
@@ -359,6 +366,9 @@ mod supported {
             HANDLER_ERROR.store(error, Ordering::Release);
         }
         HANDLER_ACTIVE.store(0, Ordering::Release);
+        unsafe {
+            *errno_location = saved_errno;
+        }
     }
 
     fn snapshot_prefix(ucontext: &libc::ucontext_t) -> SnapshotPrefix {
