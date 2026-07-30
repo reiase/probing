@@ -115,3 +115,5 @@ make ZIG=1
 ```
 
 `ZIG=1`将会启用`cargo zigbuild`，通过`zig`语言的工具链进行连接，提供更好glibc的兼容性（解决了不同Linux发行版之间的glibc版本差异问题，允许在较新系统构建的二进制在较旧系统上运行）。
+
+构建过程会下载经过 SHA-256 校验的 GNU libunwind 源码，以 glibc 2.17 为目标生成 PIC 静态库，并将其静态链接进 `libprobing.so`。最终 wheel 不要求目标服务器安装 `libunwind-dev` 或 `libunwind8`，目标服务器也不需要联网。构建机离线时，可以通过 `PROBING_LIBUNWIND_ARCHIVE` 指定预先下载的源码压缩包。

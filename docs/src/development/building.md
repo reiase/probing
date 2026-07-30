@@ -30,11 +30,11 @@ pip install setuptools wheel build
 ```bash
 # Ubuntu/Debian
 sudo apt update
-sudo apt install build-essential pkg-config libssl-dev libunwind-dev
+sudo apt install build-essential pkg-config libssl-dev
 
 # CentOS/RHEL/Fedora
 sudo yum groupinstall "Development Tools"
-sudo yum install openssl-devel libunwind-devel
+sudo yum install openssl-devel
 
 # macOS (with Homebrew)
 brew install pkg-config openssl
@@ -46,6 +46,10 @@ brew install pkg-config openssl
 ```bash
 # Install Zig for better compatibility
 cargo install cargo-zigbuild
+pip install ziglang
+
+# Release wheels build GNU libunwind 1.8.3 as PIC static archives and link
+# them into libprobing.so; target machines need no libunwind package.
 ```
 
 **For web UI development:**

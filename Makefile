@@ -15,6 +15,11 @@ else
 	TARGET_DIR_PREFIX := target/x86_64-unknown-linux-gnu
 endif
 
+LIBUNWIND_VERSION := 1.8.3
+LIBUNWIND_PREFIX := target/libunwind-$(LIBUNWIND_VERSION)-x86_64-linux-gnu.2.17
+LIBUNWIND_STATIC_DIR := $(abspath $(LIBUNWIND_PREFIX)/lib)
+LIBUNWIND_STAMP := $(LIBUNWIND_PREFIX)/.probing-libunwind-$(LIBUNWIND_VERSION)-x86_64-linux-gnu.2.17
+
 all: wheel
 
 wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
@@ -36,9 +41,12 @@ ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
 	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${data_scripts_dir}
 
+$(LIBUNWIND_STAMP): scripts/build_libunwind_static.sh
+	PROBING_LIBUNWIND_PREFIX=$(abspath $(LIBUNWIND_PREFIX)) ./scripts/build_libunwind_static.sh
+
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
-${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist
-	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
+${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist $(LIBUNWIND_STAMP)
+	PROBING_LIBUNWIND_STATIC_DIR=$(LIBUNWIND_STATIC_DIR) cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
 
 .PHONY: test

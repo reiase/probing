@@ -194,8 +194,10 @@ cargo install trunk
 # Install cross-compilation tools (optional, for distribution builds)
 cargo install cargo-zigbuild
 pip install ziglang
-sudo apt-get install libunwind-dev
-export RUSTFLAGS="-L/usr/lib/x86_64-linux-gnu"
+
+# make ZIG=1 downloads a pinned GNU libunwind source archive, builds it as
+# glibc 2.17-compatible PIC static libraries, and links it into libprobing.so.
+# Target machines do not need libunwind-dev, libunwind8, or network access.
 ```
 
 ### Building from Source

@@ -90,6 +90,15 @@ def write_probing_wheel(
             "PROBING_BUILD_DIR", "target/x86_64-unknown-linux-gnu/release"
         )
     )
+    libprobing_path = build_dir / "libprobing.so"
+    with open(libprobing_path, "rb") as library:
+        libprobing_bytes = library.read()
+    if b"libunwind-x86_64.so" in libprobing_bytes:
+        raise RuntimeError(
+            "libprobing.so still loads libunwind dynamically; build the wheel with "
+            "make ZIG=1 so libunwind is linked statically"
+        )
+
     for name, path in {
         "probing": build_dir / "probing",
         "libprobing.so": build_dir / "libprobing.so",
@@ -132,6 +141,13 @@ def write_probing_wheel(
 
     with open("README.md", "rb") as f:
         description = f.read()
+
+    with open("third_party/libunwind.COPYING", "rb") as license_file:
+        license_info = ZipInfo(
+            f"probing-{metadata['version']}.dist-info/licenses/libunwind.COPYING"
+        )
+        license_info.external_attr = 0o644 << 16
+        contents[license_info] = license_file.read()
 
     return write_wheel(
         out_dir,
