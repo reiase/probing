@@ -19,3 +19,4 @@
 - [SQL Analytics](user-guide/sql-analytics.md)
 - [Memory Analysis](user-guide/memory-analysis.md)
 - [Building from Source](development/building.md)
+- [Node Report Fault Injection](development/node-report-fault-injection.md)
