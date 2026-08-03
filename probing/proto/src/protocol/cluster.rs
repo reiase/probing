@@ -55,11 +55,24 @@ impl Cluster {
     pub fn put(&mut self, node: Node) {
         let key = format!("{}:{}", node.host, node.addr);
 
-        // 如果有rank，维护rank索引
+        // A rank may restart on another address; remove its old node.
         if let Some(rank) = node.rank {
+            if let Some(old_key) = self.rank_index.get(&rank) {
+                if old_key != &key {
+                    self.nodes.remove(old_key);
+                }
+            }
             self.rank_index.insert(rank, key.clone());
         }
 
+        // An address can be reused by another rank after a restart.
+        if let Some(old_node) = self.nodes.get(&key) {
+            if old_node.rank != node.rank {
+                if let Some(old_rank) = old_node.rank {
+                    self.rank_index.remove(&old_rank);
+                }
+            }
+        }
         self.nodes.insert(key, node);
     }
 
@@ -97,5 +110,33 @@ impl Cluster {
 
     pub fn list(&self) -> Vec<Node> {
         self.nodes.values().cloned().collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn node(rank: i32, addr: &str) -> Node {
+        Node {
+            host: "host".into(),
+            addr: addr.into(),
+            rank: Some(rank),
+            ..Node::default()
+        }
+    }
+
+    #[test]
+    fn replaces_stale_rank_and_address_indexes() {
+        let mut cluster = Cluster::default();
+        cluster.put(node(1, "host:1"));
+        cluster.put(node(1, "host:2"));
+        assert_eq!(cluster.list().len(), 1);
+        assert_eq!(cluster.get(1).unwrap().addr, "host:2");
+
+        cluster.put(node(2, "host:2"));
+        assert_eq!(cluster.list().len(), 1);
+        assert!(cluster.get(1).is_none());
+        assert_eq!(cluster.get(2).unwrap().addr, "host:2");
     }
 }

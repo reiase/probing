@@ -2,11 +2,47 @@ import hashlib
 import os
 import pathlib
 import stat
+import subprocess
 from email.message import EmailMessage
 from zipfile import ZIP_DEFLATED, ZipInfo
 
 import toml
 from wheel.wheelfile import WheelFile
+
+
+def validate_native_library(library_path):
+    try:
+        result = subprocess.run(
+            ["readelf", "--dyn-syms", "--wide", str(library_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError(
+            "readelf is required to validate libprobing.so before packaging"
+        ) from error
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(
+            f"failed to inspect dynamic symbols in {library_path}: "
+            f"{error.stderr.strip()}"
+        ) from error
+
+    unresolved_lzma = sorted(
+        {
+            fields[-1].split("@", 1)[0]
+            for line in result.stdout.splitlines()
+            if len(fields := line.split()) >= 8
+            and fields[6] == "UND"
+            and fields[-1].startswith("lzma_")
+        }
+    )
+    if unresolved_lzma:
+        raise RuntimeError(
+            "libprobing.so contains unresolved liblzma symbols: "
+            f"{', '.join(unresolved_lzma)}. This usually comes from stale Cargo "
+            "cross-build artifacts; rebuild with a fresh CARGO_TARGET_DIR"
+        )
 
 
 def make_message(headers, payload=None):
@@ -93,10 +129,16 @@ def write_probing_wheel(
     libprobing_path = build_dir / "libprobing.so"
     with open(libprobing_path, "rb") as library:
         libprobing_bytes = library.read()
+    validate_native_library(libprobing_path)
     if b"libunwind-x86_64.so" in libprobing_bytes:
         raise RuntimeError(
             "libprobing.so still loads libunwind dynamically; build the wheel with "
             "make ZIG=1 so libunwind is linked statically"
+        )
+    if b"liblzma.so" in libprobing_bytes:
+        raise RuntimeError(
+            "libprobing.so still links liblzma dynamically; rebuild with the "
+            "isolated ZIG target directory"
         )
 
     for name, path in {

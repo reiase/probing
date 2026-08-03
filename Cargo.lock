@@ -3455,7 +3455,7 @@ dependencies = [
 
 [[package]]
 name = "probing"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3473,7 +3473,7 @@ dependencies = [
 
 [[package]]
 name = "probing-cc"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3489,7 +3489,7 @@ dependencies = [
 
 [[package]]
 name = "probing-cli"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap 4.5.38",
@@ -3513,7 +3513,7 @@ dependencies = [
 
 [[package]]
 name = "probing-core"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3537,7 +3537,7 @@ dependencies = [
 
 [[package]]
 name = "probing-macros"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "probing-core",
  "quote",
@@ -3546,7 +3546,7 @@ dependencies = [
 
 [[package]]
 name = "probing-proto"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3562,7 +3562,7 @@ dependencies = [
 
 [[package]]
 name = "probing-python"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3591,7 +3591,7 @@ dependencies = [
 
 [[package]]
 name = "probing-server"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3617,7 +3617,7 @@ dependencies = [
 
 [[package]]
 name = "probing-store"
-version = "0.2.0-alpha3"
+version = "1.0.0"
 dependencies = [
  "thiserror 2.0.12",
  "tokio",

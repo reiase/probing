@@ -19,6 +19,18 @@ pub struct ServerExtension {
     #[option(aliases=["report.addr"])]
     report_addr: Maybe<String>,
 
+    /// Node report heartbeat interval in seconds
+    #[option(aliases=["report.interval_secs"])]
+    report_interval_secs: Maybe<u64>,
+
+    /// Node report request timeout in seconds
+    #[option(aliases=["report.timeout_secs"])]
+    report_timeout_secs: Maybe<u64>,
+
+    /// Time without a heartbeat before a node is offline
+    #[option(aliases=["report.stale_timeout_secs"])]
+    report_stale_timeout_secs: Maybe<u64>,
+
     /// Authentication token for the server
     #[option(aliases=["auth.token"])]
     auth_token: Maybe<String>,
@@ -54,6 +66,9 @@ impl Default for ServerExtension {
             address: Maybe::Nothing,
             unix_socket: Maybe::Nothing,
             report_addr: Maybe::Nothing,
+            report_interval_secs: Maybe::Just(10),
+            report_timeout_secs: Maybe::Just(3),
+            report_stale_timeout_secs: Maybe::Just(30),
             auth_token: Maybe::Nothing,
             max_connections: Maybe::Just(20), // Default to 20 connections
             timeout: Maybe::Just(30),         // Default timeout of 30 seconds
@@ -86,10 +101,59 @@ impl ServerExtension {
     }
 
     fn set_report_addr(&mut self, report_addr: Maybe<String>) -> Result<(), EngineError> {
+        if let Maybe::Just(value) = &report_addr {
+            crate::report::normalize_report_url(value).map_err(|_| {
+                EngineError::InvalidOptionValue("report_addr".into(), value.clone())
+            })?;
+        }
         let report_addr_str: String = report_addr.clone().into();
         let address_str: String = self.address.clone().into();
         start_report_worker(report_addr_str, address_str);
         self.report_addr = report_addr;
+        Ok(())
+    }
+
+    fn set_report_interval_secs(&mut self, setting: Maybe<u64>) -> Result<(), EngineError> {
+        if let Maybe::Just(value) = &setting {
+            if *value == 0 {
+                return Err(EngineError::InvalidOptionValue(
+                    "report_interval_secs".into(),
+                    value.to_string(),
+                ));
+            }
+            crate::report::set_report_interval_secs(*value);
+        }
+        self.report_interval_secs = setting;
+        Ok(())
+    }
+
+    fn set_report_timeout_secs(&mut self, setting: Maybe<u64>) -> Result<(), EngineError> {
+        if let Maybe::Just(value) = &setting {
+            if *value == 0 {
+                return Err(EngineError::InvalidOptionValue(
+                    "report_timeout_secs".into(),
+                    value.to_string(),
+                ));
+            }
+            crate::report::set_report_timeout_secs(*value);
+        }
+        self.report_timeout_secs = setting;
+        Ok(())
+    }
+
+    fn set_report_stale_timeout_secs(&mut self, setting: Maybe<u64>) -> Result<(), EngineError> {
+        if let Maybe::Just(value) = &setting {
+            if *value == 0 {
+                return Err(EngineError::InvalidOptionValue(
+                    "report_stale_timeout_secs".into(),
+                    value.to_string(),
+                ));
+            }
+            probing_core::core::cluster::set_node_stale_timeout(std::time::Duration::from_secs(
+                *value,
+            ));
+        }
+        self.report_stale_timeout_secs = setting;
         Ok(())
     }
 
@@ -192,13 +256,21 @@ mod test {
         assert!(ext.set("report_addr", "127.0.0.1:9922").is_ok());
         assert_eq!(ext.get("report_addr").unwrap(), "127.0.0.1:9922");
 
+        assert!(ext.set("report_interval_secs", "15").is_ok());
+        assert!(ext.set("report_timeout_secs", "4").is_ok());
+        assert!(ext.set("report_stale_timeout_secs", "45").is_ok());
+        assert_eq!(ext.get("report_interval_secs").unwrap(), "15");
+        assert_eq!(ext.get("report_timeout_secs").unwrap(), "4");
+        assert_eq!(ext.get("report_stale_timeout_secs").unwrap(), "45");
+        assert!(ext.set("report_timeout_secs", "0").is_err());
+
         // Test invalid option
         assert!(ext.set("invalid.key", "value").is_err());
         assert!(ext.get("invalid.key").is_err());
 
         // Test options list
         let options = ext.options();
-        assert_eq!(options.len(), 9); // Updated count to include all options
+        assert_eq!(options.len(), 12);
         assert!(options.iter().any(|opt| opt.key == "server.address"));
         assert!(options.iter().any(|opt| opt.key == "server.unix_socket"));
         assert!(options.iter().any(|opt| opt.key == "server.report_addr"));

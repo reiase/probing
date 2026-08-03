@@ -9,10 +9,13 @@ endif
 
 ifndef ZIG
 	CARGO_BUILD_CMD := build
+	CARGO_BUILD_ENV :=
 	TARGET_DIR_PREFIX := target
 else
+	CARGO_TARGET_DIR ?= target/probing-zig-x86_64-linux-gnu.2.17
 	CARGO_BUILD_CMD := zigbuild --target x86_64-unknown-linux-gnu.2.17
-	TARGET_DIR_PREFIX := target/x86_64-unknown-linux-gnu
+	CARGO_BUILD_ENV := CARGO_TARGET_DIR=$(abspath $(CARGO_TARGET_DIR))
+	TARGET_DIR_PREFIX := $(CARGO_TARGET_DIR)/x86_64-unknown-linux-gnu
 endif
 
 LIBUNWIND_VERSION := 1.8.3
@@ -24,7 +27,7 @@ all: wheel
 
 wheel: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
 	rm dist/* -rf
-	python make_wheel.py
+	PROBING_BUILD_DIR=$(abspath ${TARGET_DIR_PREFIX}/${TARGET_DIR}) python make_wheel.py
 
 .PHONY: app/dist
 app/dist:
@@ -37,7 +40,7 @@ ${data_scripts_dir}:
 
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing
 ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing: ${data_scripts_dir}
-	cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probing-cli
+	${CARGO_BUILD_ENV} cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS} --package probing-cli
 	test -e ${data_scripts_dir} || mkdir -p ${data_scripts_dir}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/probing ${data_scripts_dir}
 
@@ -46,7 +49,7 @@ $(LIBUNWIND_STAMP): scripts/build_libunwind_static.sh
 
 .PHONY: ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so
 ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so: ${data_scripts_dir} app/dist $(LIBUNWIND_STAMP)
-	PROBING_LIBUNWIND_STATIC_DIR=$(LIBUNWIND_STATIC_DIR) cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
+	${CARGO_BUILD_ENV} PROBING_LIBUNWIND_STATIC_DIR=$(LIBUNWIND_STATIC_DIR) cargo ${CARGO_BUILD_CMD} ${CARGO_FLAGS}
 	cp ${TARGET_DIR_PREFIX}/${TARGET_DIR}/libprobing.so ${data_scripts_dir}
 
 .PHONY: test
