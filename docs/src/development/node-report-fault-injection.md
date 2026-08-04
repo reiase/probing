@@ -16,8 +16,6 @@ export WORKER_PROBING_ADDR=<worker-ip:probing-port>
 export RANK0_PID=<rank-0-pid>
 ```
 
-建议临时启用 debug 日志，以观察连续失败和退避；如果服务启用了认证，下面的 `curl` 命令需要增加 `X-Probing-Token` 请求头。
-
 ## 方案一：只阻断节点上报端口（推荐）
 
 在一个非零 rank 所在节点执行。规则只丢弃发往 master probing 端口的 TCP 流量，不暂停训练进程。`DROP` 会制造真实超时；不要换成 `REJECT`，后者通常立即返回连接错误。
@@ -25,35 +23,25 @@ export RANK0_PID=<rank-0-pid>
 先安装自动恢复 trap，再添加规则：
 
 ```bash
-cleanup_report_fault() {
-  sudo iptables -D OUTPUT \
-    -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" -j DROP \
-    2>/dev/null || true
-}
-trap cleanup_report_fault EXIT INT TERM
+iptables -I OUTPUT 1 -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" -j DROP 
+iptables -I OUTPUT 1 -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" --sport 20000:20099 -j ACCEPT
 
-sudo iptables -I OUTPUT 1 \
-  -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" -j DROP
+iptables -nvL OUTPUT --line-numbers 
 
-sudo iptables -C OUTPUT \
-  -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" -j DROP
 ```
 
 在另一个终端持续访问该非零 rank 自己的 probing API：
 
 ```bash
-while true; do
-  curl -sS --max-time 1 -o /dev/null \
-    -w '%{http_code} %{time_total}\n' \
-    "http://$WORKER_PROBING_ADDR/apis/overview"
-  sleep 0.2
-done
+curl -sS --local-port 20000-20099 --connect-timeout 1 --max-time 2 "http://$MASTER_IP:$PROBING_PORT/apis/nodes"
 ```
 
 同时从 master 查询节点状态：
 
 ```bash
-watch -n 2 "curl -sS http://$MASTER_IP:$PROBING_PORT/apis/nodes"
+watch -n 2 "curl -sS http://$MASTER_IP:$PROBING_PORT/apis/nodes"  # no timeout
+
+curl -v --connect-timeout 1 --max-time 3  http://10.107.204.71:9933/apis/nodes
 ```
 
 预期结果：
@@ -66,8 +54,9 @@ watch -n 2 "curl -sS http://$MASTER_IP:$PROBING_PORT/apis/nodes"
 完成观察后恢复网络：
 
 ```bash
-cleanup_report_fault
-trap - EXIT INT TERM
+iptables -D OUTPUT -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" --sport 20000:20099 -j ACCEPT 
+iptables -D OUTPUT -p tcp -d "$MASTER_IP" --dport "$PROBING_PORT" -j DROP
+iptables -nvL OUTPUT --line-numbers
 ```
 
 恢复后，节点应在下一次退避到期时成功上报，日志出现 recovered，状态重新变为 `running`。最坏情况下需要等待约 60 秒。
