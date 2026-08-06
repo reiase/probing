@@ -211,7 +211,7 @@ def write_probing_wheel(
             "Keywords": ", ".join(metadata["keywords"]),
             "Author": ", ".join(metadata["authors"]),
             "Requires-Python": ">=3.8",
-            "Requires-Dist": "websockets>=13.0",
+            "Requires-Dist": ["websockets>=13.0", "psutil>=5.9"],
         },
         description=description,
         contents=contents,

@@ -14,6 +14,7 @@ based on the PROBING environment variable:
 """
 
 import os
+import psutil
 import sys
 import logging
 
@@ -27,7 +28,22 @@ logger = logging.getLogger(__name__)
 
 
 def launched_by_torchrun() -> bool:
-    return "TORCHELASTIC_RUN_ID" in os.environ
+    try:
+        p = psutil.Process(os.getppid())
+        for _ in range(3):
+            cmdline = p.cmdline()
+            if (
+                p.name() == "torchrun"
+                or any(os.path.basename(arg) == "torchrun" for arg in cmdline)
+                or "torch.distributed.run" in cmdline
+            ):
+                return True
+            p = p.parent() if p.parent() else None
+            if p is None:
+                break
+    except Exception:
+        pass
+    return False
 
 def get_current_script_name():
     """Get the name of the current running script."""
@@ -118,8 +134,9 @@ def init_probing():
 try:
     import re
 
-    if re.search("torchrun", current_script) is None:
-        init_probing()
+    if re.fullmatch("torchrun", current_script) is None:
+        if launched_by_torchrun():
+            init_probing()
 except Exception as e:
     print(f"Error in probing hook: {e}", file=sys.stderr)
     # In case of unexpected errors, don't enable probing
