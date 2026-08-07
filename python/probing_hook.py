@@ -6,11 +6,7 @@ based on the PROBING environment variable:
 - '0': Disabled (default)
 - '1' or 'followed': Enable only in current process
 - '2' or 'nested': Enable in current and all child processes
-- 'regex:PATTERN': Enable if current script name matches the regex pattern
-- 'SCRIPTNAME': Enable if current script name matches exactly
-- 'init:SCRIPT_PATH[+PROBE_SETTING]': Execute SCRIPT_PATH for initialization, then apply PROBE_SETTING.
-                                      PROBE_SETTING can be any of the above values (e.g., 'init:./my_setup.py+1').
-                                      If PROBE_SETTING is omitted, it defaults to '0' (disabled after init).
+
 """
 
 import os
@@ -27,10 +23,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def launched_by_torchrun() -> bool:
+def launched_by_torchrun(recursion=False) -> bool:
+    if recursion:
+        iter = 3
+    else:
+        iter = 1
     try:
         p = psutil.Process(os.getppid())
-        for _ in range(3):
+        for _ in range(iter):
             cmdline = p.cmdline()
             if (
                 p.name() == "torchrun"
@@ -45,6 +45,7 @@ def launched_by_torchrun() -> bool:
         pass
     return False
 
+
 def get_current_script_name():
     """Get the name of the current running script."""
     try:
@@ -57,72 +58,19 @@ def get_current_script_name():
 # Get the PROBING environment variable
 probe_value = os.environ.get("PROBING", "0")
 current_script = get_current_script_name()
-script_init = None
 
-if probe_value.startswith("init:"):
-    parts = probe_value.split("+", 1)
-    script_init = parts[0][5:]
-    probe_value = parts[1] if len(parts) > 1 else "0"
+def check_probe_value():
+    if probe_value.lower() in ["1", "followed"]:
+        return False
+    elif probe_value.lower() in ["2", "nested"]:
+        return True
+    return False
 
-def execute_init_script():
-    if launched_by_torchrun():
-      if script_init is not None:
-          with open(script_init, "r") as f:
-            exec(f.read(), globals())
-    else:
-      logger.debug("Not launched by torchrun, skipping init script execution")
 
 def init_probing():
     try:
-        # Remove the variable by default - we'll set it back if needed
-        if "PROBING" in os.environ:
-            del os.environ["PROBING"]
-
-        if probe_value.lower() in ["1", "followed"]:
-            logger.debug("Activating probing in 'followed' mode (current process only)")
-
+        if probe_value.lower() in ["1", "followed"] or probe_value.lower() in ["2", "nested"]:
             import probing
-            execute_init_script()
-            # Environment variable is intentionally not preserved
-
-        elif probe_value.lower() in ["2", "nested"]:
-            logger.debug("Activating probing in 'nested' mode (all child processes)")
-
-            import probing
-
-            # Preserve for child processes
-            os.environ["PROBING"] = probe_value
-            execute_init_script()
-
-        elif probe_value.lower().startswith("regex:"):
-            pattern = probe_value.split(":", 1)[1]
-            try:
-                import re
-
-                if re.search(pattern, current_script) is not None:
-                    logger.debug(
-                        f"Activating probing for script matching '{pattern}'"
-                    )
-
-                    import probing
-                    execute_init_script()
-                # Always preserve valid regex patterns for child processes
-                os.environ["PROBING"] = probe_value
-            except Exception as e:
-                print(f"Error in regex pattern '{pattern}': {e}", file=sys.stderr)
-                # Don't preserve invalid regex patterns
-
-        elif probe_value != "0":
-            # Script name comparison
-            if probe_value == current_script:
-                logger.debug(
-                    f"Activating probing for '{current_script}' (current process only)"
-                )
-
-                import probing
-                execute_init_script()
-            # Always preserve the script name filter for child processes
-            os.environ["PROBING"] = probe_value
 
     except ImportError as e:
         print(f"Error loading probing library: {e}", file=sys.stderr)
@@ -134,8 +82,9 @@ def init_probing():
 try:
     import re
 
-    if re.fullmatch("torchrun", current_script) is None:
-        if launched_by_torchrun():
+    if re.fullmatch("torchrun", current_script) is None: # Exclude torchrun itself
+        is_resurion = check_probe_value()
+        if launched_by_torchrun(is_resurion):
             init_probing()
 except Exception as e:
     print(f"Error in probing hook: {e}", file=sys.stderr)

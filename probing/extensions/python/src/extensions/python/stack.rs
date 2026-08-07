@@ -4,34 +4,52 @@ use py_spy::stack_trace::LocalVariable;
 
 
 pub fn get_python_stacks(pid: py_spy::Pid) -> Option<Vec<CallFrame>> {
-    let mut frames = vec![];
+    let mut frames = Vec::new();
 
-    // Create a new PythonSpy object with the default config options
     let mut config = py_spy::Config::default();
     config.blocking = py_spy::config::LockingStrategy::NonBlocking;
-    let process = py_spy::PythonSpy::new(pid, &config);
 
-    // get stack traces for each thread in the process
-    let traces = match process.unwrap().get_stack_traces() {
-        Ok(traces) => traces,
-        Err(e) => {
-            log::error!("Failed to get stack traces: {}", e);
+    let mut process = match py_spy::PythonSpy::new(pid, &config) {
+        Ok(process) => process,
+        Err(err) => {
+            log::error!("Failed to attach to Python process {}: {}", pid, err);
             return None;
         }
     };
 
-    // Determine the Python stack for each thread
+    let traces = match process.get_stack_traces() {
+        Ok(traces) => traces,
+        Err(err) => {
+            log::error!(
+                "Failed to get Python stack traces for process {}: {}",
+                pid,
+                err
+            );
+            return None;
+        }
+    };
+
     for trace in traces {
-        log::debug!("!!!!Thread {:#X} ({})", trace.thread_id, trace.status_str());
-        
-        // Check if <module> is the last frame in the current thread's stack
-        let has_module_as_last_frame = trace.frames.last()
-            .map_or(false, |frame| frame.name.contains("<module>"));
-        
-        // If the last frame is <module>, add all frames of this thread to frames
+        log::debug!(
+            "Thread {:#X} ({})",
+            trace.thread_id,
+            trace.status_str()
+        );
+
+        let has_module_as_last_frame = trace
+            .frames
+            .last()
+            .is_some_and(|frame| frame.name.contains("<module>"));
+
         if has_module_as_last_frame {
             for frame in &trace.frames {
-                log::debug!("!!!!!\t {} ({}:{})", frame.name, frame.filename, frame.line);
+                log::debug!(
+                    "\t{} ({}:{})",
+                    frame.name,
+                    frame.filename,
+                    frame.line
+                );
+
                 frames.push(CallFrame::PyFrame {
                     file: frame.filename.clone(),
                     func: frame.name.clone(),
