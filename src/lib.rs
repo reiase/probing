@@ -2,37 +2,69 @@
 extern crate ctor;
 
 use anyhow::{anyhow, Result};
-use std::net::UdpSocket;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
 
 use probing_python::features::python_api::create_probing_module;
 use probing_server::sync_env_settings;
 
 const ENV_PROBING_LOGLEVEL: &str = "PROBING_LOGLEVEL";
 const ENV_PROBING_PORT: &str = "PROBING_PORT";
+const ENV_MASTER_ADDR: &str = "MASTER_ADDR";
+const ENV_MASTER_PORT: &str = "MASTER_PORT";
 
 #[cfg(feature = "use-mimalloc")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 pub fn get_hostname() -> Result<String> {
-    // Target address (same as the Python version: 8.8.8.8:8888)
-    let target = "8.8.8.8:8888";
-    
-    // Create a UDP socket and bind to a random port
-    let socket = UdpSocket::bind("0.0.0.0:0")
-        .map_err(|e| anyhow!("Failed to create UDP socket: {}", e))?;
-    
-    // Connect to the target address (UDP is only used to determine the egress IP, no actual connection is established)
-    socket.connect(target)
-        .map_err(|e| anyhow!("Unable to connect to {}: {}", target, e))?;
-    
-    // Get the local egress IP
-    let local_addr = socket.local_addr()
-        .map_err(|e| anyhow!("Failed to get local address: {}", e))?;
-    let ip = local_addr.ip().to_string();
-    
-    log::debug!("Obtained egress IP via UDP connection: {}", ip);
-    
+    let master_addr =
+        std::env::var(ENV_MASTER_ADDR).map_err(|_| anyhow!("{ENV_MASTER_ADDR} is not set"))?;
+    let master_addr = master_addr.trim();
+    if master_addr.is_empty() {
+        return Err(anyhow!("{ENV_MASTER_ADDR} is empty"));
+    }
+
+    let master_port = std::env::var(ENV_MASTER_PORT)
+        .map_err(|_| anyhow!("{ENV_MASTER_PORT} is not set"))?
+        .parse::<u16>()
+        .map_err(|err| anyhow!("invalid {ENV_MASTER_PORT}: {err}"))?;
+    let targets = (master_addr, master_port)
+        .to_socket_addrs()
+        .map_err(|err| anyhow!("failed to resolve {master_addr}:{master_port}: {err}"))?;
+
+    let mut last_error = None;
+    let mut selected_ip = None;
+    for target in targets {
+        let bind_addr = match target {
+            SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+            SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+        };
+        let result = UdpSocket::bind(bind_addr)
+            .and_then(|socket| {
+                // UDP connect only asks the kernel to select a route and does not send traffic.
+                socket.connect(target)?;
+                socket.local_addr()
+            })
+            .map(|local_addr| local_addr.ip());
+
+        match result {
+            Ok(ip) => {
+                selected_ip = Some(ip);
+                break;
+            }
+            Err(err) => last_error = Some((target, err)),
+        }
+    }
+
+    let ip = selected_ip
+        .ok_or_else(|| match last_error {
+            Some((target, err)) => anyhow!("unable to select a local address for {target}: {err}"),
+            None => anyhow!("{master_addr}:{master_port} resolved to no addresses"),
+        })?
+        .to_string();
+
+    log::debug!("Selected local IP {ip} using route to {master_addr}:{master_port}");
+
     // Check the address pattern from the environment variable
     if let Ok(pattern) = std::env::var("PROBING_SERVER_ADDRPATTERN") {
         if ip.starts_with(&pattern) {
@@ -42,7 +74,7 @@ pub fn get_hostname() -> Result<String> {
             log::debug!("IP {} does not match pattern {}", ip, pattern);
         }
     }
-    
+
     Ok(ip)
 }
 
@@ -83,15 +115,15 @@ fn setup() {
                         let serving_port = port_number.saturating_add(local_rank);
 
                         let hostname = {
-                            let nh_platform = std::env::var("NH_PLATFORM")
-                                .unwrap_or_else(|_| "true".to_string());
+                            let nh_platform =
+                                std::env::var("NH_PLATFORM").unwrap_or_else(|_| "true".to_string());
 
                             if nh_platform == "false" || nh_platform == "0" {
                                 get_hostname().unwrap_or_else(|err| {
                                     log::warn!(
-                                        "Failed to get hostname: {err}, defaulting to localhost"
+                                        "Failed to select the local IP for MASTER_ADDR: {err}; defaulting to 127.0.0.1"
                                     );
-                                    "localhost".to_string()
+                                    "127.0.0.1".to_string()
                                 })
                             } else {
                                 "0.0.0.0".to_string()
@@ -99,7 +131,7 @@ fn setup() {
                         };
 
                         log::debug!("--------current ip: {}--------\n", hostname);
-                           
+
                         std::env::set_var(
                             "PROBING_SERVER_ADDR",
                             format!("'{hostname}:{serving_port}'"),
