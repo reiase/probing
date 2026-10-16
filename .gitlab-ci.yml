@@ -1,0 +1,39 @@
+# Requires a Linux runner with Docker or Kubernetes executor support.
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+
+stages:
+  - test
+
+default:
+  image: rust:bookworm
+
+variables:
+  CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+  CARGO_TERM_COLOR: "always"
+  PYO3_PYTHON: "/usr/bin/python3"
+
+test:
+  stage: test
+  cache:
+    key:
+      files:
+        - Cargo.lock
+      prefix: gitlab-cargo
+    paths:
+      - .cargo/registry/
+      - .cargo/git/
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libunwind-dev liblzma-dev python3-dev ca-certificates curl
+    # Match the nightly toolchain used by the existing GitHub CI.
+    - rustup toolchain install nightly --profile minimal --target wasm32-unknown-unknown
+    - rustup default nightly
+    - export PATH="$CARGO_HOME/bin:$PATH"
+    - cargo install --locked trunk cargo-nextest
+  script:
+    # The server embeds app/dist at compile time.
+    - make app/dist
+    - make test
