@@ -12,7 +12,7 @@ default:
 
 variables:
   CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
-  CARGO_TERM_COLOR: "always"
+  CARGO_TERM_COLOR: "never"
   PYO3_PYTHON: "/usr/bin/python3"
 
 test:
@@ -28,11 +28,13 @@ test:
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libunwind-dev liblzma-dev python3-dev ca-certificates curl
-    # Match the nightly toolchain used by the existing GitHub CI.
-    - rustup toolchain install nightly --profile minimal --target wasm32-unknown-unknown
-    - rustup default nightly
+    # Match the local toolchain: newer nightlies reject rustix 0.37.28's
+    # internal rustc_layout_scalar_valid_range_* attributes.
+    - rustup toolchain install nightly-2025-05-09 --profile minimal --target wasm32-unknown-unknown
+    - rustup default nightly-2025-05-09
     - export PATH="$CARGO_HOME/bin:$PATH"
-    - cargo install --locked trunk cargo-nextest
+    - cargo install --locked trunk --version 0.21.13
+    - cargo install --locked cargo-nextest --version 0.9.101
   script:
     # The server embeds app/dist at compile time.
     - make app/dist
