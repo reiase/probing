@@ -6,6 +6,8 @@ workflow:
 
 stages:
   - test
+  - package
+  - verify
 
 default:
   image: rust:bookworm
@@ -15,8 +17,7 @@ variables:
   CARGO_TERM_COLOR: "never"
   PYO3_PYTHON: "/usr/bin/python3"
 
-test:
-  stage: test
+.rust-build:
   cache:
     key:
       files:
@@ -34,8 +35,48 @@ test:
     - rustup default nightly-2025-05-09
     - export PATH="$CARGO_HOME/bin:$PATH"
     - cargo install --locked trunk --version 0.21.13
-    - cargo install --locked cargo-nextest --version 0.9.101
+
+test:
+  extends: .rust-build
+  stage: test
   script:
+    - cargo install --locked cargo-nextest --version 0.9.101
     # The server embeds app/dist at compile time.
     - make app/dist
     - make test
+
+package:
+  extends: .rust-build
+  stage: package
+  script:
+    # The Makefile targets x86_64 Linux with glibc 2.17.
+    - test "$(uname -m)" = x86_64
+    - apt-get install -y --no-install-recommends python3-venv binutils
+    - python3 -m venv .venv-build
+    - . .venv-build/bin/activate
+    - python -m pip install wheel==0.45.1 toml==0.10.2 ziglang==0.13.0
+    - cargo install --locked cargo-zigbuild --version 0.20.0
+    - export CARGO_ZIGBUILD_ZIG_PATH="$(python -c 'import pathlib, ziglang; print(pathlib.Path(ziglang.__file__).parent / "zig")')"
+    - make ZIG=1 wheel
+  artifacts:
+    name: "probing-${CI_COMMIT_TAG}-linux-x86_64"
+    paths:
+      - dist/*.whl
+    expire_in: 30 days
+
+verify-wheel:
+  stage: verify
+  image: python:3.11-slim-bookworm
+  needs:
+    - job: package
+      artifacts: true
+  script:
+    - python -m venv /tmp/probing-wheel-check
+    - . /tmp/probing-wheel-check/bin/activate
+    - python -m pip install dist/*.whl
+    - python -m pip check
+    # Avoid importing from the checkout instead of the installed wheel.
+    - cd /tmp
+    - python -I -c 'import probing; from importlib.metadata import version; print(version("probing")); print(probing.__file__)'
+    - probing --help
+    - probing --version
