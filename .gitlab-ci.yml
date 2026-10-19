@@ -8,6 +8,7 @@ stages:
   - test
   - package
   - verify
+  - release
 
 default:
   image: rust:bookworm
@@ -95,3 +96,16 @@ verify-wheel:
     - python -I -c 'import probing; from importlib.metadata import version; print(version("probing")); print(probing.__file__)'
     - probing --help
     - probing --version
+
+publish-release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/cli:v1.58.0
+  needs:
+    - job: package
+      artifacts: true
+    - job: verify-wheel
+      artifacts: false
+  variables:
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+  script:
+    - glab release create "$CI_COMMIT_TAG" dist/*.whl --name "Probing $CI_COMMIT_TAG" --notes "Automated release for $CI_COMMIT_TAG." --use-package-registry
