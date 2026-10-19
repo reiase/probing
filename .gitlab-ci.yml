@@ -14,6 +14,8 @@ default:
 
 variables:
   CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PIP_INDEX_URL: "https://mirrors.aliyun.com/pypi/simple/"
   CARGO_TERM_COLOR: "never"
   PYO3_PYTHON: "/usr/bin/python3"
 
@@ -26,6 +28,7 @@ variables:
     paths:
       - .cargo/registry/
       - .cargo/git/
+      - .cache/pip/
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libunwind-dev liblzma-dev python3-dev ca-certificates curl
@@ -54,7 +57,7 @@ package:
     - apt-get install -y --no-install-recommends python3-venv binutils
     - python3 -m venv .venv-build
     - . .venv-build/bin/activate
-    - python -m pip install wheel==0.45.1 toml==0.10.2 ziglang==0.13.0
+    - python -m pip install --timeout 300 --retries 10 wheel==0.45.1 toml==0.10.2 ziglang==0.13.0
     - cargo install --locked cargo-zigbuild --version 0.20.0
     - export CARGO_ZIGBUILD_ZIG_PATH="$(python -c 'import pathlib, ziglang; print(pathlib.Path(ziglang.__file__).parent / "zig")')"
     - make ZIG=1 wheel
