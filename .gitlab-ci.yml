@@ -13,7 +13,7 @@ default:
   image: rust:bookworm
 
 variables:
-  CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+  CARGO_HOME: "$CI_PROJECT_DIR/.cargo-home"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   PIP_INDEX_URL: "https://mirrors.aliyun.com/pypi/simple/"
   CARGO_TERM_COLOR: "never"
@@ -26,12 +26,24 @@ variables:
         - Cargo.lock
       prefix: gitlab-cargo
     paths:
-      - .cargo/registry/
-      - .cargo/git/
+      - .cargo-home/registry/
+      - .cargo-home/git/
+      - .cargo-home/bin/
+      - .cargo-home/.crates.toml
+      - .cargo-home/.crates2.json
       - .cache/pip/
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libunwind-dev liblzma-dev python3-dev ca-certificates curl
+    - mkdir -p "$CARGO_HOME"
+    - |
+      cat > "$CARGO_HOME/config.toml" <<'EOF'
+      [source.crates-io]
+      replace-with = "rsproxy-sparse"
+
+      [source.rsproxy-sparse]
+      registry = "sparse+https://rsproxy.cn/index/"
+      EOF
     # Match the local toolchain: newer nightlies reject rustix 0.37.28's
     # internal rustc_layout_scalar_valid_range_* attributes.
     - rustup toolchain install nightly-2025-05-09 --profile minimal --target wasm32-unknown-unknown
