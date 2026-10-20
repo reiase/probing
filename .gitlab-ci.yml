@@ -99,13 +99,97 @@ verify-wheel:
 
 publish-release:
   stage: release
-  image: registry.gitlab.com/gitlab-org/cli:v1.58.0
+  image: python:3.11-slim-bookworm
   needs:
     - job: package
       artifacts: true
     - job: verify-wheel
       artifacts: false
-  variables:
-    GLAB_ENABLE_CI_AUTOLOGIN: "true"
   script:
-    - glab release create "$CI_COMMIT_TAG" dist/*.whl --name "Probing $CI_COMMIT_TAG" --notes "Automated release for $CI_COMMIT_TAG."
+    - |
+      python - <<'PY'
+      import json
+      import os
+      import pathlib
+      import urllib.error
+      import urllib.parse
+      import urllib.request
+
+      api_url = os.environ["CI_API_V4_URL"]
+      project_id = os.environ["CI_PROJECT_ID"]
+      tag = os.environ["CI_COMMIT_TAG"]
+      job_token = os.environ["CI_JOB_TOKEN"]
+      pipeline_url = os.environ["CI_PIPELINE_URL"]
+      assets = sorted(pathlib.Path("dist").glob("*.whl"))
+      if len(assets) != 1:
+          raise SystemExit(f"expected one wheel, found: {assets}")
+
+      headers = {"JOB-TOKEN": job_token}
+
+      def request(method, url, *, payload=None, data=None, content_type=None, allowed=(200, 201), read_body=True):
+          request_headers = dict(headers)
+          if payload is not None:
+              data = json.dumps(payload).encode()
+              request_headers["Content-Type"] = "application/json"
+          elif content_type is not None:
+              request_headers["Content-Type"] = content_type
+          req = urllib.request.Request(url, data=data, headers=request_headers, method=method)
+          try:
+              with urllib.request.urlopen(req, timeout=120) as response:
+                  body = response.read() if read_body else b""
+                  status = response.status
+          except urllib.error.HTTPError as exc:
+              body = exc.read()
+              status = exc.code
+          if status not in allowed:
+              raise RuntimeError(f"{method} {url} failed with HTTP {status}: {body.decode(errors='replace')}")
+          return status, body
+
+      encoded_tag = urllib.parse.quote(tag, safe="")
+      wheel = assets[0]
+      asset_url = (
+          f"{api_url}/projects/{project_id}/packages/generic/probing/"
+          f"{encoded_tag}/{urllib.parse.quote(wheel.name, safe='')}"
+      )
+      status, _ = request("GET", asset_url, allowed=(200, 404), read_body=False)
+      if status == 404:
+          request(
+              "PUT",
+              asset_url,
+              data=wheel.read_bytes(),
+              content_type="application/octet-stream",
+          )
+          print(f"uploaded wheel: {wheel.name}")
+      else:
+          print(f"wheel already exists: {wheel.name}")
+
+      release_url = f"{api_url}/projects/{project_id}/releases/{encoded_tag}"
+      status, _ = request("GET", release_url, allowed=(200, 404))
+      release_payload = {
+          "name": f"Probing {tag}",
+          "tag_name": tag,
+          "description": f"Automated release for {tag}. Built and tested by pipeline {pipeline_url}.",
+      }
+      if status == 404:
+          request("POST", f"{api_url}/projects/{project_id}/releases", payload=release_payload)
+          print(f"created release: {tag}")
+      else:
+          request(
+              "PUT",
+              release_url,
+              payload={"name": release_payload["name"], "description": release_payload["description"]},
+          )
+          print(f"updated release: {tag}")
+
+      links_url = f"{release_url}/assets/links"
+      _, body = request("GET", links_url)
+      existing_links = {link["name"]: link for link in json.loads(body)}
+      link_payload = {"name": wheel.name, "url": asset_url, "link_type": "package"}
+      existing_link = existing_links.get(wheel.name)
+      if existing_link is None:
+          request("POST", links_url, payload=link_payload)
+          print(f"created release asset link: {wheel.name}")
+      else:
+          request("PUT", f"{links_url}/{existing_link['id']}", payload=link_payload)
+          print(f"updated release asset link: {wheel.name}")
+      PY
